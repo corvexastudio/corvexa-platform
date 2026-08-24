@@ -124,8 +124,8 @@ export default function DashboardPage() {
       {/* Status Strip */}
       <div className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 text-sm font-medium ${allActive ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
         {allActive
-          ? <><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> All automations active</>
-          : <><AlertTriangle className="h-4 w-4 shrink-0" /> Some automations are off — <Link href="/settings" className="underline underline-offset-2 ml-1 font-semibold">Turn on</Link></>
+          ? <><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> Everything is running</>
+          : <><AlertTriangle className="h-4 w-4 shrink-0" /> Some texts are turned off. <Link href="/settings" className="underline underline-offset-2 ml-1 font-semibold">Fix it</Link></>
         }
       </div>
 

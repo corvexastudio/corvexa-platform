@@ -74,7 +74,7 @@ export default function ReviewsPage() {
     <div className="flex flex-col gap-4 max-w-2xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reviews</h1>
-        <p className="text-muted-foreground text-sm">Track your review requests and conversions.</p>
+        <p className="text-muted-foreground text-sm">See how many customers left a review this month.</p>
       </div>
 
       {/* Hero — reviews posted */}
@@ -103,7 +103,7 @@ export default function ReviewsPage() {
 
       {/* Funnel View */}
       <div className="bg-background border rounded-2xl px-5 py-5">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">This month's funnel</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">Sent vs posted this month</h2>
         {loading ? (
           <div className="h-20 bg-muted/30 animate-pulse rounded-lg" />
         ) : (

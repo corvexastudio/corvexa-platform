@@ -41,12 +41,12 @@ export default function LoginPage() {
 
         <div>
           <p className="text-5xl font-bold text-white leading-tight tracking-tight mb-6">
-            Automate the<br />
-            follow-up.<br />
-            <span className="text-zinc-400">Win the review.</span>
+            Stop losing leads<br />
+            to missed calls.<br />
+            <span className="text-zinc-400">Get more reviews.</span>
           </p>
           <p className="text-zinc-500 text-lg leading-relaxed max-w-sm">
-            Your missed-call texts, review requests, and lead alerts — running automatically while you're on the job.
+            Your missed-call texts, review requests, and lead alerts run on their own while you work.
           </p>
         </div>
 
@@ -78,7 +78,7 @@ export default function LoginPage() {
             <>
               <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to Corvexa</h1>
               <p className="text-zinc-500 mb-8 leading-relaxed">
-                Enter your email and we'll send you a link to sign in — no password needed. Works for new and existing accounts.
+                Enter your email and we'll send you a sign-in link. No password. Works for new and existing accounts.
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">

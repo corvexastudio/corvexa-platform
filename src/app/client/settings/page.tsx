@@ -117,11 +117,11 @@ export default function SettingsPage() {
       <div className="bg-background border rounded-2xl px-5">
         <div className="py-4 border-b">
           <h2 className="text-sm font-semibold">Automations</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Enable or disable each automation independently.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Turn each one on or off without affecting the others.</p>
         </div>
-        <Toggle label="Missed-call auto-text" description="Automatically texts anyone who calls and you don't pick up." field="is_missed_call_active" />
-        <Toggle label="Post-job review dispatcher" description="Sends a review request SMS after a job is marked complete." field="is_review_engine_active" />
-        <Toggle label="Inbound form SMS alert" description="Texts you instantly when a website form lead comes in." field="is_lead_alerts_active" />
+        <Toggle label="Missed-call text" description="If someone calls and you don't pick up, we text them back right away." field="is_missed_call_active" />
+        <Toggle label="Review requests" description="After a job is done, we send them a text asking for a Google review." field="is_review_engine_active" />
+        <Toggle label="New lead alerts" description="When someone fills out your website form, you get a text straight away." field="is_lead_alerts_active" />
       </div>
 
       {/* SMS Template with live bubble preview */}
