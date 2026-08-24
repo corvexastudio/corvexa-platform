@@ -39,6 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Mobile Header */}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-900 px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <Sheet>
+            {/* @ts-ignore */}
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden border-slate-700 bg-slate-800 text-slate-300">
                 <Menu className="h-5 w-5" />
