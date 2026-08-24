@@ -76,9 +76,9 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {!sent ? (
             <>
-              <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Welcome back</h1>
+              <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to Corvexa</h1>
               <p className="text-zinc-500 mb-8 leading-relaxed">
-                Enter your email — we'll send you a sign-in link. No password needed.
+                Enter your email and we'll send you a link to sign in — no password needed. Works for new and existing accounts.
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
