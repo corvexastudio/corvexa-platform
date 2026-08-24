@@ -1,125 +1,196 @@
 'use client'
 export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { RefreshCw, MessageSquare, X } from 'lucide-react'
 
-export default function ActivityFeed() {
+const typeLabel: Record<string, string> = {
+  missed_call: 'Missed call',
+  review_invite: 'Review link sent',
+  website_form: 'Form lead',
+}
+const typeDot: Record<string, string> = {
+  missed_call: 'bg-blue-500',
+  review_invite: 'bg-amber-500',
+  website_form: 'bg-emerald-500',
+}
+
+type Filter = 'all' | 'missed_call' | 'website_form' | 'review_invite'
+
+export default function ActivityPage() {
   const supabase = createClient()
   const [logs, setLogs] = useState<any[]>([])
-  const [filter, setFilter] = useState<'all' | 'missed_call' | 'website_form' | 'review_invite'>('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
+  const [selected, setSelected] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchLogs = async () => {
-      let query = supabase.from('activity_logs').select('*').order('created_at', { ascending: false })
+      setLoading(true)
+      let query = supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50)
       if (filter !== 'all') query = query.eq('type', filter)
-      if (dateFrom) query = query.gte('created_at', new Date(dateFrom).toISOString())
-      if (dateTo) {
-        const end = new Date(dateTo)
-        end.setHours(23, 59, 59, 999)
-        query = query.lte('created_at', end.toISOString())
-      }
       const { data } = await query
       if (data) setLogs(data)
+      setLoading(false)
     }
     fetchLogs()
-  }, [filter, dateFrom, dateTo, supabase])
+  }, [filter, supabase])
 
-  const statusColor = (status: string) =>
-    status === 'replied' || status === 'completed' || status === 'reviewed' ? 'default' : 'secondary'
+  const handleRetry = async (log: any) => {
+    const { error } = await supabase
+      .from('activity_logs')
+      .update({ delivery_status: 'pending', retry_count: (log.retry_count ?? 0) + 1 })
+      .eq('id', log.id)
+
+    if (!error) {
+      setLogs(logs.map(l => l.id === log.id ? { ...l, delivery_status: 'pending', retry_count: (l.retry_count ?? 0) + 1 } : l))
+      if (selected?.id === log.id) setSelected({ ...selected, delivery_status: 'pending' })
+      toast.success('Queued for retry.')
+    } else {
+      toast.error('Retry failed. Please try again.')
+    }
+  }
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      delivered: 'bg-emerald-50 text-emerald-700',
+      sent: 'bg-blue-50 text-blue-700',
+      failed: 'bg-red-50 text-red-700 font-semibold',
+      pending: 'bg-amber-50 text-amber-700',
+    }
+    return map[status] ?? 'bg-muted text-muted-foreground'
+  }
+
+  const filters: { key: Filter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'missed_call', label: 'Missed Calls' },
+    { key: 'website_form', label: 'Leads' },
+    { key: 'review_invite', label: 'Reviews' },
+  ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto relative">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Activity Feed</h1>
-        <p className="text-muted-foreground">Comprehensive log of all automated actions and leads.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Activity</h1>
+        <p className="text-muted-foreground text-sm">Every automated action, in one place.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>
-            <div className="flex flex-wrap gap-2 mt-2 items-center">
-              {/* Filter Pills */}
-              <div className="flex gap-2">
-                {(['all', 'missed_call', 'website_form', 'review_invite'] as const).map((f) => (
-                  <Button
-                    key={f}
-                    variant={filter === f ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setFilter(f)}
-                  >
-                    {f === 'all' ? 'All' : f === 'missed_call' ? 'Missed Calls' : f === 'website_form' ? 'Form Leads' : 'Reviews'}
-                  </Button>
-                ))}
+      {/* Scrollable filter pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {filters.map(f => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${filter === f.key ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Activity List */}
+      <div className="bg-background border rounded-2xl overflow-hidden">
+        {loading ? (
+          [1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-muted/30 animate-pulse mx-4 my-2 rounded-lg" />)
+        ) : logs.length === 0 ? (
+          <div className="py-12 text-center px-4">
+            <p className="text-sm font-medium text-muted-foreground">No activity yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">Your first missed call or form lead will appear here automatically.</p>
+          </div>
+        ) : (
+          <div className="divide-y">
+            {logs.map(log => (
+              <button
+                key={log.id}
+                onClick={() => setSelected(log)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+              >
+                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${typeDot[log.type] ?? 'bg-muted'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{typeLabel[log.type] ?? log.type}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {log.contact_name || 'Unknown'} · {log.contact_phone} · {new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(log.delivery_status ?? log.status ?? 'pending')}`}>
+                    {log.delivery_status ?? log.status ?? 'pending'}
+                  </span>
+                  {(log.delivery_status === 'failed' || log.status === 'failed') && (
+                    <span className="text-[10px] text-red-600 font-semibold">Tap to retry →</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Detail Bottom Sheet */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center bg-black/40" onClick={() => setSelected(null)}>
+          <div
+            className="bg-background w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl px-5 pt-5 pb-8 sm:pb-5 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-4 sm:hidden" />
+
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="font-semibold">{typeLabel[selected.type] ?? selected.type}</p>
+                <p className="text-xs text-muted-foreground">{new Date(selected.created_at).toLocaleString()}</p>
               </div>
-              {/* Date Range Pickers */}
-              <div className="flex items-center gap-2 ml-auto">
-                <Input
-                  type="date"
-                  className="w-36 text-xs h-8"
-                  value={dateFrom}
-                  onChange={e => setDateFrom(e.target.value)}
-                />
-                <span className="text-xs text-muted-foreground">to</span>
-                <Input
-                  type="date"
-                  className="w-36 text-xs h-8"
-                  value={dateTo}
-                  onChange={e => setDateTo(e.target.value)}
-                />
-                {(dateFrom || dateTo) && (
-                  <Button variant="ghost" size="sm" onClick={() => { setDateFrom(''); setDateTo('') }}>Clear</Button>
-                )}
-              </div>
+              <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No activity found.</TableCell>
-                </TableRow>
-              ) : (
-                logs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-medium text-xs">{new Date(log.created_at).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {log.type === 'missed_call' ? 'Missed Call' : log.type === 'review_invite' ? 'Review Invite' : 'Website Form'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{log.contact_name || '—'}</TableCell>
-                    <TableCell>{log.contact_phone}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{log.source}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusColor(log.status)}>{log.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
+
+            {/* Contact */}
+            <div className="bg-muted/40 rounded-xl p-3 mb-3">
+              <p className="text-xs text-muted-foreground mb-0.5">Contact</p>
+              <p className="text-sm font-medium">{selected.contact_name || 'Unknown'}</p>
+              <p className="text-sm text-muted-foreground">{selected.contact_phone}</p>
+            </div>
+
+            {/* Message body */}
+            {selected.message_body && (
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Message sent</p>
+                {/* SMS bubble */}
+                <div className="flex justify-end">
+                  <div className="bg-primary text-primary-foreground text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
+                    {selected.message_body}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delivery status */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Delivery status</p>
+                <span className={`text-sm px-3 py-1 rounded-full font-medium ${statusBadge(selected.delivery_status ?? selected.status ?? 'pending')}`}>
+                  {selected.delivery_status ?? selected.status ?? 'pending'}
+                </span>
+              </div>
+              {(selected.delivery_status === 'failed' || selected.status === 'failed') && (
+                <Button size="sm" variant="destructive" onClick={() => handleRetry(selected)}>
+                  <RefreshCw className="mr-1 h-3 w-3" /> Retry
+                </Button>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
