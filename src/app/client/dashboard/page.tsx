@@ -122,20 +122,20 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4 max-w-2xl mx-auto">
 
       {/* Status Strip */}
-      <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ${allActive ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
+      <div className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 text-sm font-medium ${allActive ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}`}>
         {allActive
-          ? <><CheckCircle2 className="h-4 w-4 shrink-0" /> All automations active</>
-          : <><AlertTriangle className="h-4 w-4 shrink-0" /> Some automations are off — <Link href="/settings" className="underline underline-offset-2 ml-1">Turn on</Link></>
+          ? <><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> All automations active</>
+          : <><AlertTriangle className="h-4 w-4 shrink-0" /> Some automations are off — <Link href="/settings" className="underline underline-offset-2 ml-1 font-semibold">Turn on</Link></>
         }
       </div>
 
       {/* Time Range Toggle */}
-      <div className="flex gap-1 bg-muted p-1 rounded-xl w-full">
+      <div className="flex gap-1 bg-zinc-100 p-1 rounded-2xl w-full">
         {(['today', 'week', 'month'] as Range[]).map(r => (
           <button
             key={r}
             onClick={() => setRange(r)}
-            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all capitalize ${range === r ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all capitalize ${range === r ? 'bg-white shadow-sm text-zinc-950' : 'text-zinc-400 hover:text-zinc-600'}`}
           >
             {r === 'today' ? 'Today' : r === 'week' ? 'This Week' : 'This Month'}
           </button>
@@ -143,72 +143,78 @@ export default function DashboardPage() {
       </div>
 
       {/* Hero Number */}
-      <div className="bg-background border rounded-2xl px-5 py-5">
+      <div className="bg-white border border-zinc-100 rounded-2xl px-6 py-6 shadow-sm">
         {loading ? (
-          <div className="h-10 w-32 bg-muted animate-pulse rounded-lg mb-2" />
+          <div className="h-14 w-40 bg-zinc-100 animate-pulse rounded-xl mb-2" />
         ) : (
           <>
-            <p className="text-4xl font-bold tracking-tight">
-              {metrics.leads} lead{metrics.leads !== 1 ? 's' : ''}
+            <p className="text-6xl font-bold tracking-tight text-zinc-950">
+              {metrics.leads}
             </p>
-            <p className="text-muted-foreground text-sm mt-1">{rangeLabel(range)}. {trendText}</p>
+            <p className="text-lg text-zinc-500 mt-1 font-medium">
+              lead{metrics.leads !== 1 ? 's' : ''} {rangeLabel(range)}
+            </p>
+            <p className="text-sm text-zinc-400 mt-0.5">{trendText}</p>
           </>
         )}
 
         {/* Secondary chips */}
-        <div className="flex gap-2 mt-4 flex-wrap">
-          <Link href="/activity" className="flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
-            <PhoneMissed className="h-3 w-3" />
+        <div className="flex gap-2 mt-5 flex-wrap">
+          <Link href="/activity" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-semibold px-4 py-2 rounded-full hover:bg-blue-100 transition-colors border border-blue-100">
+            <PhoneMissed className="h-3.5 w-3.5" />
             {loading ? '—' : metrics.missedCalls} calls saved
           </Link>
-          <Link href="/reviews" className="flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-amber-100 transition-colors">
-            <Star className="h-3 w-3" />
+          <Link href="/reviews" className="flex items-center gap-2 bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-2 rounded-full hover:bg-amber-100 transition-colors border border-amber-100">
+            <Star className="h-3.5 w-3.5" />
             {loading ? '—' : metrics.reviewsSent} reviews sent
           </Link>
         </div>
       </div>
 
       {/* Quick Action — Send a review link */}
-      <div className="bg-background border rounded-2xl px-5 py-5">
-        <h2 className="text-base font-semibold mb-1">Send a review link</h2>
-        <p className="text-sm text-muted-foreground mb-4">Text a recent customer a direct link to leave a Google review.</p>
+      <div className="bg-white border border-zinc-100 rounded-2xl px-6 py-6 shadow-sm">
+        <h2 className="text-lg font-bold text-zinc-950 mb-1">Send a review link</h2>
+        <p className="text-sm text-zinc-400 mb-5">Text a recent customer a direct link to leave a Google review.</p>
         <form onSubmit={handleSend} className="space-y-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="cname">Customer name</Label>
-            <Input id="cname" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} required />
+            <label className="text-sm font-medium text-zinc-700" htmlFor="cname">Customer name</label>
+            <input id="cname" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} required
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 text-base text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all" />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="cphone">Phone number</Label>
-            <Input id="cphone" placeholder="(555) 555-5555" value={phone} onChange={handlePhoneChange} maxLength={14} required />
+            <label className="text-sm font-medium text-zinc-700" htmlFor="cphone">Phone number</label>
+            <input id="cphone" placeholder="(555) 555-5555" value={phone} onChange={handlePhoneChange} maxLength={14} required
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 text-base text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all" />
           </div>
-          <Button type="submit" className="w-full" disabled={sending}>
-            {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : <><Send className="mr-2 h-4 w-4" /> Send review link</>}
-          </Button>
+          <button type="submit" disabled={sending}
+            className="w-full h-12 bg-zinc-950 hover:bg-zinc-800 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60 text-base">
+            {sending ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending...</> : <><Send className="h-4 w-4" /> Send review link</>}
+          </button>
         </form>
       </div>
 
       {/* Recent Activity Preview */}
-      <div className="bg-background border rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b">
-          <h2 className="text-sm font-semibold">Recent activity</h2>
-          <Link href="/activity" className="text-xs text-primary flex items-center gap-0.5">View all <ChevronRight className="h-3 w-3" /></Link>
+      <div className="bg-white border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+          <h2 className="text-base font-bold text-zinc-950">Recent activity</h2>
+          <Link href="/activity" className="text-sm text-zinc-400 hover:text-zinc-600 flex items-center gap-1 transition-colors">View all <ChevronRight className="h-3.5 w-3.5" /></Link>
         </div>
-        <div className="divide-y">
+        <div className="divide-y divide-zinc-50">
           {loading ? (
-            [1, 2, 3].map(i => <div key={i} className="h-14 bg-muted/30 animate-pulse mx-4 my-2 rounded-lg" />)
+            [1, 2, 3].map(i => <div key={i} className="h-16 bg-zinc-50/60 animate-pulse mx-4 my-2 rounded-xl" />)
           ) : recentLogs.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center px-4">
+            <p className="text-sm text-zinc-400 py-10 text-center px-4 leading-relaxed">
               No activity yet. Your first missed call or form lead will appear here automatically.
             </p>
           ) : (
             recentLogs.map(log => (
-              <div key={log.id} className="flex items-center gap-3 px-5 py-3">
-                <div className={`h-2 w-2 rounded-full shrink-0 ${typeDot[log.type] ?? 'bg-muted'}`} />
+              <div key={log.id} className="flex items-center gap-4 px-6 py-4">
+                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${typeDot[log.type] ?? 'bg-zinc-300'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{typeLabel[log.type] ?? log.type}</p>
-                  <p className="text-xs text-muted-foreground truncate">{log.contact_name || 'Unknown'} · {log.contact_phone}</p>
+                  <p className="text-sm font-semibold text-zinc-900 truncate">{typeLabel[log.type] ?? log.type}</p>
+                  <p className="text-xs text-zinc-400 truncate mt-0.5">{log.contact_name || 'Unknown'} · {log.contact_phone}</p>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 font-medium ${log.delivery_status === 'delivered' ? 'bg-emerald-50 text-emerald-700' : log.delivery_status === 'failed' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                <span className={`text-xs px-2.5 py-1 rounded-full shrink-0 font-semibold ${log.delivery_status === 'delivered' ? 'bg-emerald-50 text-emerald-700' : log.delivery_status === 'failed' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
                   {log.delivery_status ?? log.status ?? 'pending'}
                 </span>
               </div>

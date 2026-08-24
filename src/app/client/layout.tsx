@@ -50,6 +50,12 @@ function BottomTab({ href, label, icon: Icon }: { href: string; label: string; i
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Auth pages render without any chrome
+  const isAuthPage = pathname === '/login' || pathname === '/onboarding' ||
+    pathname.startsWith('/client/login') || pathname.startsWith('/client/onboarding')
+  if (isAuthPage) return <>{children}</>
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
