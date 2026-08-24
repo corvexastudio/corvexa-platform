@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
 interface OrgSettings {
@@ -54,7 +55,7 @@ export default function SettingsPage() {
     setSaving(true)
     await supabase.from('organizations').update(settings).eq('id', orgId)
     setSaving(false)
-    alert('Settings saved!')
+    toast.success('Settings saved successfully!')
   }
 
   const Toggle = ({ label, description, field }: { label: string; description: string; field: keyof OrgSettings }) => (

@@ -1,5 +1,6 @@
 'use client'
 export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function TeamPage() {
   const supabase = createClient()
@@ -36,7 +38,6 @@ export default function TeamPage() {
     e.preventDefault()
     if (!inviteEmail) return
     setInviting(true)
-    // Supabase invite by email (auth admin)
     const res = await fetch('/api/team/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -44,11 +45,11 @@ export default function TeamPage() {
     })
     setInviting(false)
     if (res.ok) {
-      alert(`Invitation sent to ${inviteEmail}!`)
+      toast.success(`Invitation sent to ${inviteEmail}!`)
       setOpen(false)
       setInviteEmail('')
     } else {
-      alert('Failed to send invite. Please try again.')
+      toast.error('Failed to send invite. Please try again.')
     }
   }
 
