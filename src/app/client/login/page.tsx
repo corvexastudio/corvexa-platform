@@ -16,9 +16,11 @@ export default function LoginPage() {
     e.preventDefault()
     if (!email) return
     setLoading(true)
+    // Use the auth/callback route so the PKCE code can be exchanged server-side
+    const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard`
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+      options: { emailRedirectTo: callbackUrl },
     })
     setLoading(false)
     if (error) toast.error(error.message)
