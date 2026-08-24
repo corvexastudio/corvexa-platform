@@ -1,16 +1,19 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Mail, Loader2, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Mail, Loader2, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const linkError = searchParams.get('error')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,6 +79,15 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {!sent ? (
             <>
+              {linkError && (
+                <div className="flex items-start gap-3 bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3 mb-6">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">That link has expired</p>
+                    <p className="text-red-600 mt-0.5">Sign-in links only work once and expire after 1 hour. Enter your email below to get a new one.</p>
+                  </div>
+                </div>
+              )}
               <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to Corvexa</h1>
               <p className="text-zinc-500 mb-8 leading-relaxed">
                 Enter your email and we'll send you a sign-in link. No password. Works for new and existing accounts.
