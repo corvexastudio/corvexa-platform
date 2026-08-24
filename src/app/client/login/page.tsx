@@ -1,13 +1,13 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Mail, Loader2, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
-export default function LoginPage() {
+function LoginContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -147,5 +147,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>}>
+      <LoginContent />
+    </Suspense>
   )
 }
