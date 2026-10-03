@@ -7,20 +7,63 @@ import { createClient } from '@/lib/supabase/client'
 import { Mail, Loader2, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="20" height="20">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+      />
+    </svg>
+  )
+}
+
 function LoginContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const linkError = searchParams.get('error')
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true)
+    const redirectTo = `${window.location.origin}/client/auth/callback?next=/client/dashboard`
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
+    if (error) {
+      toast.error(error.message)
+      setGoogleLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
     setLoading(true)
     // Use the auth/callback route so the PKCE code can be exchanged server-side
-    const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard`
+    const callbackUrl = `${window.location.origin}/client/auth/callback?next=/client/dashboard`
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: callbackUrl },
@@ -89,9 +132,40 @@ function LoginContent() {
                 </div>
               )}
               <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to CaptoDesk</h1>
-              <p className="text-zinc-500 mb-8 leading-relaxed">
-                Enter your email and we'll send you a sign-in link. No password. Works for new and existing accounts.
+              <p className="text-zinc-500 mb-6 leading-relaxed">
+                Fast & easy access for contractors. New accounts get set up automatically.
               </p>
+
+              {/* ── 1-Click Google OAuth button ── */}
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+                className="w-full h-12 bg-white hover:bg-zinc-50 active:bg-zinc-100 text-zinc-800 text-sm font-semibold rounded-xl border border-zinc-200 shadow-sm flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
+              >
+                {googleLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                    <span>Connecting to Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <GoogleIcon className="h-5 w-5 shrink-0" />
+                    <span>Continue with Google</span>
+                  </>
+                )}
+              </button>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-zinc-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-zinc-50 px-3 text-zinc-400 font-medium tracking-wider">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>

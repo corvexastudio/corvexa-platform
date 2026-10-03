@@ -7,39 +7,69 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as 'invite' | 'magiclink' | 'recovery' | 'email' | null
-  const next = searchParams.get('next') ?? '/dashboard'
+  const next = searchParams.get('next') ?? '/client/dashboard'
 
-  const redirectTo = new URL(next, origin)
-  const errorRedirect = new URL('/login?error=link_expired', origin)
+  const errorRedirect = new URL('/client/login?error=link_expired', origin)
 
-  const supabaseResponse = NextResponse.redirect(redirectTo)
+  // Track cookies to commit onto the outgoing redirect response
+  const cookiesToSetOnRedirect: { name: string; value: string; options?: any }[] = []
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll()
+        },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            cookiesToSetOnRedirect.push({ name, value, options })
           )
         },
       },
     }
   )
 
-  // PKCE flow — magic link sent from the app's own login form
+  let authSuccess = false
+
+  // 1. PKCE flow — Google OAuth and Magic Link
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) return supabaseResponse
+    if (!error) authSuccess = true
   }
 
-  // Implicit / invite flow — Supabase dashboard invite or email OTP
+  // 2. Implicit / invite flow — OTP or Invite
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type })
-    if (!error) return supabaseResponse
+    if (!error) authSuccess = true
+  }
+
+  if (authSuccess) {
+    // Check if user has an existing profile and organization
+    const { data: { user } } = await supabase.auth.getUser()
+    let destination = next
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      // If brand new signup with Gmail, direct to 1-step onboarding
+      if (!profile || !profile.org_id) {
+        destination = '/client/onboarding'
+      }
+    }
+
+    const redirectResponse = NextResponse.redirect(new URL(destination, origin))
+    cookiesToSetOnRedirect.forEach(({ name, value, options }) =>
+      redirectResponse.cookies.set(name, value, options)
+    )
+    return redirectResponse
   }
 
   return NextResponse.redirect(errorRedirect)
 }
+

@@ -138,7 +138,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         .eq('id', user.id)
         .single()
 
-      if (profile) {
+      if (profile && profile.org_id) {
         setIsSuperAdmin(profile.role === 'super_admin')
         const org: any = profile.organizations
         if (org) setOrgName(org.name)
@@ -151,17 +151,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           .gt('unread_count', 0)
         
         setUnreadTotal(count || 0)
+      } else {
+        router.push('/client/onboarding')
       }
     }
 
     loadProfile()
-  }, [supabase, isAuthPage])
+  }, [supabase, isAuthPage, router])
 
   if (isAuthPage) return <>{children}</>
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/client/login')
   }
 
   return (

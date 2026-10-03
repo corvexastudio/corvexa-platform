@@ -21,8 +21,8 @@ export async function proxy(request: NextRequest) {
   const pathname = url.pathname
   const hostname = request.headers.get('host') || ''
 
-  // 1. Webhooks & Public APIs bypass all auth logic
-  if (pathname.startsWith('/api/webhooks')) {
+  // 1. Webhooks & Public APIs & Auth callbacks bypass proxy auth guards
+  if (pathname.startsWith('/api/webhooks') || pathname.includes('/auth/callback')) {
     return supabaseResponse
   }
 

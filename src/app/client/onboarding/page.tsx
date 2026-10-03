@@ -53,7 +53,7 @@ export default function OnboardingPage() {
     })
 
     toast.success(`Welcome to CaptoDesk, ${businessName}!`)
-    router.push('/dashboard')
+    router.push('/client/dashboard')
   }
 
   return (
