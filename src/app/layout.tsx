@@ -11,8 +11,8 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "Corvexa Studio",
-  description: "Client automation platform",
+  title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
+  description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
