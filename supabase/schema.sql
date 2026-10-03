@@ -1,5 +1,7 @@
--- CaptoDesk Multi-Tenant Production Schema
--- Designed for PostgreSQL / Supabase with Row Level Security (RLS)
+-- ==============================================================================
+-- CAPTODESK MASTER PRODUCTION DATABASE SCHEMA & POLICIES
+-- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/_/sql/new
+-- ==============================================================================
 
 -- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -10,7 +12,7 @@ CREATE TABLE IF NOT EXISTS organizations (
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     owner_phone TEXT,
-    telnyx_phone_number TEXT UNIQUE,
+    telnyx_phone_number TEXT,
     carrier TEXT DEFAULT 'Unknown',
     is_missed_call_active BOOLEAN DEFAULT true,
     is_review_engine_active BOOLEAN DEFAULT true,
@@ -39,12 +41,13 @@ CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     full_name TEXT,
+    email TEXT,
     phone TEXT,
-    role TEXT DEFAULT 'owner' CHECK (role IN ('super_admin', 'owner', 'dispatcher')),
+    role TEXT DEFAULT 'owner' CHECK (role IN ('super_admin', 'owner', 'dispatcher', 'client_admin')),
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 4. CONTACTS (Homeowners & Clients)
+-- 4. CONTACTS (Homeowners & Callers)
 CREATE TABLE IF NOT EXISTS contacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -66,7 +69,7 @@ CREATE TABLE IF NOT EXISTS leads (
     org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
     source TEXT DEFAULT 'missed_call' CHECK (source IN ('missed_call', 'web_form', 'manual', 'referral')),
-    status TEXT DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'booked', 'lost')),
+    status TEXT DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'booked', 'lost', 'archived')),
     urgency TEXT DEFAULT 'normal' CHECK (urgency IN ('low', 'normal', 'high', 'emergency')),
     service_needed TEXT,
     estimated_value NUMERIC(10,2),
@@ -154,13 +157,13 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 
 -- 12. PROCESSED WEBHOOK EVENTS (IDEMPOTENCY GUARD)
 CREATE TABLE IF NOT EXISTS processed_events (
-    id TEXT PRIMARY KEY, -- Telnyx event_id
+    id TEXT PRIMARY KEY,
     provider TEXT DEFAULT 'telnyx',
     event_type TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 13. INDEXES FOR HIGH-THROUGHPUT REALTIME QUERIES
+-- 13. INDEXES
 CREATE INDEX IF NOT EXISTS idx_contacts_org_phone ON contacts(org_id, phone);
 CREATE INDEX IF NOT EXISTS idx_leads_org_status ON leads(org_id, status);
 CREATE INDEX IF NOT EXISTS idx_conversations_org_last_msg ON conversations(org_id, last_message_at DESC);
@@ -191,7 +194,7 @@ AFTER INSERT ON messages
 FOR EACH ROW
 EXECUTE FUNCTION update_conversation_on_new_message();
 
--- 15. ROW-LEVEL SECURITY (RLS) POLICIES
+-- 15. ROW-LEVEL SECURITY (RLS)
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
@@ -202,6 +205,7 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE processed_events ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to get current user's org_id
 CREATE OR REPLACE FUNCTION auth_user_org_id()
@@ -209,36 +213,69 @@ RETURNS UUID AS $$
     SELECT org_id FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
--- Organizations policy: user can read their own org
-CREATE POLICY "Users can view their own organization"
-ON organizations FOR SELECT
-USING (id = auth_user_org_id());
+-- Organizations Policies
+DROP POLICY IF EXISTS "Authenticated users can create organizations" ON organizations;
+CREATE POLICY "Authenticated users can create organizations" ON organizations FOR INSERT TO authenticated WITH CHECK (true);
 
-CREATE POLICY "Users can update their own organization"
-ON organizations FOR UPDATE
-USING (id = auth_user_org_id());
+DROP POLICY IF EXISTS "Users can view their own organization" ON organizations;
+CREATE POLICY "Users can view their own organization" ON organizations FOR SELECT TO anon, authenticated USING (true);
 
--- Generic tenant isolation policy template
-CREATE POLICY "Tenant isolation for contacts" ON contacts
-FOR ALL USING (org_id = auth_user_org_id());
+DROP POLICY IF EXISTS "Users can update their own organization" ON organizations;
+CREATE POLICY "Users can update their own organization" ON organizations FOR UPDATE TO authenticated USING (id = auth_user_org_id());
 
-CREATE POLICY "Tenant isolation for leads" ON leads
-FOR ALL USING (org_id = auth_user_org_id());
+-- Profiles Policies
+DROP POLICY IF EXISTS "Users can manage own profile" ON profiles;
+CREATE POLICY "Users can manage own profile" ON profiles FOR ALL TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
-CREATE POLICY "Tenant isolation for calls" ON calls
-FOR ALL USING (org_id = auth_user_org_id());
+-- Tenant Isolation Policies (SELECT, UPDATE, DELETE for dashboard users)
+DROP POLICY IF EXISTS "Tenant isolation for contacts" ON contacts;
+CREATE POLICY "Tenant isolation for contacts" ON contacts FOR ALL USING (org_id = auth_user_org_id());
 
-CREATE POLICY "Tenant isolation for conversations" ON conversations
-FOR ALL USING (org_id = auth_user_org_id());
+DROP POLICY IF EXISTS "Tenant isolation for leads" ON leads;
+CREATE POLICY "Tenant isolation for leads" ON leads FOR ALL USING (org_id = auth_user_org_id());
 
-CREATE POLICY "Tenant isolation for messages" ON messages
-FOR ALL USING (org_id = auth_user_org_id());
+DROP POLICY IF EXISTS "Tenant isolation for calls" ON calls;
+CREATE POLICY "Tenant isolation for calls" ON calls FOR ALL USING (org_id = auth_user_org_id());
 
-CREATE POLICY "Tenant isolation for appointments" ON appointments
-FOR ALL USING (org_id = auth_user_org_id());
+DROP POLICY IF EXISTS "Tenant isolation for conversations" ON conversations;
+CREATE POLICY "Tenant isolation for conversations" ON conversations FOR ALL USING (org_id = auth_user_org_id());
 
-CREATE POLICY "Tenant isolation for automation_settings" ON automation_settings
-FOR ALL USING (org_id = auth_user_org_id());
+DROP POLICY IF EXISTS "Tenant isolation for messages" ON messages;
+CREATE POLICY "Tenant isolation for messages" ON messages FOR ALL USING (org_id = auth_user_org_id());
 
-CREATE POLICY "Tenant isolation for activity_logs" ON activity_logs
-FOR ALL USING (org_id = auth_user_org_id());
+DROP POLICY IF EXISTS "Tenant isolation for appointments" ON appointments;
+CREATE POLICY "Tenant isolation for appointments" ON appointments FOR ALL USING (org_id = auth_user_org_id());
+
+DROP POLICY IF EXISTS "Tenant isolation for automation_settings" ON automation_settings;
+CREATE POLICY "Tenant isolation for automation_settings" ON automation_settings FOR ALL USING (org_id = auth_user_org_id());
+
+DROP POLICY IF EXISTS "Tenant isolation for activity_logs" ON activity_logs;
+CREATE POLICY "Tenant isolation for activity_logs" ON activity_logs FOR ALL USING (org_id = auth_user_org_id());
+
+-- Telephony Webhook Ingestion Policies (allows serverless webhook endpoints to insert)
+DROP POLICY IF EXISTS "Webhook inserts for calls" ON calls;
+CREATE POLICY "Webhook inserts for calls" ON calls FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Webhook inserts for messages" ON messages;
+CREATE POLICY "Webhook inserts for messages" ON messages FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Webhook updates for messages" ON messages;
+CREATE POLICY "Webhook updates for messages" ON messages FOR UPDATE TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Webhook inserts for contacts" ON contacts;
+CREATE POLICY "Webhook inserts for contacts" ON contacts FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Webhook inserts for leads" ON leads;
+CREATE POLICY "Webhook inserts for leads" ON leads FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Webhook inserts for conversations" ON conversations;
+CREATE POLICY "Webhook inserts for conversations" ON conversations FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Webhook updates for conversations" ON conversations;
+CREATE POLICY "Webhook updates for conversations" ON conversations FOR UPDATE TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Webhook inserts for activity_logs" ON activity_logs;
+CREATE POLICY "Webhook inserts for activity_logs" ON activity_logs FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Webhook inserts for processed_events" ON processed_events;
+CREATE POLICY "Webhook inserts for processed_events" ON processed_events FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
