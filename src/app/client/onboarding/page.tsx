@@ -28,32 +28,27 @@ export default function OnboardingPage() {
     if (!businessName.trim()) { toast.error('Please enter your business name.'); return }
     setSaving(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { toast.error('Session expired. Please sign in again.'); return }
+    try {
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessName: businessName.trim(), phone: phone.trim() })
+      })
 
-    // Create org
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({ name: businessName.trim(), phone_number: phone, onboarding_completed: true })
-      .select()
-      .single()
+      const data = await res.json()
 
-    if (orgError || !org) {
-      toast.error('Something went wrong. Please try again.')
+      if (!res.ok || data.error) {
+        toast.error(data.error || 'Failed to complete setup. Please try again.')
+        setSaving(false)
+        return
+      }
+
+      toast.success(`Welcome to CaptoDesk, ${businessName}!`)
+      router.push('/client/dashboard')
+    } catch (err: any) {
+      toast.error('Network error. Please try again.')
       setSaving(false)
-      return
     }
-
-    // Link profile
-    await supabase.from('profiles').upsert({
-      id: user.id,
-      org_id: org.id,
-      email: user.email,
-      role: 'client_admin',
-    })
-
-    toast.success(`Welcome to CaptoDesk, ${businessName}!`)
-    router.push('/client/dashboard')
   }
 
   return (
