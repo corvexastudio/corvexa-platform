@@ -15,8 +15,10 @@ import {
 import { cn } from '@/lib/utils'
 
 const navItems = [
+  { href: '/admin', label: 'Platform Overview', icon: ActivitySquare, exact: true },
   { href: '/admin/organizations', label: 'Client Tenants', icon: Building2 },
   { href: '/admin/simulator', label: 'Live Sales Simulator', icon: Flame, highlight: true },
+  { href: '/admin/analytics', label: 'Platform Analytics', icon: ShieldAlert },
   { href: '/admin/system-health', label: 'Carrier & Webhooks', icon: Radio },
 ]
 
@@ -51,7 +53,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </p>
           <nav className="flex flex-col gap-1.5">
             {navItems.map(item => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+              const isActive = item.exact 
+                ? pathname === item.href 
+                : (pathname === item.href || pathname.startsWith(item.href + '/'))
               const Icon = item.icon
 
               return (

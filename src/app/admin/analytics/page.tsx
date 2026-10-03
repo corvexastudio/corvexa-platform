@@ -51,16 +51,22 @@ export default function PlatformAnalytics() {
         { count: totalMissedCalls },
         { count: totalReviewsSent },
         { count: totalLeads },
-        { count: totalActivity },
+        { count: totalCalls },
         { count: totalOrgs },
       ] = await Promise.all([
-        supabase.from('activity_logs').select('*', { count: 'exact', head: true }).eq('type', 'missed_call'),
-        supabase.from('activity_logs').select('*', { count: 'exact', head: true }).eq('type', 'review_invite'),
-        supabase.from('activity_logs').select('*', { count: 'exact', head: true }).eq('type', 'website_form'),
-        supabase.from('activity_logs').select('*', { count: 'exact', head: true }),
+        supabase.from('calls').select('*', { count: 'exact', head: true }).eq('status', 'missed'),
+        supabase.from('activity_logs').select('*', { count: 'exact', head: true }).eq('event_type', 'review_invite'),
+        supabase.from('leads').select('*', { count: 'exact', head: true }),
+        supabase.from('calls').select('*', { count: 'exact', head: true }),
         supabase.from('organizations').select('*', { count: 'exact', head: true }),
       ])
-      setMetrics({ totalMissedCalls: totalMissedCalls ?? 0, totalReviewsSent: totalReviewsSent ?? 0, totalLeads: totalLeads ?? 0, totalActivity: totalActivity ?? 0, totalOrgs: totalOrgs ?? 0 })
+      setMetrics({ 
+        totalMissedCalls: totalMissedCalls ?? 0, 
+        totalReviewsSent: totalReviewsSent ?? 0, 
+        totalLeads: totalLeads ?? 0, 
+        totalActivity: totalCalls ?? 0, 
+        totalOrgs: totalOrgs ?? 0 
+      })
     }
 
     const fetchChartData = async () => {
@@ -75,36 +81,46 @@ export default function PlatformAnalytics() {
 
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const { data } = await supabase
-        .from('activity_logs')
-        .select('type,created_at,org_id')
-        .gte('created_at', thirtyDaysAgo.toISOString())
 
-      if (data) {
-        data.forEach((log) => {
-          const key = log.created_at?.slice(0, 10)
-          if (key && days[key]) {
-            if (log.type === 'missed_call') days[key].missed_calls++
-            else if (log.type === 'review_invite') days[key].reviews++
-            else if (log.type === 'website_form') days[key].leads++
-          }
-        })
+      const [callsRes, leadsRes] = await Promise.all([
+        supabase.from('calls').select('status,created_at,org_id').gte('created_at', thirtyDaysAgo.toISOString()),
+        supabase.from('leads').select('created_at,org_id').gte('created_at', thirtyDaysAgo.toISOString())
+      ])
 
-        // Top clients by activity volume this month
-        const orgCounts: Record<string, number> = {}
-        data.forEach((log) => { orgCounts[log.org_id] = (orgCounts[log.org_id] ?? 0) + 1 })
-        const orgIds = Object.keys(orgCounts)
-        if (orgIds.length > 0) {
-          const { data: orgs } = await supabase.from('organizations').select('id,name').in('id', orgIds)
-          if (orgs) {
-            const top = orgs
-              .map((o) => ({ name: o.name, count: orgCounts[o.id] ?? 0 }))
-              .sort((a, b) => b.count - a.count)
-              .slice(0, 5)
-            setTopClients(top)
-          }
+      const callsData = callsRes.data || []
+      const leadsData = leadsRes.data || []
+
+      callsData.forEach((call) => {
+        const key = call.created_at?.slice(0, 10)
+        if (key && days[key]) {
+          if (call.status === 'missed') days[key].missed_calls++
+        }
+      })
+
+      leadsData.forEach((lead) => {
+        const key = lead.created_at?.slice(0, 10)
+        if (key && days[key]) {
+          days[key].leads++
+        }
+      })
+
+      // Top clients by call volume this month
+      const orgCounts: Record<string, number> = {}
+      callsData.forEach((call) => { 
+        if (call.org_id) orgCounts[call.org_id] = (orgCounts[call.org_id] ?? 0) + 1 
+      })
+      const orgIds = Object.keys(orgCounts)
+      if (orgIds.length > 0) {
+        const { data: orgs } = await supabase.from('organizations').select('id,name').in('id', orgIds)
+        if (orgs) {
+          const top = orgs
+            .map((o) => ({ name: o.name, count: orgCounts[o.id] ?? 0 }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5)
+          setTopClients(top)
         }
       }
+
       setChartData(Object.values(days))
     }
 
