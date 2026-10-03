@@ -36,6 +36,22 @@ CREATE TABLE IF NOT EXISTS organizations (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Ensure all columns exist on pre-existing organizations table
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS owner_phone TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS telnyx_phone_number TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS carrier TEXT DEFAULT 'Unknown';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS is_missed_call_active BOOLEAN DEFAULT true;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS is_review_engine_active BOOLEAN DEFAULT true;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS auto_reply_template TEXT DEFAULT 'Hey, this is {business_name}! We are mid-job and missed your call. How can we help you?';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS after_hours_template TEXT DEFAULT 'Thanks for calling {business_name}. We are currently closed for the evening, but received your message and will call you first thing tomorrow morning.';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS business_hours JSONB DEFAULT '{"monday":{"open":"08:00","close":"18:00","closed":false},"tuesday":{"open":"08:00","close":"18:00","closed":false},"wednesday":{"open":"08:00","close":"18:00","closed":false},"thursday":{"open":"08:00","close":"18:00","closed":false},"friday":{"open":"08:00","close":"18:00","closed":false},"saturday":{"open":"09:00","close":"14:00","closed":false},"sunday":{"open":"00:00","close":"00:00","closed":true}}'::jsonb;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS google_review_url TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'America/Chicago';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS cooldown_hours INT DEFAULT 24;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS monthly_rate NUMERIC(10,2) DEFAULT 99.00;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
 -- 3. USER PROFILES
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -46,6 +62,12 @@ CREATE TABLE IF NOT EXISTS profiles (
     role TEXT DEFAULT 'owner' CHECK (role IN ('super_admin', 'owner', 'dispatcher', 'client_admin')),
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Ensure all columns exist on pre-existing profiles table
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
+
 
 -- 4. CONTACTS (Homeowners & Callers)
 CREATE TABLE IF NOT EXISTS contacts (
