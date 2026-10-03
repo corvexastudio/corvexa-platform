@@ -39,7 +39,7 @@ function LoginContent() {
           <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center">
             <span className="text-zinc-950 font-bold text-sm">C</span>
           </div>
-          <span className="text-white text-lg font-semibold tracking-tight">Corvexa</span>
+          <span className="text-white text-lg font-semibold tracking-tight">CaptoDesk</span>
         </div>
 
         <div>
@@ -73,7 +73,7 @@ function LoginContent() {
           <div className="h-10 w-10 rounded-xl bg-zinc-950 flex items-center justify-center">
             <span className="text-white font-bold text-sm">C</span>
           </div>
-          <span className="text-zinc-950 text-xl font-semibold tracking-tight">Corvexa</span>
+          <span className="text-zinc-950 text-xl font-semibold tracking-tight">CaptoDesk</span>
         </div>
 
         <div className="w-full max-w-sm">
@@ -88,7 +88,7 @@ function LoginContent() {
                   </div>
                 </div>
               )}
-              <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to Corvexa</h1>
+              <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to CaptoDesk</h1>
               <p className="text-zinc-500 mb-8 leading-relaxed">
                 Enter your email and we'll send you a sign-in link. No password. Works for new and existing accounts.
               </p>

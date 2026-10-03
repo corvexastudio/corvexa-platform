@@ -64,6 +64,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(destination)
   }
 
+  // 5. Root path handling: redirect directly to client portal
+  if (pathname === '/') {
+    if (user) {
+      return NextResponse.redirect(new URL('/client/dashboard', request.url))
+    }
+    return NextResponse.redirect(new URL('/client/login', request.url))
+  }
+
   // 5. Auth protection for /client/*
   const isClientPath = pathname.startsWith('/client')
   const isAuthPage = pathname.startsWith('/client/login') || pathname.startsWith('/client/onboarding')

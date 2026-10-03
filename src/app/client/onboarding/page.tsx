@@ -52,7 +52,7 @@ export default function OnboardingPage() {
       role: 'client_admin',
     })
 
-    toast.success(`Welcome to Corvexa, ${businessName}!`)
+    toast.success(`Welcome to CaptoDesk, ${businessName}!`)
     router.push('/dashboard')
   }
 
@@ -63,7 +63,7 @@ export default function OnboardingPage() {
           <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-sm">
             <span className="text-primary-foreground font-bold text-sm">C</span>
           </div>
-          <span className="text-xl font-semibold tracking-tight">Corvexa</span>
+          <span className="text-xl font-semibold tracking-tight">CaptoDesk</span>
         </div>
 
         <div className="bg-background border rounded-2xl shadow-sm p-6">
