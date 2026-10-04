@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { sendTelnyxSms } from '../telnyx.ts'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { isPhoneSuppressed, logComplianceAudit } from '../compliance/compliance-engine.ts'
 
 export interface ReviewEligibilityResult {
   eligible: boolean
@@ -57,6 +58,12 @@ export async function checkReviewEligibility(
 
   if (contact.opt_out) {
     return { eligible: false, reason: 'opted_out', details: 'Customer opted out of SMS messages' }
+  }
+
+  // Real-time carrier suppression list check
+  const suppression = await isPhoneSuppressed(supabase, orgId, contact.phone)
+  if (suppression.suppressed) {
+    return { eligible: false, reason: 'opted_out', details: 'Customer phone is on suppression list' }
   }
 
   const norm = normalizePhoneToE164(contact.phone)

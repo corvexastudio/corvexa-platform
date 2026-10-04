@@ -5,6 +5,7 @@ import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
 import { createStripeCheckoutSession } from './stripe-adapter.ts'
+import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
 
 export type InvoiceStatus =
   | 'draft'
@@ -312,10 +313,30 @@ export async function sendInvoice(
   const smsBody = `Hi ${contact?.name || 'there'}! Here is your invoice ${invoice.invoice_number} from ${businessName} for $${invoice.amount_due || invoice.total}. Pay securely online here: ${customerInvoiceUrl}`
 
   if (contact?.phone) {
-    await sendTelnyxSms({
-      to: contact.phone,
-      text: smsBody
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId,
+      toPhone: contact.phone,
+      flowType: 'invoice_sent',
+      messageType: 'transactional',
+      body: smsBody,
+      contactId: contact.id
     })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: contact.phone,
+        text: compliance.formattedText
+      })
+
+      await logComplianceAudit(supabase, {
+        orgId,
+        phone: contact.phone,
+        contactId: contact.id,
+        action: 'message_sent',
+        messageType: 'transactional',
+        reason: 'invoice_sent'
+      })
+    }
   }
 
   // 4. Schedule Day 3 & Day 7 Overdue Reminders
@@ -524,10 +545,22 @@ export async function recordPayment(
       }
 
       if (contact?.phone) {
-        await sendTelnyxSms({
-          to: contact.phone,
-          text: `Thank you for your payment! Invoice ${invoice.invoice_number} ($${amount}) has been marked paid in full.`
+        const rawReceiptText = `Thank you for your payment! Invoice ${invoice.invoice_number} ($${amount}) has been marked paid in full.`
+        const compliance = await verifyOutboundCompliance(supabase, {
+          orgId: invoice.org_id,
+          toPhone: contact.phone,
+          flowType: 'invoice_paid',
+          messageType: 'transactional',
+          body: rawReceiptText,
+          contactId: contact.id
         })
+
+        if (compliance.allowed) {
+          await sendTelnyxSms({
+            to: contact.phone,
+            text: compliance.formattedText
+          })
+        }
       }
     }
   }

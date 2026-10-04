@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '../telnyx.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { isPhoneSuppressed, formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 
 export type LifecycleStatus = 'active' | 'due' | 'overdue' | 'inactive'
 
@@ -142,10 +143,21 @@ export async function evaluateCustomerReactivation(
 
       // Dispatch SMS
       if (contact.phone) {
+        const suppression = await isPhoneSuppressed(supabase, orgId, contact.phone)
+        if (suppression.suppressed) {
+          continue
+        }
+
+        const compliantText = formatCompliantOutboundText({
+          businessName,
+          text: smsText,
+          messageType: 'marketing'
+        })
+
         const result = await sendTelnyxSms({
           to: contact.phone,
           from: org.telnyx_phone_number,
-          text: smsText
+          text: compliantText
         })
 
         if (result.success) {

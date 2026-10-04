@@ -13,6 +13,7 @@ import { sendTelnyxSms } from '../telnyx.ts'
 import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
+import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../compliance/compliance-engine.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -276,7 +277,16 @@ export async function createBooking(
 
   await handleAutomationEvent(supabase, eventEnvelope)
 
-  // 10. Dispatch Confirmation SMS via Telnyx
+  // 10. Record Consent & Dispatch Confirmation SMS via Telnyx
+  await recordConsent(supabase, {
+    orgId,
+    phone: normalizedPhone.e164,
+    contactId: contactId || undefined,
+    consentType: 'transactional',
+    source: source || 'booking_page',
+    proofText: `Appointment booking for ${activeService.name} on ${displayTime}`
+  })
+
   const senderNumber = org.telnyx_phone_number || org.owner_phone
   let confirmationText = ''
   if (isInstant) {
@@ -286,11 +296,32 @@ export async function createBooking(
   }
 
   if (senderNumber) {
-    await sendTelnyxSms({
-      to: normalizedPhone.e164,
-      from: senderNumber,
-      text: confirmationText
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId,
+      toPhone: normalizedPhone.e164,
+      fromPhone: senderNumber,
+      flowType: 'booking_confirmation',
+      messageType: 'transactional',
+      body: confirmationText,
+      contactId: contactId || undefined
     })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: normalizedPhone.e164,
+        from: senderNumber,
+        text: compliance.formattedText
+      })
+
+      await logComplianceAudit(supabase, {
+        orgId,
+        phone: normalizedPhone.e164,
+        contactId: contactId || undefined,
+        action: 'message_sent',
+        messageType: 'transactional',
+        reason: 'booking_confirmation'
+      })
+    }
   }
 
   // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed
@@ -479,11 +510,25 @@ export async function customerCancelBooking(
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone
   if (senderNumber && contact?.phone) {
     const rebookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'}/book/${org?.slug || ''}`
-    await sendTelnyxSms({
-      to: contact.phone,
-      from: senderNumber,
-      text: `Your appointment with ${org?.name || 'us'} has been cancelled. To reschedule or book a new time, visit: ${rebookUrl}`
+    const cancelText = `Your appointment with ${org?.name || 'us'} has been cancelled. To reschedule or book a new time, visit: ${rebookUrl}`
+    
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId: apt.org_id,
+      toPhone: contact.phone,
+      fromPhone: senderNumber,
+      flowType: 'booking_cancellation',
+      messageType: 'transactional',
+      body: cancelText,
+      contactId: contact.id
     })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: contact.phone,
+        from: senderNumber,
+        text: compliance.formattedText
+      })
+    }
   }
 
   return { success: true, appointment: updatedApt }
@@ -617,11 +662,24 @@ export async function customerRescheduleBooking(
     })
 
     // 5. Send reschedule SMS
-    await sendTelnyxSms({
-      to: contact.phone,
-      from: senderNumber,
-      text: `Your appointment with ${org?.name || 'us'} has been rescheduled to ${displayTime}. Manage: ${manageUrl}`
+    const reschedText = `Your appointment with ${org?.name || 'us'} has been rescheduled to ${displayTime}. Manage: ${manageUrl}`
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId: apt.org_id,
+      toPhone: contact.phone,
+      fromPhone: senderNumber,
+      flowType: 'booking_reschedule',
+      messageType: 'transactional',
+      body: reschedText,
+      contactId: contact.id
     })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: contact.phone,
+        from: senderNumber,
+        text: compliance.formattedText
+      })
+    }
   }
 
   return { success: true, appointment: updatedApt }
@@ -705,11 +763,24 @@ export async function ownerUpdateBookingStatus(
     const displayTime = `${slotStartDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${formatSlotDisplayTime(slotStartDate, timezone)}`
 
     // Send confirmation SMS
-    await sendTelnyxSms({
-      to: contact.phone,
-      from: senderNumber,
-      text: `Great news ${contact.name || ''}! Your appointment with ${org?.name || 'us'} is confirmed for ${displayTime}. Manage: ${manageUrl}`
+    const confirmText = `Great news ${contact.name || ''}! Your appointment with ${org?.name || 'us'} is confirmed for ${displayTime}. Manage: ${manageUrl}`
+    const confirmCompliance = await verifyOutboundCompliance(supabase, {
+      orgId,
+      toPhone: contact.phone,
+      fromPhone: senderNumber,
+      flowType: 'booking_confirmed',
+      messageType: 'transactional',
+      body: confirmText,
+      contactId: contact.id
     })
+
+    if (confirmCompliance.allowed) {
+      await sendTelnyxSms({
+        to: contact.phone,
+        from: senderNumber,
+        text: confirmCompliance.formattedText
+      })
+    }
 
     // Schedule reminders
     await scheduleAppointmentReminders(supabase, {
@@ -735,11 +806,24 @@ export async function ownerUpdateBookingStatus(
     )
 
     if (contact?.phone && senderNumber) {
-      await sendTelnyxSms({
-        to: contact.phone,
-        from: senderNumber,
-        text: `Your appointment with ${org?.name || 'us'} has been cancelled (${reason || 'business schedule update'}).`
+      const cancelText = `Your appointment with ${org?.name || 'us'} has been cancelled (${reason || 'business schedule update'}).`
+      const cancelCompliance = await verifyOutboundCompliance(supabase, {
+        orgId,
+        toPhone: contact.phone,
+        fromPhone: senderNumber,
+        flowType: 'booking_cancellation',
+        messageType: 'transactional',
+        body: cancelText,
+        contactId: contact.id
       })
+
+      if (cancelCompliance.allowed) {
+        await sendTelnyxSms({
+          to: contact.phone,
+          from: senderNumber,
+          text: cancelCompliance.formattedText
+        })
+      }
     }
   }
 

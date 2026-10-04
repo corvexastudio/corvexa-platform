@@ -3,6 +3,7 @@ import { sendTelnyxSms } from '../telnyx.ts'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { renderTemplate } from '../telephony/template-engine.ts'
 import { dispatchReviewRequest } from '../reviews/review-manager.ts'
+import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
 
 export type ActionType =
   | 'send_sms'
@@ -100,11 +101,45 @@ async function handleSendSms(
     customer_name: eventPayload?.customer_name
   })
 
+  const flowType = params.flowType || (eventPayload?.event_type ? String(eventPayload.event_type) : 'automation')
+  const messageType = params.messageType || undefined
+
+  const compliance = await verifyOutboundCompliance(supabase, {
+    orgId,
+    toPhone: norm.e164,
+    fromPhone: senderNumber,
+    flowType,
+    messageType,
+    body: text,
+    contactId: context.contactId
+  })
+
+  if (!compliance.allowed) {
+    return {
+      success: false,
+      actionType: 'send_sms',
+      error: `Suppressed: ${compliance.suppressionReason}`
+    }
+  }
+
+  const outboundText = compliance.formattedText
+
   const smsRes = await sendTelnyxSms({
     to: norm.e164,
     from: senderNumber,
-    text
+    text: outboundText
   })
+
+  if (smsRes.success) {
+    await logComplianceAudit(supabase, {
+      orgId,
+      phone: norm.e164,
+      contactId: context.contactId,
+      action: 'message_sent',
+      messageType: compliance.classification,
+      reason: flowType
+    })
+  }
 
   // Log to messages table if conversation exists
   if (context.contactId) {
@@ -121,7 +156,7 @@ async function handleSendSms(
         conversation_id: conv.id,
         direction: 'outbound',
         sender_type: 'system',
-        body: text,
+        body: outboundText,
         delivery_status: smsRes.success ? 'sent' : 'failed',
         telnyx_message_id: smsRes.messageId,
         automation_source: 'automation_engine',

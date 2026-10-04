@@ -5,6 +5,7 @@ import { resolveOrganizationByPhoneNumber } from '../telephony/telnyx-numbers.ts
 import { evaluateSuppression } from '../telephony/suppression-rules.ts'
 import { resolveMissedCallTemplate } from '../telephony/template-engine.ts'
 import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
+import { formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 
 export interface InboundCallContext {
   callerNumber: string
@@ -153,12 +154,29 @@ export async function processMissedCall(
     formattedCalled
   )
 
+  const compliantText = formatCompliantOutboundText({
+    businessName: org.name || 'CaptoDesk',
+    text: renderedText,
+    messageType: 'transactional'
+  })
+
   // 6. Dispatch SMS via Telnyx (using tenant's dedicated phone number)
   const smsResult = await sendTelnyxSms({
     to: formattedCaller,
     from: formattedCalled,
-    text: renderedText
+    text: compliantText
   })
+
+  if (smsResult.success) {
+    await logComplianceAudit(supabase, {
+      orgId: org.id,
+      phone: formattedCaller,
+      contactId: contact?.id,
+      action: 'message_sent',
+      messageType: 'transactional',
+      reason: 'missed_call_recovery'
+    })
+  }
 
   // 7. Record Call
   await supabase.from('calls').insert({

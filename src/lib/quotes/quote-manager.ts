@@ -4,6 +4,12 @@ import { sendTelnyxSms } from '../telnyx.ts'
 import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
+import {
+  verifyOutboundCompliance,
+  formatCompliantOutboundText,
+  recordConsent,
+  logComplianceAudit
+} from '../compliance/compliance-engine.ts'
 
 export interface QuoteLineItemInput {
   description: string
@@ -199,14 +205,44 @@ export async function sendQuote(
     return { success: false, error: 'Failed to update quote status' }
   }
 
-  // 4. Send Initial Quote SMS
+  // 4. Record Consent & Send Initial Quote SMS
+  await recordConsent(supabase, {
+    orgId,
+    phone: contact.phone,
+    contactId: quote.contact_id,
+    consentType: 'transactional',
+    source: 'quote_request',
+    proofText: `Generated estimate #${quote.quote_number}`
+  })
+
   if (senderNumber) {
-    const text = `Hi ${contact.name || 'there'}! Here is your estimate #${quote.quote_number} from ${org?.name || 'us'} for $${quote.total.toFixed(2)}. Review and accept online: ${manageUrl}`
-    await sendTelnyxSms({
-      to: contact.phone,
-      from: senderNumber,
-      text
+    const rawText = `Hi ${contact.name || 'there'}! Here is your estimate #${quote.quote_number} from ${org?.name || 'us'} for $${quote.total.toFixed(2)}. Review and accept online: ${manageUrl}`
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId,
+      toPhone: contact.phone,
+      fromPhone: senderNumber,
+      flowType: 'quote_sent',
+      messageType: 'transactional',
+      body: rawText,
+      contactId: quote.contact_id
     })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: contact.phone,
+        from: senderNumber,
+        text: compliance.formattedText
+      })
+
+      await logComplianceAudit(supabase, {
+        orgId,
+        phone: contact.phone,
+        contactId: quote.contact_id,
+        action: 'message_sent',
+        messageType: 'transactional',
+        reason: 'quote_sent'
+      })
+    }
   }
 
   // 5. Emit quote.sent Domain Event
@@ -261,9 +297,14 @@ export async function scheduleQuoteFollowUps(
   const { quoteId, orgId, orgName, quoteNumber, total, customerPhone, customerName, senderNumber, manageUrl } = details
   const nowMs = Date.now()
 
-  // 1. Follow-up 1 (2 Days Later)
+  // 1. Follow-up 1 (2 Days Later - Marketing)
   const fu1Time = new Date(nowMs + 2 * 24 * 60 * 60 * 1000).toISOString()
-  const textFu1 = `Hi ${customerName || 'there'}, just following up on your estimate #${quoteNumber} from ${orgName} ($${total.toFixed(2)}). Let us know if you have any questions or review here: ${manageUrl}`
+  const rawTextFu1 = `Hi ${customerName || 'there'}, just following up on your estimate #${quoteNumber} from ${orgName} ($${total.toFixed(2)}). Let us know if you have any questions or review here: ${manageUrl}`
+  const textFu1 = formatCompliantOutboundText({
+    businessName: orgName,
+    text: rawTextFu1,
+    messageType: 'marketing'
+  })
 
   await supabase.from('automation_runs').insert({
     org_id: orgId,
@@ -274,7 +315,9 @@ export async function scheduleQuoteFollowUps(
     action_params: {
       to: customerPhone,
       from: senderNumber,
-      text: textFu1
+      text: textFu1,
+      flowType: 'quote_follow_up',
+      messageType: 'marketing'
     },
     status: 'scheduled',
     scheduled_at: fu1Time,
@@ -284,9 +327,14 @@ export async function scheduleQuoteFollowUps(
     }
   })
 
-  // 2. Follow-up 2 (5 Days Later)
+  // 2. Follow-up 2 (5 Days Later - Marketing)
   const fu2Time = new Date(nowMs + 5 * 24 * 60 * 60 * 1000).toISOString()
-  const textFu2 = `Hi ${customerName || 'there'}, friendly reminder that your estimate #${quoteNumber} from ${orgName} is awaiting your review. Check details or accept here: ${manageUrl}`
+  const rawTextFu2 = `Hi ${customerName || 'there'}, friendly reminder that your estimate #${quoteNumber} from ${orgName} is awaiting your review. Check details or accept here: ${manageUrl}`
+  const textFu2 = formatCompliantOutboundText({
+    businessName: orgName,
+    text: rawTextFu2,
+    messageType: 'marketing'
+  })
 
   await supabase.from('automation_runs').insert({
     org_id: orgId,
@@ -297,7 +345,9 @@ export async function scheduleQuoteFollowUps(
     action_params: {
       to: customerPhone,
       from: senderNumber,
-      text: textFu2
+      text: textFu2,
+      flowType: 'quote_follow_up',
+      messageType: 'marketing'
     },
     status: 'scheduled',
     scheduled_at: fu2Time,
@@ -459,11 +509,24 @@ export async function customerAcceptQuote(
 
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone
   if (senderNumber && contact?.phone) {
-    await sendTelnyxSms({
-      to: contact.phone,
-      from: senderNumber,
-      text: `Thank you ${contact.name || ''}! Your acceptance of estimate #${quote.quote_number} ($${quote.total.toFixed(2)}) is confirmed. We will reach out shortly to schedule your service.`
+    const rawText = `Thank you ${contact.name || ''}! Your acceptance of estimate #${quote.quote_number} ($${quote.total.toFixed(2)}) is confirmed. We will reach out shortly to schedule your service.`
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId: quote.org_id,
+      toPhone: contact.phone,
+      fromPhone: senderNumber,
+      flowType: 'quote_accepted',
+      messageType: 'transactional',
+      body: rawText,
+      contactId: quote.contact_id
     })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: contact.phone,
+        from: senderNumber,
+        text: compliance.formattedText
+      })
+    }
   }
 
   // 4. Notify Owner

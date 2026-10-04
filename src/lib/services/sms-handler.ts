@@ -3,6 +3,7 @@ import { sendTelnyxSms } from '../telnyx.ts'
 import { isStopKeyword, isResumeKeyword } from './safety-rules.ts'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { resolveOrganizationByPhoneNumber } from '../telephony/telnyx-numbers.ts'
+import { handleInboundComplianceKeyword } from '../compliance/compliance-engine.ts'
 
 interface InboundSmsPayload {
   fromPhone: string
@@ -50,37 +51,16 @@ export async function processInboundSms(
     contact = newContact
   }
 
-  // 3. Handle TCPA STOP / OPT-OUT keywords
-  if (isStopKeyword(sms.text)) {
-    await supabase
-      .from('contacts')
-      .update({ opt_out: true })
-      .eq('id', contact?.id)
+  // 3. Handle Inbound Carrier Compliance Keywords (STOP, UNSUBSCRIBE, CANCEL, END, QUIT, START, UNSTOP, YES, HELP, INFO)
+  const compliance = await handleInboundComplianceKeyword(supabase, {
+    org,
+    fromPhone: fromNumber,
+    toPhone: toNumber,
+    text: sms.text
+  })
 
-    // Send mandatory carrier opt-out confirmation
-    await sendTelnyxSms({
-      to: fromNumber,
-      from: toNumber,
-      text: `You have unsubscribed from messages from ${org.name}. No more texts will be sent. Reply UNSTOP to resubscribe.`
-    })
-
-    return { success: true, action: 'opt_out_processed' }
-  }
-
-  // 4. Handle RESUME / UNSTOP
-  if (isResumeKeyword(sms.text)) {
-    await supabase
-      .from('contacts')
-      .update({ opt_out: false })
-      .eq('id', contact?.id)
-
-    await sendTelnyxSms({
-      to: fromNumber,
-      from: toNumber,
-      text: `You have successfully resubscribed to messages from ${org.name}.`
-    })
-
-    return { success: true, action: 'opt_in_processed' }
+  if (compliance.handled) {
+    return { success: true, action: compliance.action || 'compliance_keyword_processed' }
   }
 
   // 5. Append to conversation and messages

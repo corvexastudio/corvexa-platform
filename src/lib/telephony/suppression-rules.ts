@@ -82,6 +82,18 @@ export async function evaluateSuppression(
     return { shouldSend: false, suppressionReason: 'opted_out' }
   }
 
+  // 3b. Real-time carrier suppression list check
+  const { data: suppressedRow } = await supabase
+    .from('compliance_suppression_list')
+    .select('id, reason')
+    .eq('org_id', orgId)
+    .eq('phone', callerNumber)
+    .maybeSingle()
+
+  if (suppressedRow) {
+    return { shouldSend: false, suppressionReason: 'suppressed_opt_out' }
+  }
+
   // 4. Spam / Blocked / Loopback check
   if (isSpamOrBlockedNumber(callerNumber, calledNumber)) {
     return { shouldSend: false, suppressionReason: 'blocked_or_spam' }
