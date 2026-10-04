@@ -53,12 +53,15 @@ export async function GET(request: NextRequest) {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('org_id')
+        .select('org_id, role')
         .eq('id', user.id)
         .maybeSingle()
 
-      // If brand new signup with Gmail, direct to 1-step onboarding
-      if (!profile || !profile.org_id) {
+      // If super_admin, direct them to /admin without forcing tenant onboarding
+      if (profile?.role === 'super_admin') {
+        destination = next && next !== '/client/dashboard' ? next : '/admin'
+      } else if (!profile || !profile.org_id) {
+        // If brand new signup with Gmail, direct to 1-step onboarding
         destination = '/client/onboarding'
       }
     }

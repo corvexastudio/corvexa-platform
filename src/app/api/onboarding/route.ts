@@ -1,9 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
+import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { logAuditEvent } from '@/lib/security/audit-logger'
+
 export async function POST(request: NextRequest) {
+  // Requirement 9: Rate limit public onboarding requests per IP
+  const clientIp = extractClientIp(request)
+  const rateLimit = checkRateLimit(`ip:${clientIp}:onboard`, RATE_LIMITS.ONBOARDING)
+  const rateHeaders = getRateLimitHeaders(rateLimit)
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded: Too many onboarding attempts. Please try again shortly.' },
+      { status: 429, headers: rateHeaders }
+    )
+  }
+
   try {
-    let response = NextResponse.json({ success: true })
+    let response = NextResponse.json({ success: true }, { headers: rateHeaders })
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,11 +96,24 @@ export async function POST(request: NextRequest) {
         org_id: org.id,
         module_key: 'missed_call_recovery',
         is_enabled: true,
-        settings: {
+        config: {
           cooldown_hours: 24,
           min_call_duration_seconds: 3,
         }
       })
+
+    // Requirement 10: Audit Logging
+    await logAuditEvent(supabase, {
+      org_id: org.id,
+      event_type: 'security.login',
+      description: `Organization '${businessName.trim()}' created by ${user.email}`,
+      metadata: {
+        actor_id: user.id,
+        org_id: org.id,
+        action: 'tenant_onboarded',
+        slug: uniqueSlug
+      }
+    })
 
     return NextResponse.json({ success: true, org_id: org.id })
   } catch (err: any) {

@@ -1,6 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
-import { isStopKeyword, isResumeKeyword } from './safety-rules'
+import { sendTelnyxSms } from '../telnyx.ts'
+import { isStopKeyword, isResumeKeyword } from './safety-rules.ts'
+import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
+import { resolveOrganizationByPhoneNumber } from '../telephony/telnyx-numbers.ts'
 
 interface InboundSmsPayload {
   fromPhone: string
@@ -13,17 +15,23 @@ export async function processInboundSms(
   supabase: SupabaseClient,
   sms: InboundSmsPayload
 ): Promise<{ success: boolean; action: string }> {
-  const fromNumber = toE164(sms.fromPhone)
-  const toNumber = toE164(sms.toPhone)
+  const normFrom = normalizePhoneToE164(sms.fromPhone)
+  const normTo = normalizePhoneToE164(sms.toPhone)
 
-  // 1. Locate organization
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('id, name')
-    .eq('telnyx_phone_number', toNumber)
-    .single()
+  if (!normFrom.isValid || !normFrom.e164 || !normTo.isValid || !normTo.e164) {
+    return { success: false, action: 'invalid_phone_format' }
+  }
 
-  if (!org) return { success: false, action: 'org_not_found' }
+  const fromNumber = normFrom.e164
+  const toNumber = normTo.e164
+
+  // 1. Locate organization via multi-tenant number repository
+  const resolution = await resolveOrganizationByPhoneNumber(supabase, toNumber)
+  if (!resolution || !resolution.org) {
+    return { success: false, action: 'org_not_found' }
+  }
+
+  const org = resolution.org
 
   // 2. Locate or create contact
   let { data: contact } = await supabase

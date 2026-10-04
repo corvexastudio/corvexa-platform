@@ -1,60 +1,102 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
+import { getTenantContext } from '@/lib/security/tenant-context'
+import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
+import { dispatchReviewRequest } from '@/lib/reviews/review-manager'
+import { toE164 } from '@/lib/telnyx'
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // 1. Authenticate user and verify 'reviews:send' permission
+  const tenantResult = await getTenantContext('reviews:send')
+  if (!tenantResult.ok) {
+    return tenantResult.response
+  }
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { orgId, user, role, supabase } = tenantResult
+
+  // 2. Rate Limiting per Tenant
+  const rateLimit = checkRateLimit(`tenant:${orgId}:reviews`, RATE_LIMITS.REVIEWS_SEND)
+  const rateHeaders = getRateLimitHeaders(rateLimit)
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded: Maximum 20 review invites per minute.' },
+      { status: 429, headers: rateHeaders }
+    )
   }
 
   try {
-    const { name, phone, message: customMessage } = await request.json()
+    const { name, phone, jobId, message } = await request.json()
 
     if (!phone) {
-      return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Phone number is required' }, { status: 400, headers: rateHeaders })
     }
 
-    // 1. Get user's organization details
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id, organizations(*)')
-      .eq('id', user.id)
-      .single()
+    const cleanPhone = toE164(phone)
 
-    if (!profile) return NextResponse.json({ error: 'Org not found' }, { status: 404 })
+    // Find or create contact
+    let { data: contact } = await supabase
+      .from('contacts')
+      .select('id, name, phone, opt_out')
+      .eq('org_id', orgId)
+      .eq('phone', cleanPhone)
+      .maybeSingle()
 
-    const org: any = profile.organizations
-    const reviewLink = org?.google_review_url || 'https://google.com'
-    const businessName = org?.name || 'our team'
-    const senderNumber = org?.telnyx_phone_number
+    if (!contact) {
+      const { data: newContact, error: createError } = await supabase
+        .from('contacts')
+        .insert({
+          org_id: orgId,
+          name: name || 'Valued Customer',
+          phone: cleanPhone
+        })
+        .select('id, name, phone, opt_out')
+        .single()
 
-    const messageText = customMessage || 
-      `Hey ${name || 'there'}! Thank you for choosing ${businessName}. If you loved the service, could you take 30 seconds to drop us a quick 5-star review here: ${reviewLink}`
-
-    // 2. Send SMS via Telnyx
-    const result = await sendTelnyxSms({
-      to: toE164(phone),
-      from: senderNumber,
-      text: messageText
-    })
-
-    // 3. Log in activity_logs
-    await supabase.from('activity_logs').insert({
-      org_id: profile.org_id,
-      event_type: 'review_invite',
-      description: `Sent 5-star review invite to ${name || phone}`,
-      metadata: {
-        phone: toE164(phone),
-        message: messageText,
-        delivery: result.success ? 'sent' : 'failed'
+      if (createError) {
+        return NextResponse.json({ error: createError.message }, { status: 500, headers: rateHeaders })
       }
+      contact = newContact
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com'
+
+    // Dispatch via review manager (strictly compliant, no 5-star gating, legitimate token tracking)
+    const result = await dispatchReviewRequest(supabase, {
+      orgId,
+      contactId: contact.id,
+      jobId,
+      baseUrl,
+      customMessage: message,
+      actorId: user.id,
+      actorRole: role
     })
 
-    return NextResponse.json({ success: true, messageId: result.messageId })
+    if (result.suppressed) {
+      return NextResponse.json(
+        {
+          success: false,
+          suppressed: true,
+          error: `Review request suppressed: ${result.reason}`
+        },
+        { status: 422, headers: rateHeaders }
+      )
+    }
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'Failed to dispatch review invitation' },
+        { status: 500, headers: rateHeaders }
+      )
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        reviewRequest: result.reviewRequest
+      },
+      { headers: rateHeaders }
+    )
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message }, { status: 500, headers: rateHeaders })
   }
 }

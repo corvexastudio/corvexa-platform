@@ -12,7 +12,9 @@ import {
   Settings, 
   PhoneCall,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Briefcase,
+  CreditCard
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -24,6 +26,8 @@ const navItems = [
   { href: '/leads', clientHref: '/client/leads', label: 'Leads', icon: Target },
   { href: '/customers', clientHref: '/client/customers', label: 'Customers', icon: Users },
   { href: '/calendar', clientHref: '/client/calendar', label: 'Calendar', icon: Calendar },
+  { href: '/jobs', clientHref: '/client/jobs', label: 'Jobs', icon: Briefcase },
+  { href: '/invoices', clientHref: '/client/invoices', label: 'Invoices', icon: CreditCard },
   { href: '/automations', clientHref: '/client/automations', label: 'Automations', icon: Zap },
   { href: '/settings', clientHref: '/client/settings', label: 'Settings', icon: Settings },
 ]

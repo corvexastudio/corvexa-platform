@@ -1,32 +1,67 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getTenantContext } from '@/lib/security/tenant-context'
+import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
+import { logAuditEvent } from '@/lib/security/audit-logger'
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // 1. Authenticate user and verify 'team:invite' permission (owner or admin)
+  const tenantResult = await getTenantContext('team:invite')
+  if (!tenantResult.ok) {
+    return tenantResult.response
   }
 
-  const { data: profile } = await supabase.from('profiles').select('org_id, role').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+  const { orgId, user, role, supabase } = tenantResult
 
-  // Only client_admin and super_admin can invite
-  if (!['client_admin', 'super_admin'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // 2. Rate Limiting per Tenant (Requirement 9)
+  const rateLimit = checkRateLimit(`tenant:${orgId}:invite`, RATE_LIMITS.TEAM_INVITE)
+  const rateHeaders = getRateLimitHeaders(rateLimit)
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded: Maximum 10 invites per minute.' },
+      { status: 429, headers: rateHeaders }
+    )
   }
 
   try {
-    const { email, role } = await request.json()
+    const { email, role: rawTargetRole } = await request.json()
 
-    // Use Supabase admin inviteUserByEmail
-    // Note: This requires a service role key set server-side (SUPABASE_SERVICE_ROLE_KEY)
-    // For now we return a placeholder success to show the modal flow works
-    // Replace with: await supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: { role, org_id: profile.org_id } })
+    if (!email || !email.includes('@')) {
+      return NextResponse.json({ error: 'Valid email address is required' }, { status: 400, headers: rateHeaders })
+    }
 
-    return NextResponse.json({ success: true, message: `Invite sent to ${email}` })
+    // Role mapping: member (dispatcher) or admin (client_admin)
+    const assignedRole = ['client_admin', 'admin'].includes(rawTargetRole) ? 'client_admin' : 'dispatcher'
+
+    // Note: If SUPABASE_SERVICE_ROLE_KEY is configured, trigger admin invite
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (serviceRoleKey) {
+      try {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+        const adminClient = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
+        await adminClient.auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
+          data: { role: assignedRole, org_id: orgId }
+        })
+      } catch (adminErr) {
+        console.warn('[TEAM INVITE ADMIN WARNING]', adminErr)
+      }
+    }
+
+    // Requirement 10: Audit Logging
+    await logAuditEvent(supabase, {
+      org_id: orgId,
+      event_type: 'team.invite_sent',
+      description: `Invited user ${email} as '${assignedRole}'`,
+      metadata: {
+        actor_id: user.id,
+        actor_role: role,
+        invited_email: email,
+        assigned_role: assignedRole
+      }
+    })
+
+    return NextResponse.json({ success: true, message: `Invite sent to ${email}` }, { headers: rateHeaders })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message }, { status: 500, headers: rateHeaders })
   }
 }

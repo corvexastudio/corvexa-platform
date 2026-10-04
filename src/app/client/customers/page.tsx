@@ -2,213 +2,284 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { 
   Users, 
   Search, 
-  PhoneCall, 
-  MessageSquare, 
   Star, 
-  UserPlus, 
-  ShieldCheck, 
-  ShieldAlert,
-  Clock,
-  MapPin
+  RefreshCw,
+  Clock, 
+  Calendar,
+  AlertCircle,
+  CheckCircle,
+  HelpCircle,
+  Loader2,
+  DollarSign,
+  ChevronRight,
+  Tag,
+  ArrowUpDown
 } from 'lucide-react'
-import Link from 'next/link'
-
-interface ContactItem {
-  id: string
-  name?: string | null
-  phone: string
-  email?: string | null
-  address?: string | null
-  opt_out: boolean
-  tags: string[]
-  notes?: string | null
-  created_at: string
-}
 
 export default function CustomersPage() {
-  const supabase = createClient()
-  const [contacts, setContacts] = useState<ContactItem[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
+  const [counts, setCounts] = useState({
+    total: 0,
+    active: 0,
+    due: 0,
+    overdue: 0,
+    inactive: 0,
+    totalLtv: 0
+  })
   const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'due' | 'overdue' | 'inactive'>('all')
+  const [sortBy, setSortBy] = useState<'last_activity' | 'ltv' | 'last_service' | 'name'>('last_activity')
   const [loading, setLoading] = useState(true)
+  const [runningReactivation, setRunningReactivation] = useState(false)
 
-  const loadContacts = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile) return
-
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('org_id', profile.org_id)
-      .order('created_at', { ascending: false })
-
-    if (data) setContacts(data)
-    setLoading(false)
-  }, [supabase])
-
-  useEffect(() => { loadContacts() }, [loadContacts])
-
-  const sendReviewQuick = async (contact: ContactItem) => {
     try {
-      const res = await fetch('/api/reviews/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: contact.name || 'Valued Customer', phone: contact.phone }),
-      })
+      const params = new URLSearchParams()
+      if (search.trim()) params.set('query', search.trim())
+      if (filterStatus !== 'all') params.set('status', filterStatus)
+      if (sortBy) params.set('sortBy', sortBy)
+
+      const res = await fetch(`/api/client/customers?${params.toString()}`)
       if (res.ok) {
-        toast.success(`5-Star Review link sent to ${contact.name || contact.phone}!`)
+        const data = await res.json()
+        setCustomers(data.customers || [])
+        setCounts(data.counts || {})
+      }
+    } catch (err) {
+      console.error('Error fetching customers:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [search, filterStatus, sortBy])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadData()
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [loadData])
+
+  const handleRunReactivation = async () => {
+    setRunningReactivation(true)
+    try {
+      const res = await fetch('/api/client/retention', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`Reactivation complete: ${data.reactivatedCount} reminders dispatched.`)
+        loadData()
       } else {
-        toast.error('Failed to send review invite.')
+        toast.error('Failed to trigger reactivation cycle.')
       }
     } catch {
       toast.error('Network error.')
+    } finally {
+      setRunningReactivation(false)
     }
   }
 
-  const filtered = contacts.filter(c => {
-    const q = search.toLowerCase()
-    return (
-      c.name?.toLowerCase().includes(q) ||
-      c.phone.includes(q) ||
-      c.address?.toLowerCase().includes(q)
-    )
-  })
+  const statusPills: Record<string, { label: string; class: string; icon: any }> = {
+    active: { label: 'Active', class: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle },
+    due: { label: 'Service Due', class: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: Clock },
+    overdue: { label: 'Overdue', class: 'bg-red-500/10 text-red-400 border-red-500/20', icon: AlertCircle },
+    inactive: { label: 'Inactive', class: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20', icon: HelpCircle }
+  }
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
             <Users className="h-6 w-6 text-blue-500" />
-            Customer Directory
+            Customer Database & Intelligence
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            All homeowners and contacts captured from calls and web enquiries.
+          <p className="text-zinc-400 text-sm mt-1">
+            Complete central source of truth for customer history, dynamic interaction timelines, and lifetime value.
           </p>
         </div>
-
-        <div className="w-full sm:w-64">
-          <Input
-            placeholder="Search by name, phone, address..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="h-10 bg-zinc-900 border-zinc-800 text-xs rounded-xl text-white placeholder:text-zinc-400"
-          />
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleRunReactivation}
+            disabled={runningReactivation}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+          >
+            {runningReactivation ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+            Run Reactivations
+          </Button>
         </div>
       </div>
 
-      {/* Contacts List / Table */}
-      <div className="rounded-2xl border border-zinc-800/80 bg-[#0D1322] overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-950/70 border-b border-zinc-800/80 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-              <tr>
-                <th className="py-3.5 px-4">Customer</th>
-                <th className="py-3.5 px-4">Contact Info</th>
-                <th className="py-3.5 px-4">Location</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Quick Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/40">
-              {filtered.length === 0 ? (
+      {/* 4 Summary Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
+          <div className="text-zinc-400 text-xs font-medium">Total Customers</div>
+          <div className="mt-2 text-2xl font-bold text-white">
+            {loading ? '-' : counts.total}
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1">Verified contacts</p>
+        </div>
+
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
+          <div className="text-zinc-400 text-xs font-medium">Active Customers</div>
+          <div className="mt-2 text-2xl font-bold text-emerald-400">
+            {loading ? '-' : counts.active}
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1">Recent service completed</p>
+        </div>
+
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
+          <div className="text-zinc-400 text-xs font-medium">Services Due / Overdue</div>
+          <div className="mt-2 text-2xl font-bold text-amber-400">
+            {loading ? '-' : counts.due + counts.overdue}
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1">Eligible for reactivation</p>
+        </div>
+
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
+          <div className="text-zinc-400 text-xs font-medium">Total Lifetime Value</div>
+          <div className="mt-2 text-2xl font-bold text-white">
+            {loading ? '-' : `$${counts.totalLtv.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1">Verified payments collected</p>
+        </div>
+      </div>
+
+      {/* Filter Tabs, Search & Sort */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 text-xs overflow-x-auto">
+          {(['all', 'active', 'due', 'overdue', 'inactive'] as const).map(st => (
+            <button
+              key={st}
+              onClick={() => setFilterStatus(st)}
+              className={`px-3 py-1.5 rounded-lg capitalize font-medium transition-colors ${
+                filterStatus === st ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+            <Input
+              placeholder="Search name, phone, email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 bg-zinc-900 border-zinc-800 text-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-400">
+            <ArrowUpDown className="h-3.5 w-3.5 text-zinc-500" />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              className="bg-transparent text-zinc-200 focus:outline-none cursor-pointer"
+            >
+              <option value="last_activity" className="bg-zinc-900 text-white">Recent Activity</option>
+              <option value="ltv" className="bg-zinc-900 text-white">Lifetime Value</option>
+              <option value="last_service" className="bg-zinc-900 text-white">Last Service</option>
+              <option value="name" className="bg-zinc-900 text-white">Name</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Customers Table */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-zinc-500 text-sm">Loading customer directory...</div>
+        ) : customers.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500 text-sm">
+            No customers match the current filter.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-950/60 text-zinc-400 uppercase tracking-wider text-[10px]">
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-zinc-400">
-                    {loading ? 'Loading contacts...' : 'No customers captured yet.'}
-                  </td>
+                  <th className="px-5 py-3 font-semibold">Customer</th>
+                  <th className="px-4 py-3 font-semibold">Lifecycle Status</th>
+                  <th className="px-4 py-3 font-semibold">Last Service</th>
+                  <th className="px-4 py-3 font-semibold">Lifetime Value</th>
+                  <th className="px-4 py-3 font-semibold">Last Activity</th>
+                  <th className="px-4 py-3 font-semibold text-right">Profile</th>
                 </tr>
-              ) : (
-                filtered.map(contact => (
-                  <tr key={contact.id} className="hover:bg-zinc-900/40 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-sm text-white">
-                        {contact.name || 'Unsaved Contact'}
-                      </div>
-                      <span className="text-[10px] text-zinc-400">
-                        Added {new Date(contact.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                    </td>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {customers.map(contact => {
+                  const statusInfo = statusPills[contact.lifecycle_status || 'active'] || statusPills.active
+                  const StatusIcon = statusInfo.icon
 
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-zinc-200">{contact.phone}</div>
-                      {contact.email && (
-                        <div className="text-zinc-400 text-[11px]">{contact.email}</div>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-zinc-300">
-                      {contact.address ? (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-zinc-400 shrink-0" />
-                          <span className="truncate max-w-[200px]">{contact.address}</span>
+                  return (
+                    <tr
+                      key={contact.id}
+                      onClick={() => window.location.href = `/client/customers/${contact.id}`}
+                      className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="font-semibold text-white group-hover:text-blue-400 transition-colors">
+                          {contact.name || 'Valued Customer'}
+                        </div>
+                        <div className="text-zinc-500 text-[11px]">{contact.phone}</div>
+                        {contact.tags && contact.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {contact.tags.slice(0, 3).map((t: string) => (
+                              <span key={t} className="text-[10px] bg-zinc-800/80 text-zinc-400 px-1.5 py-0.2 rounded">
+                                {t}
+                              </span>
+                            ))}
+                            {contact.tags.length > 3 && (
+                              <span className="text-[10px] text-zinc-600">+{contact.tags.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${statusInfo.class}`}>
+                          <StatusIcon className="h-3 w-3" />
+                          {statusInfo.label}
                         </span>
-                      ) : (
-                        <span className="text-zinc-400">—</span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      {contact.opt_out ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 border border-red-500/20">
-                          <ShieldAlert className="h-3 w-3" /> Opted Out (STOP)
+                      </td>
+                      <td className="px-4 py-3 text-zinc-300">
+                        {contact.last_service_date ? (
+                          <div>
+                            <div>{new Date(contact.last_service_date).toLocaleDateString()}</div>
+                            <div className="text-[10px] text-zinc-500">Every {contact.service_frequency_days || 90}d</div>
+                          </div>
+                        ) : (
+                          <span className="text-zinc-600">No jobs yet</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-emerald-400">
+                        $${Number(contact.lifetime_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-zinc-400">
+                        {contact.last_activity ? new Date(contact.last_activity).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all inline-flex items-center gap-0.5">
+                          360 View <ChevronRight className="h-3.5 w-3.5" />
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-                          <ShieldCheck className="h-3 w-3" /> Subscribed
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="inline-flex items-center gap-1.5">
-                        <a
-                          href={`tel:${contact.phone}`}
-                          className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
-                          title="Call phone"
-                        >
-                          <PhoneCall className="h-3.5 w-3.5 text-blue-400" />
-                        </a>
-                        <Link
-                          href="/client/inbox"
-                          className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
-                          title="Open 2-way chat"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-                        </Link>
-                        <button
-                          onClick={() => sendReviewQuick(contact)}
-                          className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition-colors"
-                          title="Send 5-Star Review Invite"
-                        >
-                          <Star className="h-3.5 w-3.5 fill-amber-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-
     </div>
   )
 }

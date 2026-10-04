@@ -1,43 +1,88 @@
-import { SupabaseClient } from '@supabase/supabase-js'
-import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
-import { isWithinBusinessHours, isShortCall } from './safety-rules'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { sendTelnyxSms } from '../telnyx.ts'
+import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
+import { resolveOrganizationByPhoneNumber } from '../telephony/telnyx-numbers.ts'
+import { evaluateSuppression } from '../telephony/suppression-rules.ts'
+import { resolveMissedCallTemplate } from '../telephony/template-engine.ts'
+import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
 
-interface InboundCallPayload {
+export interface InboundCallContext {
   callerNumber: string
   calledNumber: string
-  callStatus: string
-  durationSeconds?: number
-  telnyxCallId?: string
+  callOutcome: CallEvaluationResult
+  callControlId?: string
+  callLegId?: string
+  callSessionId?: string
 }
 
+export interface ProcessCallResult {
+  success: boolean
+  action: string
+  error?: string
+  suppressionReason?: string
+  messageId?: string
+  orgId?: string
+  callId?: string
+}
+
+/**
+ * Production-grade missed call processor.
+ * Orchestrates tenant number resolution, contact management, suppression checks,
+ * dynamic SMS templating, and full event logging.
+ */
 export async function processMissedCall(
   supabase: SupabaseClient,
-  call: InboundCallPayload
-): Promise<{ success: boolean; action: string; error?: string }> {
-  const formattedCalled = toE164(call.calledNumber)
-  const formattedCaller = toE164(call.callerNumber)
+  call: InboundCallContext
+): Promise<ProcessCallResult> {
+  const normCalled = normalizePhoneToE164(call.calledNumber)
+  const normCaller = normalizePhoneToE164(call.callerNumber)
 
-  // 1. Locate organization by Telnyx phone number
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('*')
-    .eq('telnyx_phone_number', formattedCalled)
-    .single()
-
-  if (!org) {
-    return { success: false, action: 'org_not_found', error: `No organization registered with number ${formattedCalled}` }
+  if (!normCalled.isValid || !normCalled.e164) {
+    return { success: false, action: 'invalid_called_number', error: `Called number invalid: ${normCalled.error}` }
   }
 
-  if (!org.is_missed_call_active) {
-    return { success: true, action: 'service_disabled' }
+  if (!normCaller.isValid || !normCaller.e164) {
+    return { success: false, action: 'invalid_caller_number', error: `Caller number invalid: ${normCaller.error}` }
   }
 
-  // 2. Short call filter (< 3s misdial)
-  if (isShortCall(call.durationSeconds || 0)) {
-    return { success: true, action: 'suppressed_short_call' }
+  const formattedCalled = normCalled.e164
+  const formattedCaller = normCaller.e164
+
+  // 1. Resolve tenant organization by the dialed Telnyx number
+  const tenantResolution = await resolveOrganizationByPhoneNumber(supabase, formattedCalled)
+  if (!tenantResolution || !tenantResolution.org) {
+    return {
+      success: false,
+      action: 'org_not_found',
+      error: `No registered tenant found for Telnyx number ${formattedCalled}`
+    }
   }
 
-  // 3. Find or create Contact
+  const org = tenantResolution.org
+
+  // 2. Answered Call Protection: Answered calls must NEVER trigger recovery SMS
+  if (call.callOutcome.wasAnswered || !call.callOutcome.isEligibleForRecovery) {
+    // Record telemetry for analytics without sending SMS
+    await supabase.from('calls').insert({
+      org_id: org.id,
+      caller_number: formattedCaller,
+      called_number: formattedCalled,
+      status: call.callOutcome.state,
+      duration_seconds: call.callOutcome.durationSeconds,
+      telnyx_call_control_id: call.callControlId,
+      call_session_id: call.callSessionId,
+      call_leg_id: call.callLegId,
+      hangup_cause: call.callOutcome.hangupCause,
+      auto_reply_sent: false
+    })
+    return {
+      success: true,
+      action: 'call_answered_logged',
+      orgId: org.id
+    }
+  }
+
+  // 3. Locate or create Contact
   let { data: contact } = await supabase
     .from('contacts')
     .select('id, opt_out, name')
@@ -46,7 +91,7 @@ export async function processMissedCall(
     .maybeSingle()
 
   if (!contact) {
-    const { data: newContact } = await supabase
+    const { data: newContact, error: contactInsertError } = await supabase
       .from('contacts')
       .insert({
         org_id: org.id,
@@ -55,62 +100,82 @@ export async function processMissedCall(
       })
       .select('id, opt_out, name')
       .single()
+
+    if (contactInsertError) {
+      console.error('[CONTACT INSERT ERROR]', contactInsertError)
+    }
     contact = newContact
   }
 
-  // 4. TCPA opt-out check
-  if (contact?.opt_out) {
-    return { success: true, action: 'suppressed_opted_out' }
-  }
+  // 4. Evaluate Suppression Rules
+  const suppression = await evaluateSuppression({
+    supabase,
+    orgId: org.id,
+    callerNumber: formattedCaller,
+    calledNumber: formattedCalled,
+    contactOptOut: Boolean(contact?.opt_out),
+    durationSeconds: call.callOutcome.durationSeconds,
+    isMissedCallActive: Boolean(org.is_missed_call_active),
+    cooldownHours: org.cooldown_hours || 24,
+    timezone: org.timezone || 'America/Chicago'
+  })
 
-  // 5. 24-hour Cooldown Check
-  const cooldownCutoff = new Date(Date.now() - (org.cooldown_hours || 24) * 60 * 60 * 1000)
-  const { data: recentSent } = await supabase
-    .from('calls')
-    .select('id')
-    .eq('org_id', org.id)
-    .eq('caller_number', formattedCaller)
-    .eq('auto_reply_sent', true)
-    .gte('created_at', cooldownCutoff.toISOString())
-    .limit(1)
-
-  if (recentSent && recentSent.length > 0) {
+  if (!suppression.shouldSend) {
+    // Log suppressed call to database
     await supabase.from('calls').insert({
       org_id: org.id,
       contact_id: contact?.id,
       caller_number: formattedCaller,
       called_number: formattedCalled,
-      status: 'missed',
+      status: call.callOutcome.state,
+      duration_seconds: call.callOutcome.durationSeconds,
+      telnyx_call_control_id: call.callControlId,
+      call_session_id: call.callSessionId,
+      call_leg_id: call.callLegId,
+      hangup_cause: call.callOutcome.hangupCause,
       auto_reply_sent: false,
-      suppression_reason: 'cooldown_active'
+      suppression_reason: suppression.suppressionReason
     })
-    return { success: true, action: 'suppressed_cooldown' }
+
+    return {
+      success: true,
+      action: `suppressed_${suppression.suppressionReason}`,
+      suppressionReason: suppression.suppressionReason,
+      orgId: org.id
+    }
   }
 
-  // 6. Determine template (Open vs After-Hours)
-  const isOpen = isWithinBusinessHours(org.business_hours, org.timezone)
-  const template = isOpen ? org.auto_reply_template : org.after_hours_template
-  const smsBody = template.replace('{business_name}', org.name)
+  // 5. Select & Render Missed-Call SMS Template
+  const { templateType, renderedText } = resolveMissedCallTemplate(
+    org,
+    call.callOutcome,
+    contact?.name,
+    formattedCalled
+  )
 
-  // 7. Dispatch SMS via Telnyx
+  // 6. Dispatch SMS via Telnyx (using tenant's dedicated phone number)
   const smsResult = await sendTelnyxSms({
     to: formattedCaller,
     from: formattedCalled,
-    text: smsBody
+    text: renderedText
   })
 
-  // 8. Record Call, Lead, and Conversation in database
+  // 7. Record Call
   await supabase.from('calls').insert({
     org_id: org.id,
     contact_id: contact?.id,
     caller_number: formattedCaller,
     called_number: formattedCalled,
-    status: 'missed',
-    duration_seconds: call.durationSeconds || 0,
-    telnyx_call_control_id: call.telnyxCallId,
+    status: call.callOutcome.state,
+    duration_seconds: call.callOutcome.durationSeconds,
+    telnyx_call_control_id: call.callControlId,
+    call_session_id: call.callSessionId,
+    call_leg_id: call.callLegId,
+    hangup_cause: call.callOutcome.hangupCause,
     auto_reply_sent: smsResult.success
   })
 
+  // 8. Create Lead
   await supabase.from('leads').insert({
     org_id: org.id,
     contact_id: contact?.id,
@@ -118,7 +183,7 @@ export async function processMissedCall(
     status: 'new'
   })
 
-  // Ensure conversation exists and log message
+  // 9. Ensure Conversation exists and log outbound recovery message
   let { data: conversation } = await supabase
     .from('conversations')
     .select('id')
@@ -132,7 +197,7 @@ export async function processMissedCall(
       .insert({
         org_id: org.id,
         contact_id: contact?.id,
-        last_message_preview: smsBody
+        last_message_preview: renderedText
       })
       .select('id')
       .single()
@@ -145,11 +210,18 @@ export async function processMissedCall(
       conversation_id: conversation.id,
       direction: 'outbound',
       sender_type: 'system',
-      body: smsBody,
+      body: renderedText,
       delivery_status: smsResult.success ? 'sent' : 'failed',
-      telnyx_message_id: smsResult.messageId
+      telnyx_message_id: smsResult.messageId,
+      automation_source: 'missed_call_recovery',
+      failure_reason: smsResult.error || null
     })
   }
 
-  return { success: true, action: 'auto_reply_sent' }
+  return {
+    success: true,
+    action: 'auto_reply_sent',
+    messageId: smsResult.messageId,
+    orgId: org.id
+  }
 }

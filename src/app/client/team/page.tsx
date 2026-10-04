@@ -18,7 +18,7 @@ export default function TeamPage() {
   const [members, setMembers] = useState<any[]>([])
   const [open, setOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<'client_admin' | 'client_member'>('client_member')
+  const [inviteRole, setInviteRole] = useState<'client_admin' | 'dispatcher'>('dispatcher')
   const [inviting, setInviting] = useState(false)
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function TeamPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="client_admin">Client Admin — Full access</SelectItem>
-                    <SelectItem value="client_member">Client Member — View only</SelectItem>
+                    <SelectItem value="dispatcher">Dispatcher — Calls &amp; Inbox</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

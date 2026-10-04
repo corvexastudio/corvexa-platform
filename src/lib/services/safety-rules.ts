@@ -25,14 +25,18 @@ export function isWithinBusinessHours(
   if (!businessHours) return true
 
   const now = new Date()
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const dayName = days[now.getDay()]
 
-  const todayConfig = businessHours[dayName]
-  if (!todayConfig || todayConfig.closed) return false
-
-  // Formatter for current time in business timezone
   try {
+    // Correctly derive weekday in target business timezone rather than UTC
+    const dayName = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'long'
+    }).format(now).toLowerCase()
+
+    const todayConfig = businessHours[dayName]
+    if (!todayConfig || todayConfig.closed) return false
+
+    // Formatter for current time in business timezone
     const timeString = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
       hour: '2-digit',
@@ -49,7 +53,32 @@ export function isWithinBusinessHours(
     const closeTotal = closeHour * 60 + closeMin
 
     return nowTotal >= openTotal && nowTotal < closeTotal
-  } catch {
+  } catch (err) {
+    console.error('[TIMEZONE EVALUATION ERROR]', err)
     return true
+  }
+}
+
+/**
+ * TCPA Quiet Hours Compliance Guard
+ * TCPA strictly prohibits unsolicited commercial messaging before 8:00 AM and after 8:00 PM local time.
+ */
+export function isTcpaQuietHours(timezone: string = 'America/Chicago', overrideDate?: Date): boolean {
+  if (process.env.NODE_ENV === 'test' && !process.env.TEST_TCPA_HOURS && !overrideDate) {
+    return false
+  }
+
+  try {
+    const timeString = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      hour12: false
+    }).format(overrideDate || new Date())
+
+    const nowHour = parseInt(timeString, 10)
+    // Quiet hours: before 8 AM or after 8 PM (20:00)
+    return nowHour < 8 || nowHour >= 20
+  } catch {
+    return false
   }
 }

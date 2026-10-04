@@ -2,250 +2,269 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { 
   Building2, 
-  PhoneCall, 
-  Eye, 
-  Plus, 
+  Search, 
+  RefreshCw, 
   CheckCircle2, 
-  AlertCircle, 
-  Search,
+  AlertTriangle, 
+  ShieldCheck, 
+  Power, 
   ExternalLink,
-  ShieldCheck,
-  Power
+  PhoneCall,
+  Terminal,
+  Filter
 } from 'lucide-react'
 import { toast } from 'sonner'
-import Link from 'next/link'
+import { TenantHealthSummary } from '@/lib/admin/admin-service'
 
 export default function AdminOrganizationsPage() {
-  const supabase = createClient()
-  const [orgs, setOrgs] = useState<any[]>([])
+  const [tenants, setTenants] = useState<TenantHealthSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newBizName, setNewBizName] = useState('')
-  const [newOwnerPhone, setNewOwnerPhone] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
-  const fetchOrgs = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('created_at', { ascending: false })
+  const fetchTenants = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.set('query', search)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
 
-    if (data) setOrgs(data)
-    setLoading(false)
-  }, [supabase])
-
-  useEffect(() => { fetchOrgs() }, [fetchOrgs])
-
-  const toggleEngine = async (orgId: string, currentActive: boolean) => {
-    const updated = !currentActive
-    const { error } = await supabase
-      .from('organizations')
-      .update({ is_missed_call_active: updated })
-      .eq('id', orgId)
-
-    if (error) {
-      toast.error('Failed to update status.')
-    } else {
-      setOrgs(orgs.map(o => o.id === orgId ? { ...o, is_missed_call_active: updated } : o))
-      toast.success(`Missed-Call Engine ${updated ? 'Activated' : 'Paused'}.`)
+      const res = await fetch(`/api/admin/tenants?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTenants(data.tenants || [])
+      } else {
+        toast.error('Failed to load tenants')
+      }
+    } catch {
+      toast.error('Network error loading tenants')
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [search, statusFilter])
 
-  const handleCreateOrg = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newBizName.trim()) return
-    setCreating(true)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTenants()
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [fetchTenants])
 
-    const baseSlug = newBizName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`
-
-    const { data, error } = await supabase
-      .from('organizations')
-      .insert({
-        name: newBizName.trim(),
-        slug: uniqueSlug,
-        owner_phone: newOwnerPhone.trim() || null,
-        telnyx_phone_number: process.env.NEXT_PUBLIC_TELNYX_PHONE_NUMBER || '+16823808060',
-        is_missed_call_active: true,
-        is_review_engine_active: true,
-        subscription_status: 'active'
+  const handleStatusChange = async (orgId: string, newStatus: string) => {
+    setUpdatingId(orgId)
+    try {
+      const res = await fetch('/api/admin/organizations/toggle-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_id: orgId, status: newStatus })
       })
-      .select()
-      .single()
 
-    setCreating(false)
-    if (error) {
-      toast.error(error.message || 'Failed to create organization.')
-    } else {
-      toast.success(`Created tenant: ${newBizName}!`)
-      setNewBizName('')
-      setNewOwnerPhone('')
-      setShowAddModal(false)
-      fetchOrgs()
+      if (res.ok) {
+        toast.success(`Subscription status updated to ${newStatus}`)
+        setTenants(tenants.map(t => t.id === orgId ? { ...t, subscriptionStatus: newStatus as any } : t))
+      } else {
+        const err = await res.json()
+        toast.error(err.error || 'Failed to update status')
+      }
+    } catch {
+      toast.error('Network error updating status')
+    } finally {
+      setUpdatingId(null)
     }
   }
-
-  const filtered = orgs.filter(o => 
-    o.name?.toLowerCase().includes(search.toLowerCase()) ||
-    o.telnyx_phone_number?.includes(search) ||
-    o.owner_phone?.includes(search)
-  )
 
   return (
-    <div className="space-y-6">
-      {/* Header with Title & Add Tenant Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800/80 pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Client Tenants &amp; Organizations
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+            Tenant Health & Organizations
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Manage small business client accounts, forwarding phone lines, and automation states.
+            Real-time multi-tenant health grades, message delivery integrity, and subscription lifecycles.
           </p>
         </div>
 
-        <Button 
-          onClick={() => setShowAddModal(true)} 
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-9 px-3.5 gap-2 shadow-lg shadow-blue-600/20"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Provision New Tenant</span>
-        </Button>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
-        <Input
-          placeholder="Search by business name or phone..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-9 h-10 bg-[#0A0E18] border-zinc-800 text-zinc-200 text-xs placeholder:text-zinc-500"
-        />
-      </div>
-
-      {/* Modal: Quick Provision Tenant */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-[#0A0E18] border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h3 className="text-base font-bold text-white">Provision New Client Tenant</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-zinc-500 hover:text-white text-xs">✕</button>
-            </div>
-            <form onSubmit={handleCreateOrg} className="space-y-4">
-              <div>
-                <label className="text-xs text-zinc-400 font-medium block mb-1">Business Name</label>
-                <Input
-                  placeholder="e.g. Mike's Premium Roofing"
-                  value={newBizName}
-                  onChange={e => setNewBizName(e.target.value)}
-                  className="bg-zinc-900 border-zinc-800 text-white text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 font-medium block mb-1">Contractor Cell Phone (Optional)</label>
-                <Input
-                  placeholder="e.g. (512) 555-0199"
-                  value={newOwnerPhone}
-                  onChange={e => setNewOwnerPhone(e.target.value)}
-                  className="bg-zinc-900 border-zinc-800 text-white text-sm"
-                />
-              </div>
-              <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-400">
-                Will be assigned active Telnyx number and default $99/mo rate.
-              </div>
-              <div className="flex gap-2 justify-end pt-2">
-                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} className="border-zinc-700 text-zinc-400 text-xs">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={creating} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">
-                  {creating ? "Provisioning..." : "Create Tenant"}
-                </Button>
-              </div>
-            </form>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchTenants}
+            disabled={loading}
+            className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+            title="Refresh Tenants"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Search & Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-900/60 border border-zinc-800 p-3 rounded-2xl">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <input
+            type="text"
+            placeholder="Search by name, slug, phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition-colors"
+          />
+        </div>
+
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto p-1 bg-zinc-950 rounded-xl border border-zinc-800">
+          {['all', 'active', 'trial', 'suspended', 'churned'].map((st) => (
+            <button
+              key={st}
+              onClick={() => setStatusFilter(st)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${
+                statusFilter === st
+                  ? 'bg-amber-500 text-black shadow-sm'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Tenants Table */}
-      <Card className="bg-[#0A0E18] border-zinc-800/80">
-        <CardHeader className="pb-3 border-b border-zinc-800/60">
-          <CardTitle className="text-base text-white font-bold">All Registered Contractors</CardTitle>
-          <CardDescription className="text-xs text-zinc-400">Total {filtered.length} client organizations</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filtered.length === 0 ? (
-            <div className="py-16 text-center text-zinc-500 text-sm">
-              <Building2 className="h-8 w-8 mx-auto mb-2 text-zinc-600" />
-              <p>No client organizations found.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-zinc-400 text-left bg-zinc-950/40">
-                    <th className="py-3 px-4 font-semibold">Contractor Business</th>
-                    <th className="py-3 px-4 font-semibold">Telnyx Forwarding #</th>
-                    <th className="py-3 px-4 font-semibold">Owner Mobile</th>
-                    <th className="py-3 px-4 font-semibold">Subscription</th>
-                    <th className="py-3 px-4 font-semibold text-center">Missed Call Engine</th>
-                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 overflow-hidden shadow-xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-zinc-950/80 text-zinc-400 uppercase tracking-wider font-mono text-[10px] border-b border-zinc-800">
+              <tr>
+                <th className="py-3.5 px-4">Organization</th>
+                <th className="py-3.5 px-4">Health Grade</th>
+                <th className="py-3.5 px-4">Subscription</th>
+                <th className="py-3.5 px-4">Last Activity</th>
+                <th className="py-3.5 px-4">Messaging Failures</th>
+                <th className="py-3.5 px-4">Automation / Webhooks</th>
+                <th className="py-3.5 px-4">Telnyx Config</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/80 text-zinc-300">
+              {tenants.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-zinc-500">
+                    No tenant organizations match the current filters.
+                  </td>
+                </tr>
+              ) : (
+                tenants.map((t) => (
+                  <tr key={t.id} className="hover:bg-zinc-800/30 transition-colors">
+                    {/* Name & Slug */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-white">{t.name}</div>
+                      <div className="text-[11px] text-zinc-400">/{t.slug} • ${t.monthlyRate}/mo</div>
+                    </td>
+
+                    {/* Health Grade */}
+                    <td className="py-3.5 px-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                        t.healthGrade === 'healthy'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                          : t.healthGrade === 'warning'
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                          : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          t.healthGrade === 'healthy' ? 'bg-emerald-400' : t.healthGrade === 'warning' ? 'bg-amber-400' : 'bg-rose-400'
+                        }`} />
+                        {t.healthGrade}
+                      </span>
+                    </td>
+
+                    {/* Subscription Status Selector */}
+                    <td className="py-3.5 px-4">
+                      <select
+                        value={t.subscriptionStatus}
+                        disabled={updatingId === t.id}
+                        onChange={(e) => handleStatusChange(t.id, e.target.value)}
+                        className={`text-xs font-semibold rounded-lg px-2.5 py-1 bg-zinc-950 border border-zinc-800 focus:outline-none focus:border-amber-500 transition-colors capitalize ${
+                          t.subscriptionStatus === 'active' ? 'text-emerald-400' :
+                          t.subscriptionStatus === 'trial' ? 'text-blue-400' :
+                          t.subscriptionStatus === 'suspended' ? 'text-amber-400' : 'text-zinc-400'
+                        }`}
+                      >
+                        <option value="active">Active</option>
+                        <option value="trial">Trial</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="churned">Churned</option>
+                      </select>
+                    </td>
+
+                    {/* Last Activity */}
+                    <td className="py-3.5 px-4 text-zinc-400">
+                      {t.lastActivity ? (
+                        <div>
+                          <p className="text-zinc-200">{new Date(t.lastActivity).toLocaleDateString()}</p>
+                          <p className="text-[10px] text-zinc-400">{new Date(t.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      ) : (
+                        <span className="text-zinc-400 italic">No activity</span>
+                      )}
+                    </td>
+
+                    {/* Messaging Failures */}
+                    <td className="py-3.5 px-4">
+                      <span className="text-zinc-200 font-medium">{t.messagesCount} sent</span>
+                      {t.failedMessagesCount > 0 ? (
+                        <span className="text-rose-400 font-bold ml-1.5">({t.failedMessagesCount} failed)</span>
+                      ) : (
+                        <span className="text-emerald-400/80 text-[10px] ml-1.5 font-bold">100% OK</span>
+                      )}
+                    </td>
+
+                    {/* Automation / Webhooks */}
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-0.5">
+                        <span className={t.automationFailuresCount > 0 ? 'text-rose-400 font-bold' : 'text-zinc-400'}>
+                          {t.automationFailuresCount} auto failures
+                        </span>
+                        {t.webhookFailuresCount > 0 && (
+                          <p className="text-purple-400 font-semibold">{t.webhookFailuresCount} webhook errors</p>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Telnyx Config */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-mono text-[11px] text-zinc-300">
+                        {t.telnyxNumber || 'Not Configured'}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">
+                        {t.isMissedCallActive ? (
+                          <span className="text-emerald-400">Safety Net Active</span>
+                        ) : (
+                          <span className="text-zinc-400">Engine Paused</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3.5 px-4 text-right">
+                      <Link
+                        href={`/admin/events?orgId=${t.id}`}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 rounded-lg border border-amber-500/20 transition-colors"
+                      >
+                        <Terminal className="h-3 w-3" />
+                        <span>Inspect</span>
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60 text-zinc-300">
-                  {filtered.map(org => (
-                    <tr key={org.id} className="hover:bg-zinc-900/40 transition-colors">
-                      <td className="py-3 px-4">
-                        <p className="font-bold text-white text-sm">{org.name}</p>
-                        <p className="text-[11px] text-zinc-500 font-mono">slug: {org.slug}</p>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-zinc-200">
-                        {org.telnyx_phone_number || <span className="text-zinc-600 italic">Not set</span>}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-zinc-400">
-                        {org.owner_phone || <span className="text-zinc-600 italic">—</span>}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className="border-blue-500/30 text-blue-400 bg-blue-500/10 text-[10px] capitalize">
-                          {org.subscription_status || 'active'} (${org.monthly_rate || 99}/mo)
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleEngine(org.id, org.is_missed_call_active)}
-                          className={org.is_missed_call_active ? "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 h-7 text-xs gap-1.5" : "text-zinc-500 hover:text-zinc-400 h-7 text-xs gap-1.5"}
-                        >
-                          <Power className="h-3 w-3" />
-                          <span>{org.is_missed_call_active ? "Active" : "Paused"}</span>
-                        </Button>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Link href="/client/dashboard">
-                          <Button size="sm" variant="outline" className="h-7 text-xs border-zinc-700 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 gap-1.5">
-                            <Eye className="h-3 w-3 text-blue-400" />
-                            <span>View Portal</span>
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
