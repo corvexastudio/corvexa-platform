@@ -169,8 +169,15 @@ export default function InboxPage() {
 
         <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/40">
           {filtered.length === 0 ? (
-            <div className="p-8 text-center text-xs text-zinc-400">
-              {loading ? 'Loading conversations...' : 'No conversations yet.'}
+            <div className="p-6 text-center text-xs text-zinc-400 space-y-2">
+              <p className="font-semibold text-zinc-300">
+                {loading ? 'Loading conversations...' : 'No conversations yet'}
+              </p>
+              {!loading && (
+                <p className="text-[11px] text-zinc-500 leading-relaxed">
+                  When a caller reaches your line and misses you, CaptoDesk sends an immediate text. Customer replies will appear here.
+                </p>
+              )}
             </div>
           ) : (
             filtered.map(conv => (
@@ -246,9 +253,13 @@ export default function InboxPage() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-400">
-            <MessageSquare className="h-12 w-12 text-zinc-700 mb-3" />
-            <h3 className="text-sm font-semibold text-white">Select a conversation</h3>
-            <p className="text-xs text-zinc-400 mt-1 max-w-sm">All 2-way SMS conversations recovered from missed calls appear here in real time.</p>
+            <div className="h-14 w-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4 text-zinc-400 shadow-inner">
+              <MessageSquare className="h-7 w-7 text-zinc-300" />
+            </div>
+            <h3 className="text-base font-bold text-white">Select a Conversation</h3>
+            <p className="text-xs text-zinc-400 mt-1 max-w-sm leading-relaxed">
+              When a caller misses you on your business line, CaptoDesk auto-replies within seconds. Homeowner replies and active SMS chats will open here.
+            </p>
           </div>
         )}
       </div>

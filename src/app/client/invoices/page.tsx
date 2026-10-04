@@ -22,6 +22,7 @@ import {
   Loader2,
   Trash2
 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface InvoiceItem {
   id?: string
@@ -379,19 +380,18 @@ export default function ClientInvoicesPage() {
           <p className="text-sm">Loading invoices...</p>
         </div>
       ) : filteredInvoices.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-800">
-          <FileText className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-700 dark:text-slate-300 mb-1">No invoices found</h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto mb-4">
-            Create an invoice to collect payments via credit card, Apple Pay, or Google Pay.
-          </p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
-          >
-            Create First Invoice
-          </button>
-        </div>
+        <EmptyState
+          icon={CreditCard}
+          title={searchQuery ? 'No Matching Invoices Found' : 'No Invoices Created Yet'}
+          description={
+            searchQuery
+              ? `No invoices match "${searchQuery}". Try searching by customer name, phone number, or invoice number.`
+              : 'Send SMS invoices with 1-click Apple Pay, Google Pay, and credit card checkout so homeowners pay you immediately upon job completion.'
+          }
+          actionLabel={searchQuery ? 'Clear Search' : 'Create First Invoice'}
+          onAction={searchQuery ? () => setSearchQuery('') : () => setShowCreateModal(true)}
+          tip="Homeowners can tap the SMS link and pay instantly with Apple Pay, Google Pay, or card."
+        />
       ) : (
         <div className="space-y-3">
           {filteredInvoices.map((inv) => {

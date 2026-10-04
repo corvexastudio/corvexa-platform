@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface LeadItem {
   id: string
@@ -137,7 +138,23 @@ export default function LeadsPage() {
       </div>
 
       {/* Kanban Board Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={Target}
+          title={search ? 'No Matching Leads Found' : 'No Inbound Leads Yet'}
+          description={
+            search
+              ? `No leads match "${search}". Try searching by a different name, phone number, or clear your search.`
+              : 'Every missed call and online booking request is automatically captured as an actionable lead with homeowner contact details ready for follow-up.'
+          }
+          actionLabel={search ? 'Clear Search' : 'View Inbox'}
+          onAction={search ? () => setSearch('') : () => window.location.href = '/client/inbox'}
+          secondaryActionLabel="Open Calendar"
+          onSecondaryAction={() => window.location.href = '/client/calendar'}
+          tip="When you miss a call on your business line, CaptoDesk creates a New Lead and texts the caller immediately."
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {STAGES.map(stage => {
           const stageLeads = filtered.filter(l => l.status === stage.key)
 
@@ -265,6 +282,7 @@ export default function LeadsPage() {
           )
         })}
       </div>
+      )}
 
     </div>
   )

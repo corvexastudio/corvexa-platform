@@ -17,7 +17,9 @@ import {
   MessageSquare,
   AlertCircle
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface JobItem {
   id: string
@@ -44,6 +46,7 @@ interface JobItem {
 }
 
 export default function JobsPage() {
+  const router = useRouter()
   const [jobs, setJobs] = useState<JobItem[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'today' | 'active' | 'completed' | 'all'>('today')
@@ -193,13 +196,17 @@ export default function JobsPage() {
             <p className="text-xs text-zinc-400 mt-2">Loading jobs...</p>
           </div>
         ) : filteredJobs.length === 0 ? (
-          <div className="py-16 text-center text-zinc-400 space-y-3">
-            <Briefcase className="h-12 w-12 text-zinc-700 mx-auto" />
-            <h3 className="text-sm font-semibold text-white">No jobs found in this view</h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-              When appointments or accepted quotes are converted to jobs, they will appear here for mobile field execution.
-            </p>
-          </div>
+          <EmptyState
+            icon={Briefcase}
+            title={tab === 'today' ? "No Field Jobs Scheduled For Today" : "No Jobs in this View"}
+            description="Track technician dispatch, update live statuses (En Route, In Progress, Done), and automatically prompt happy customers for reviews when work is finished."
+            actionLabel="View Calendar"
+            onAction={() => router.push('/client/calendar')}
+            secondaryActionLabel="Open Quotes"
+            onSecondaryAction={() => router.push('/client/quotes')}
+            tip="Accepted quotes and online appointments automatically flow into this job queue."
+            compact
+          />
         ) : (
           <div className="space-y-4">
             {filteredJobs.map((job) => {

@@ -3,8 +3,10 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from 'sonner'
 import { 
   Users, 
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react'
 
 export default function CustomersPage() {
+  const router = useRouter()
   const [customers, setCustomers] = useState<any[]>([])
   const [counts, setCounts] = useState({
     total: 0,
@@ -200,8 +203,20 @@ export default function CustomersPage() {
         {loading ? (
           <div className="p-8 text-center text-zinc-500 text-sm">Loading customer directory...</div>
         ) : customers.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500 text-sm">
-            No customers match the current filter.
+          <div className="p-4 sm:p-6">
+            <EmptyState
+              icon={Users}
+              title={search ? 'No Matching Customers Found' : 'Your Customer Directory is Empty'}
+              description={
+                search
+                  ? `No customer profiles match "${search}". Try searching by a different name or phone number.`
+                  : 'As homeowners call, text, or book services, CaptoDesk builds detailed 360° customer profiles tracking their service history, lifetime revenue, and maintenance schedules.'
+              }
+              actionLabel={search ? 'Clear Search' : 'View Inbox'}
+              onAction={search ? () => setSearch('') : () => router.push('/client/inbox')}
+              tip="CaptoDesk automatically captures new callers and saves their details to this directory."
+              compact
+            />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -224,7 +239,7 @@ export default function CustomersPage() {
                   return (
                     <tr
                       key={contact.id}
-                      onClick={() => window.location.href = `/client/customers/${contact.id}`}
+                      onClick={() => router.push(`/client/customers/${contact.id}`)}
                       className="hover:bg-zinc-800/40 transition-colors cursor-pointer group"
                     >
                       <td className="px-5 py-3">

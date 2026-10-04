@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface AppointmentItem {
   id: string
@@ -519,13 +520,24 @@ export default function CalendarPage() {
         </div>
 
         {filteredAppointments.length === 0 ? (
-          <div className="py-16 text-center text-zinc-400 space-y-3">
-            <CalendarDays className="h-12 w-12 text-zinc-700 mx-auto" />
-            <h3 className="text-sm font-semibold text-white">No appointments in this view</h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-              When leads book estimates or service calls through your online booking page, appointments will appear here.
-            </p>
-          </div>
+          <EmptyState
+            icon={CalendarDays}
+            title={statusFilter === 'all' ? 'No Upcoming Bookings on Calendar' : `No ${statusFilter} Appointments`}
+            description="Homeowners can book service appointments online directly from your public booking page without phone tag, respecting your minimum notice hours and travel buffers."
+            actionLabel={orgSlug ? 'Copy Public Booking Link' : undefined}
+            onAction={
+              orgSlug
+                ? () => {
+                    navigator.clipboard.writeText(`${window.location.origin}/book/${orgSlug}`)
+                    toast.success('Public booking link copied!')
+                  }
+                : undefined
+            }
+            secondaryActionLabel="Adjust Booking Rules"
+            onSecondaryAction={() => setShowSettings(true)}
+            tip="Confirmed bookings automatically flow directly into your daily Jobs dispatch pipeline."
+            compact
+          />
         ) : (
           <div className="space-y-3">
             {filteredAppointments.map(apt => (

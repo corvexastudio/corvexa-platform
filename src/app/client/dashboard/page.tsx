@@ -26,6 +26,7 @@ import {
   FileText
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { EmptyState } from '@/components/ui/empty-state'
 import { 
   AttentionItem, 
   OperationalMetrics, 
@@ -169,15 +170,17 @@ export default function DashboardPage() {
         </div>
 
         {attentionQueue.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center">
-            <div className="h-12 w-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-3">
-              <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-            </div>
-            <h3 className="text-base font-semibold text-white">All caught up!</h3>
-            <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
-              No new leads awaiting initial contact, no unread customer texts, no expiring quotes, and no overdue invoices.
-            </p>
-          </div>
+          <EmptyState
+            icon={CheckCircle2}
+            title="All Caught Up — No Immediate Actions Required"
+            description="CaptoDesk is actively monitoring your incoming calls, estimates, and customer replies. When an unread text, pending quote, or overdue invoice needs your attention, it will appear here."
+            actionLabel="View Calendar"
+            onAction={() => window.location.href = '/client/calendar'}
+            secondaryActionLabel="Open Quotes"
+            onSecondaryAction={() => window.location.href = '/client/quotes'}
+            tip="Homeowners can review estimates and book appointments directly on their phones."
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {attentionQueue.map((item) => (

@@ -20,6 +20,7 @@ import {
   Activity,
   Sparkles
 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface ReviewRequestItem {
   id: string
@@ -340,8 +341,16 @@ export default function ReviewsPage() {
         {loading ? (
           <div className="p-8 text-center text-zinc-500 text-sm">Loading activity logs...</div>
         ) : requests.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500 text-sm">
-            No review requests recorded yet. Mark a job as completed or use the form above to dispatch an invitation.
+          <div className="p-4 sm:p-6">
+            <EmptyState
+              icon={Star}
+              title="No Review Requests Dispatched Yet"
+              description="CaptoDesk automatically texts happy homeowners a link to your Google Business Profile after completed jobs, steadily growing your 5-star reputation."
+              actionLabel="Adjust Review Settings"
+              onAction={() => setShowSettings(true)}
+              tip="When you mark a job as 'Completed' in the Jobs pipeline, CaptoDesk schedules a review request automatically."
+              compact
+            />
           </div>
         ) : (
           <div className="overflow-x-auto">
