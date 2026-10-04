@@ -52,15 +52,33 @@ export async function proxy(request: NextRequest) {
     return res
   }
 
-  // 1. Webhooks & Public APIs & Auth callbacks bypass proxy auth guards
-  if (pathname.startsWith('/api/webhooks') || pathname.includes('/auth/callback')) {
+  // 1. Webhooks, Health Check, & Auth callbacks bypass proxy auth guards
+  if (
+    pathname.startsWith('/api/webhooks') ||
+    pathname.includes('/auth/callback') ||
+    pathname === '/api/health' ||
+    pathname.startsWith('/api/health')
+  ) {
     return finalizeResponse(supabaseResponse)
   }
 
-  // 2. Initialize Supabase SSR
+  // 2. Subdomain Routing: book.<domain> for public booking portal
+  const isBookSubdomain = hostname.startsWith('book.')
+  if (isBookSubdomain) {
+    // If user accesses book.domain.com/manage/:token -> /book/manage/:token
+    if (pathname.startsWith('/manage/')) {
+      return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
+    }
+    // If user accesses book.domain.com/:slug (and not already /book or /api/book)
+    if (!pathname.startsWith('/book') && !pathname.startsWith('/api/book') && pathname !== '/') {
+      return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
+    }
+  }
+
+  // 3. Initialize Supabase SSR
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
@@ -81,7 +99,7 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 3. Admin Routing - SEC-05: Enforce authentication on all admin endpoints
+  // 4. Admin Routing - SEC-05: Enforce authentication on all admin endpoints
   const isAdminPath = hostname.startsWith('admin.') || pathname.startsWith('/admin')
   const isAdminLogin = pathname === '/admin/login' || pathname.startsWith('/admin/login')
 
@@ -100,7 +118,7 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(supabaseResponse)
   }
 
-  // 4. Route normalization: rewrite bare paths (/dashboard -> /client/dashboard)
+  // 5. Route normalization: rewrite bare paths (/dashboard -> /client/dashboard)
   const isBareClientRoute = CLIENT_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
   if (isBareClientRoute) {
     const destination = new URL(`/client${pathname}`, request.url)
@@ -110,7 +128,7 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(NextResponse.rewrite(destination))
   }
 
-  // 5. Root path handling: redirect directly to client portal
+  // 6. Root path handling: redirect directly to client portal
   if (pathname === '/') {
     if (user) {
       return finalizeResponse(NextResponse.redirect(new URL('/client/dashboard', request.url)))
@@ -118,7 +136,7 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(NextResponse.redirect(new URL('/client/login', request.url)))
   }
 
-  // 6. Auth protection for /client/*
+  // 7. Auth protection for /client/*
   const isClientPath = pathname.startsWith('/client')
   const isAuthPage = pathname.startsWith('/client/login') || pathname.startsWith('/client/onboarding')
 
