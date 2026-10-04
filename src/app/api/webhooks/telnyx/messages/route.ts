@@ -78,7 +78,8 @@ export async function POST(request: Request) {
       const { error: insertError } = await supabase.from('processed_events').insert({
         id: eventId,
         provider: 'telnyx',
-        event_type: eventType
+        event_type: eventType,
+        provider_event_id: eventId
       })
 
       if (insertError) {

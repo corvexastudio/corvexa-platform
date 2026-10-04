@@ -81,7 +81,8 @@ export async function POST(request: Request) {
     await supabase.from('processed_events').insert({
       id: event.id,
       provider: 'stripe',
-      event_type: event.type
+      event_type: event.type,
+      provider_event_id: event.id
     })
 
     // 3. Process Authoritative Payment Events

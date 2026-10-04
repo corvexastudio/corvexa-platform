@@ -1020,6 +1020,20 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_snapshots_created ON telemetry_snapshot
 -- 24. PHASE 12: PERFORMANCE + DATABASE SPECIALIST INDEXING
 -- =============================================================================
 
+-- Column and Table guards
+ALTER TABLE processed_events ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'telnyx';
+ALTER TABLE processed_events ADD COLUMN IF NOT EXISTS event_type TEXT;
+ALTER TABLE processed_events ADD COLUMN IF NOT EXISTS provider_event_id TEXT;
+ALTER TABLE processed_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+UPDATE processed_events SET provider_event_id = id WHERE provider_event_id IS NULL;
+
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS lifecycle_status TEXT DEFAULT 'active';
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS next_expected_service_date DATE;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS last_service_date TIMESTAMPTZ;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS telnyx_message_id TEXT;
+ALTER TABLE automation_runs ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS unread_count INT DEFAULT 0;
+
 -- Tenant isolation indexes
 CREATE INDEX IF NOT EXISTS idx_contacts_org_id ON contacts(org_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_org_id ON appointments(org_id);
@@ -1079,8 +1093,8 @@ CREATE INDEX IF NOT EXISTS idx_invoices_org_due_date ON invoices(org_id, due_dat
 CREATE INDEX IF NOT EXISTS idx_automation_runs_queue_status_sched ON automation_runs(status, scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_automation_runs_org_sched ON automation_runs(org_id, scheduled_at);
 
--- Provider event idempotency (Unique)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_processed_events_provider_event ON processed_events(provider, provider_event_id);
+-- Provider event idempotency
+CREATE INDEX IF NOT EXISTS idx_processed_events_provider_event ON processed_events(provider, provider_event_id);
 CREATE INDEX IF NOT EXISTS idx_messages_telnyx_id ON messages(telnyx_message_id);
 
 -- Foreign key join optimization
