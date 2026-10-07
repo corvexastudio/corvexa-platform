@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getTenantContext } from '@/lib/security/tenant-context'
 import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
@@ -46,8 +47,7 @@ export async function POST(request: Request) {
       statusMessage = "Invitation created, but email delivery isn't configured."
     } else {
       try {
-        const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-        const adminClient = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey)
+        const adminClient = createAdminClient()
 
         // Attempt authoritative email invitation dispatch
         const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(

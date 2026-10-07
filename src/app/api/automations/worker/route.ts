@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { processDueAutomationJobs } from '@/lib/automations/worker'
 import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 
@@ -32,12 +32,13 @@ async function handleWorkerExecution(request: Request) {
     }
   }
 
-  // 2. Use service role key to process cross-tenant background jobs safely
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321',
-    serviceKey
-  )
+  // 2. Use service role key via createAdminClient to process cross-tenant background jobs safely
+  let supabase
+  try {
+    supabase = createAdminClient()
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Database service unavailable' }, { status: 500 })
+  }
 
   try {
     const workerId = `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`

@@ -130,16 +130,26 @@ export function verifyStripeWebhookSignature(
     return { isValid: false, error: 'Missing stripe-signature header' }
   }
 
-  if (webhookSecret && signatureHeader) {
+  const effectiveSecret = webhookSecret || process.env.STRIPE_WEBHOOK_SECRET
+
+  if (effectiveSecret && signatureHeader) {
     const stripe = getStripeClient()
     if (!stripe) {
       return { isValid: false, error: 'Stripe client is not initialized' }
     }
     try {
-      const event = stripe.webhooks.constructEvent(rawBody, signatureHeader, webhookSecret)
+      const event = stripe.webhooks.constructEvent(rawBody, signatureHeader, effectiveSecret)
       return { isValid: true, event }
     } catch (err: any) {
       return { isValid: false, error: err.message }
+    }
+  }
+
+  // SEC-04: Fail-Closed Protection - In production, missing webhook secret must reject the webhook
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      isValid: false,
+      error: 'STRIPE_WEBHOOK_SECRET is not configured in production environment (fail-closed)'
     }
   }
 

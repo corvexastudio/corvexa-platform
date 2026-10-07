@@ -58,6 +58,16 @@ export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitR
   const now = Date.now()
   const windowStart = now - config.windowMs
 
+  // Memory exhaustion protection: evict stale entries if store size grows large
+  if (rateLimitStore.size > 20000) {
+    for (const [k, rec] of rateLimitStore.entries()) {
+      rec.timestamps = rec.timestamps.filter(t => t > windowStart)
+      if (rec.timestamps.length === 0) {
+        rateLimitStore.delete(k)
+      }
+    }
+  }
+
   let record = rateLimitStore.get(key)
   if (!record) {
     record = { timestamps: [] }
@@ -87,21 +97,53 @@ export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitR
 }
 
 /**
- * Extracts client IP address safely from standard proxy headers
+ * Safely validates an IP string format (IPv4 or IPv6)
+ */
+function isValidIp(ip: string): boolean {
+  if (!ip || ip.length > 45) return false
+  const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+  if (ipv4Regex.test(ip)) return true
+  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){1,7}:?([0-9a-fA-F]{1,4})?$/
+  return ipv6Regex.test(ip) || ip === '::1'
+}
+
+/**
+ * Extracts client IP address safely from standard proxy headers.
+ * Prioritizes trusted provider headers (Cloudflare, Nginx, Vercel) over untrusted X-Forwarded-For.
  */
 export function extractClientIp(request: Request): string {
   const headers = request.headers
+
+  // 1. Cloudflare edge header (authenticated at CDN boundary)
+  const cfConnectingIp = headers.get('cf-connecting-ip')
+  if (cfConnectingIp) {
+    const trimmed = cfConnectingIp.trim()
+    if (isValidIp(trimmed)) return trimmed
+  }
+
+  // 2. Direct upstream proxy header (Nginx / HAProxy / Load Balancer)
+  const realIp = headers.get('x-real-ip')
+  if (realIp) {
+    const trimmed = realIp.trim()
+    if (isValidIp(trimmed)) return trimmed
+  }
+
+  // 3. Vercel edge IP header
+  const vercelIp = headers.get('x-vercel-forwarded-for')
+  if (vercelIp) {
+    const ips = vercelIp.split(',').map(ip => ip.trim())
+    const valid = ips.find(isValidIp)
+    if (valid) return valid
+  }
+
+  // 4. Standard X-Forwarded-For header
   const xForwardedFor = headers.get('x-forwarded-for')
   if (xForwardedFor) {
     const ips = xForwardedFor.split(',').map(ip => ip.trim())
-    if (ips[0]) return ips[0]
+    const valid = ips.find(isValidIp)
+    if (valid) return valid
+    if (ips[0] && ips[0].length < 45) return ips[0]
   }
-
-  const realIp = headers.get('x-real-ip')
-  if (realIp) return realIp.trim()
-
-  const cfConnectingIp = headers.get('cf-connecting-ip')
-  if (cfConnectingIp) return cfConnectingIp.trim()
 
   return '127.0.0.1'
 }

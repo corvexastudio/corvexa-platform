@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(
   request: Request,
@@ -19,10 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Question cannot be empty' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createAdminClient()
 
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')

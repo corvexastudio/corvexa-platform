@@ -120,3 +120,34 @@ Immediately verify post-deployment health:
 - [ ] Public booking test page `https://app.corvexastudio.com/book/test-org` loads available slots.
 - [ ] Telnyx Ping in `/api/admin/diagnostics` succeeds.
 - [ ] Stripe API key status in `/api/admin/diagnostics` reports live mode (`sk_live_`).
+
+---
+
+## 7. Production Security Guarantees & Fail-Closed Baseline
+
+The following architectural guarantees are strictly enforced in production:
+
+1. **Privileged Supabase Isolation (`src/lib/supabase/admin.ts`):**
+   - Server-only helper `createAdminClient()` enforces `SUPABASE_SERVICE_ROLE_KEY`.
+   - Never falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Missing key throws a fatal error and halts execution.
+   - Guarded against client-side bundling and execution.
+
+2. **Zero Fake SMS in Production (`src/lib/telnyx.ts`):**
+   - Missing `TELNYX_API_KEY` in production (`NODE_ENV === 'production'`) yields a hard configuration failure with error diagnostics.
+   - Simulation / mock message IDs are strictly forbidden in production.
+
+3. **Fail-Closed Super-Admin Allowlist (`src/lib/security/tenant-context.ts`):**
+   - In production, missing or empty `SUPER_ADMIN_EMAILS` fails closed (`isSuperAdminEmail = false`).
+   - Any profile claiming `role: 'super_admin'` whose email is not in `SUPER_ADMIN_EMAILS` is automatically demoted to `owner` and constrained to single-tenant isolation.
+
+4. **Atomic Automation Worker Claiming (`src/lib/automations/worker.ts`):**
+   - Background worker claiming mandates the PostgreSQL RPC `claim_due_automation_runs` (`FOR UPDATE SKIP LOCKED`).
+   - If the RPC fails or is unavailable in production, the worker logs a critical fault and returns `[]`. It never falls back to naive query loops that would cause duplicate customer messages.
+
+5. **Fail-Closed Stripe Webhook Signatures (`src/lib/payments/stripe-adapter.ts`):**
+   - In production, missing `STRIPE_WEBHOOK_SECRET` immediately rejects incoming webhooks.
+   - Simulated payload parsing is strictly prohibited in live environments.
+
+6. **Anti-Spoofing Client IP Extraction (`src/lib/security/rate-limiter.ts`):**
+   - Prioritizes trusted edge headers (`cf-connecting-ip`, `x-real-ip`, `x-vercel-forwarded-for`) over easily spoofed `x-forwarded-for` headers.
+

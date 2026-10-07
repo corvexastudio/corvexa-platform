@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { validateEnvironment } from '@/lib/config/env'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 
@@ -16,10 +16,7 @@ export async function GET() {
 
   try {
     const dbStart = performance.now()
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-    )
+    const supabase = createAdminClient()
 
     const { error } = await supabase.from('organizations').select('id').limit(1)
     dbLatencyMs = Math.round(performance.now() - dbStart)

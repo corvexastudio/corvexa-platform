@@ -26,6 +26,10 @@ export async function sendTelnyxSms({
   const defaultFrom = process.env.TELNYX_PHONE_NUMBER || from
 
   if (!apiKey) {
+    if (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production') {
+      console.error('[TELNYX CONFIGURATION ERROR] TELNYX_API_KEY is missing in production environment. Refusing to fake SMS delivery.')
+      return { success: false, error: 'TELNYX_API_KEY is not configured in production environment' }
+    }
     console.warn('[TELNYX SIMULATED MODE] No TELNYX_API_KEY found in environment. Simulating SMS send.')
     return { success: true, messageId: `mock_${Date.now()}` }
   }

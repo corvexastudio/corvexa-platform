@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { checkWorkerHealth } from '@/lib/automations/worker-health'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-    )
+    const supabase = createAdminClient()
 
     const url = new URL(request.url)
     const degradedThresholdSeconds = url.searchParams.get('degraded_seconds')

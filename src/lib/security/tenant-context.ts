@@ -70,15 +70,20 @@ export async function getTenantContext(
 
   const role = normalizeRole(profileData.role)
   
-  // Optional strict email whitelist: if SUPER_ADMIN_EMAILS is defined, only those emails can be super_admin
+  // SEC-02: Fail-Closed Super Admin Allowlist
+  // In production, SUPER_ADMIN_EMAILS MUST be configured and contain the user's email.
+  // Missing or empty allowlist in production fails closed (isSuperAdminEmail = false).
+  // In dev/test, if SUPER_ADMIN_EMAILS is omitted, profile role is respected for local mock testing.
+  const isProd = process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production'
   const configuredSuperEmails = (process.env.SUPER_ADMIN_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
 
   const userEmail = (user.email || profileData.email || '').toLowerCase()
-  const isSuperAdminEmail =
-    configuredSuperEmails.length === 0 || configuredSuperEmails.includes(userEmail)
+  const isSuperAdminEmail = isProd
+    ? (configuredSuperEmails.length > 0 && userEmail.length > 0 && configuredSuperEmails.includes(userEmail))
+    : (configuredSuperEmails.length > 0 ? configuredSuperEmails.includes(userEmail) : true)
 
   const effectiveRole: CanonicalRole = (role === 'super_admin' && !isSuperAdminEmail) ? 'owner' : role
   const isSuperAdmin = effectiveRole === 'super_admin'

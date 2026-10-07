@@ -160,7 +160,7 @@ test('Release Readiness 6. Background Worker CRON_SECRET Security Enforcement', 
 })
 
 test('Release Readiness 7. Database Master Schema & Migrations Completeness', () => {
-  const schemaPath = path.resolve('C:/Users/mskar/captodesk/supabase/schema.sql')
+  const schemaPath = path.resolve(process.cwd(), 'supabase/schema.sql')
   assert.ok(fs.existsSync(schemaPath), 'supabase/schema.sql must exist')
 
   const schemaSql = fs.readFileSync(schemaPath, 'utf8')
@@ -211,7 +211,7 @@ test('Release Readiness 8. Operational Runbooks & Launch Documentation Verificat
   ]
 
   for (const doc of requiredDocs) {
-    const docPath = path.resolve(`C:/Users/mskar/captodesk/${doc}`)
+    const docPath = path.resolve(process.cwd(), doc)
     assert.ok(fs.existsSync(docPath), `Operational doc ${doc} must exist`)
     const stat = fs.statSync(docPath)
     assert.ok(stat.size > 1000, `Operational doc ${doc} must be comprehensive (>1KB), found ${stat.size} bytes`)

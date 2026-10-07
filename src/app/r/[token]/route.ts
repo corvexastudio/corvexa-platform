@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { recordReviewClick } from '@/lib/reviews/review-manager'
 
 export async function GET(
@@ -12,11 +12,8 @@ export async function GET(
     return NextResponse.json({ error: 'Missing review token' }, { status: 400 })
   }
 
-  // Use service role / standard server client to record click
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  // Use service role admin client to record click safely
+  const supabase = createAdminClient()
 
   const result = await recordReviewClick(supabase, token)
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { customerRescheduleBooking } from '@/lib/booking/booking-manager'
 
 export async function POST(
@@ -20,10 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'Missing required parameter: newStartTime' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createAdminClient()
 
     const result = await customerRescheduleBooking(supabase, token, newStartTime)
 

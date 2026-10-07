@@ -248,12 +248,27 @@ export async function claimDueAutomationJobs(
       if (!error && Array.isArray(data)) {
         return data as AutomationRunRecord[]
       }
-    } catch {
-      // Fall through to database query fallback
+
+      if (error) {
+        console.error('[WORKER CONCURRENCY WARNING] claim_due_automation_runs RPC error:', error.message)
+        if (process.env.NODE_ENV === 'production') {
+          console.error('[CRITICAL WORKER FAULT] Refusing non-atomic fallback in production to prevent race conditions & duplicate customer messages.')
+          return []
+        }
+      }
+    } catch (err: any) {
+      console.error('[WORKER CONCURRENCY WARNING] claim_due_automation_runs RPC exception:', err?.message)
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[CRITICAL WORKER FAULT] Refusing non-atomic fallback in production to prevent race conditions & duplicate customer messages.')
+        return []
+      }
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    console.error('[CRITICAL WORKER FAULT] Supabase client missing rpc capability in production. Refusing non-atomic fallback.')
+    return []
   }
 
-  // 2. Query fallback (for test harnesses or environments where RPC function is pending):
+  // 2. Query fallback (for test harnesses or development where RPC function is not installed in mock DB):
   const now = new Date().toISOString()
   const staleLimit = new Date(Date.now() - staleThresholdSeconds * 1000).toISOString()
 

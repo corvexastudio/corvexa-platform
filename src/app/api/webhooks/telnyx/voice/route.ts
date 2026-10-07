@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { processMissedCall } from '@/lib/services/call-recovery'
 import { verifyTelnyxSignature } from '@/lib/telnyx'
 import { evaluateCallOutcome } from '@/lib/telephony/call-state-machine'
@@ -77,11 +77,7 @@ export async function POST(request: Request) {
   }
 
   // 3. Supabase service role client
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceKey
-  )
+  const supabase = createAdminClient()
 
   let eventId: string | undefined
   let eventType = 'unknown'

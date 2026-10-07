@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createStripeCheckoutSession } from '@/lib/payments/stripe-adapter'
 
 export const dynamic = 'force-dynamic'
-
-function getAnonSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vlztovqaummczupslymr.supabase.co'
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  return createClient(url, key)
-}
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
-  const supabase = getAnonSupabase()
+  const supabase = createAdminClient()
 
   const { data: invoice, error } = await supabase
     .from('invoices')

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyStripeWebhookSignature } from '@/lib/payments/stripe-adapter'
 import { recordPayment } from '@/lib/payments/invoice-manager'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
@@ -8,9 +8,7 @@ import { createStructuredLogger } from '@/lib/observability/logger'
 export const dynamic = 'force-dynamic'
 
 function getServiceSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vlztovqaummczupslymr.supabase.co'
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  return createClient(url, key)
+  return createAdminClient()
 }
 
 export async function POST(request: Request) {
