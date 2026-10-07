@@ -23,6 +23,7 @@ import {
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 
 interface LeadItem {
   id: string
@@ -157,12 +158,12 @@ export default function LeadsPage() {
 
       {/* Error state */}
       {error ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
-          <p className="text-sm font-medium text-red-400">{error}</p>
-          <Button onClick={loadLeads} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
-            Retry Loading Leads
-          </Button>
-        </div>
+        <ErrorState
+          title="Failed to load leads"
+          message={error}
+          onRetry={loadLeads}
+          retryLabel="Retry Loading Leads"
+        />
       ) : loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {STAGES.map(stage => (

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/ui/error-state'
 import { toast } from 'sonner'
 import { 
   Settings as SettingsIcon, 
@@ -181,12 +182,12 @@ export default function SettingsPage() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
-          <p className="text-sm font-medium text-red-400">{error}</p>
-          <Button onClick={loadSettings} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
-            Retry Loading Settings
-          </Button>
-        </div>
+        <ErrorState
+          title="Failed to load settings"
+          message={error}
+          onRetry={loadSettings}
+          retryLabel="Retry Loading Settings"
+        />
       ) : loading ? (
         <div className="space-y-6">
           <div className="rounded-2xl border border-zinc-800 bg-[#0D1322] p-6 space-y-4">

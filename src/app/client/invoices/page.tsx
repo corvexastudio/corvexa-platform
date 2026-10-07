@@ -26,6 +26,8 @@ import {
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface InvoiceItem {
   id?: string
@@ -67,6 +69,7 @@ export default function ClientInvoicesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [voidInvoiceId, setVoidInvoiceId] = useState<string | null>(null)
 
   // New Invoice Modal
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -244,8 +247,7 @@ export default function ClientInvoicesPage() {
     }
   }
 
-  const handleVoidInvoice = async (invoiceId: string) => {
-    if (!confirm('Are you sure you want to void this invoice?')) return
+  const executeVoidInvoice = async (invoiceId: string) => {
     setActionLoadingId(invoiceId)
     try {
       const res = await fetch(`/api/client/invoices/${invoiceId}/void`, { method: 'POST' })
@@ -261,6 +263,10 @@ export default function ClientInvoicesPage() {
     } finally {
       setActionLoadingId(null)
     }
+  }
+
+  const handleVoidInvoice = (invoiceId: string) => {
+    setVoidInvoiceId(invoiceId)
   }
 
   const handleCopyLink = (token: string, id: string) => {
@@ -399,17 +405,11 @@ export default function ClientInvoicesPage() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center space-y-3">
-          <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
-          <h3 className="text-sm font-bold text-white">Failed to load invoices</h3>
-          <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
-          <button
-            onClick={loadInvoices}
-            className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
-          </button>
-        </div>
+        <ErrorState
+          title="Failed to load invoices"
+          message={error}
+          onRetry={loadInvoices}
+        />
       ) : loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
@@ -846,6 +846,21 @@ export default function ClientInvoicesPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!voidInvoiceId}
+        onOpenChange={(open) => !open && setVoidInvoiceId(null)}
+        title="Void Invoice"
+        description="Are you sure you want to void this invoice? This will cancel any pending payments and cannot be undone."
+        confirmText="Void Invoice"
+        cancelText="Cancel"
+        variant="destructive"
+        loading={actionLoadingId === voidInvoiceId}
+        onConfirm={async () => {
+          if (!voidInvoiceId) return
+          await executeVoidInvoice(voidInvoiceId)
+          setVoidInvoiceId(null)
+        }}
+      />
     </div>
   )
 }

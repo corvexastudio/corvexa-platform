@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { 
   AttentionItem, 
   OperationalMetrics, 
@@ -175,17 +176,11 @@ export default function DashboardPage() {
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-6 text-center space-y-3">
-            <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
-            <h3 className="text-sm font-bold text-white">Failed to load dashboard metrics</h3>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
-            <button
-              onClick={() => loadDashboard(period)}
-              className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
-            >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
-            </button>
-          </div>
+          <ErrorState
+            title="Failed to load dashboard metrics"
+            message={error}
+            onRetry={() => loadDashboard(period)}
+          />
         ) : loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {[1, 2, 3].map(i => (

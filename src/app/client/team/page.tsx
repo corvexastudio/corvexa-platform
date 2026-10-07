@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/ui/error-state'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus, Mail, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
@@ -214,12 +215,12 @@ export default function TeamPage() {
         </CardHeader>
         <CardContent>
           {error ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-5 text-center space-y-3">
-              <p className="text-sm font-medium text-red-400">{error}</p>
-              <Button onClick={fetchMembers} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
-                Retry Loading Members
-              </Button>
-            </div>
+            <ErrorState
+              title="Failed to load team members"
+              message={error}
+              onRetry={fetchMembers}
+              retryLabel="Retry Loading Members"
+            />
           ) : loading ? (
             <div className="space-y-3 py-2">
               {[1, 2, 3].map(i => (

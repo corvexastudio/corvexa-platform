@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
@@ -205,12 +206,12 @@ export default function CustomersPage() {
 
       {/* Customers Table / Error / Skeletons */}
       {error ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
-          <p className="text-sm font-medium text-red-400">{error}</p>
-          <Button onClick={loadData} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
-            Retry Loading Customers
-          </Button>
-        </div>
+        <ErrorState
+          title="Failed to load customers"
+          message={error}
+          onRetry={loadData}
+          retryLabel="Retry Loading Customers"
+        />
       ) : (
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
         {loading ? (

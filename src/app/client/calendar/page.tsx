@@ -24,9 +24,9 @@ import {
   Sliders,
   DollarSign
 } from 'lucide-react'
-import Link from 'next/link'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 
 interface AppointmentItem {
   id: string
@@ -539,12 +539,12 @@ export default function CalendarPage() {
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
-            <p className="text-sm font-medium text-red-400">{error}</p>
-            <Button onClick={loadAppointments} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
-              Retry Loading Appointments
-            </Button>
-          </div>
+          <ErrorState
+            title="Failed to load appointments"
+            message={error}
+            onRetry={loadAppointments}
+            retryLabel="Retry Loading Appointments"
+          />
         ) : loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map(i => (

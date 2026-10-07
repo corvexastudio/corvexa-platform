@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { toast } from 'sonner'
 import {
   FileText,
   CheckCircle2,
@@ -108,12 +109,13 @@ export default function CustomerQuotePage() {
       const data = await res.json()
       if (res.ok) {
         setShowAcceptModal(false)
+        toast.success('Quote accepted successfully!')
         await loadQuote()
       } else {
-        alert(data.error || 'Failed to accept quote.')
+        toast.error(data.error || 'Failed to accept quote.')
       }
     } catch {
-      alert('Network error accepting quote.')
+      toast.error('Network error accepting quote.')
     } finally {
       setAccepting(false)
     }
@@ -132,12 +134,13 @@ export default function CustomerQuotePage() {
       const data = await res.json()
       if (res.ok) {
         setShowDeclineModal(false)
+        toast.success('Quote declined.')
         await loadQuote()
       } else {
-        alert(data.error || 'Failed to decline quote.')
+        toast.error(data.error || 'Failed to decline quote.')
       }
     } catch {
-      alert('Network error declining quote.')
+      toast.error('Network error declining quote.')
     } finally {
       setDeclining(false)
     }
@@ -157,12 +160,13 @@ export default function CustomerQuotePage() {
       if (res.ok) {
         setQuestionSent(true)
         setQuestion('')
+        toast.success('Question sent to the business!')
         setTimeout(() => setQuestionSent(false), 5000)
       } else {
-        alert('Failed to send question.')
+        toast.error('Failed to send question.')
       }
     } catch {
-      alert('Network error sending question.')
+      toast.error('Network error sending question.')
     } finally {
       setSendingQuestion(false)
     }

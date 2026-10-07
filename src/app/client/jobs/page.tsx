@@ -23,6 +23,8 @@ import {
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
+import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -278,19 +280,11 @@ export default function JobsPage() {
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center space-y-3">
-            <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
-            <h3 className="text-sm font-bold text-white">Failed to load field jobs</h3>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={loadJobs}
-              className="text-xs border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-            >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
-            </Button>
-          </div>
+          <ErrorState
+            title="Failed to load field jobs"
+            message={error}
+            onRetry={loadJobs}
+          />
         ) : loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
@@ -471,146 +465,138 @@ export default function JobsPage() {
       </div>
 
       {/* Add Note Floating Dialog */}
-      {activeJobForNote && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#0D1322] border border-zinc-800 rounded-2xl p-5 space-y-3 shadow-2xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-blue-400" />
-              Add Note to Job
-            </h3>
-            <textarea
-              rows={3}
-              placeholder="e.g. Unit capacitor replaced, customer signed paper invoice..."
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              className="w-full p-3 rounded-xl bg-[#0B0F19] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500 resize-none"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveJobForNote(null)}
-                className="px-3 py-1.5 rounded-xl border border-zinc-800 text-xs text-zinc-400"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={savingNote || !noteText.trim()}
-                onClick={() => handleSaveNote(activeJobForNote)}
-                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
-              >
-                {savingNote ? 'Saving...' : 'Save Note'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={!!activeJobForNote}
+        onOpenChange={(open) => !open && setActiveJobForNote(null)}
+        title={
+          <span className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-blue-400" />
+            Add Note to Job
+          </span>
+        }
+        size="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveJobForNote(null)}
+              className="px-3 py-1.5 rounded-xl border border-zinc-800 text-xs text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={savingNote || !noteText.trim()}
+              onClick={() => activeJobForNote && handleSaveNote(activeJobForNote)}
+              className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+            >
+              {savingNote ? 'Saving...' : 'Save Note'}
+            </button>
+          </>
+        }
+      >
+        <textarea
+          rows={3}
+          placeholder="e.g. Unit capacitor replaced, customer signed paper invoice..."
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
+          className="w-full p-3 rounded-xl bg-[#0B0F19] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500 resize-none"
+        />
+      </Modal>
 
       {/* ── Create New Job Modal ── */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#0B101B] border border-zinc-800 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-800/80 mb-5">
-              <div>
-                <h2 className="text-lg font-bold text-white">Dispatch New Job</h2>
-                <p className="text-xs text-zinc-400">Schedule a job and track mobile execution through completion.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-xl text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateJob} className="space-y-4 flex-1">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Customer
-                </label>
-                <select
-                  value={selectedContactId}
-                  onChange={e => setSelectedContactId(e.target.value)}
-                  required
-                  className="w-full p-2.5 text-xs sm:text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  <option value="">-- Choose Customer --</option>
-                  {contacts.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name || 'Valued Customer'} ({c.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Job Title
-                </label>
-                <Input
-                  value={jobTitle}
-                  onChange={e => setJobTitle(e.target.value)}
-                  placeholder="e.g. AC Condenser Diagnostic & Coil Clean"
-                  required
-                  className="h-10 bg-zinc-900 border-zinc-800 text-xs text-white rounded-xl focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Scheduled Start (Date & Time)
-                </label>
-                <Input
-                  type="datetime-local"
-                  value={jobScheduledStart}
-                  onChange={e => setJobScheduledStart(e.target.value)}
-                  required
-                  className="h-10 bg-zinc-900 border-zinc-800 text-xs text-white rounded-xl focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Job Notes / Work Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={jobNotes}
-                  onChange={e => setJobNotes(e.target.value)}
-                  placeholder="e.g. Homeowner reported system blowing warm air. Gate code #4492."
-                  className="w-full p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateModal(false)}
-                  className="h-10 px-4 text-xs font-semibold rounded-xl border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={creatingJob}
-                  className="h-10 px-5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  {creatingJob ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Dispatch Job'
-                  )}
-                </Button>
-              </div>
-            </form>
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Dispatch New Job"
+        description="Schedule a job and track mobile execution through completion."
+        size="lg"
+      >
+        <form onSubmit={handleCreateJob} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Customer
+            </label>
+            <select
+              value={selectedContactId}
+              onChange={e => setSelectedContactId(e.target.value)}
+              required
+              className="w-full p-2.5 text-xs sm:text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="">-- Choose Customer --</option>
+              {contacts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Valued Customer'} ({c.phone})
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Job Title
+            </label>
+            <Input
+              value={jobTitle}
+              onChange={e => setJobTitle(e.target.value)}
+              placeholder="e.g. AC Condenser Diagnostic & Coil Clean"
+              required
+              className="h-10 bg-zinc-900 border-zinc-800 text-xs text-white rounded-xl focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Scheduled Start (Date & Time)
+            </label>
+            <Input
+              type="datetime-local"
+              value={jobScheduledStart}
+              onChange={e => setJobScheduledStart(e.target.value)}
+              required
+              className="h-10 bg-zinc-900 border-zinc-800 text-xs text-white rounded-xl focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+              Job Notes / Work Description
+            </label>
+            <textarea
+              rows={3}
+              value={jobNotes}
+              onChange={e => setJobNotes(e.target.value)}
+              placeholder="e.g. Homeowner reported system blowing warm air. Gate code #4492."
+              className="w-full p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500 resize-none"
+            />
+          </div>
+
+          <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCreateModal(false)}
+              className="h-10 px-4 text-xs font-semibold rounded-xl border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={creatingJob}
+              className="h-10 px-5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20 cursor-pointer"
+            >
+              {creatingJob ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Creating...
+                </>
+              ) : (
+                'Dispatch Job'
+              )}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
     </div>
   )

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -299,19 +300,11 @@ export default function ClientQuotesPage() {
 
       {/* ── Content Viewport ── */}
       {error ? (
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center space-y-3">
-          <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
-          <h3 className="text-sm font-bold text-white">Failed to load quotes</h3>
-          <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={loadQuotes}
-            className="text-xs border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-          >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
-          </Button>
-        </div>
+        <ErrorState
+          title="Failed to load quotes"
+          message={error}
+          onRetry={loadQuotes}
+        />
       ) : loading ? (
         <div className="grid grid-cols-1 gap-3.5">
           {[1, 2, 3].map(i => (
