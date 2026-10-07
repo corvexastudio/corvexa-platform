@@ -36,6 +36,18 @@ export async function POST(request: Request) {
   const timestamp = request.headers.get('telnyx-timestamp')
 
   // SEC-03: Verify webhook cryptographic signature
+  if (!signature || !timestamp) {
+    telemetryStore.recordWebhook({
+      provider: 'telnyx',
+      eventType: 'message.signature_missing',
+      stage: 'rejected',
+      requestId,
+      error: 'Missing signature headers'
+    })
+    logger.warn('Telnyx message webhook rejected: missing signature or timestamp', { clientIp })
+    return NextResponse.json({ error: 'Missing Telnyx webhook signature or timestamp' }, { status: 401, headers: rateHeaders })
+  }
+
   const isValidSignature = verifyTelnyxSignature(rawBody, signature, timestamp)
   if (!isValidSignature) {
     telemetryStore.recordWebhook({
@@ -49,6 +61,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401, headers: rateHeaders })
   }
 
+  // Parse and validate JSON payload structure
+  let body: any
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    logger.warn('Telnyx message webhook rejected: malformed JSON', { clientIp })
+    return NextResponse.json({ error: 'Malformed JSON payload' }, { status: 400, headers: rateHeaders })
+  }
+
+  if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') {
+    logger.warn('Telnyx message webhook rejected: invalid structure', { clientIp })
+    return NextResponse.json({ error: 'Invalid Telnyx payload structure' }, { status: 400, headers: rateHeaders })
+  }
+
   // 3. Supabase service role client
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   const supabase = createClient(
@@ -60,10 +86,9 @@ export async function POST(request: Request) {
   let eventType = 'unknown'
 
   try {
-    const body = JSON.parse(rawBody)
-    eventType = body?.data?.event_type || 'unknown'
-    const payload = body?.data?.payload
-    eventId = body?.data?.id
+    eventType = body.data.event_type || 'unknown'
+    const payload = body.data.payload
+    eventId = body.data.id
 
     telemetryStore.recordWebhook({
       provider: 'telnyx',
@@ -83,7 +108,11 @@ export async function POST(request: Request) {
       })
 
       if (insertError) {
-        if (insertError.code === '23505') {
+        if (
+          insertError.code === '23505' ||
+          insertError.message?.toLowerCase().includes('unique') ||
+          insertError.message?.toLowerCase().includes('duplicate')
+        ) {
           telemetryStore.recordWebhook({
             provider: 'telnyx',
             eventType,
@@ -92,9 +121,10 @@ export async function POST(request: Request) {
             requestId
           })
           logger.info('Duplicate Telnyx message webhook skipped', { eventId, eventType })
-          return NextResponse.json({ success: true, message: 'Already processed (idempotent)' })
+          return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
         }
-        console.error('[IDEMPOTENCY INSERT ERROR]', insertError)
+        console.error('[TELNYX MESSAGE IDEMPOTENCY ERROR]', insertError)
+        return NextResponse.json({ error: 'Database idempotency error' }, { status: 500 })
       }
     }
 

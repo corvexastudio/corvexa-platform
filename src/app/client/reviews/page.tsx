@@ -345,7 +345,7 @@ export default function ReviewsPage() {
             <EmptyState
               icon={Star}
               title="No Review Requests Dispatched Yet"
-              description="CaptoDesk automatically texts happy homeowners a link to your Google Business Profile after completed jobs, steadily growing your 5-star reputation."
+              description="CaptoDesk automatically texts homeowners a link to your Google Business Profile after completed jobs, inviting customers to share honest feedback on Google."
               actionLabel="Adjust Review Settings"
               onAction={() => setShowSettings(true)}
               tip="When you mark a job as 'Completed' in the Jobs pipeline, CaptoDesk schedules a review request automatically."

@@ -388,6 +388,7 @@ export async function searchAndFilterCustomers(
     sortBy?: 'last_activity' | 'name' | 'ltv' | 'last_service'
     limit?: number
     cursor?: string
+    includeDeleted?: boolean
   }
 ): Promise<{
   success: boolean
@@ -397,19 +398,27 @@ export async function searchAndFilterCustomers(
   hasMore?: boolean
   error?: string
 }> {
-  const { orgId, query, status = 'all', tag, sortBy = 'last_activity', limit, cursor } = filters
+  const { orgId, query, status = 'all', tag, sortBy = 'last_activity', limit, cursor, includeDeleted = false } = filters
 
   // 1. Fetch contacts for this tenant
-  const { data: contacts, error: contactError } = await supabase
+  let contactQuery = supabase
     .from('contacts')
     .select('*')
     .eq('org_id', orgId)
+
+  if (!includeDeleted) {
+    if (typeof (contactQuery as any).is === 'function') {
+      contactQuery = (contactQuery as any).is('deleted_at', null)
+    }
+  }
+
+  const { data: contacts, error: contactError } = await contactQuery
 
   if (contactError) {
     return { success: false, customers: [], totalCount: 0, error: contactError.message }
   }
 
-  let filtered = contacts || []
+  let filtered = (contacts || []).filter(c => includeDeleted || !c.deleted_at)
 
   // Filter by lifecycle status (supports both stored column and dynamic computation)
   if (status && status !== 'all') {
@@ -554,4 +563,48 @@ export async function searchAndFilterCustomers(
     nextCursor,
     hasMore
   }
+}
+
+/**
+ * Safely soft-deletes a contact without destroying historical financial or communication linkages.
+ */
+export async function softDeleteContact(
+  supabase: SupabaseClient,
+  input: { orgId: string; contactId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('contacts')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.contactId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+/**
+ * Restores a soft-deleted contact.
+ */
+export async function restoreContact(
+  supabase: SupabaseClient,
+  input: { orgId: string; contactId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('contacts')
+    .update({
+      deleted_at: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.contactId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
 }

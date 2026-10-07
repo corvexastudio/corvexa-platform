@@ -3,15 +3,14 @@
  * Prevents spamming callers, checks business hours, and manages TCPA opt-outs.
  */
 
-const STOP_KEYWORDS = ['stop', 'unsubscribe', 'cancel', 'quit', 'end', 'optout', 'opt out']
-const RESUME_KEYWORDS = ['unstop', 'start']
+import { isOptOutKeyword, isOptInKeyword } from '../compliance/compliance-engine.ts'
 
 export function isStopKeyword(text: string): boolean {
-  return STOP_KEYWORDS.includes(text.trim().toLowerCase())
+  return isOptOutKeyword(text).isOptOut
 }
 
 export function isResumeKeyword(text: string): boolean {
-  return RESUME_KEYWORDS.includes(text.trim().toLowerCase())
+  return isOptInKeyword(text).isOptIn
 }
 
 export function isShortCall(durationSeconds: number): boolean {
@@ -44,7 +43,8 @@ export function isWithinBusinessHours(
       hour12: false
     }).format(now)
 
-    const [nowHour, nowMin] = timeString.split(':').map(Number)
+    const [nowHourRaw, nowMin] = timeString.split(':').map(Number)
+    const nowHour = nowHourRaw % 24
     const [openHour, openMin] = todayConfig.open.split(':').map(Number)
     const [closeHour, closeMin] = todayConfig.close.split(':').map(Number)
 
@@ -75,7 +75,7 @@ export function isTcpaQuietHours(timezone: string = 'America/Chicago', overrideD
       hour12: false
     }).format(overrideDate || new Date())
 
-    const nowHour = parseInt(timeString, 10)
+    const nowHour = parseInt(timeString, 10) % 24
     // Quiet hours: before 8 AM or after 8 PM (20:00)
     return nowHour < 8 || nowHour >= 20
   } catch {

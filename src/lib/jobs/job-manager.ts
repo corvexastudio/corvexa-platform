@@ -4,6 +4,7 @@ import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { updateCustomerServiceDate } from '../retention/lifecycle-manager.ts'
 import { scheduleJobReviewAutomation } from '../reviews/review-manager.ts'
+import { generateDocumentNumber } from '../services/document-counter.ts'
 
 export type JobStatus =
   | 'scheduled'
@@ -59,7 +60,11 @@ export async function createJob(
     notes
   } = input
 
-  const jobNumber = `JOB-${Date.now().toString().slice(-6)}`
+  if (!title || !title.trim()) {
+    return { success: false, error: 'Job title is required' }
+  }
+
+  const jobNumber = await generateDocumentNumber(supabase, orgId, 'job')
 
   // 1. Insert Job Record
   const { data: job, error: jobError } = await supabase
@@ -277,3 +282,48 @@ export async function convertQuoteToJob(
     notes: quote.notes
   })
 }
+
+/**
+ * Safely soft-deletes a job without deleting customer history, appointments, or quotes.
+ */
+export async function softDeleteJob(
+  supabase: SupabaseClient,
+  input: { orgId: string; jobId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.jobId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+/**
+ * Restores a soft-deleted job.
+ */
+export async function restoreJob(
+  supabase: SupabaseClient,
+  input: { orgId: string; jobId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      deleted_at: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.jobId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+

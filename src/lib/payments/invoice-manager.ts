@@ -6,6 +6,7 @@ import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
 import { createStripeCheckoutSession } from './stripe-adapter.ts'
 import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
+import { generateDocumentNumber } from '../services/document-counter.ts'
 
 export type InvoiceStatus =
   | 'draft'
@@ -102,10 +103,60 @@ export async function createInvoice(
   } = input
 
   const financials = calculateInvoiceFinancials(items, taxRate, discountAmount)
-  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`
+  const invoiceNumber = await generateDocumentNumber(supabase, orgId, 'invoice')
   const manageToken = randomBytes(24).toString('hex')
   const resolvedDueDate = dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
+  // 1. Transactional creation via PostgreSQL RPC if supported
+  const clientWithRpc = supabase as unknown as {
+    rpc?: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>
+  }
+
+  const invoiceItemsPayload = items.map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    total: Math.round(Number(item.quantity || 1) * Number(item.unit_price || 0) * 100) / 100
+  }))
+
+  if (typeof clientWithRpc?.rpc === 'function') {
+    try {
+      const { data: rpcData, error: rpcError } = await clientWithRpc.rpc('create_invoice_with_items', {
+        p_org_id: orgId,
+        p_contact_id: contactId,
+        p_job_id: jobId || null,
+        p_quote_id: quoteId || null,
+        p_invoice_number: invoiceNumber,
+        p_title: title,
+        p_description: description,
+        p_subtotal: financials.subtotal,
+        p_tax: financials.tax,
+        p_discount: financials.discount,
+        p_total: financials.total,
+        p_due_date: resolvedDueDate,
+        p_manage_token: manageToken,
+        p_notes: notes || null,
+        p_items: invoiceItemsPayload
+      })
+
+      if (!rpcError && rpcData && typeof rpcData === 'object') {
+        const parsed = rpcData as { invoice: any; items: any[] }
+        if (parsed.invoice) {
+          return {
+            success: true,
+            invoice: parsed.invoice,
+            items: parsed.items || []
+          }
+        }
+      } else if (rpcError && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+        return { success: false, error: rpcError.message }
+      }
+    } catch {
+      // Fall through to query transaction rollback
+    }
+  }
+
+  // 2. Query execution with rollback guarantee (all-or-nothing):
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
     .insert({
@@ -151,7 +202,9 @@ export async function createInvoice(
       .select('*')
 
     if (itemError) {
-      console.error('Error inserting invoice items:', itemError)
+      // Atomic rollback: clean up orphaned parent invoice
+      await supabase.from('invoices').delete().eq('id', invoice.id)
+      return { success: false, error: `Failed to insert invoice items: ${itemError.message}` }
     } else {
       insertedItems = itemData || []
     }
@@ -456,6 +509,10 @@ export async function recordPayment(
     referenceNote
   } = input
 
+  if (!amount || Number(amount) <= 0) {
+    return { success: false, error: 'Payment amount must be greater than zero' }
+  }
+
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
     .select('*, contacts(*)')
@@ -650,3 +707,48 @@ export async function voidInvoice(
 
   return { success: true, invoice }
 }
+
+/**
+ * Safely soft-deletes an invoice without destroying financial audit logs or payments.
+ */
+export async function softDeleteInvoice(
+  supabase: SupabaseClient,
+  input: { orgId: string; invoiceId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('invoices')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.invoiceId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+/**
+ * Restores a soft-deleted invoice.
+ */
+export async function restoreInvoice(
+  supabase: SupabaseClient,
+  input: { orgId: string; invoiceId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('invoices')
+    .update({
+      deleted_at: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.invoiceId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+

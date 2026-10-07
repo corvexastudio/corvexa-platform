@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -59,9 +60,11 @@ export default function CalendarPage() {
   const supabase = createClient()
   const [appointments, setAppointments] = useState<AppointmentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [orgSlug, setOrgSlug] = useState<string>('')
   const [orgId, setOrgId] = useState<string>('')
+  const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
 
   // Settings Drawer / Modal State
   const [showSettings, setShowSettings] = useState(false)
@@ -86,67 +89,83 @@ export default function CalendarPage() {
 
   const loadAppointments = useCallback(async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    setError(null)
+    try {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser()
+      if (authErr || !user) {
+        setError('Authentication required to view calendar.')
+        setLoading(false)
+        return
+      }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .single()
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('id', user.id)
+        .single()
 
-    if (!profile) return
-    setOrgId(profile.org_id)
+      if (profileErr || !profile) {
+        setError('Failed to resolve organization profile.')
+        setLoading(false)
+        return
+      }
+      setOrgId(profile.org_id)
 
-    // Load Org Slug
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('slug, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates')
-      .eq('id', profile.org_id)
-      .single()
+      // Load Org Settings & Timezone
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('slug, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates')
+        .eq('id', profile.org_id)
+        .single()
 
-    if (org) {
-      setOrgSlug(org.slug || '')
-      setBookingConfig({
-        booking_mode: org.booking_mode || 'instant',
-        default_duration_minutes: org.default_duration_minutes || 60,
-        buffer_minutes: org.buffer_minutes ?? 15,
-        minimum_notice_hours: org.minimum_notice_hours ?? 2,
-        max_booking_days_ahead: org.max_booking_days_ahead ?? 30,
-        blocked_dates: org.blocked_dates || []
-      })
+      if (org) {
+        setOrgSlug(org.slug || '')
+        if (org.timezone) setOrgTimezone(org.timezone)
+        setBookingConfig({
+          booking_mode: org.booking_mode || 'instant',
+          default_duration_minutes: org.default_duration_minutes || 60,
+          buffer_minutes: org.buffer_minutes ?? 15,
+          minimum_notice_hours: org.minimum_notice_hours ?? 2,
+          max_booking_days_ahead: org.max_booking_days_ahead ?? 30,
+          blocked_dates: org.blocked_dates || []
+        })
+      }
+
+      // Load Appointments
+      const { data, error: aptsErr } = await supabase
+        .from('appointments')
+        .select(`
+          id, title, service_type, start_time, end_time, status, source, manage_token, notes,
+          contact:contacts(id, name, phone, address)
+        `)
+        .eq('org_id', profile.org_id)
+        .order('start_time', { ascending: true })
+
+      if (aptsErr) {
+        setError('Failed to load appointments. Please retry.')
+      } else if (data) {
+        const enriched: AppointmentItem[] = data.map((a: any) => ({
+          ...a,
+          contact: Array.isArray(a.contact) ? a.contact[0] : a.contact
+        }))
+        setAppointments(enriched)
+      }
+
+      // Load Services
+      const { data: svcs } = await supabase
+        .from('services')
+        .select('*')
+        .eq('org_id', profile.org_id)
+        .order('sort_order', { ascending: true })
+
+      if (svcs) {
+        setServices(svcs)
+      }
+    } catch {
+      setError('An unexpected error occurred while loading schedule.')
+    } finally {
+      setLoading(false)
     }
-
-    // Load Appointments
-    const { data } = await supabase
-      .from('appointments')
-      .select(`
-        id, title, service_type, start_time, end_time, status, source, manage_token, notes,
-        contact:contacts(id, name, phone, address)
-      `)
-      .eq('org_id', profile.org_id)
-      .order('start_time', { ascending: true })
-
-    if (data) {
-      const enriched: AppointmentItem[] = data.map((a: any) => ({
-        ...a,
-        contact: Array.isArray(a.contact) ? a.contact[0] : a.contact
-      }))
-      setAppointments(enriched)
-    }
-
-    // Load Services
-    const { data: svcs } = await supabase
-      .from('services')
-      .select('*')
-      .eq('org_id', profile.org_id)
-      .order('sort_order', { ascending: true })
-
-    if (svcs) {
-      setServices(svcs)
-    }
-
-    setLoading(false)
   }, [supabase])
 
   useEffect(() => { loadAppointments() }, [loadAppointments])
@@ -265,7 +284,7 @@ export default function CalendarPage() {
             Appointments & Schedule
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Real-time availability, bookings, and customer scheduling portal.
+            Real-time availability, bookings, and customer scheduling portal • <span className="text-zinc-300 font-medium">Timezone: {orgTimezone}</span>
           </p>
         </div>
 
@@ -519,7 +538,35 @@ export default function CalendarPage() {
           </span>
         </div>
 
-        {filteredAppointments.length === 0 ? (
+        {error ? (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
+            <p className="text-sm font-medium text-red-400">{error}</p>
+            <Button onClick={loadAppointments} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
+              Retry Loading Appointments
+            </Button>
+          </div>
+        ) : loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div
+                key={i}
+                className="rounded-xl bg-[#0B0F19] border border-zinc-800/80 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-4">
+                  <Skeleton className="h-12 w-12 rounded-xl bg-zinc-800 shrink-0" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-48 bg-zinc-800" />
+                    <Skeleton className="h-3 w-64 bg-zinc-800/60" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-8 w-20 rounded-lg bg-zinc-800" />
+                  <Skeleton className="h-8 w-20 rounded-lg bg-zinc-800" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredAppointments.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
             title={statusFilter === 'all' ? 'No Upcoming Bookings on Calendar' : `No ${statusFilter} Appointments`}
@@ -548,10 +595,10 @@ export default function CalendarPage() {
                 <div className="flex items-start gap-4">
                   <div className="h-12 w-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex flex-col items-center justify-center shrink-0 text-blue-400">
                     <span className="text-xs font-black">
-                      {new Date(apt.start_time).toLocaleDateString([], { day: 'numeric' })}
+                      {new Date(apt.start_time).toLocaleDateString('en-US', { timeZone: orgTimezone, day: 'numeric' })}
                     </span>
                     <span className="text-[9px] uppercase font-bold text-zinc-400">
-                      {new Date(apt.start_time).toLocaleDateString([], { month: 'short' })}
+                      {new Date(apt.start_time).toLocaleDateString('en-US', { timeZone: orgTimezone, month: 'short' })}
                     </span>
                   </div>
 
@@ -581,7 +628,7 @@ export default function CalendarPage() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400 mt-1">
                       <span className="flex items-center gap-1 text-zinc-300 font-medium">
                         <Clock className="h-3 w-3 text-blue-400" />
-                        {new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(apt.start_time).toLocaleTimeString('en-US', { timeZone: orgTimezone, hour: 'numeric', minute: '2-digit' })}
                       </span>
                       {apt.contact?.address && (
                         <span className="flex items-center gap-1 text-zinc-400">

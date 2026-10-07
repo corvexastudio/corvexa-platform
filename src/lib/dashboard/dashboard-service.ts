@@ -114,13 +114,24 @@ export async function getAttentionQueue(
   const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000)
 
   // 1. New Unhandled Leads
-  const { data: newLeads } = await supabase
+  let leadsQuery = supabase
     .from('leads')
-    .select('id, created_at, status, value, contacts(name, phone)')
+    .select('id, created_at, status, value, deleted_at, contacts(id, name, phone, deleted_at)')
     .eq('org_id', orgId)
     .eq('status', 'new')
     .order('created_at', { ascending: false })
     .limit(10)
+
+  if (typeof (leadsQuery as any).is === 'function') {
+    leadsQuery = (leadsQuery as any).is('deleted_at', null)
+  }
+
+  const { data: rawLeads } = await leadsQuery
+  const newLeads = (rawLeads || []).filter((lead: any) => {
+    if (lead.deleted_at) return false
+    if ((lead.contacts as any)?.deleted_at) return false
+    return true
+  })
 
   if (newLeads && newLeads.length > 0) {
     for (const lead of newLeads) {
@@ -166,15 +177,22 @@ export async function getAttentionQueue(
   }
 
   // 3. Expiring Quotes (Sent or Viewed with expiration within 48h or expired)
-  const { data: expiringQuotes } = await supabase
+  let quotesQuery = supabase
     .from('quotes')
-    .select('id, quote_number, total, expires_at, status, contacts(name, phone)')
+    .select('id, quote_number, total, expires_at, status, deleted_at, contacts(name, phone)')
     .eq('org_id', orgId)
     .in('status', ['sent', 'viewed'])
     .not('expires_at', 'is', null)
     .lte('expires_at', in48Hours.toISOString())
     .order('expires_at', { ascending: true })
     .limit(10)
+
+  if (typeof (quotesQuery as any).is === 'function') {
+    quotesQuery = (quotesQuery as any).is('deleted_at', null)
+  }
+
+  const { data: rawExpiringQuotes } = await quotesQuery
+  const expiringQuotes = (rawExpiringQuotes || []).filter((q: any) => !q.deleted_at)
 
   if (expiringQuotes && expiringQuotes.length > 0) {
     for (const quote of expiringQuotes) {
@@ -222,13 +240,20 @@ export async function getAttentionQueue(
   }
 
   // 5. Overdue / Outstanding Past Due Invoices
-  const { data: overdueInvoices } = await supabase
+  let invQuery = supabase
     .from('invoices')
-    .select('id, invoice_number, total, due_date, status, contacts(name, phone)')
+    .select('id, invoice_number, total, due_date, status, deleted_at, contacts(name, phone)')
     .eq('org_id', orgId)
     .or(`status.eq.overdue,and(status.in.(sent,partially_paid),due_date.lt.${now.toISOString()})`)
     .order('due_date', { ascending: true })
     .limit(10)
+
+  if (typeof (invQuery as any).is === 'function') {
+    invQuery = (invQuery as any).is('deleted_at', null)
+  }
+
+  const { data: rawOverdueInvoices } = await invQuery
+  const overdueInvoices = (rawOverdueInvoices || []).filter((i: any) => !i.deleted_at)
 
   if (overdueInvoices && overdueInvoices.length > 0) {
     for (const inv of overdueInvoices) {
@@ -248,13 +273,20 @@ export async function getAttentionQueue(
   }
 
   // 6. Customers Due for Service / Follow-up
-  const { data: dueCustomers } = await supabase
+  let custQuery = supabase
     .from('contacts')
-    .select('id, name, phone, last_service_date, lifecycle_status, next_expected_service_date')
+    .select('id, name, phone, last_service_date, lifecycle_status, next_expected_service_date, deleted_at')
     .eq('org_id', orgId)
     .in('lifecycle_status', ['due', 'overdue'])
     .order('next_expected_service_date', { ascending: true })
     .limit(10)
+
+  if (typeof (custQuery as any).is === 'function') {
+    custQuery = (custQuery as any).is('deleted_at', null)
+  }
+
+  const { data: rawDueCustomers } = await custQuery
+  const dueCustomers = (rawDueCustomers || []).filter((c: any) => !c.deleted_at)
 
   if (dueCustomers && dueCustomers.length > 0) {
     for (const cust of dueCustomers) {
@@ -345,13 +377,17 @@ export async function getOutcomeMetrics(
   // 3. Quote Conversion
   let quotesQuery = supabase
     .from('quotes')
-    .select('id, status, total, accepted_at, created_at')
+    .select('id, status, total, accepted_at, created_at, deleted_at')
     .eq('org_id', orgId)
     .limit(2000)
 
+  if (typeof (quotesQuery as any).is === 'function') {
+    quotesQuery = (quotesQuery as any).is('deleted_at', null)
+  }
+
   if (rangeStart) quotesQuery = quotesQuery.gte('created_at', rangeStart)
-  const { data: quotes } = await quotesQuery
-  const allQuotes = quotes || []
+  const { data: rawQuotes } = await quotesQuery
+  const allQuotes = (rawQuotes || []).filter(q => !q.deleted_at)
   const acceptedQuotes = allQuotes.filter(q => q.status === 'accepted')
   const acceptedCount = acceptedQuotes.length
   const acceptedValue = Math.round(acceptedQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
@@ -364,13 +400,17 @@ export async function getOutcomeMetrics(
   // 4. Payment Collection
   let invoicesQuery = supabase
     .from('invoices')
-    .select('id, total, status, created_at')
+    .select('id, total, status, created_at, deleted_at')
     .eq('org_id', orgId)
     .limit(2000)
 
+  if (typeof (invoicesQuery as any).is === 'function') {
+    invoicesQuery = (invoicesQuery as any).is('deleted_at', null)
+  }
+
   if (rangeStart) invoicesQuery = invoicesQuery.gte('created_at', rangeStart)
-  const { data: invoices } = await invoicesQuery
-  const allInvoices = invoices || []
+  const { data: rawInvoices } = await invoicesQuery
+  const allInvoices = (rawInvoices || []).filter(i => !i.deleted_at)
   const totalInvoicesCount = allInvoices.length
   const invoicedAmount = Math.round(allInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0) * 100) / 100
   const paidInvoices = allInvoices.filter(i => i.status === 'paid')
@@ -396,11 +436,16 @@ export async function getOutcomeMetrics(
   // 5. Repeat Bookings
   let allJobsQuery = supabase
     .from('jobs')
-    .select('id, contact_id, status, created_at')
+    .select('id, contact_id, status, created_at, deleted_at')
     .eq('org_id', orgId)
     .limit(2000)
 
-  const { data: allJobs } = await allJobsQuery
+  if (typeof (allJobsQuery as any).is === 'function') {
+    allJobsQuery = (allJobsQuery as any).is('deleted_at', null)
+  }
+
+  const { data: rawJobs } = await allJobsQuery
+  const allJobs = (rawJobs || []).filter(j => !j.deleted_at)
   const contactJobCount: Record<string, number> = {}
   for (const job of allJobs || []) {
     if (job.contact_id) {
@@ -501,36 +546,54 @@ export async function getOperationalMetrics(
 
     // 4. Quotes Awaiting Response (sent or viewed)
     (async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('quotes')
-        .select('total')
+        .select('total, deleted_at')
         .eq('org_id', orgId)
         .in('status', ['sent', 'viewed'])
-      const count = data?.length || 0
-      const total = Math.round((data || []).reduce((s, q) => s + (Number(q.total) || 0), 0) * 100) / 100
+
+      if (typeof (q as any).is === 'function') {
+        q = (q as any).is('deleted_at', null)
+      }
+      const { data } = await q
+      const active = (data || []).filter((item: any) => !item.deleted_at)
+      const count = active.length
+      const total = Math.round(active.reduce((s: number, item: any) => s + (Number(item.total) || 0), 0) * 100) / 100
       return { count, total }
     })(),
 
     // 5. Jobs Today
     (async () => {
-      const { count } = await supabase
+      let q = supabase
         .from('jobs')
-        .select('*', { count: 'exact', head: true })
+        .select('id, scheduled_start, deleted_at')
         .eq('org_id', orgId)
         .gte('scheduled_start', todayStart.toISOString())
         .lte('scheduled_start', todayEnd.toISOString())
-      return count || 0
+
+      if (typeof (q as any).is === 'function') {
+        q = (q as any).is('deleted_at', null)
+      }
+      const { data } = await q
+      const active = (data || []).filter((item: any) => !item.deleted_at)
+      return active.length
     })(),
 
     // 6. Outstanding Invoices
     (async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('invoices')
-        .select('total')
+        .select('total, deleted_at')
         .eq('org_id', orgId)
         .in('status', ['sent', 'partially_paid', 'overdue'])
-      const count = data?.length || 0
-      const balance = Math.round((data || []).reduce((s, i) => s + (Number(i.total) || 0), 0) * 100) / 100
+
+      if (typeof (q as any).is === 'function') {
+        q = (q as any).is('deleted_at', null)
+      }
+      const { data } = await q
+      const active = (data || []).filter((item: any) => !item.deleted_at)
+      const count = active.length
+      const balance = Math.round(active.reduce((s: number, item: any) => s + (Number(item.total) || 0), 0) * 100) / 100
       return { count, balance }
     })(),
 
@@ -558,12 +621,18 @@ export async function getOperationalMetrics(
 
     // 9. Customers Due for Follow-up
     (async () => {
-      const { count } = await supabase
+      let q = supabase
         .from('contacts')
-        .select('*', { count: 'exact', head: true })
+        .select('id, deleted_at')
         .eq('org_id', orgId)
         .in('lifecycle_status', ['due', 'overdue'])
-      return count || 0
+
+      if (typeof (q as any).is === 'function') {
+        q = (q as any).is('deleted_at', null)
+      }
+      const { data } = await q
+      const active = (data || []).filter((item: any) => !item.deleted_at)
+      return active.length
     })()
   ])
 

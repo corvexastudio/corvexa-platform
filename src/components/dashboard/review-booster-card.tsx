@@ -63,7 +63,7 @@ export function ReviewBoosterCard({ businessName, reviewUrl, onSent }: ReviewBoo
       <div className="absolute top-0 right-0 h-32 w-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
 
       <p className="text-xs text-zinc-400 leading-relaxed">
-        Finished a job? Type the customer&apos;s name and phone number. CaptoDesk texts them a direct link to leave a 5-star Google review.
+        Finished a job? Type the customer&apos;s name and phone number. CaptoDesk texts them a direct link to share their feedback on Google.
       </p>
 
       <form onSubmit={handleSend} className="mt-4 space-y-3.5">
@@ -90,7 +90,7 @@ export function ReviewBoosterCard({ businessName, reviewUrl, onSent }: ReviewBoo
         <div className="rounded-xl bg-zinc-950/70 border border-zinc-800/70 p-3 text-[11px] text-zinc-400 space-y-1">
           <span className="font-semibold text-zinc-400 block text-[10px] uppercase tracking-wider">SMS Preview:</span>
           <p className="italic text-zinc-300">
-            &ldquo;Hey {name || 'there'}, thank you for choosing {businessName || 'our team'}! If you were happy with the work, could you take 30 seconds to drop us a quick 5-star review here: {reviewUrl || '[Your Google Link]'}&rdquo;
+            &ldquo;Hey {name || 'there'}, thank you for choosing {businessName || 'our team'}! We would appreciate your feedback. Could you take a moment to share your review on Google: {reviewUrl || '[Your Google Link]'}&rdquo;
           </p>
         </div>
 

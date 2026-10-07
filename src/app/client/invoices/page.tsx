@@ -20,8 +20,11 @@ import {
   Calendar,
   X,
   Loader2,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 
 interface InvoiceItem {
@@ -85,16 +88,22 @@ export default function ClientInvoicesPage() {
   const [referenceNote, setReferenceNote] = useState('')
   const [recordingPayment, setRecordingPayment] = useState(false)
 
+  const [error, setError] = useState<string | null>(null)
+
   const loadInvoices = async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/client/invoices')
       if (res.ok) {
         const data = await res.json()
         setInvoices(data.invoices || [])
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        setError(errData.error || 'Failed to load invoices.')
       }
-    } catch (err) {
-      console.error('Failed to load invoices:', err)
+    } catch {
+      setError('Unable to connect to invoicing service. Please check connection.')
     } finally {
       setLoading(false)
     }
@@ -139,7 +148,7 @@ export default function ClientInvoicesPage() {
 
   const handleSaveInvoice = async (sendImmediately: boolean) => {
     if (!selectedContactId || !invoiceTitle.trim()) {
-      alert('Please select a customer and provide an invoice title.')
+      toast.error('Please select a customer and provide an invoice title.')
       return
     }
 
@@ -161,19 +170,22 @@ export default function ClientInvoicesPage() {
 
       const data = await res.json()
       if (!res.ok) {
-        alert(data.error || 'Failed to create invoice')
+        toast.error(data.error || 'Failed to create invoice')
         setSavingInvoice(false)
         return
       }
 
       if (sendImmediately && data.invoice?.id) {
         await fetch(`/api/client/invoices/${data.invoice.id}/send`, { method: 'POST' })
+        toast.success('Invoice created and sent via SMS!')
+      } else {
+        toast.success('Draft invoice created successfully!')
       }
 
       setShowCreateModal(false)
       await loadInvoices()
     } catch (err: any) {
-      alert(err.message || 'Error creating invoice')
+      toast.error(err.message || 'Error creating invoice')
     } finally {
       setSavingInvoice(false)
     }
@@ -184,11 +196,14 @@ export default function ClientInvoicesPage() {
     try {
       const res = await fetch(`/api/client/invoices/${invoiceId}/send`, { method: 'POST' })
       if (res.ok) {
+        toast.success('Invoice sent to customer via SMS!')
         await loadInvoices()
       } else {
-        const data = await res.json()
-        alert(data.error || 'Failed to send invoice')
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || 'Failed to send invoice')
       }
+    } catch {
+      toast.error('Network error sending invoice.')
     } finally {
       setActionLoadingId(null)
     }
@@ -196,7 +211,7 @@ export default function ClientInvoicesPage() {
 
   const handleRecordOfflinePayment = async () => {
     if (!paymentModalInvoice || !paymentAmount || Number(paymentAmount) <= 0) {
-      alert('Please enter a valid payment amount.')
+      toast.error('Please enter a valid payment amount.')
       return
     }
 
@@ -213,14 +228,17 @@ export default function ClientInvoicesPage() {
       })
 
       if (res.ok) {
+        toast.success('Offline payment recorded successfully!')
         setPaymentModalInvoice(null)
         setPaymentAmount('')
         setReferenceNote('')
         await loadInvoices()
       } else {
-        const data = await res.json()
-        alert(data.error || 'Failed to record payment')
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || 'Failed to record payment')
       }
+    } catch {
+      toast.error('Network error recording payment.')
     } finally {
       setRecordingPayment(false)
     }
@@ -232,8 +250,14 @@ export default function ClientInvoicesPage() {
     try {
       const res = await fetch(`/api/client/invoices/${invoiceId}/void`, { method: 'POST' })
       if (res.ok) {
+        toast.success('Invoice voided.')
         await loadInvoices()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || 'Failed to void invoice.')
       }
+    } catch {
+      toast.error('Network error voiding invoice.')
     } finally {
       setActionLoadingId(null)
     }
@@ -374,10 +398,33 @@ export default function ClientInvoicesPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-          <p className="text-sm">Loading invoices...</p>
+      {error ? (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center space-y-3">
+          <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
+          <h3 className="text-sm font-bold text-white">Failed to load invoices</h3>
+          <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
+          <button
+            onClick={loadInvoices}
+            className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+          </button>
+        </div>
+      ) : loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-28 bg-zinc-800/80" />
+                <Skeleton className="h-4 w-20 bg-zinc-800/60" />
+              </div>
+              <Skeleton className="h-4 w-48 bg-zinc-800/80" />
+              <div className="flex gap-4">
+                <Skeleton className="h-3 w-32 bg-zinc-800/60" />
+                <Skeleton className="h-3 w-24 bg-zinc-800/60" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredInvoices.length === 0 ? (
         <EmptyState

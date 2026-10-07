@@ -7,12 +7,13 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
   Users, 
   Search, 
   Star, 
-  RefreshCw,
+  RefreshCw, 
   Clock, 
   Calendar,
   AlertCircle,
@@ -40,10 +41,12 @@ export default function CustomersPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'due' | 'overdue' | 'inactive'>('all')
   const [sortBy, setSortBy] = useState<'last_activity' | 'ltv' | 'last_service' | 'name'>('last_activity')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [runningReactivation, setRunningReactivation] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams()
       if (search.trim()) params.set('query', search.trim())
@@ -55,9 +58,11 @@ export default function CustomersPage() {
         const data = await res.json()
         setCustomers(data.customers || [])
         setCounts(data.counts || {})
+      } else {
+        setError('Failed to load customer directory. Please retry.')
       }
     } catch (err) {
-      console.error('Error fetching customers:', err)
+      setError('Network error while loading customer directory.')
     } finally {
       setLoading(false)
     }
@@ -125,7 +130,7 @@ export default function CustomersPage() {
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
           <div className="text-zinc-400 text-xs font-medium">Total Customers</div>
           <div className="mt-2 text-2xl font-bold text-white">
-            {loading ? '-' : counts.total}
+            {loading ? <Skeleton className="h-8 w-14 bg-zinc-800 mt-0.5" /> : counts.total}
           </div>
           <p className="text-[11px] text-zinc-500 mt-1">Verified contacts</p>
         </div>
@@ -133,7 +138,7 @@ export default function CustomersPage() {
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
           <div className="text-zinc-400 text-xs font-medium">Active Customers</div>
           <div className="mt-2 text-2xl font-bold text-emerald-400">
-            {loading ? '-' : counts.active}
+            {loading ? <Skeleton className="h-8 w-14 bg-zinc-800 mt-0.5" /> : counts.active}
           </div>
           <p className="text-[11px] text-zinc-500 mt-1">Recent service completed</p>
         </div>
@@ -141,7 +146,7 @@ export default function CustomersPage() {
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
           <div className="text-zinc-400 text-xs font-medium">Services Due / Overdue</div>
           <div className="mt-2 text-2xl font-bold text-amber-400">
-            {loading ? '-' : counts.due + counts.overdue}
+            {loading ? <Skeleton className="h-8 w-14 bg-zinc-800 mt-0.5" /> : counts.due + counts.overdue}
           </div>
           <p className="text-[11px] text-zinc-500 mt-1">Eligible for reactivation</p>
         </div>
@@ -149,7 +154,7 @@ export default function CustomersPage() {
         <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
           <div className="text-zinc-400 text-xs font-medium">Total Lifetime Value</div>
           <div className="mt-2 text-2xl font-bold text-white">
-            {loading ? '-' : `$${counts.totalLtv.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            {loading ? <Skeleton className="h-8 w-20 bg-zinc-800 mt-0.5" /> : `$${counts.totalLtv.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </div>
           <p className="text-[11px] text-zinc-500 mt-1">Verified payments collected</p>
         </div>
@@ -198,10 +203,31 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Customers Table */}
+      {/* Customers Table / Error / Skeletons */}
+      {error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
+          <p className="text-sm font-medium text-red-400">{error}</p>
+          <Button onClick={loadData} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
+            Retry Loading Customers
+          </Button>
+        </div>
+      ) : (
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500 text-sm">Loading customer directory...</div>
+          <div className="divide-y divide-zinc-800/60 p-4 space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex items-center justify-between py-2">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-36 bg-zinc-800" />
+                  <Skeleton className="h-3 w-24 bg-zinc-800/60" />
+                </div>
+                <Skeleton className="h-5 w-20 rounded-full bg-zinc-800" />
+                <Skeleton className="h-4 w-24 bg-zinc-800" />
+                <Skeleton className="h-4 w-16 bg-zinc-800" />
+                <Skeleton className="h-4 w-16 bg-zinc-800" />
+              </div>
+            ))}
+          </div>
         ) : customers.length === 0 ? (
           <div className="p-4 sm:p-6">
             <EmptyState
@@ -295,6 +321,7 @@ export default function CustomersPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

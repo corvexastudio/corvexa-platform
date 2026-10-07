@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
   Target, 
@@ -53,37 +54,54 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<LeadItem[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadLeads = useCallback(async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    setError(null)
+    try {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser()
+      if (authErr || !user) {
+        setError('Authentication required to load leads.')
+        setLoading(false)
+        return
+      }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .single()
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('id', user.id)
+        .single()
 
-    if (!profile) return
+      if (profileErr || !profile) {
+        setError('Failed to resolve organization profile.')
+        setLoading(false)
+        return
+      }
 
-    const { data } = await supabase
-      .from('leads')
-      .select(`
-        id, contact_id, source, status, urgency, service_needed, estimated_value, notes, created_at,
-        contact:contacts(id, name, phone, address)
-      `)
-      .eq('org_id', profile.org_id)
-      .order('created_at', { ascending: false })
+      const { data, error: leadsErr } = await supabase
+        .from('leads')
+        .select(`
+          id, contact_id, source, status, urgency, service_needed, estimated_value, notes, created_at,
+          contact:contacts(id, name, phone, address)
+        `)
+        .eq('org_id', profile.org_id)
+        .order('created_at', { ascending: false })
 
-    if (data) {
-      const enriched: LeadItem[] = data.map((l: any) => ({
-        ...l,
-        contact: Array.isArray(l.contact) ? l.contact[0] : l.contact
-      }))
-      setLeads(enriched)
+      if (leadsErr) {
+        setError('Unable to load inbound leads. Please retry.')
+      } else if (data) {
+        const enriched: LeadItem[] = data.map((l: any) => ({
+          ...l,
+          contact: Array.isArray(l.contact) ? l.contact[0] : l.contact
+        }))
+        setLeads(enriched)
+      }
+    } catch {
+      setError('An unexpected error occurred while loading leads.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [supabase])
 
   useEffect(() => { loadLeads() }, [loadLeads])
@@ -137,8 +155,36 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Kanban Board Grid */}
-      {filtered.length === 0 ? (
+      {/* Error state */}
+      {error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
+          <p className="text-sm font-medium text-red-400">{error}</p>
+          <Button onClick={loadLeads} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
+            Retry Loading Leads
+          </Button>
+        </div>
+      ) : loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {STAGES.map(stage => (
+            <div
+              key={stage.key}
+              className="flex flex-col rounded-2xl bg-[#0D1322] border border-zinc-800/80 p-3.5 min-h-[500px] space-y-3"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800/60 mb-2 px-1">
+                <div className="flex items-center gap-2">
+                  <span className={cn("h-2.5 w-2.5 rounded-full", stage.dot)} />
+                  <span className="font-bold text-xs uppercase tracking-wider text-zinc-300">
+                    {stage.label}
+                  </span>
+                </div>
+                <Skeleton className="h-4 w-6 rounded bg-zinc-800" />
+              </div>
+              <Skeleton className="h-28 w-full rounded-xl bg-zinc-800/60" />
+              <Skeleton className="h-28 w-full rounded-xl bg-zinc-800/60" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={Target}
           title={search ? 'No Matching Leads Found' : 'No Inbound Leads Yet'}

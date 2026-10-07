@@ -4,16 +4,23 @@ export type AuditEventType =
   | 'security.login'
   | 'security.auth_callback'
   | 'security.access_denied'
+  | 'security.privilege_escalation_attempt'
+  | 'user.profile_updated'
   | 'team.invite_sent'
+  | 'team.invite_created_email_pending'
+  | 'team.invite_failed'
   | 'team.member_removed'
   | 'sms.outbound_dispatched'
   | 'sms.inbound_received'
   | 'sms.opt_out'
+  | 'telephony.test_sms_sent'
   | 'automation.settings_updated'
+  | 'automation.run_retried'
   | 'billing.status_toggled'
   | 'admin.action_performed'
   | 'call.missed_recovered'
   | 'call.answered_logged'
+
 
 export interface AuditLogPayload {
   org_id?: string | null

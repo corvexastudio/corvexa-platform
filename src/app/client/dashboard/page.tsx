@@ -39,6 +39,7 @@ import {
 export default function DashboardPage() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [period, setPeriod] = useState<TimeRange>('30d')
   const [org, setOrg] = useState<any>(null)
   const [attentionQueue, setAttentionQueue] = useState<AttentionItem[]>([])
@@ -49,6 +50,7 @@ export default function DashboardPage() {
 
   const loadDashboard = useCallback(async (selectedPeriod: TimeRange) => {
     setLoading(true)
+    setError(null)
     try {
       // 1. Fetch organization details for header
       const { data: { user } } = await supabase.auth.getUser()
@@ -72,9 +74,12 @@ export default function DashboardPage() {
         setOutcomes(data.outcomes || null)
         setJobsToday(data.jobsToday || [])
         setRecentCalls(data.recentCalls || [])
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        setError(errData.error || 'Failed to aggregate dashboard metrics.')
       }
-    } catch (err) {
-      console.error('Failed to load dashboard:', err)
+    } catch {
+      setError('Unable to reach dashboard services. Please check connection and try again.')
     } finally {
       setLoading(false)
     }
@@ -169,7 +174,32 @@ export default function DashboardPage() {
           <span className="text-xs text-zinc-400">Primary operational queue</span>
         </div>
 
-        {attentionQueue.length === 0 ? (
+        {error ? (
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-6 text-center space-y-3">
+            <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
+            <h3 className="text-sm font-bold text-white">Failed to load dashboard metrics</h3>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
+            <button
+              onClick={() => loadDashboard(period)}
+              className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+            </button>
+          </div>
+        ) : loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-20 bg-zinc-800/80 rounded-full animate-pulse" />
+                  <div className="h-3 w-12 bg-zinc-800/60 rounded animate-pulse" />
+                </div>
+                <div className="h-5 w-40 bg-zinc-800/80 rounded animate-pulse" />
+                <div className="h-3 w-56 bg-zinc-800/60 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : attentionQueue.length === 0 ? (
           <EmptyState
             icon={CheckCircle2}
             title="All Caught Up — No Immediate Actions Required"
@@ -374,7 +404,13 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {jobsToday.length === 0 ? (
+          {loading ? (
+            <div className="space-y-2.5">
+              {[1, 2].map(i => (
+                <div key={i} className="h-20 rounded-xl bg-zinc-900/60 animate-pulse border border-zinc-800" />
+              ))}
+            </div>
+          ) : jobsToday.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-8 text-center bg-zinc-900/30">
               <Briefcase className="h-8 w-8 text-zinc-500 mx-auto mb-2" />
               <h4 className="text-sm font-semibold text-white">No field jobs scheduled for today</h4>
@@ -528,7 +564,13 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {recentCalls.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-28 rounded-xl bg-zinc-900/60 animate-pulse border border-zinc-800" />
+            ))}
+          </div>
+        ) : recentCalls.length === 0 ? (
           <div className="rounded-xl border border-dashed border-zinc-800 p-8 text-center bg-zinc-900/30">
             <ShieldCheck className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
             <h4 className="text-sm font-semibold text-white">Your Safety Net is Active</h4>

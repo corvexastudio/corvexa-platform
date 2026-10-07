@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 
 import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
+import { provisionOrganizationPhoneNumber } from '@/lib/telephony/provisioning'
 
 export async function POST(request: NextRequest) {
   // Requirement 9: Rate limit public onboarding requests per IP
@@ -53,16 +54,17 @@ export async function POST(request: NextRequest) {
     const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`
 
-    const telnyxNumber = process.env.TELNYX_PHONE_NUMBER || '+16823808060'
+    const requestedNumber = body.requestedNumber || body.telnyxPhoneNumber || null
 
-    // 1. Create Organization
+    // 1. Create Organization with pending_number state (never assign a shared number)
     const { data: org, error: orgError } = await supabase
       .from('organizations')
       .insert({
         name: businessName.trim(),
         slug: uniqueSlug,
         owner_phone: phone ? phone.trim() : null,
-        telnyx_phone_number: telnyxNumber,
+        telnyx_phone_number: null,
+        phone_provisioning_status: 'pending_number',
         is_missed_call_active: true,
         is_review_engine_active: true,
       })
@@ -71,6 +73,14 @@ export async function POST(request: NextRequest) {
 
     if (orgError || !org) {
       return NextResponse.json({ error: orgError?.message || 'Failed to create organization.' }, { status: 500 })
+    }
+
+    // If an explicit dedicated phone number was requested during onboarding, provision it safely
+    if (requestedNumber) {
+      await provisionOrganizationPhoneNumber(supabase, {
+        orgId: org.id,
+        preferredNumberOrAreaCode: requestedNumber
+      })
     }
 
     // 2. Link Profile

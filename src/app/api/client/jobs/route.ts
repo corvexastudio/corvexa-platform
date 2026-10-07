@@ -32,6 +32,11 @@ export async function GET(request: Request) {
     .order('scheduled_start', { ascending: true })
     .limit(limit + 1)
 
+  const includeDeleted = searchParams.get('include_deleted') === 'true'
+  if (!includeDeleted) {
+    query = query.is('deleted_at', null)
+  }
+
   if (cursor) {
     query = query.gte('scheduled_start', cursor.timestamp).neq('id', cursor.id)
   }
@@ -149,3 +154,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  const tenantResult = await getTenantContext('appointments:manage')
+  if (!tenantResult.ok) {
+    return tenantResult.response
+  }
+
+  const { orgId, supabase } = tenantResult
+  const url = new URL(request.url)
+  let jobId = url.searchParams.get('id')
+
+  if (!jobId) {
+    try {
+      const body = await request.json()
+      jobId = body.id
+    } catch {
+      // Body not provided
+    }
+  }
+
+  if (!jobId) {
+    return NextResponse.json({ error: 'Job ID is required.' }, { status: 400 })
+  }
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', jobId)
+    .eq('org_id', orgId)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, message: 'Job successfully soft-deleted.' })
+}
+

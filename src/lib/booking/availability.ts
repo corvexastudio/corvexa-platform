@@ -117,6 +117,25 @@ export function formatSlotDisplayTime(date: Date, timezone: string): string {
 }
 
 /**
+ * Formats a Date into a localized date string (e.g. "Oct 14") strictly in the organization's timezone.
+ */
+export function formatSlotDisplayDate(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    month: 'short',
+    day: 'numeric'
+  }).format(date)
+}
+
+/**
+ * Combines date and time display strings strictly evaluated in the organization's timezone.
+ */
+export function formatSlotDisplayDateTime(date: Date, timezone: string): string {
+  return `${formatSlotDisplayDate(date, timezone)} at ${formatSlotDisplayTime(date, timezone)}`
+}
+
+
+/**
  * Returns the lowercase weekday name ("monday", "tuesday", etc.) for a dateStr in the given timezone.
  */
 export function getDayOfWeekName(dateStr: string, timezone: string): string {

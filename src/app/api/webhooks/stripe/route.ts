@@ -59,31 +59,34 @@ export async function POST(request: Request) {
       requestId
     })
 
-    // 2. Idempotency Check via processed_events table
-    const { data: existingEvent } = await supabase
-      .from('processed_events')
-      .select('id')
-      .eq('id', event.id)
-      .single()
-
-    if (existingEvent) {
-      telemetryStore.recordWebhook({
-        provider: 'stripe',
-        eventType,
-        stage: 'duplicated',
-        providerEventId: eventId,
-        requestId
-      })
-      logger.info('Duplicate Stripe webhook skipped', { eventId, eventType })
-      return NextResponse.json({ received: true, duplicate: true })
-    }
-
-    await supabase.from('processed_events').insert({
+    // 2. Atomic Database-Enforced Idempotency: Claim event ID
+    const { error: insertError } = await supabase.from('processed_events').insert({
       id: event.id,
       provider: 'stripe',
       event_type: event.type,
       provider_event_id: event.id
     })
+
+    if (insertError) {
+      if (
+        insertError.code === '23505' ||
+        insertError.message?.toLowerCase().includes('unique') ||
+        insertError.message?.toLowerCase().includes('duplicate')
+      ) {
+        telemetryStore.recordWebhook({
+          provider: 'stripe',
+          eventType,
+          stage: 'duplicated',
+          providerEventId: eventId,
+          requestId
+        })
+        logger.info('Duplicate Stripe webhook skipped', { eventId, eventType })
+        return NextResponse.json({ received: true, duplicate: true }, { status: 200 })
+      }
+
+      console.error('[STRIPE IDEMPOTENCY INSERT ERROR]', insertError)
+      return NextResponse.json({ error: 'Database idempotency error' }, { status: 500 })
+    }
 
     // 3. Process Authoritative Payment Events
     if (event.type === 'checkout.session.completed') {

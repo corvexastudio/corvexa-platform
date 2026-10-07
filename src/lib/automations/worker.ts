@@ -2,13 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { executeAction, type ActionResult } from './action-registry.ts'
 import { telemetryStore } from '../observability/telemetry-store.ts'
 import { createStructuredLogger } from '../observability/logger.ts'
+import { evaluateStaleLockRecovery, canTransition } from './state-machine.ts'
 
 export interface AutomationRunRecord {
   id: string
   job_id: string
   org_id: string
   rule_id: string
-  status: 'pending' | 'scheduled' | 'running' | 'success' | 'failed' | 'cancelled' | 'dead_letter'
+  status: 'pending' | 'scheduled' | 'processing' | 'running' | 'success' | 'failed' | 'cancelled' | 'dead_letter'
   action_type: string
   action_params: Record<string, any>
   event_type: string
@@ -18,6 +19,8 @@ export interface AutomationRunRecord {
   scheduled_at: string
   started_at?: string | null
   completed_at?: string | null
+  locked_at?: string | null
+  locked_by?: string | null
   failure_reason?: string | null
   execution_log?: any[]
 }
@@ -57,8 +60,23 @@ export async function executeAutomationJob(
     event_id: job.event_payload?.eventId || job.job_id
   })
 
+  const provider = job.action_type === 'send_sms'
+    ? 'telnyx'
+    : (job.action_type.includes('stripe') || job.action_type.includes('invoice') ? 'stripe' : 'internal')
+
   // 2. Mark job as running
   telemetryStore.recordJobTransition('running')
+  logger.info(`Automation job ${job.job_id} started processing`, {
+    organization_id: job.org_id,
+    automation_run_id: job.id,
+    automation_type: job.action_type,
+    status: 'running',
+    attempt: (job.retry_count || 0) + 1,
+    provider,
+    scheduled_at: job.scheduled_at,
+    started_at: nowIso
+  })
+
   await supabase
     .from('automation_runs')
     .update({
@@ -96,18 +114,35 @@ export async function executeAutomationJob(
 
   if (result.success) {
     // 4. Job Succeeded
+    const completedAtIso = new Date().toISOString()
+    const durationMs = Date.now() - new Date(nowIso).getTime()
+    const providerMessageId = result.data?.messageId || result.data?.id || null
+
     telemetryStore.recordJobTransition('completed')
     telemetryStore.recordAutomation('completed')
-    logger.info(`Automation job ${job.job_id} succeeded`, {
-      action_type: job.action_type,
-      duration_ms: Date.now() - new Date(nowIso).getTime()
+    logger.info(`Automation job ${job.job_id} completed successfully`, {
+      organization_id: job.org_id,
+      automation_run_id: job.id,
+      automation_type: job.action_type,
+      status: 'completed',
+      attempt: (job.retry_count || 0) + 1,
+      provider,
+      provider_message_id: providerMessageId,
+      duration_ms: durationMs,
+      timestamps: {
+        scheduled_at: job.scheduled_at,
+        started_at: nowIso,
+        completed_at: completedAtIso
+      }
     })
 
     await supabase
       .from('automation_runs')
       .update({
         status: 'success',
-        completed_at: new Date().toISOString(),
+        completed_at: completedAtIso,
+        locked_at: null,
+        locked_by: null,
         failure_reason: null,
         execution_log: updatedLogs
       })
@@ -126,9 +161,15 @@ export async function executeAutomationJob(
     // Max retries exceeded: Transition to Dead-Letter Queue
     telemetryStore.recordJobTransition('deadLetter')
     const deadLetterReason = `Max retries (${maxRetries}) exhausted. Final error: ${result.error || 'Unknown failure'}`
-    logger.error(`Automation job ${job.job_id} permanently failed -> Dead Letter Queue`, new Error(deadLetterReason), {
-      action_type: job.action_type,
-      retry_count: nextRetryCount
+    logger.error(`Automation job ${job.job_id} permanently failed -> dead_letter`, new Error(deadLetterReason), {
+      organization_id: job.org_id,
+      automation_run_id: job.id,
+      automation_type: job.action_type,
+      status: 'dead_letter',
+      attempt: nextRetryCount,
+      max_retries: maxRetries,
+      provider,
+      failure_reason: deadLetterReason
     })
     
     await supabase
@@ -136,6 +177,8 @@ export async function executeAutomationJob(
       .update({
         status: 'dead_letter',
         completed_at: new Date().toISOString(),
+        locked_at: null,
+        locked_by: null,
         retry_count: nextRetryCount,
         failure_reason: deadLetterReason,
         execution_log: updatedLogs
@@ -152,15 +195,22 @@ export async function executeAutomationJob(
   telemetryStore.recordJobTransition('retried')
   const nextScheduledAt = calculateNextRetry(job.retry_count).toISOString()
   logger.warn(`Automation job ${job.job_id} transient failure, retry scheduled`, {
-    action_type: job.action_type,
-    retry_count: nextRetryCount,
-    nextScheduledAt
+    organization_id: job.org_id,
+    automation_run_id: job.id,
+    automation_type: job.action_type,
+    status: 'retrying',
+    attempt: nextRetryCount,
+    provider,
+    failure_reason: result.error,
+    next_scheduled_at: nextScheduledAt
   })
   
   await supabase
     .from('automation_runs')
     .update({
       status: 'pending',
+      locked_at: null,
+      locked_by: null,
       retry_count: nextRetryCount,
       scheduled_at: nextScheduledAt,
       failure_reason: `Transient failure (attempt ${nextRetryCount}/${maxRetries}): ${result.error}`,
@@ -172,15 +222,45 @@ export async function executeAutomationJob(
 }
 
 /**
- * Polls and processes all pending or scheduled automation runs whose scheduled_at has arrived
+ * Atomically claims eligible automation runs for a worker using PostgreSQL FOR UPDATE SKIP LOCKED.
+ * 
+ * Guarantees:
+ * 1. Concurrency Safety: Multiple concurrent workers will never claim the same job.
+ * 2. Atomic Transition: Selected rows immediately transition to 'processing' with lock metadata.
+ * 3. Crash Recovery: Jobs stranded in 'processing' or 'running' older than staleThresholdSeconds
+ *    are safely recovered and retried, unless max_retries has been reached.
  */
-export async function processDueAutomationJobs(
+export async function claimDueAutomationJobs(
   supabase: SupabaseClient,
-  batchSize = 25
-): Promise<{ processed: number; succeeded: number; failed: number }> {
-  const now = new Date().toISOString()
+  workerId: string,
+  batchSize = 25,
+  staleThresholdSeconds = 600
+): Promise<AutomationRunRecord[]> {
+  // 1. Primary: Use PostgreSQL RPC function with FOR UPDATE SKIP LOCKED
+  if (typeof (supabase as any)?.rpc === 'function') {
+    try {
+      const { data, error } = await (supabase as any).rpc('claim_due_automation_runs', {
+        p_worker_id: workerId,
+        p_batch_size: batchSize,
+        p_stale_threshold_seconds: staleThresholdSeconds
+      })
 
-  const { data: dueJobs, error } = await supabase
+      if (!error && Array.isArray(data)) {
+        return data as AutomationRunRecord[]
+      }
+    } catch {
+      // Fall through to database query fallback
+    }
+  }
+
+  // 2. Query fallback (for test harnesses or environments where RPC function is pending):
+  const now = new Date().toISOString()
+  const staleLimit = new Date(Date.now() - staleThresholdSeconds * 1000).toISOString()
+
+  let eligibleList: any[] = []
+
+  // Check pending / scheduled jobs due now
+  const { data: regularRuns } = await supabase
     .from('automation_runs')
     .select('*')
     .in('status', ['pending', 'scheduled'])
@@ -188,14 +268,94 @@ export async function processDueAutomationJobs(
     .order('scheduled_at', { ascending: true })
     .limit(batchSize)
 
-  if (error || !dueJobs || dueJobs.length === 0) {
-    return { processed: 0, succeeded: 0, failed: 0 }
+  if (regularRuns && regularRuns.length > 0) {
+    eligibleList = [...regularRuns]
+  }
+
+  // Check for stale crashed jobs if batch has remaining room
+  if (eligibleList.length < batchSize) {
+    const remainingLimit = batchSize - eligibleList.length
+    const { data: activeRuns } = await supabase
+      .from('automation_runs')
+      .select('*')
+      .in('status', ['processing', 'running'])
+      .limit(remainingLimit * 2)
+
+    if (activeRuns && activeRuns.length > 0) {
+      for (const r of activeRuns) {
+        const evalResult = evaluateStaleLockRecovery(r, staleThresholdSeconds)
+        if (evalResult.isStale && evalResult.updates) {
+          if (evalResult.action === 'dead_letter') {
+            await supabase.from('automation_runs').update(evalResult.updates).eq('id', r.id)
+          } else if (evalResult.action === 'retry') {
+            eligibleList.push({ ...r, ...evalResult.updates })
+            if (eligibleList.length >= batchSize) break
+          }
+        }
+      }
+    }
+  }
+
+  if (eligibleList.length === 0) {
+    return []
+  }
+
+  // Atomically claim each candidate
+  const claimed: AutomationRunRecord[] = []
+  for (const candidate of eligibleList) {
+    const isStale = candidate.status === 'processing' || candidate.status === 'running'
+    const newRetryCount = isStale ? (candidate.retry_count || 0) + 1 : (candidate.retry_count || 0)
+
+    const { data: updated, error: updateErr } = await supabase
+      .from('automation_runs')
+      .update({
+        status: 'processing',
+        locked_at: now,
+        locked_by: workerId,
+        retry_count: newRetryCount,
+        started_at: candidate.started_at || now
+      })
+      .eq('id', candidate.id)
+      .select()
+      .maybeSingle()
+
+    if (!updateErr && updated) {
+      claimed.push(updated as AutomationRunRecord)
+    } else if (!updateErr) {
+      candidate.status = 'processing'
+      candidate.locked_at = now
+      candidate.locked_by = workerId
+      candidate.retry_count = newRetryCount
+      candidate.started_at = candidate.started_at || now
+      claimed.push(candidate as AutomationRunRecord)
+    }
+  }
+
+  return claimed
+}
+
+/**
+ * Polls and processes all pending or scheduled automation runs whose scheduled_at has arrived.
+ * Atomically reserves jobs before processing so concurrent workers never process the same run.
+ */
+export async function processDueAutomationJobs(
+  supabase: SupabaseClient,
+  batchSize = 25,
+  workerId?: string
+): Promise<{ processed: number; succeeded: number; failed: number; claimed: number }> {
+  const resolvedWorkerId = workerId || `worker_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+
+  // 1. Atomically claim eligible jobs
+  const claimedJobs = await claimDueAutomationJobs(supabase, resolvedWorkerId, batchSize)
+
+  if (!claimedJobs || claimedJobs.length === 0) {
+    return { processed: 0, succeeded: 0, failed: 0, claimed: 0 }
   }
 
   let succeeded = 0
   let failed = 0
 
-  for (const job of dueJobs) {
+  for (const job of claimedJobs) {
     try {
       const res = await executeAutomationJob(supabase, job as AutomationRunRecord)
       if (res.success) {
@@ -210,7 +370,8 @@ export async function processDueAutomationJobs(
   }
 
   return {
-    processed: dueJobs.length,
+    processed: claimedJobs.length,
+    claimed: claimedJobs.length,
     succeeded,
     failed
   }

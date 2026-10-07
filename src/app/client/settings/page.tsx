@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
   Settings as SettingsIcon, 
@@ -26,6 +27,8 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testingSms, setTestingSms] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -33,37 +36,67 @@ export default function SettingsPage() {
     telnyx_phone_number: '',
     carrier: 'Verizon',
     timezone: 'America/Chicago',
-    google_review_url: ''
+    google_review_url: '',
+    reactivation_enabled: true,
+    default_reactivation_interval_days: 90,
+    reactivation_cooldown_days: 30,
+    reactivation_template: "Hi {customer_name}, it's been a little while since your last service with {business_name}. Would you like us to schedule your next visit? You can book online anytime: {booking_url}",
+    reactivation_quiet_hours: true,
+    reactivation_max_daily: 50
   })
 
   const loadSettings = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    setLoading(true)
+    setError(null)
+    try {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser()
+      if (authErr || !user) {
+        setError('Authentication required to view settings.')
+        setLoading(false)
+        return
+      }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .single()
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('id', user.id)
+        .single()
 
-    if (!profile) return
-    setOrgId(profile.org_id)
+      if (profileErr || !profile) {
+        setError('Failed to resolve organization profile.')
+        setLoading(false)
+        return
+      }
+      setOrgId(profile.org_id)
 
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', profile.org_id)
-      .single()
+      const { data: org, error: orgErr } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', profile.org_id)
+        .single()
 
-    if (org) {
-      setFormData({
-        name: org.name || '',
-        owner_phone: org.owner_phone || '',
-        telnyx_phone_number: org.telnyx_phone_number || '',
-        carrier: org.carrier || 'Verizon',
-        timezone: org.timezone || 'America/Chicago',
-        google_review_url: org.google_review_url || ''
-      })
+      if (orgErr) {
+        setError('Failed to retrieve organization settings.')
+      } else if (org) {
+        setFormData({
+          name: org.name || '',
+          owner_phone: org.owner_phone || '',
+          telnyx_phone_number: org.telnyx_phone_number || '',
+          carrier: org.carrier || 'Verizon',
+          timezone: org.timezone || 'America/Chicago',
+          google_review_url: org.google_review_url || '',
+          reactivation_enabled: org.reactivation_enabled ?? true,
+          default_reactivation_interval_days: org.default_reactivation_interval_days ?? 90,
+          reactivation_cooldown_days: org.reactivation_cooldown_days ?? 30,
+          reactivation_template: org.reactivation_template || "Hi {customer_name}, it's been a little while since your last service with {business_name}. Would you like us to schedule your next visit? You can book online anytime: {booking_url}",
+          reactivation_quiet_hours: org.reactivation_quiet_hours ?? true,
+          reactivation_max_daily: org.reactivation_max_daily ?? 50
+        })
+      }
+    } catch {
+      setError('An unexpected error occurred while loading settings.')
+    } finally {
+      setLoading(false)
     }
   }, [supabase])
 
@@ -89,7 +122,13 @@ export default function SettingsPage() {
         owner_phone: formData.owner_phone,
         carrier: formData.carrier,
         timezone: formData.timezone,
-        google_review_url: formData.google_review_url
+        google_review_url: formData.google_review_url,
+        reactivation_enabled: formData.reactivation_enabled,
+        default_reactivation_interval_days: parseInt(String(formData.default_reactivation_interval_days), 10) || 90,
+        reactivation_cooldown_days: parseInt(String(formData.reactivation_cooldown_days), 10) || 30,
+        reactivation_template: formData.reactivation_template,
+        reactivation_quiet_hours: formData.reactivation_quiet_hours,
+        reactivation_max_daily: parseInt(String(formData.reactivation_max_daily), 10) || 50
       })
       .eq('id', orgId)
 
@@ -105,22 +144,21 @@ export default function SettingsPage() {
     }
     setTestingSms(true)
     try {
-      const res = await fetch('/api/reviews/send', {
+      const res = await fetch('/api/telnyx/test-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'Owner Test',
-          phone: formData.owner_phone,
-          message: `[CaptoDesk Test] Hey, this is ${formData.name || 'your business'}! This is the exact SMS your customers receive within 15 seconds of a missed call.`
+          phone: formData.owner_phone
         })
       })
-      if (res.ok) {
-        toast.success(`Test text dispatched to ${formData.owner_phone}!`)
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(data.message || `Test text dispatched to ${formData.owner_phone}!`)
       } else {
-        toast.error('Test SMS failed. Verify your phone format.')
+        toast.error(data.error || 'Test SMS failed. Verify your phone format and forwarding configuration.')
       }
     } catch {
-      toast.error('Network error.')
+      toast.error('Network error while dispatching test SMS.')
     } finally {
       setTestingSms(false)
     }
@@ -142,14 +180,39 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* ── STEP-BY-STEP CARRIER FORWARDING WIZARD (Blueprint §6, §7) ── */}
-      <div className="rounded-2xl border border-blue-500/30 bg-[#0D1322] p-5 sm:p-7 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800/80">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 shrink-0">
-              <Smartphone className="h-6 w-6" />
+      {error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center space-y-3">
+          <p className="text-sm font-medium text-red-400">{error}</p>
+          <Button onClick={loadSettings} variant="outline" size="sm" className="border-red-500/30 text-red-300 hover:bg-red-500/20">
+            Retry Loading Settings
+          </Button>
+        </div>
+      ) : loading ? (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-zinc-800 bg-[#0D1322] p-6 space-y-4">
+            <Skeleton className="h-6 w-48 bg-zinc-800" />
+            <Skeleton className="h-4 w-72 bg-zinc-800/60" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <Skeleton className="h-10 w-full rounded-xl bg-zinc-800/60" />
+              <Skeleton className="h-10 w-full rounded-xl bg-zinc-800/60" />
             </div>
-            <div>
+          </div>
+          <div className="rounded-2xl border border-zinc-800 bg-[#0D1322] p-6 space-y-4">
+            <Skeleton className="h-6 w-48 bg-zinc-800" />
+            <Skeleton className="h-10 w-full rounded-xl bg-zinc-800/60" />
+            <Skeleton className="h-10 w-full rounded-xl bg-zinc-800/60" />
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ── STEP-BY-STEP CARRIER FORWARDING WIZARD (Blueprint §6, §7) ── */}
+          <div className="rounded-2xl border border-blue-500/30 bg-[#0D1322] p-5 sm:p-7 shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800/80">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 shrink-0">
+                  <Smartphone className="h-6 w-6" />
+                </div>
+                <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
                 Step 1: Your Dedicated Cloud Safety Net
               </span>
@@ -298,6 +361,97 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Customer Reactivation Settings */}
+        <div className="pt-4 border-t border-zinc-800/80 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Customer Reactivation Automation</span>
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Automatically remind past clients who are due for repeat service to schedule their next visit.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.reactivation_enabled}
+                onChange={e => setFormData(d => ({ ...d, reactivation_enabled: e.target.checked }))}
+                className="rounded bg-zinc-900 border-zinc-700 text-blue-600 focus:ring-0"
+              />
+              <span className="text-xs font-semibold text-zinc-300">
+                {formData.reactivation_enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-zinc-300">Service Cadence (Days)</Label>
+              <Input
+                type="number"
+                min={14}
+                max={730}
+                value={formData.default_reactivation_interval_days}
+                onChange={e => setFormData(d => ({ ...d, default_reactivation_interval_days: parseInt(e.target.value, 10) || 90 }))}
+                className="h-10 rounded-xl bg-zinc-900 border-zinc-800 text-xs text-white"
+              />
+              <span className="text-[10px] text-zinc-500">Days after last service</span>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-zinc-300">Cooldown Period (Days)</Label>
+              <Input
+                type="number"
+                min={7}
+                max={365}
+                value={formData.reactivation_cooldown_days}
+                onChange={e => setFormData(d => ({ ...d, reactivation_cooldown_days: parseInt(e.target.value, 10) || 30 }))}
+                className="h-10 rounded-xl bg-zinc-900 border-zinc-800 text-xs text-white"
+              />
+              <span className="text-[10px] text-zinc-500">Min days between messages</span>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-zinc-300">Max Daily Dispatch Limit</Label>
+              <Input
+                type="number"
+                min={1}
+                max={200}
+                value={formData.reactivation_max_daily}
+                onChange={e => setFormData(d => ({ ...d, reactivation_max_daily: parseInt(e.target.value, 10) || 50 }))}
+                className="h-10 rounded-xl bg-zinc-900 border-zinc-800 text-xs text-white"
+              />
+              <span className="text-[10px] text-zinc-500">Prevents accidental mass blast</span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-zinc-300">Reactivation SMS Template</Label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-zinc-400">
+                <input
+                  type="checkbox"
+                  checked={formData.reactivation_quiet_hours}
+                  onChange={e => setFormData(d => ({ ...d, reactivation_quiet_hours: e.target.checked }))}
+                  className="rounded bg-zinc-900 border-zinc-700 text-blue-600 focus:ring-0"
+                />
+                <span>Enforce Quiet Hours (8am-8pm local)</span>
+              </label>
+            </div>
+            <textarea
+              rows={3}
+              value={formData.reactivation_template}
+              onChange={e => setFormData(d => ({ ...d, reactivation_template: e.target.value }))}
+              placeholder="Hi {customer_name}, it's time for your service with {business_name}..."
+              className="w-full rounded-xl bg-zinc-900 border border-zinc-800 p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+            />
+            <p className="text-[10px] text-zinc-500">
+              Variables: <code className="text-zinc-300">{"{customer_name}"}</code>, <code className="text-zinc-300">{"{business_name}"}</code>, <code className="text-zinc-300">{"{booking_url}"}</code>
+            </p>
+          </div>
+        </div>
+
         <div className="pt-2 flex justify-end">
           <Button
             type="submit"
@@ -305,7 +459,7 @@ export default function SettingsPage() {
             className="h-10 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center gap-2"
           >
             <Save className="h-4 w-4" />
-            <span>{saving ? 'Saving...' : 'Save Profile'}</span>
+            <span>{saving ? 'Saving...' : 'Save Settings'}</span>
           </Button>
         </div>
       </form>
@@ -322,6 +476,8 @@ export default function SettingsPage() {
           the system instantly suppresses all future automated messages and logs the opt-out in your customer records.
         </p>
       </div>
+        </>
+      )}
 
     </div>
   )

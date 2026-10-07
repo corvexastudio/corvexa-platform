@@ -63,28 +63,31 @@ export function classifyMessage(flowType: string): MessageClassification {
   return 'transactional'
 }
 
-/**
- * Formats outbound message text to ensure mandatory sender business identification
- * and carrier opt-out instructions for marketing messages.
- */
-export function formatCompliantOutboundText(params: {
+export interface FormatCompliantTextParams {
   businessName: string
   text: string
   messageType: MessageClassification
-}): string {
-  const { businessName, text, messageType } = params
+  includeOptOutNotice?: boolean
+}
+
+/**
+ * Formats outbound message text to ensure mandatory sender business identification
+ * and carrier opt-out instructions where required by the messaging program.
+ */
+export function formatCompliantOutboundText(params: FormatCompliantTextParams): string {
+  const { businessName, text, messageType, includeOptOutNotice } = params
   let formatted = text.trim()
   const cleanBizName = (businessName || 'CaptoDesk').trim()
 
   // 1. Mandatory Business Identification (CTIA requirement)
-  // Check if business name is already prominent in text
   const hasBizName = formatted.toLowerCase().includes(cleanBizName.toLowerCase())
   if (!hasBizName && !formatted.startsWith(cleanBizName)) {
     formatted = `${cleanBizName}: ${formatted}`
   }
 
-  // 2. Mandatory Opt-Out Language for Marketing Messages (CTIA requirement)
-  if (messageType === 'marketing') {
+  // 2. Opt-Out Language (Mandatory on marketing or when programmatically requested)
+  const shouldIncludeOptOut = includeOptOutNotice ?? (messageType === 'marketing')
+  if (shouldIncludeOptOut) {
     const hasStopNotice = /\b(stop|opt out|unsubscribe)\b/i.test(formatted)
     if (!hasStopNotice) {
       formatted = `${formatted}\n\nReply STOP to cancel.`

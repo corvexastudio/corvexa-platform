@@ -20,12 +20,15 @@ import {
   X, 
   Loader2, 
   Trash2,
-  ChevronRight
+  ChevronRight,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -64,6 +67,7 @@ interface Quote {
 export default function ClientQuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'all' | 'pending' | 'accepted' | 'declined' | 'draft'>('all')
   const [search, setSearch] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -84,14 +88,18 @@ export default function ClientQuotesPage() {
   // Load Quotes
   const loadQuotes = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/client/quotes?limit=100')
       if (res.ok) {
         const data = await res.json()
         setQuotes(data.quotes || [])
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setError(err.error || 'Failed to load estimates.')
       }
     } catch {
-      toast.error('Failed to load quotes.')
+      setError('Unable to reach quotes service. Please verify your connection.')
     } finally {
       setLoading(false)
     }
@@ -290,10 +298,35 @@ export default function ClientQuotesPage() {
       </div>
 
       {/* ── Content Viewport ── */}
-      {loading ? (
-        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-12 text-center flex flex-col items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-3" />
-          <p className="text-sm text-zinc-400">Loading your estimates...</p>
+      {error ? (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center space-y-3">
+          <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
+          <h3 className="text-sm font-bold text-white">Failed to load quotes</h3>
+          <p className="text-xs text-zinc-400 max-w-md mx-auto">{error}</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadQuotes}
+            className="text-xs border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+          </Button>
+        </div>
+      ) : loading ? (
+        <div className="grid grid-cols-1 gap-3.5">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-28 bg-zinc-800/80" />
+                <Skeleton className="h-4 w-20 bg-zinc-800/60" />
+              </div>
+              <Skeleton className="h-4 w-48 bg-zinc-800/80" />
+              <div className="flex gap-4">
+                <Skeleton className="h-3 w-32 bg-zinc-800/60" />
+                <Skeleton className="h-3 w-24 bg-zinc-800/60" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredQuotes.length === 0 ? (
         <EmptyState

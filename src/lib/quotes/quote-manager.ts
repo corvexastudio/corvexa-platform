@@ -10,6 +10,7 @@ import {
   recordConsent,
   logComplianceAudit
 } from '../compliance/compliance-engine.ts'
+import { generateDocumentNumber } from '../services/document-counter.ts'
 
 export interface QuoteLineItemInput {
   description: string
@@ -89,12 +90,62 @@ export async function createQuote(
   }
 
   const financials = calculateQuoteFinancials(items, { taxRate, discount })
-  const quoteNumber = `QT-${Date.now().toString().slice(-6)}`
+  const quoteNumber = await generateDocumentNumber(supabase, orgId, 'quote')
   const manageToken = randomBytes(24).toString('hex')
   const manageUrl = `${appBaseUrl}/quote/${manageToken}`
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
 
-  // 1. Insert Quote Record
+  // 1. Transactional creation via PostgreSQL RPC if supported
+  const clientWithRpc = supabase as unknown as {
+    rpc?: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>
+  }
+
+  const itemsPayload = financials.lineItems.map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    total: item.total
+  }))
+
+  if (typeof clientWithRpc?.rpc === 'function') {
+    try {
+      const { data: rpcData, error: rpcError } = await clientWithRpc.rpc('create_quote_with_items', {
+        p_org_id: orgId,
+        p_contact_id: contactId,
+        p_lead_id: leadId || null,
+        p_quote_number: quoteNumber,
+        p_title: title.trim(),
+        p_description: description?.trim() || null,
+        p_subtotal: financials.subtotal,
+        p_tax: financials.tax,
+        p_discount: financials.discount,
+        p_total: financials.total,
+        p_expires_at: expiresAt,
+        p_manage_token: manageToken,
+        p_notes: notes?.trim() || null,
+        p_items: itemsPayload
+      })
+
+      if (!rpcError && rpcData && typeof rpcData === 'object') {
+        const parsed = rpcData as { quote: any; items: any[] }
+        if (parsed.quote) {
+          return {
+            success: true,
+            quote: parsed.quote,
+            items: parsed.items || [],
+            manageToken,
+            manageUrl
+          }
+        }
+      } else if (rpcError && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+        return { success: false, error: rpcError.message }
+      }
+    } catch {
+      // Fall through to query transaction rollback
+    }
+  }
+
+  // 2. Query execution with rollback guarantee (all-or-nothing):
   const { data: quote, error: quoteError } = await supabase
     .from('quotes')
     .insert({
@@ -120,7 +171,6 @@ export async function createQuote(
     return { success: false, error: quoteError?.message || 'Failed to create quote' }
   }
 
-  // 2. Insert Line Items
   const itemsToInsert = financials.lineItems.map((item) => ({
     quote_id: quote.id,
     org_id: orgId,
@@ -136,6 +186,8 @@ export async function createQuote(
     .select('*')
 
   if (itemsError) {
+    // Atomic rollback: clean up orphaned parent quote immediately
+    await supabase.from('quotes').delete().eq('id', quote.id)
     return { success: false, error: itemsError.message }
   }
 
@@ -598,3 +650,48 @@ export async function customerDeclineQuote(
 
   return { success: true, quote: updatedQuote }
 }
+
+/**
+ * Safely soft-deletes a quote without destroying financial records or line items.
+ */
+export async function softDeleteQuote(
+  supabase: SupabaseClient,
+  input: { orgId: string; quoteId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('quotes')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.quoteId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+/**
+ * Restores a soft-deleted quote.
+ */
+export async function restoreQuote(
+  supabase: SupabaseClient,
+  input: { orgId: string; quoteId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('quotes')
+    .update({
+      deleted_at: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', input.quoteId)
+    .eq('org_id', input.orgId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+

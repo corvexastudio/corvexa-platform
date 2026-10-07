@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   calculateAvailableSlots,
   formatSlotDisplayTime,
+  formatSlotDisplayDateTime,
   doesIntervalOverlap,
   type OrganizationBookingConfig,
   type ServiceItem,
@@ -255,7 +256,7 @@ export async function createBooking(
   }
 
   const slotStartDate = new Date(startTime)
-  const displayTime = `${slotStartDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${formatSlotDisplayTime(slotStartDate, timezone)}`
+  const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
 
   // 9. Dispatch Domain Event to Automation Engine
   const eventType = isInstant ? 'booking.confirmed' : 'booking.created'
@@ -642,7 +643,7 @@ export async function customerRescheduleBooking(
 
   const timezone = org?.timezone || 'America/Chicago'
   const slotStartDate = new Date(newStartTime)
-  const displayTime = `${slotStartDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${formatSlotDisplayTime(slotStartDate, timezone)}`
+  const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
   const manageUrl = `${appBaseUrl}/book/manage/${manageToken}`
 
@@ -760,7 +761,7 @@ export async function ownerUpdateBookingStatus(
   if (newStatus === 'confirmed' && contact?.phone && senderNumber) {
     const slotStartDate = new Date(apt.start_time)
     const timezone = org?.timezone || 'America/Chicago'
-    const displayTime = `${slotStartDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${formatSlotDisplayTime(slotStartDate, timezone)}`
+    const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
 
     // Send confirmation SMS
     const confirmText = `Great news ${contact.name || ''}! Your appointment with ${org?.name || 'us'} is confirmed for ${displayTime}. Manage: ${manageUrl}`

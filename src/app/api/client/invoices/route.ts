@@ -32,6 +32,11 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .limit(limit + 1)
 
+  const includeDeleted = searchParams.get('include_deleted') === 'true'
+  if (!includeDeleted) {
+    query = query.is('deleted_at', null)
+  }
+
   if (cursor) {
     query = query.lte('created_at', cursor.timestamp).neq('id', cursor.id)
   }
@@ -117,3 +122,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message || 'Failed to process invoice' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  const tenantResult = await getTenantContext('appointments:manage')
+  if (!tenantResult.ok) {
+    return tenantResult.response
+  }
+
+  const { orgId, supabase } = tenantResult
+  const url = new URL(request.url)
+  let invoiceId = url.searchParams.get('id')
+
+  if (!invoiceId) {
+    try {
+      const body = await request.json()
+      invoiceId = body.id
+    } catch {
+      // Body not provided
+    }
+  }
+
+  if (!invoiceId) {
+    return NextResponse.json({ error: 'Invoice ID is required.' }, { status: 400 })
+  }
+
+  const { error } = await supabase
+    .from('invoices')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', invoiceId)
+    .eq('org_id', orgId)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, message: 'Invoice successfully soft-deleted.' })
+}
+

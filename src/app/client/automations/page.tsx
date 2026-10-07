@@ -242,7 +242,7 @@ export default function AutomationsPage() {
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  1-Click SMS request sent after job completion to generate verified 5-star Google reviews.
+                  1-Click SMS request sent after job completion to invite customers to share honest feedback on Google.
                 </p>
               </div>
             </div>
@@ -270,7 +270,7 @@ export default function AutomationsPage() {
               className="bg-zinc-900 border-zinc-800 text-xs text-white h-10 rounded-xl focus:border-amber-500"
             />
             <p className="text-[11px] text-zinc-400">
-              Paste your direct Google Maps &ldquo;Ask for reviews&rdquo; link. Homeowners will be directed straight to the 5-star rating window.
+              Paste your direct Google Maps &ldquo;Ask for reviews&rdquo; link. Customers will be directed straight to your Google review link.
             </p>
           </div>
         </div>

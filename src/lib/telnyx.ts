@@ -83,15 +83,21 @@ export function verifyTelnyxSignature(
   timestampHeader: string | null,
   publicKeyOverride?: string
 ): boolean {
+  // Explicit test environment mock: permitted ONLY in strict test mode with explicit bypass flag
+  if (
+    process.env.NODE_ENV === 'test' &&
+    process.env.TELNYX_ALLOW_TEST_WEBHOOK_BYPASS === 'true' &&
+    signatureHeader === 'test-bypass-signature'
+  ) {
+    return true
+  }
+
   const publicKey = publicKeyOverride || process.env.TELNYX_PUBLIC_KEY
 
+  // SEC-03: Fail-Closed Protection - Never allow unverified production, staging, or dev webhooks
   if (!publicKey) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[TELNYX SECURITY ERROR] TELNYX_PUBLIC_KEY is not configured in production. Rejecting webhook.')
-      return false
-    }
-    console.warn('[TELNYX DEV WARNING] TELNYX_PUBLIC_KEY is missing. Allowing unverified webhook in development.')
-    return true
+    console.error('[TELNYX SECURITY ERROR] TELNYX_PUBLIC_KEY is not configured. Rejecting webhook (fail-closed).')
+    return false
   }
 
   if (!signatureHeader || !timestampHeader) {

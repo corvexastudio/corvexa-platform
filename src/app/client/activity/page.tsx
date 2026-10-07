@@ -66,12 +66,35 @@ export default function ActivityPage() {
     fetchLogs()
   }, [filter, supabase])
 
+  const [retryingId, setRetryingId] = useState<string | null>(null)
+
   const handleRetry = async (log: any) => {
-    // Retry simulation: logs retry action
-    toast.info('Retrying notification dispatch...')
-    setTimeout(() => {
-      toast.success('Dispatched.')
-    }, 800)
+    const targetId = log.automation_run_id || log.id
+    setRetryingId(targetId)
+    try {
+      const res = await fetch(`/api/automations/runs/${targetId}/retry`, {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(data.message || 'Automation queued for immediate retry.')
+        setLogs(prev => prev.map(item => {
+          if (item.id === log.id) {
+            return { ...item, status: 'pending', delivery_status: 'pending' }
+          }
+          return item
+        }))
+        if (selected?.id === log.id) {
+          setSelected((prev: any) => prev ? { ...prev, status: 'pending', delivery_status: 'pending' } : null)
+        }
+      } else {
+        toast.error(data.error || 'Failed to retry automation run.')
+      }
+    } catch {
+      toast.error('Network error while requesting automation retry.')
+    } finally {
+      setRetryingId(null)
+    }
   }
 
   const statusBadge = (status: string) => {
@@ -202,8 +225,14 @@ export default function ActivityPage() {
                 </span>
               </div>
               {(selected.delivery_status === 'failed' || selected.status === 'failed') && (
-                <Button size="sm" variant="destructive" onClick={() => handleRetry(selected)}>
-                  <RefreshCw className="mr-1 h-3 w-3" /> Retry
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={retryingId === (selected.automation_run_id || selected.id)}
+                  onClick={() => handleRetry(selected)}
+                >
+                  <RefreshCw className={`mr-1 h-3 w-3 ${retryingId === (selected.automation_run_id || selected.id) ? 'animate-spin' : ''}`} />
+                  {retryingId === (selected.automation_run_id || selected.id) ? 'Retrying...' : 'Retry'}
                 </Button>
               )}
             </div>

@@ -35,6 +35,18 @@ export async function resolveOrganizationByPhoneNumber(
   const phone = norm.e164
 
   // 1. Primary lookup: Check dedicated telnyx_phone_numbers table
+  // Query to detect ambiguous multi-tenant collisions
+  const { data: allMatches } = await supabase
+    .from('telnyx_phone_numbers')
+    .select('id, org_id, phone_number, status')
+    .eq('phone_number', phone)
+    .eq('status', 'active')
+
+  if (Array.isArray(allMatches) && allMatches.length > 1) {
+    console.error(`[TELEPHONY ROUTING ERROR] Ambiguous mapping: ${allMatches.length} active records found for phone ${phone}. Rejecting for safety.`)
+    return null
+  }
+
   const { data: numberRow } = await supabase
     .from('telnyx_phone_numbers')
     .select('*, organizations(*)')
@@ -42,15 +54,37 @@ export async function resolveOrganizationByPhoneNumber(
     .eq('status', 'active')
     .maybeSingle()
 
-  if (numberRow && numberRow.organizations) {
-    return {
-      org: numberRow.organizations,
-      numberRecord: numberRow,
-      resolvedPhone: phone
+  if (numberRow) {
+    let org = numberRow.organizations
+    if (!org && numberRow.org_id) {
+      const { data: orgLookup } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', numberRow.org_id)
+        .maybeSingle()
+      org = orgLookup
+    }
+
+    if (org) {
+      return {
+        org,
+        numberRecord: numberRow,
+        resolvedPhone: phone
+      }
     }
   }
 
   // 2. Secondary lookup (backward compatibility): Check organizations.telnyx_phone_number
+  const { data: allOrgMatches } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('telnyx_phone_number', phone)
+
+  if (Array.isArray(allOrgMatches) && allOrgMatches.length > 1) {
+    console.error(`[TELEPHONY ROUTING ERROR] Ambiguous mapping: Multiple organizations share telnyx_phone_number ${phone}. Rejecting for safety.`)
+    return null
+  }
+
   const { data: orgRow } = await supabase
     .from('organizations')
     .select('*')

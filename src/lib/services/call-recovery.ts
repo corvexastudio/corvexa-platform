@@ -138,6 +138,12 @@ export async function processMissedCall(
       suppression_reason: suppression.suppressionReason
     })
 
+    // If suppressed due to cooldown window, caller has repeated their attempt:
+    // Update CRM lead missed_call_count and notes so business owner sees the repeat call
+    if (suppression.suppressionReason === 'cooldown_active' && contact?.id) {
+      await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id)
+    }
+
     return {
       success: true,
       action: `suppressed_${suppression.suppressionReason}`,
@@ -193,13 +199,10 @@ export async function processMissedCall(
     auto_reply_sent: smsResult.success
   })
 
-  // 8. Create Lead
-  await supabase.from('leads').insert({
-    org_id: org.id,
-    contact_id: contact?.id,
-    source: 'missed_call',
-    status: 'new'
-  })
+  // 8. Lead Deduplication: Check for existing open lead for this contact in this organization
+  if (contact?.id) {
+    await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id)
+  }
 
   // 9. Ensure Conversation exists and log outbound recovery message
   let { data: conversation } = await supabase
@@ -241,5 +244,74 @@ export async function processMissedCall(
     action: 'auto_reply_sent',
     messageId: smsResult.messageId,
     orgId: org.id
+  }
+}
+
+/**
+ * Lead Deduplication Helper:
+ * Ensures repeat missed calls update existing open leads (status IN ('new', 'contacted'))
+ * rather than creating duplicate open leads. Closed/won/lost leads result in a new lead.
+ */
+async function recordOrUpdateLeadForMissedCall(
+  supabase: SupabaseClient,
+  orgId: string,
+  contactId: string
+): Promise<void> {
+  let existingOpenLead: any = null
+  const baseQuery: any = supabase
+    .from('leads')
+    .select('id, status, notes, missed_call_count')
+    .eq('org_id', orgId)
+    .eq('contact_id', contactId)
+
+  if (typeof baseQuery?.in === 'function') {
+    const { data } = await baseQuery.in('status', ['new', 'contacted']).maybeSingle()
+    existingOpenLead = data
+  } else {
+    const { data: newLead } = await supabase
+      .from('leads')
+      .select('id, status, notes, missed_call_count')
+      .eq('org_id', orgId)
+      .eq('contact_id', contactId)
+      .eq('status', 'new')
+      .maybeSingle()
+
+    if (newLead) {
+      existingOpenLead = newLead
+    } else {
+      const { data: contactedLead } = await supabase
+        .from('leads')
+        .select('id, status, notes, missed_call_count')
+        .eq('org_id', orgId)
+        .eq('contact_id', contactId)
+        .eq('status', 'contacted')
+        .maybeSingle()
+      existingOpenLead = contactedLead
+    }
+  }
+
+  if (existingOpenLead) {
+    const updatedCount = (existingOpenLead.missed_call_count || 1) + 1
+    const appendNote = `Repeat missed call at ${new Date().toLocaleTimeString()} (Attempt #${updatedCount})`
+    const newNotes = existingOpenLead.notes
+      ? `${existingOpenLead.notes}\n${appendNote}`
+      : appendNote
+
+    await supabase
+      .from('leads')
+      .update({
+        missed_call_count: updatedCount,
+        notes: newNotes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existingOpenLead.id)
+  } else {
+    await supabase.from('leads').insert({
+      org_id: orgId,
+      contact_id: contactId,
+      source: 'missed_call',
+      status: 'new',
+      missed_call_count: 1
+    })
   }
 }

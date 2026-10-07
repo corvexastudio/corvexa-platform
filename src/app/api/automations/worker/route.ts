@@ -40,9 +40,11 @@ async function handleWorkerExecution(request: Request) {
   )
 
   try {
-    const summary = await processDueAutomationJobs(supabase, 25)
+    const workerId = `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const summary = await processDueAutomationJobs(supabase, 25, workerId)
     return NextResponse.json({
       success: true,
+      workerId,
       timestamp: new Date().toISOString(),
       ...summary
     })

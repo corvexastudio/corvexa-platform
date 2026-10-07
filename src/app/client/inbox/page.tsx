@@ -5,8 +5,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { MessageSquare, Send, PhoneCall, Search, User, ChevronLeft } from 'lucide-react'
+import { MessageSquare, Send, PhoneCall, Search, User, ChevronLeft, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConversationRow } from '@/components/inbox/conversation-row'
 import { MessageBubble } from '@/components/inbox/message-bubble'
@@ -46,61 +47,117 @@ export default function InboxPage() {
   const [replyText, setReplyText] = useState('')
   const [search, setSearch] = useState('')
   const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loadingConvs, setLoadingConvs] = useState(true)
+  const [convError, setConvError] = useState<string | null>(null)
+  const [loadingMessages, setLoadingMessages] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [oldestCursor, setOldestCursor] = useState<string | null>(null)
   const [mobileViewThread, setMobileViewThread] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const activeConv = conversations.find(c => c.id === activeConvId)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior })
   }
 
   const loadConversations = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
-    if (!profile) return
-
-    const { data } = await supabase
-      .from('conversations')
-      .select('id, org_id, contact_id, last_message_at, last_message_preview, unread_count, status, contact:contacts(id, name, phone, address)')
-      .eq('org_id', profile.org_id)
-      .order('last_message_at', { ascending: false })
-
-    if (data) {
-      const enriched: ConversationItem[] = data.map((c: any) => ({
-        ...c,
-        contact: Array.isArray(c.contact) ? c.contact[0] : c.contact
-      }))
-      setConversations(enriched)
-      if (enriched.length > 0 && !activeConvId) setActiveConvId(enriched[0].id)
+    setLoadingConvs(true)
+    setConvError(null)
+    try {
+      const res = await fetch('/api/client/inbox')
+      if (res.ok) {
+        const data = await res.json()
+        const convList: ConversationItem[] = data.conversations || []
+        setConversations(convList)
+        if (convList.length > 0 && !activeConvId) {
+          setActiveConvId(convList[0].id)
+        }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setConvError(err.error || 'Failed to load conversations.')
+      }
+    } catch {
+      setConvError('Unable to connect to inbox service. Check network connection.')
+    } finally {
+      setLoadingConvs(false)
     }
-    setLoading(false)
-  }, [supabase, activeConvId])
+  }, [activeConvId])
 
   const loadMessages = useCallback(async (convId: string) => {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true })
+    setLoadingMessages(true)
+    try {
+      const res = await fetch(`/api/client/inbox/messages?conversation_id=${convId}&limit=50`)
+      if (res.ok) {
+        const data = await res.json()
+        setMessages(data.messages || [])
+        setHasMoreOlder(Boolean(data.hasMore))
+        setOldestCursor(data.oldestCursor || null)
+        setTimeout(() => scrollToBottom('auto'), 50)
 
-    if (data) {
-      setMessages(data)
-      setTimeout(scrollToBottom, 100)
-      await supabase.from('conversations').update({ unread_count: 0 }).eq('id', convId)
-      setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
+        // Mark as read in background
+        supabase.from('conversations').update({ unread_count: 0 }).eq('id', convId).then(() => {
+          setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
+        })
+      } else {
+        toast.error('Failed to load message history.')
+      }
+    } catch {
+      toast.error('Network error loading messages.')
+    } finally {
+      setLoadingMessages(false)
     }
   }, [supabase])
 
-  useEffect(() => { loadConversations() }, [loadConversations])
-  useEffect(() => { if (activeConvId) loadMessages(activeConvId) }, [activeConvId, loadMessages])
+  const handleLoadOlderMessages = async () => {
+    if (!activeConvId || !oldestCursor || loadingOlder) return
+
+    setLoadingOlder(true)
+    const prevScrollHeight = scrollContainerRef.current?.scrollHeight || 0
+
+    try {
+      const res = await fetch(
+        `/api/client/inbox/messages?conversation_id=${activeConvId}&limit=50&before=${encodeURIComponent(oldestCursor)}`
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const older = data.messages || []
+        setMessages(prev => [...older, ...prev])
+        setHasMoreOlder(Boolean(data.hasMore))
+        setOldestCursor(data.oldestCursor || null)
+
+        // Maintain scroll position after prepending older messages
+        setTimeout(() => {
+          if (scrollContainerRef.current) {
+            const newScrollHeight = scrollContainerRef.current.scrollHeight
+            scrollContainerRef.current.scrollTop = newScrollHeight - prevScrollHeight
+          }
+        }, 30)
+      } else {
+        toast.error('Could not load older messages.')
+      }
+    } catch {
+      toast.error('Network error loading older messages.')
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
+
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
+
+  useEffect(() => {
+    if (activeConvId) {
+      loadMessages(activeConvId)
+    }
+  }, [activeConvId, loadMessages])
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!replyText.trim() || !activeConv || !activeConv.contact?.phone) return
+    if (!replyText.trim() || !activeConv || !activeConv.contact?.phone || sending) return
 
     setSending(true)
     const textToSend = replyText.trim()
@@ -117,14 +174,15 @@ export default function InboxPage() {
         const { message } = await res.json()
         if (message) {
           setMessages(prev => [...prev, message])
-          setTimeout(scrollToBottom, 100)
+          setTimeout(() => scrollToBottom('smooth'), 100)
         }
       } else {
-        toast.error('Failed to send text.')
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Failed to send text.')
         setReplyText(textToSend)
       }
     } catch {
-      toast.error('Network error.')
+      toast.error('Network error sending message.')
       setReplyText(textToSend)
     } finally {
       setSending(false)
@@ -167,17 +225,43 @@ export default function InboxPage() {
           </div>
         </div>
 
+        {/* Directory List Viewport */}
         <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/40">
-          {filtered.length === 0 ? (
+          {loadingConvs ? (
+            <div className="p-3 space-y-3">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl">
+                  <Skeleton className="h-10 w-10 rounded-full bg-zinc-800/80 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-28 bg-zinc-800/80" />
+                    <Skeleton className="h-3 w-40 bg-zinc-800/60" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : convError ? (
+            <div className="p-6 text-center space-y-3">
+              <AlertCircle className="h-8 w-8 text-rose-400 mx-auto" />
+              <p className="text-xs font-semibold text-rose-300">{convError}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={loadConversations}
+                className="text-xs border-zinc-700 bg-zinc-800/60 hover:bg-zinc-800 text-zinc-200"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+              </Button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="p-6 text-center text-xs text-zinc-400 space-y-2">
               <p className="font-semibold text-zinc-300">
-                {loading ? 'Loading conversations...' : 'No conversations yet'}
+                {search ? 'No matching conversations' : 'No conversations yet'}
               </p>
-              {!loading && (
-                <p className="text-[11px] text-zinc-500 leading-relaxed">
-                  When a caller reaches your line and misses you, CaptoDesk sends an immediate text. Customer replies will appear here.
-                </p>
-              )}
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                {search
+                  ? `No customer chats match "${search}". Try searching by customer phone number.`
+                  : 'When a caller reaches your line and misses you, CaptoDesk sends an immediate text. Customer replies will appear here.'}
+              </p>
             </div>
           ) : (
             filtered.map(conv => (
@@ -220,7 +304,7 @@ export default function InboxPage() {
                   <PhoneCall className="h-3.5 w-3.5 text-blue-400" />
                   <span className="hidden sm:inline">Call Cell</span>
                 </a>
-                <select onChange={(e) => handleStatusChange(e.target.value as any)} defaultValue="contacted" className="h-8 rounded-xl bg-zinc-800/90 border border-zinc-700/60 text-xs font-semibold text-zinc-200 px-2.5 focus:outline-none">
+                <select onChange={(e) => handleStatusChange(e.target.value as any)} defaultValue="contacted" className="h-8 rounded-xl bg-zinc-800/90 border border-zinc-700/60 text-xs font-semibold text-zinc-200 px-2.5 focus:outline-none cursor-pointer">
                   <option value="new">Status: New</option>
                   <option value="contacted">Status: Contacted</option>
                   <option value="booked">Status: Booked</option>
@@ -229,10 +313,52 @@ export default function InboxPage() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-              {messages.map(msg => (
-                <MessageBubble key={msg.id} {...msg} />
-              ))}
+            {/* Messages Scroll Container */}
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {/* Load older messages button */}
+              {hasMoreOlder && (
+                <div className="text-center pb-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingOlder}
+                    onClick={handleLoadOlderMessages}
+                    className="h-8 px-4 text-xs font-semibold rounded-full border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white"
+                  >
+                    {loadingOlder ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5 text-blue-400" />
+                        Loading older messages...
+                      </>
+                    ) : (
+                      'Load older messages'
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {loadingMessages ? (
+                <div className="space-y-4 p-4">
+                  <div className="flex justify-start">
+                    <Skeleton className="h-12 w-48 rounded-2xl bg-zinc-800/60" />
+                  </div>
+                  <div className="flex justify-end">
+                    <Skeleton className="h-14 w-64 rounded-2xl bg-blue-950/40" />
+                  </div>
+                  <div className="flex justify-start">
+                    <Skeleton className="h-10 w-40 rounded-2xl bg-zinc-800/60" />
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="py-12 text-center text-xs text-zinc-500">
+                  No message history recorded yet for this conversation.
+                </div>
+              ) : (
+                messages.map(msg => (
+                  <MessageBubble key={msg.id} {...msg} />
+                ))
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -243,11 +369,12 @@ export default function InboxPage() {
                 placeholder="Type your SMS reply to customer..."
                 value={replyText}
                 onChange={e => setReplyText(e.target.value)}
+                disabled={sending}
                 className="flex-1 h-11 bg-zinc-900 border-zinc-800 text-xs sm:text-sm text-white rounded-xl focus:border-blue-500 placeholder:text-zinc-400"
               />
               <Button type="submit" disabled={sending || !replyText.trim()} className="h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shrink-0 flex items-center gap-2">
-                <Send className="h-4 w-4" />
-                <span className="hidden sm:inline">Send SMS</span>
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <span className="hidden sm:inline">{sending ? 'Sending...' : 'Send SMS'}</span>
               </Button>
             </form>
           </>

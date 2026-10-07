@@ -67,3 +67,32 @@ export async function PATCH(
 
   return NextResponse.json({ success: true, contact: updatedContact })
 }
+
+export async function DELETE(
+  request: Request,
+  props: { params: Promise<{ id: string }> }
+) {
+  const { id } = await props.params
+  const tenantResult = await getTenantContext('contacts:manage')
+  if (!tenantResult.ok) {
+    return tenantResult.response
+  }
+
+  const { orgId, supabase } = tenantResult
+
+  const { error } = await supabase
+    .from('contacts')
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .eq('org_id', orgId)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, message: 'Contact successfully soft-deleted.' })
+}
+
