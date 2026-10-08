@@ -21,7 +21,17 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid date format. Expected YYYY-MM-DD' }, { status: 400 })
     }
 
-    const supabase = createAdminClient()
+    let supabase
+    try {
+      supabase = createAdminClient()
+    } catch {
+      const { createClient } = await import('@supabase/supabase-js')
+      supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vlztovqaummczupslymr.supabase.co',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+        { auth: { persistSession: false } }
+      )
+    }
 
     // 1. Fetch organization
     const { data: org, error: orgError } = await supabase
@@ -31,6 +41,7 @@ export async function GET(
       .single()
 
     if (orgError || !org) {
+      console.warn('[BOOKING_SLOTS_ORG_NOT_FOUND]', { slug, error: orgError?.message })
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
