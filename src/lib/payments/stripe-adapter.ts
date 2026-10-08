@@ -69,6 +69,10 @@ export async function createStripeCheckoutSession(
 
   // 1. Simulation fallback when no API key is provided
   if (!stripe) {
+    if (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production') {
+      console.error('[STRIPE CONFIGURATION ERROR] STRIPE_SECRET_KEY is missing in production environment.')
+      throw new Error('STRIPE_SECRET_KEY is not configured in production environment (fail-closed)')
+    }
     console.info(`[STRIPE SIMULATED MODE] Generating mock checkout session for invoice ${invoiceNumber} ($${amountDue})`)
     const mockSessionId = `cs_sim_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
     return {

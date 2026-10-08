@@ -4,7 +4,7 @@ import { createAdminClient } from '../src/lib/supabase/admin.ts'
 import { sendTelnyxSms } from '../src/lib/telnyx.ts'
 import { getTenantContext } from '../src/lib/security/tenant-context.ts'
 import { claimDueAutomationJobs } from '../src/lib/automations/worker.ts'
-import { verifyStripeWebhookSignature } from '../src/lib/payments/stripe-adapter.ts'
+import { verifyStripeWebhookSignature, createStripeCheckoutSession } from '../src/lib/payments/stripe-adapter.ts'
 import { extractClientIp } from '../src/lib/security/rate-limiter.ts'
 
 test('Fail-Closed 1. Supabase Admin Client: Prohibits fallback to anon key and throws in production', () => {
@@ -200,4 +200,31 @@ test('Fail-Closed 7. Rate Limiter IP Extraction: Cloudflare edge header takes pr
 
   const extracted = extractClientIp(spoofedRequest)
   assert.strictEqual(extracted, '198.51.100.77', 'Must prioritize trusted Cloudflare edge header over spoofable client header')
+})
+
+test('Fail-Closed 8. Stripe Checkout: Missing STRIPE_SECRET_KEY in production rejects simulated checkout creation', async () => {
+  const originalEnv = { ...process.env }
+  try {
+    process.env.NODE_ENV = 'production'
+    delete process.env.STRIPE_SECRET_KEY
+
+    await assert.rejects(
+      async () => {
+        await createStripeCheckoutSession({
+          invoiceId: 'inv-123',
+          invoiceNumber: 'INV-001',
+          orgId: 'org-1',
+          contactId: 'cnt-1',
+          amountDue: 150,
+          title: 'Roof Repair',
+          manageToken: 'token-xyz',
+          baseUrl: 'https://example.com'
+        })
+      },
+      /STRIPE_SECRET_KEY is not configured in production environment/,
+      'Must throw fatal error and never return mock checkout link in production'
+    )
+  } finally {
+    process.env = originalEnv
+  }
 })
