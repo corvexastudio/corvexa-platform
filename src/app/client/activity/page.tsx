@@ -99,12 +99,12 @@ export default function ActivityPage() {
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {
-      delivered: 'bg-emerald-50 text-emerald-700',
-      sent: 'bg-blue-50 text-blue-700',
-      failed: 'bg-red-50 text-red-700 font-semibold',
-      pending: 'bg-amber-50 text-amber-700',
+      delivered: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+      sent: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+      failed: 'bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium',
+      pending: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
     }
-    return map[status] ?? 'bg-muted text-muted-foreground'
+    return map[status] ?? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
   }
 
   const filters: { key: Filter; label: string }[] = [
@@ -115,19 +115,23 @@ export default function ActivityPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-4 max-w-2xl mx-auto relative">
+    <div className="flex flex-col gap-4 max-w-4xl mx-auto relative">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Activity</h1>
-        <p className="text-muted-foreground text-sm">Every automated action, in one place.</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-zinc-100 tracking-tight">Activity Log</h1>
+        <p className="text-zinc-400 text-xs mt-0.5">Audit log of inbound calls, outbound texts, and automation triggers.</p>
       </div>
 
-      {/* Scrollable filter pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+      {/* Filter pills */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         {filters.map(f => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${filter === f.key ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+            className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
+              filter === f.key 
+                ? 'bg-zinc-800 text-zinc-100 border-zinc-700' 
+                : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+            }`}
           >
             {f.label}
           </button>
@@ -135,16 +139,16 @@ export default function ActivityPage() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-background border rounded-2xl overflow-hidden">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
         {loading ? (
-          [1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-muted/30 animate-pulse mx-4 my-2 rounded-lg" />)
+          [1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-zinc-800/40 animate-pulse mx-4 my-2 rounded-md" />)
         ) : logs.length === 0 ? (
           <div className="py-12 text-center px-4">
-            <p className="text-sm font-medium text-muted-foreground">No activity yet.</p>
-            <p className="text-xs text-muted-foreground mt-1">Your first missed call or form lead will appear here automatically.</p>
+            <p className="text-xs font-medium text-zinc-300">No activity logged yet.</p>
+            <p className="text-xs text-zinc-500 mt-1">Inbound calls, SMS replies, and automation events will be logged here as they occur.</p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="divide-y divide-zinc-800/60">
             {logs.map(log => {
               const eventType = log.event_type || log.type || 'system_event'
               const deliveryStatus = log.metadata?.delivery || log.delivery_status || 'sent'
@@ -154,17 +158,17 @@ export default function ActivityPage() {
                 <button
                   key={log.id}
                   onClick={() => setSelected(log)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors text-left"
                 >
-                  <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${typeDot[eventType] ?? 'bg-blue-500'}`} />
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${typeDot[eventType] ?? 'bg-blue-500'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{typeLabel[eventType] ?? eventType}</p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs font-medium text-zinc-200 truncate">{typeLabel[eventType] ?? eventType}</p>
+                    <p className="text-xs text-zinc-400 truncate">
                       {contactInfo} · {new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge(deliveryStatus)}`}>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${statusBadge(deliveryStatus)}`}>
                       {deliveryStatus}
                     </span>
                   </div>
@@ -175,52 +179,51 @@ export default function ActivityPage() {
         )}
       </div>
 
-      {/* Detail Bottom Sheet */}
+      {/* Detail Bottom Sheet / Modal */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center bg-black/40" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)}>
           <div
-            className="bg-background w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl px-5 pt-5 pb-8 sm:pb-5 shadow-xl"
+            className="bg-zinc-900 border border-zinc-800 text-zinc-100 w-full sm:max-w-md sm:rounded-lg rounded-t-lg px-5 pt-5 pb-8 sm:pb-5 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* Handle bar */}
-            <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-4 sm:hidden" />
+            <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
 
             <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="font-semibold">{typeLabel[selected.event_type || selected.type] ?? selected.event_type}</p>
-                <p className="text-xs text-muted-foreground">{new Date(selected.created_at).toLocaleString()}</p>
+                <p className="text-sm font-semibold text-zinc-100">{typeLabel[selected.event_type || selected.type] ?? selected.event_type}</p>
+                <p className="text-xs text-zinc-400">{new Date(selected.created_at).toLocaleString()}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
+              <button onClick={() => setSelected(null)} className="text-zinc-400 hover:text-zinc-200">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Event Description / Contact */}
-            <div className="bg-muted/40 rounded-xl p-3 mb-3">
-              <p className="text-xs text-muted-foreground mb-0.5">Details</p>
-              <p className="text-sm font-medium">{selected.description || 'System action'}</p>
+            <div className="bg-zinc-950/60 border border-zinc-800 rounded-md p-3 mb-3">
+              <p className="text-[10px] uppercase font-semibold text-zinc-400 mb-0.5">Details</p>
+              <p className="text-xs font-medium text-zinc-200">{selected.description || 'System action'}</p>
               {selected.metadata?.phone && (
-                <p className="text-sm text-muted-foreground">{selected.metadata.phone}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{selected.metadata.phone}</p>
               )}
             </div>
 
-            {/* Message body if present in metadata */}
+            {/* Message payload if present */}
             {selected.metadata?.message && (
               <div className="mb-3">
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Message payload</p>
-                <div className="flex justify-end">
-                  <div className="bg-primary text-primary-foreground text-sm rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[85%]">
-                    {selected.metadata.message}
-                  </div>
+                <p className="text-[10px] uppercase font-semibold text-zinc-400 mb-1.5 flex items-center gap-1">
+                  <MessageSquare className="h-3 w-3" /> Message Payload
+                </p>
+                <div className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-md p-3">
+                  {selected.metadata.message}
                 </div>
               </div>
             )}
 
             {/* Delivery status */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Delivery status</p>
-                <span className={`text-sm px-3 py-1 rounded-full font-medium ${statusBadge(selected.delivery_status ?? selected.status ?? 'pending')}`}>
+                <p className="text-[10px] uppercase font-semibold text-zinc-400 mb-1">Delivery Status</p>
+                <span className={`text-xs px-2.5 py-0.5 rounded-md font-medium ${statusBadge(selected.delivery_status ?? selected.status ?? 'pending')}`}>
                   {selected.delivery_status ?? selected.status ?? 'pending'}
                 </span>
               </div>
@@ -228,11 +231,12 @@ export default function ActivityPage() {
                 <Button
                   size="sm"
                   variant="destructive"
+                  className="rounded-md text-xs h-8"
                   disabled={retryingId === (selected.automation_run_id || selected.id)}
                   onClick={() => handleRetry(selected)}
                 >
-                  <RefreshCw className={`mr-1 h-3 w-3 ${retryingId === (selected.automation_run_id || selected.id) ? 'animate-spin' : ''}`} />
-                  {retryingId === (selected.automation_run_id || selected.id) ? 'Retrying...' : 'Retry'}
+                  <RefreshCw className={`mr-1.5 h-3 w-3 ${retryingId === (selected.automation_run_id || selected.id) ? 'animate-spin' : ''}`} />
+                  {retryingId === (selected.automation_run_id || selected.id) ? 'Retrying...' : 'Retry Event'}
                 </Button>
               )}
             </div>

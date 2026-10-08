@@ -12,7 +12,6 @@ import {
   User, 
   Phone, 
   Mail, 
-  Sparkles, 
   AlertCircle,
   ShieldCheck,
   CalendarDays,
@@ -245,7 +244,7 @@ export default function PublicBookingPage() {
         {/* Business Header */}
         <div className="text-center space-y-2 pb-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
-            <Sparkles className="h-3 w-3" />
+            <CalendarDays className="h-3.5 w-3.5" />
             <span>Instant Online Booking</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">

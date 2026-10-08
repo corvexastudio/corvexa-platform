@@ -131,9 +131,9 @@ function LoginContent() {
                   </div>
                 </div>
               )}
-              <h1 className="text-3xl font-bold text-zinc-950 mb-2 tracking-tight">Sign in to CaptoDesk</h1>
-              <p className="text-zinc-500 mb-6 leading-relaxed">
-                Fast & easy access for contractors. New accounts get set up automatically.
+              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-950 mb-1.5 tracking-tight">Sign in to CaptoDesk</h1>
+              <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
+                Access your front desk, message inbox, and dispatch board.
               </p>
 
               {/* ── 1-Click Google OAuth button ── */}
@@ -141,7 +141,7 @@ function LoginContent() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={googleLoading || loading}
-                className="w-full h-12 bg-white hover:bg-zinc-50 active:bg-zinc-100 text-zinc-800 text-sm font-semibold rounded-xl border border-zinc-200 shadow-sm flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
+                className="w-full h-11 bg-white hover:bg-zinc-50 active:bg-zinc-100 text-zinc-800 text-sm font-semibold rounded-lg border border-zinc-200 shadow-sm flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
               >
                 {googleLoading ? (
                   <>
@@ -169,7 +169,7 @@ function LoginContent() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5" htmlFor="email">
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1.5" htmlFor="email">
                     Email address
                   </label>
                   <input
@@ -181,18 +181,18 @@ function LoginContent() {
                     autoCapitalize="none"
                     autoComplete="email"
                     required
-                    className="w-full h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all"
+                    className="w-full h-11 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 bg-zinc-950 hover:bg-zinc-800 text-white text-base font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                  className="w-full h-11 bg-zinc-950 hover:bg-zinc-800 text-white text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
                 >
                   {loading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Sending link...</>
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Sending sign-in link...</>
                   ) : (
-                    <>Send me a link <ArrowRight className="h-4 w-4" /></>
+                    <>Send sign-in link <ArrowRight className="h-4 w-4" /></>
                   )}
                 </button>
               </form>

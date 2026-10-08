@@ -11,12 +11,11 @@ import {
   Send, 
   CheckCircle2, 
   Smartphone, 
-  Sparkles, 
   PhoneCall, 
   Clock, 
-  Quote,
-  ShieldCheck,
-  Zap
+  Quote, 
+  ShieldCheck, 
+  Zap 
 } from 'lucide-react'
 
 const TRADE_TEMPLATES: Record<string, string> = {

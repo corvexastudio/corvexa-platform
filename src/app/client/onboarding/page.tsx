@@ -126,45 +126,53 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100 px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-            <span className="text-primary-foreground font-bold text-sm">C</span>
+          <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+            <span className="text-white font-bold text-sm">C</span>
           </div>
-          <span className="text-xl font-semibold tracking-tight">CaptoDesk</span>
+          <span className="text-lg font-semibold tracking-tight text-zinc-100">CaptoDesk</span>
         </div>
 
-        <div className="bg-background border rounded-2xl shadow-sm p-6">
-          <h1 className="text-xl font-bold mb-1">One quick thing</h1>
-          <p className="text-sm text-muted-foreground mb-6">
-            Tell us your business name so we can personalise your dashboard.
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm p-6">
+          <h1 className="text-lg font-semibold text-zinc-100 mb-1 tracking-tight">Workspace Setup</h1>
+          <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+            Enter your business details to configure your phone line, dispatcher dashboard, and client portal.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="biz">What's your business called?</Label>
+              <Label htmlFor="biz" className="text-xs text-zinc-300">Business / Company Name</Label>
               <Input
                 id="biz"
-                placeholder="e.g. Mike's Plumbing"
+                placeholder="e.g. Acme Plumbing & HVAC"
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
+                className="h-9 rounded-md text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
                 required
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="phone">Your mobile number <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="phone" className="text-xs text-zinc-300">
+                Notification Mobile Number <span className="text-zinc-500 font-normal">(optional)</span>
+              </Label>
               <Input
                 id="phone"
                 placeholder="(555) 555-5555"
                 value={phone}
                 onChange={handlePhone}
                 maxLength={14}
+                className="h-9 rounded-md text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 font-mono"
               />
-              <p className="text-xs text-muted-foreground">We use this to send you test messages when you want to verify automations.</p>
+              <p className="text-[11px] text-zinc-500">Used for dispatch notifications and real-time missed-call test alerts.</p>
             </div>
-            <Button type="submit" className="w-full" disabled={saving}>
-              {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Setting up...</> : "Let's go →"}
+            <Button 
+              type="submit" 
+              className="w-full h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs mt-2" 
+              disabled={saving}
+            >
+              {saving ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Initializing Workspace...</> : "Complete Workspace Setup"}
             </Button>
           </form>
         </div>

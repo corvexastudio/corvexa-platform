@@ -434,12 +434,12 @@ export default function InboxPage() {
         )}
       </div>
 
-      {/* ── Right Pane: Contextual Customer Dossier (Desktop >= 1024px) ── */}
+      {/* ── Right Pane: Contextual Customer Details (Desktop >= 1024px) ── */}
       {activeConv && (
         <div className="hidden lg:flex w-72 border-l border-zinc-800 flex-col bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Customer Dossier
+              Customer Details
             </div>
             <h3 className="text-sm font-semibold text-zinc-100 mt-1 truncate">
               {activeConv.contact?.name || 'Unsaved Caller'}
