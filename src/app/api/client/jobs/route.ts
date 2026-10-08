@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       contact:contacts(id, name, phone, email, address),
       service:services(id, name, duration_minutes),
       appointment:appointments(id, start_time, end_time),
-      quote:quotes(id, quote_number, total),
+      quote:quotes!quote_id(id, quote_number, total),
       items:job_items(*)
     `)
     .eq('org_id', orgId)
@@ -49,7 +49,43 @@ export async function GET(request: Request) {
     query = query.gte('scheduled_start', today.toISOString()).lte('scheduled_start', tonight.toISOString())
   }
 
-  const { data: rawJobs, error } = await query
+  let { data: rawJobs, error } = await query
+
+  // Resilient fallback: If PostgREST fails to embed relations, fall back to safe query without quotes embed
+  if (error && (error.message?.includes('embed') || error.message?.includes('relationship'))) {
+    let fallbackQuery = supabase
+      .from('jobs')
+      .select(`
+        *,
+        contact:contacts(id, name, phone, email, address),
+        service:services(id, name, duration_minutes),
+        appointment:appointments(id, start_time, end_time),
+        items:job_items(*)
+      `)
+      .eq('org_id', orgId)
+      .order('scheduled_start', { ascending: true })
+      .limit(limit + 1)
+
+    if (!includeDeleted) {
+      fallbackQuery = fallbackQuery.is('deleted_at', null)
+    }
+    if (cursor) {
+      fallbackQuery = fallbackQuery.gte('scheduled_start', cursor.timestamp).neq('id', cursor.id)
+    }
+    if (isTodayOnly) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tonight = new Date()
+      tonight.setHours(23, 59, 59, 999)
+      fallbackQuery = fallbackQuery.gte('scheduled_start', today.toISOString()).lte('scheduled_start', tonight.toISOString())
+    }
+
+    const fallbackRes = await fallbackQuery
+    if (!fallbackRes.error && fallbackRes.data) {
+      rawJobs = fallbackRes.data
+      error = null
+    }
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
