@@ -83,9 +83,14 @@ export default function DashboardPage() {
         if (res.status === 403 && (errData.error?.includes('profile not registered') || errData.error?.includes('not linked to an organization'))) {
           // Attempt self-healing provisioning before fallback
           try {
+            const { data: { session } } = await supabase.auth.getSession()
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (session?.access_token) {
+              headers['Authorization'] = `Bearer ${session.access_token}`
+            }
             const healRes = await fetch('/api/onboarding', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({})
             })
             if (healRes.ok) {

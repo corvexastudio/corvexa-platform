@@ -38,8 +38,24 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+    let user = (await supabase.auth.getUser()).data.user
+    const authHeader = request.headers.get('authorization')
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null
+
+    if (!user && bearerToken) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const tokenClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: false } }
+      )
+      const tokenUserRes = await tokenClient.auth.getUser(bearerToken)
+      if (tokenUserRes.data?.user) {
+        user = tokenUserRes.data.user
+      }
+    }
+
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 })
     }
 
@@ -72,7 +88,19 @@ export async function POST(request: NextRequest) {
         dbClient = adminClient
       }
     } catch {
-      dbClient = supabase
+      if (bearerToken) {
+        const { createClient } = await import('@supabase/supabase-js')
+        dbClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+            auth: { persistSession: false }
+          }
+        )
+      } else {
+        dbClient = supabase
+      }
     }
 
     // Generate deterministic UUID and unique slug

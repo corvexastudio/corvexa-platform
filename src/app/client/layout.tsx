@@ -133,6 +133,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         if (userError || !user) {
           setAuthState('redirecting')
           router.replace('/client/login')
+          window.location.href = '/client/login'
           return
         }
 
@@ -148,13 +149,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         // Auto-heal/provision organization if profile or org_id is missing
         if (!profile || !profile.org_id) {
           try {
+            const { data: { session } } = await supabase.auth.getSession()
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (session?.access_token) {
+              headers['Authorization'] = `Bearer ${session.access_token}`
+            }
+
             const defaultName = user.user_metadata?.full_name 
               ? `${user.user_metadata.full_name}'s Business`
               : (user.email ? `${user.email.split('@')[0]}'s Services` : 'My Business')
 
             const onboardRes = await fetch('/api/onboarding', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({ businessName: defaultName })
             })
 
@@ -176,6 +183,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         if (!profile || !profile.org_id) {
           setAuthState('redirecting')
           router.replace('/client/onboarding')
+          window.location.href = '/client/onboarding'
           return
         }
 
@@ -207,6 +215,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         if (isMounted) {
           setAuthState('redirecting')
           router.replace('/client/onboarding')
+          window.location.href = '/client/onboarding'
         }
       }
     }
