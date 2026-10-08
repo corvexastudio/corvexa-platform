@@ -1,7 +1,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { 
   Briefcase, 
   Clock, 
@@ -91,8 +92,11 @@ function getJobStatusBadge(status: JobItem['status']) {
   }
 }
 
-export default function JobsPage() {
+function JobsContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const contactIdParam = searchParams.get('contact_id')
+
   const [jobs, setJobs] = useState<JobItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -107,6 +111,14 @@ export default function JobsPage() {
   const [jobScheduledStart, setJobScheduledStart] = useState('')
   const [jobNotes, setJobNotes] = useState('')
   const [creatingJob, setCreatingJob] = useState(false)
+
+  // Listen to contact_id query param
+  useEffect(() => {
+    if (contactIdParam) {
+      setSelectedContactId(contactIdParam)
+      setShowCreateModal(true)
+    }
+  }, [contactIdParam])
 
   // Note dialog state
   const [activeJobForNote, setActiveJobForNote] = useState<string | null>(null)
@@ -664,5 +676,13 @@ export default function JobsPage() {
       </Modal>
 
     </div>
+  )
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-zinc-500">Loading jobs...</div>}>
+      <JobsContent />
+    </Suspense>
   )
 }

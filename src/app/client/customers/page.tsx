@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { Modal } from '@/components/ui/modal'
 import { 
   Users, 
   Search, 
@@ -28,7 +29,8 @@ import {
   HelpCircle, 
   Loader2, 
   ChevronRight, 
-  ArrowUpDown 
+  ArrowUpDown,
+  Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +51,16 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [runningReactivation, setRunningReactivation] = useState(false)
+
+  // Add Customer Modal State
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addPhone, setAddPhone] = useState('')
+  const [addEmail, setAddEmail] = useState('')
+  const [addAddress, setAddAddress] = useState('')
+  const [addNotes, setAddNotes] = useState('')
+  const [addFrequency, setAddFrequency] = useState('90')
+  const [addingCustomer, setAddingCustomer] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -106,6 +118,49 @@ export default function CustomersPage() {
     }
   }
 
+  const handleAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!addPhone.trim()) {
+      toast.error('Customer phone number is required.')
+      return
+    }
+
+    setAddingCustomer(true)
+    try {
+      const res = await fetch('/api/client/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: addName.trim() || undefined,
+          phone: addPhone.trim(),
+          email: addEmail.trim() || undefined,
+          address: addAddress.trim() || undefined,
+          notes: addNotes.trim() || undefined,
+          serviceFrequencyDays: parseInt(addFrequency, 10) || 90
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`Customer ${addName ? `"${addName}"` : ''} added successfully`)
+        setShowAddModal(false)
+        setAddName('')
+        setAddPhone('')
+        setAddEmail('')
+        setAddAddress('')
+        setAddNotes('')
+        setAddFrequency('90')
+        await loadData()
+      } else {
+        toast.error(data.error || 'Failed to add customer')
+      }
+    } catch {
+      toast.error('Network error adding customer.')
+    } finally {
+      setAddingCustomer(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -154,19 +209,30 @@ export default function CustomersPage() {
           </p>
         </div>
 
-        <Button
-          onClick={handleRunReactivation}
-          disabled={runningReactivation}
-          size="sm"
-          className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
-        >
-          {runningReactivation ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-          ) : (
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
-          )}
-          <span>Run Reactivations</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setShowAddModal(true)}
+            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            <span>Add Customer</span>
+          </Button>
+
+          <Button
+            onClick={handleRunReactivation}
+            disabled={runningReactivation}
+            size="sm"
+            className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+          >
+            {runningReactivation ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+            )}
+            <span>Run Reactivations</span>
+          </Button>
+        </div>
       </div>
 
       {/* Metrics Row */}
@@ -391,6 +457,102 @@ export default function CustomersPage() {
           )}
         </div>
       )}
+
+      {/* Add Customer Modal */}
+      <Modal
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        title="Add New Customer"
+        description="Create a verified contact profile in your customer directory."
+        size="md"
+      >
+        <form onSubmit={handleAddCustomer} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Full Name</label>
+            <Input
+              placeholder="e.g. Sarah Connor"
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Phone Number *</label>
+            <Input
+              required
+              placeholder="e.g. +1 555-0199"
+              value={addPhone}
+              onChange={(e) => setAddPhone(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Email Address</label>
+            <Input
+              type="email"
+              placeholder="e.g. sarah@example.com"
+              value={addEmail}
+              onChange={(e) => setAddEmail(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Service Address</label>
+            <Input
+              placeholder="e.g. 742 Evergreen Terrace, Springfield"
+              value={addAddress}
+              onChange={(e) => setAddAddress(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Service Frequency (Days)</label>
+            <Input
+              type="number"
+              min="7"
+              value={addFrequency}
+              onChange={(e) => setAddFrequency(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+            <span className="text-[11px] text-zinc-500 mt-0.5 block">How often this customer typically requires maintenance (default: 90 days)</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Notes / Preferences</label>
+            <textarea
+              rows={2}
+              placeholder="Customer notes, gate codes, equipment details..."
+              value={addNotes}
+              onChange={(e) => setAddNotes(e.target.value)}
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddModal(false)}
+              className="h-8 text-xs border-zinc-800 text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={addingCustomer}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            >
+              {addingCustomer ? 'Adding...' : 'Save Customer'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
     </div>
   )

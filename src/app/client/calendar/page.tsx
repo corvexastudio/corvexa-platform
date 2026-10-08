@@ -1,7 +1,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,8 +95,11 @@ function getAppointmentBadge(status: AppointmentItem['status']) {
   }
 }
 
-export default function CalendarPage() {
+function CalendarContent() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const contactIdParam = searchParams.get('contact_id')
+
   const [appointments, setAppointments] = useState<AppointmentItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -103,6 +107,36 @@ export default function CalendarPage() {
   const [orgSlug, setOrgSlug] = useState<string>('')
   const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
   const [copiedLink, setCopiedLink] = useState(false)
+
+  // Book Appointment Modal State
+  const [showBookModal, setShowBookModal] = useState(false)
+  const [contacts, setContacts] = useState<any[]>([])
+  const [bookContactId, setBookContactId] = useState('')
+  const [bookCustomName, setBookCustomName] = useState('')
+  const [bookCustomPhone, setBookCustomPhone] = useState('')
+  const [bookCustomAddress, setBookCustomAddress] = useState('')
+  const [bookServiceId, setBookServiceId] = useState('')
+  const [bookDateTime, setBookDateTime] = useState('')
+  const [bookNotes, setBookNotes] = useState('')
+  const [bookingLoading, setBookingLoading] = useState(false)
+
+  // Listen to contact_id query param
+  useEffect(() => {
+    if (contactIdParam) {
+      setBookContactId(contactIdParam)
+      setShowBookModal(true)
+    }
+  }, [contactIdParam])
+
+  // Load Contacts for picker
+  useEffect(() => {
+    fetch('/api/client/customers?limit=100')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.customers) setContacts(data.customers)
+      })
+      .catch(() => {})
+  }, [])
 
   // Settings Modal State
   const [showSettings, setShowSettings] = useState(false)
@@ -305,6 +339,59 @@ export default function CalendarPage() {
     }
   }
 
+  const handleCreateBooking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const selectedContact = contacts.find(c => c.id === bookContactId)
+    const phoneToUse = selectedContact ? selectedContact.phone : bookCustomPhone
+    const nameToUse = selectedContact ? selectedContact.name : bookCustomName
+    const addressToUse = selectedContact ? selectedContact.address : bookCustomAddress
+
+    if (!phoneToUse?.trim()) {
+      toast.error('Customer phone number is required.')
+      return
+    }
+    if (!bookDateTime) {
+      toast.error('Appointment date and time is required.')
+      return
+    }
+
+    setBookingLoading(true)
+    try {
+      const res = await fetch('/api/client/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: bookServiceId || undefined,
+          customerName: nameToUse?.trim() || 'Customer',
+          customerPhone: phoneToUse.trim(),
+          customerAddress: addressToUse?.trim() || undefined,
+          startTime: new Date(bookDateTime).toISOString(),
+          notes: bookNotes?.trim() || undefined
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Appointment booked successfully')
+        setShowBookModal(false)
+        setBookContactId('')
+        setBookCustomName('')
+        setBookCustomPhone('')
+        setBookCustomAddress('')
+        setBookServiceId('')
+        setBookDateTime('')
+        setBookNotes('')
+        await loadAppointments()
+      } else {
+        toast.error(data.error || 'Failed to book appointment')
+      }
+    } catch {
+      toast.error('Network error booking appointment.')
+    } finally {
+      setBookingLoading(false)
+    }
+  }
+
   const handleCopyBookingLink = () => {
     if (!orgSlug) return
     const url = `${window.location.origin}/book/${orgSlug}`
@@ -343,6 +430,14 @@ export default function CalendarPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            onClick={() => setShowBookModal(true)}
+            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            <span>Book Appointment</span>
+          </Button>
           {orgSlug && (
             <Button
               variant="outline"
@@ -760,6 +855,135 @@ export default function CalendarPage() {
         </div>
       </Modal>
 
+      {/* Book Appointment Modal */}
+      <Modal
+        open={showBookModal}
+        onOpenChange={setShowBookModal}
+        title="Book Appointment"
+        description="Schedule a confirmed appointment or dispatch on your calendar."
+        size="md"
+      >
+        <form onSubmit={handleCreateBooking} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Customer</label>
+            <select
+              aria-label="Select Customer"
+              value={bookContactId}
+              onChange={(e) => setBookContactId(e.target.value)}
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+            >
+              <option value="">-- Select Existing Customer or New Customer --</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Customer'} ({c.phone})
+                </option>
+              ))}
+              <option value="new">+ Enter New Customer</option>
+            </select>
+          </div>
+
+          {(bookContactId === 'new' || (!bookContactId && contacts.length === 0)) && (
+            <div className="space-y-3 p-3 rounded-md bg-zinc-950/60 border border-zinc-800/80">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Customer Name</label>
+                <Input
+                  placeholder="e.g. Sarah Connor"
+                  value={bookCustomName}
+                  onChange={(e) => setBookCustomName(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Phone Number *</label>
+                <Input
+                  required
+                  placeholder="e.g. +1 555-0199"
+                  value={bookCustomPhone}
+                  onChange={(e) => setBookCustomPhone(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Service Address</label>
+                <Input
+                  placeholder="e.g. 742 Evergreen Terrace"
+                  value={bookCustomAddress}
+                  onChange={(e) => setBookCustomAddress(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Service</label>
+            <select
+              aria-label="Select Service"
+              value={bookServiceId}
+              onChange={(e) => setBookServiceId(e.target.value)}
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+            >
+              <option value="">General Appointment</option>
+              {services.map((svc) => (
+                <option key={svc.id} value={svc.id}>
+                  {svc.name} ({svc.duration_minutes}m{svc.price ? ` - $${svc.price}` : ''})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Date & Time *</label>
+            <Input
+              type="datetime-local"
+              required
+              value={bookDateTime}
+              onChange={(e) => setBookDateTime(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Notes / Job Scope</label>
+            <textarea
+              rows={2}
+              placeholder="Special instructions, gate codes, or issue details..."
+              value={bookNotes}
+              onChange={(e) => setBookNotes(e.target.value)}
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBookModal(false)}
+              className="h-8 text-xs border-zinc-800 text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={bookingLoading}
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+            >
+              {bookingLoading ? 'Booking...' : 'Confirm Appointment'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
     </div>
+  )
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-zinc-500">Loading schedule...</div>}>
+      <CalendarContent />
+    </Suspense>
   )
 }

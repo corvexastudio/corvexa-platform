@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { Modal } from '@/components/ui/modal'
 import { 
   Target, 
   PhoneCall, 
@@ -19,7 +20,8 @@ import {
   Columns3,
   MapPin,
   ChevronRight,
-  Filter
+  Filter,
+  Plus
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -112,6 +114,30 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // New Lead Modal State
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [contacts, setContacts] = useState<any[]>([])
+  const [leadContactId, setLeadContactId] = useState('')
+  const [leadCustomName, setLeadCustomName] = useState('')
+  const [leadCustomPhone, setLeadCustomPhone] = useState('')
+  const [leadServiceNeeded, setLeadServiceNeeded] = useState('')
+  const [leadSource, setLeadSource] = useState('manual')
+  const [leadUrgency, setLeadUrgency] = useState<'normal' | 'low' | 'high' | 'emergency'>('normal')
+  const [leadEstimatedValue, setLeadEstimatedValue] = useState('')
+  const [leadNotes, setLeadNotes] = useState('')
+  const [savingLead, setSavingLead] = useState(false)
+  const [orgId, setOrgId] = useState<string | null>(null)
+
+  // Load contacts for picker
+  useEffect(() => {
+    fetch('/api/client/customers?limit=100')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.customers) setContacts(data.customers)
+      })
+      .catch(() => {})
+  }, [])
+
   const loadLeads = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -133,6 +159,7 @@ export default function LeadsPage() {
         window.location.href = '/client/onboarding'
         return
       }
+      setOrgId(profile.org_id)
 
       const { data, error: leadsErr } = await supabase
         .from('leads')
@@ -175,6 +202,78 @@ export default function LeadsPage() {
       loadLeads() // Rollback on failure
     } else {
       toast.success(`Stage updated to ${newStatus}`)
+    }
+  }
+
+  const handleCreateLead = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!orgId) return
+
+    setSavingLead(true)
+    try {
+      let finalContactId = leadContactId
+
+      if (leadContactId === 'new' || (!leadContactId && contacts.length === 0)) {
+        if (!leadCustomPhone.trim()) {
+          toast.error('Customer phone number is required.')
+          setSavingLead(false)
+          return
+        }
+        const custRes = await fetch('/api/client/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: leadCustomName.trim() || undefined,
+            phone: leadCustomPhone.trim()
+          })
+        })
+        const custData = await custRes.json()
+        if (!custRes.ok || !custData.contact?.id) {
+          toast.error(custData.error || 'Failed to create customer for lead.')
+          setSavingLead(false)
+          return
+        }
+        finalContactId = custData.contact.id
+      }
+
+      if (!finalContactId) {
+        toast.error('Please select or specify a customer for this lead.')
+        setSavingLead(false)
+        return
+      }
+
+      const { error: insertErr } = await supabase
+        .from('leads')
+        .insert({
+          org_id: orgId,
+          contact_id: finalContactId,
+          source: leadSource,
+          status: 'new',
+          urgency: leadUrgency,
+          service_needed: leadServiceNeeded.trim() || null,
+          estimated_value: leadEstimatedValue ? parseFloat(leadEstimatedValue) : null,
+          notes: leadNotes.trim() || null
+        })
+
+      if (insertErr) {
+        toast.error(insertErr.message || 'Failed to create lead.')
+      } else {
+        toast.success('Inbound lead recorded successfully')
+        setShowCreateModal(false)
+        setLeadContactId('')
+        setLeadCustomName('')
+        setLeadCustomPhone('')
+        setLeadServiceNeeded('')
+        setLeadSource('manual')
+        setLeadUrgency('normal')
+        setLeadEstimatedValue('')
+        setLeadNotes('')
+        await loadLeads()
+      }
+    } catch {
+      toast.error('Network error creating lead.')
+    } finally {
+      setSavingLead(false)
     }
   }
 
@@ -223,6 +322,15 @@ export default function LeadsPage() {
 
         {/* View Switcher & Actions */}
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setShowCreateModal(true)}
+            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            <span>New Lead</span>
+          </Button>
+
           <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-900 p-0.5">
             <button
               type="button"
@@ -642,6 +750,147 @@ export default function LeadsPage() {
           })}
         </div>
       )}
+
+      {/* New Lead Modal */}
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Record New Inbound Lead"
+        description="Log an inbound phone inquiry, quote request, or lead opportunity."
+        size="md"
+      >
+        <form onSubmit={handleCreateLead} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Customer</label>
+            <select
+              aria-label="Select Customer"
+              value={leadContactId}
+              onChange={(e) => setLeadContactId(e.target.value)}
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+            >
+              <option value="">-- Select Existing Contact or Enter New --</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Customer'} ({c.phone})
+                </option>
+              ))}
+              <option value="new">+ Enter New Customer</option>
+            </select>
+          </div>
+
+          {(leadContactId === 'new' || (!leadContactId && contacts.length === 0)) && (
+            <div className="space-y-3 p-3 rounded-md bg-zinc-950/60 border border-zinc-800/80">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Customer Name</label>
+                <Input
+                  placeholder="e.g. John Wick"
+                  value={leadCustomName}
+                  onChange={(e) => setLeadCustomName(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Phone Number *</label>
+                <Input
+                  required
+                  placeholder="e.g. +1 555-0199"
+                  value={leadCustomPhone}
+                  onChange={(e) => setLeadCustomPhone(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Service Needed *</label>
+            <Input
+              required
+              placeholder="e.g. Emergency pipe burst, AC capacitor inspection"
+              value={leadServiceNeeded}
+              onChange={(e) => setLeadServiceNeeded(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Lead Source</label>
+              <select
+                aria-label="Lead Source"
+                value={leadSource}
+                onChange={(e) => setLeadSource(e.target.value)}
+                className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+              >
+                <option value="manual">Manual Entry</option>
+                <option value="phone_call">Phone Call</option>
+                <option value="missed_call">Missed Call</option>
+                <option value="booking_link">Booking Link</option>
+                <option value="website">Website Inquiry</option>
+                <option value="referral">Referral</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Urgency</label>
+              <select
+                aria-label="Urgency"
+                value={leadUrgency}
+                onChange={(e) => setLeadUrgency(e.target.value as any)}
+                className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+              >
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="emergency">Emergency</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Estimated Value ($)</label>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="e.g. 450.00 (optional)"
+              value={leadEstimatedValue}
+              onChange={(e) => setLeadEstimatedValue(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Notes / Scope</label>
+            <textarea
+              rows={2}
+              placeholder="Details mentioned by caller..."
+              value={leadNotes}
+              onChange={(e) => setLeadNotes(e.target.value)}
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateModal(false)}
+              className="h-8 text-xs border-zinc-800 text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={savingLead}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            >
+              {savingLead ? 'Saving...' : 'Record Lead'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
     </div>
   )

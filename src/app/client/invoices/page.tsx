@@ -1,7 +1,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   CreditCard,
   Plus,
@@ -125,7 +126,10 @@ function getInvoiceStatusBadge(inv: Invoice) {
   )
 }
 
-export default function ClientInvoicesPage() {
+function ClientInvoicesContent() {
+  const searchParams = useSearchParams()
+  const contactIdParam = searchParams.get('contact_id')
+
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -147,6 +151,14 @@ export default function ClientInvoicesPage() {
     { description: 'Service Labor & Callout', quantity: 1, unit_price: 150 }
   ])
   const [savingInvoice, setSavingInvoice] = useState(false)
+
+  // Listen to contact_id query param
+  useEffect(() => {
+    if (contactIdParam) {
+      setSelectedContactId(contactIdParam)
+      setShowCreateModal(true)
+    }
+  }, [contactIdParam])
 
   // Offline Payment Modal
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null)
@@ -996,5 +1008,13 @@ export default function ClientInvoicesPage() {
       />
 
     </div>
+  )
+}
+
+export default function ClientInvoicesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-zinc-500">Loading invoices...</div>}>
+      <ClientInvoicesContent />
+    </Suspense>
   )
 }
