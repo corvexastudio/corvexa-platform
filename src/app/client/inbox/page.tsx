@@ -241,7 +241,7 @@ export default function InboxPage() {
   })
 
   return (
-    <div className="h-[calc(100vh-7.5rem)] flex rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden">
+    <div className="h-[calc(100dvh-3.25rem-3.5rem)] md:h-[calc(100vh-7.5rem)] flex md:rounded-md md:border md:border-zinc-800 bg-zinc-950 overflow-hidden">
       
       {/* ── Left Pane: Conversation Directory (Hidden on mobile when viewing thread) ── */}
       <div className={cn(
@@ -311,14 +311,14 @@ export default function InboxPage() {
         {activeConv ? (
           <>
             {/* Thread Header */}
-            <div className="h-13 border-b border-zinc-800 px-4 flex items-center justify-between shrink-0 bg-zinc-950">
+            <div className="h-13 border-b border-zinc-800 px-3 sm:px-4 flex items-center justify-between shrink-0 bg-zinc-950">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   onClick={() => setMobileViewThread(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100 md:hidden"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 text-zinc-300 hover:text-white bg-zinc-900 active:bg-zinc-800 md:hidden shrink-0"
                   aria-label="Back to conversations"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -398,29 +398,29 @@ export default function InboxPage() {
             </div>
 
             {/* Canned Snippets & Composer */}
-            <div className="border-t border-zinc-800 p-3 bg-zinc-950 space-y-2">
+            <div className="border-t border-zinc-800 p-2.5 sm:p-3 bg-zinc-950 space-y-2 shrink-0">
               <CannedSnippetsBar onSelect={text => setReplyText(text)} />
 
               <form onSubmit={handleSendReply} className="flex gap-2">
                 <Input
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
-                  placeholder="Type an SMS reply (or select a template above)..."
-                  className="flex-1 h-9 text-xs bg-zinc-900 border-zinc-800 rounded-md"
+                  placeholder="Type an SMS reply (or select template)..."
+                  className="flex-1 h-10 sm:h-9 text-base sm:text-xs bg-zinc-900 border-zinc-800 rounded-md"
                   disabled={sending}
                 />
                 <Button 
                   type="submit" 
                   disabled={!replyText.trim() || sending}
                   size="sm"
-                  className="h-9 px-3 gap-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs"
+                  className="h-10 sm:h-9 px-3.5 gap-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shrink-0"
                 >
                   {sending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      <Send className="h-3.5 w-3.5" />
-                      <span>Send</span>
+                      <Send className="h-4 w-4" />
+                      <span className="hidden sm:inline">Send</span>
                     </>
                   )}
                 </Button>

@@ -384,7 +384,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </header>
 
         {/* ── Page Content Container ── */}
-        <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl w-full mx-auto">
+        <main className={cn(
+          "flex-1 w-full mx-auto",
+          pathname.startsWith('/client/inbox')
+            ? "p-0 pb-14 md:p-6 md:pb-6 max-w-7xl"
+            : "p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl"
+        )}>
           {children}
         </main>
       </div>

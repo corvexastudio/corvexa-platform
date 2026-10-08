@@ -607,14 +607,15 @@ function CalendarContent() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0 pt-2 border-t border-zinc-800/60 md:border-t-0 md:pt-0 w-full md:w-auto justify-end flex-wrap">
                   {apt.status === 'requested' && (
                     <Button
                       size="sm"
                       onClick={() => handleUpdateStatus(apt.id, 'confirmed')}
-                      className="h-7.5 px-3 rounded text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                      className="h-8.5 sm:h-7.5 px-3 rounded-md text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
                     >
-                      <Check className="h-3 w-3 mr-1" />
+                      <Check className="h-3.5 w-3.5 mr-1" />
                       Approve
                     </Button>
                   )}
@@ -624,7 +625,7 @@ function CalendarContent() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleUpdateStatus(apt.id, 'completed')}
-                      className="h-7.5 px-2.5 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                      className="h-8.5 sm:h-7.5 px-3 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-md"
                     >
                       Complete
                     </Button>
@@ -634,7 +635,7 @@ function CalendarContent() {
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(apt.id, 'cancelled')}
-                      className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-rose-400 transition-colors"
+                      className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors"
                       title="Cancel Booking"
                     >
                       <XCircle className="h-4 w-4" />
@@ -644,7 +645,7 @@ function CalendarContent() {
                   {apt.contact?.phone && (
                     <a
                       href={`tel:${apt.contact.phone}`}
-                      className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
+                      className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
                       title="Call customer"
                     >
                       <PhoneCall className="h-3.5 w-3.5" />
@@ -656,7 +657,7 @@ function CalendarContent() {
                       href={`/book/manage/${apt.manage_token}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
                       title="Open customer portal"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />

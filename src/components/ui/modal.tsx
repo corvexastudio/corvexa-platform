@@ -51,15 +51,19 @@ export function Modal({
       <DialogContent
         showCloseButton={showCloseButton}
         className={cn(
-          'bg-[#0D1322] border-zinc-800 text-white p-5 sm:p-6 shadow-2xl rounded-2xl',
+          'bg-zinc-900 border-zinc-800 text-zinc-100 p-5 sm:p-6 shadow-2xl rounded-2xl max-h-[90dvh] overflow-y-auto overscroll-contain',
+          'max-sm:fixed max-sm:bottom-0 max-sm:top-auto max-sm:left-0 max-sm:right-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-full max-sm:max-w-full max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-4',
           sizeClasses[size],
           className
         )}
       >
+        {/* Mobile drag handle indicator */}
+        <div className="w-10 h-1 bg-zinc-700/80 rounded-full mx-auto -mt-1 mb-2.5 sm:hidden shrink-0" />
+
         {(title || description) && (
-          <DialogHeader className="space-y-1.5 pb-2 border-b border-zinc-800/60">
+          <DialogHeader className="space-y-1.5 pb-2.5 border-b border-zinc-800/80">
             {title && (
-              <DialogTitle className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <DialogTitle className="text-base sm:text-lg font-semibold text-zinc-100 tracking-tight flex items-center gap-2">
                 {title}
               </DialogTitle>
             )}
@@ -71,10 +75,10 @@ export function Modal({
           </DialogHeader>
         )}
 
-        <div className="py-2">{children}</div>
+        <div className="py-2.5">{children}</div>
 
         {footer && (
-          <DialogFooter className="pt-3 border-t border-zinc-800/60 flex items-center justify-end gap-2">
+          <DialogFooter className="pt-3 border-t border-zinc-800/80 flex items-center justify-end gap-2">
             {footer}
           </DialogFooter>
         )}

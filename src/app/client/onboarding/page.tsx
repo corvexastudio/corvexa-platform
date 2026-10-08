@@ -149,7 +149,7 @@ export default function OnboardingPage() {
                 placeholder="e.g. Acme Plumbing & HVAC"
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
-                className="h-9 rounded-md text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
+                className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
                 required
               />
             </div>
@@ -163,13 +163,13 @@ export default function OnboardingPage() {
                 value={phone}
                 onChange={handlePhone}
                 maxLength={14}
-                className="h-9 rounded-md text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 font-mono"
+                className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 font-mono"
               />
               <p className="text-[11px] text-zinc-500">Used for dispatch notifications and real-time missed-call test alerts.</p>
             </div>
             <Button 
               type="submit" 
-              className="w-full h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs mt-2" 
+              className="w-full h-10 sm:h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm sm:text-xs mt-2" 
               disabled={saving}
             >
               {saving ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Initializing Workspace...</> : "Complete Workspace Setup"}

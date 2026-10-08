@@ -181,14 +181,14 @@ export default function TeamPage() {
                     placeholder="teammate@example.com"
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
-                    className="h-9 rounded-md text-xs bg-zinc-950 border-zinc-800"
+                    className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-zinc-950 border-zinc-800"
                     required
                   />
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="text-xs text-zinc-300">Role</Label>
                   <Select value={inviteRole} onValueChange={(v: any) => setInviteRole(v)}>
-                    <SelectTrigger className="h-9 rounded-md text-xs bg-zinc-950 border-zinc-800">
+                    <SelectTrigger className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-zinc-950 border-zinc-800">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
@@ -198,7 +198,7 @@ export default function TeamPage() {
                   </Select>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={inviting} className="w-full sm:w-auto h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs">
+                  <Button type="submit" disabled={inviting} className="w-full sm:w-auto h-10 sm:h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm sm:text-xs">
                     {inviting ? 'Sending...' : 'Send Invitation'}
                   </Button>
                 </DialogFooter>
@@ -245,7 +245,7 @@ export default function TeamPage() {
               {/* Mobile: card list */}
               <div className="block sm:hidden divide-y divide-zinc-800/60">
                 {members.map((m) => (
-                  <div key={m.id} className="py-3 flex items-center gap-3">
+                  <div key={m.id} className="py-3.5 min-h-[48px] flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-semibold text-zinc-200 shrink-0">
                       {(m.full_name || m.email || '?')[0].toUpperCase()}
                     </div>

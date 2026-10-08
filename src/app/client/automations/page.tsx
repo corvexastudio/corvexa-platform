@@ -369,6 +369,29 @@ export default function AutomationsPage() {
           </div>
         </div>
 
+        {/* Bottom Save Action Bar for Mobile Thumb Reach */}
+        <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <p className="text-xs text-zinc-400">Changes deploy immediately to your front desk and SMS routing.</p>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            size="sm"
+            className="h-9 px-4 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium w-full sm:w-auto"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                Saving Rules...
+              </>
+            ) : (
+              <>
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Save Automation Rules
+              </>
+            )}
+          </Button>
+        </div>
+
       </div>
 
     </div>

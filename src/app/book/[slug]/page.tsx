@@ -521,7 +521,7 @@ export default function PublicBookingPage() {
                     placeholder="John Doe"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -531,14 +531,14 @@ export default function PublicBookingPage() {
                   Mobile Phone Number <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
+                  <Phone className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-zinc-500" />
                   <input
                     type="tel"
                     required
                     placeholder="(555) 000-0000"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <p className="text-[10px] text-zinc-500 mt-1">
@@ -551,13 +551,13 @@ export default function PublicBookingPage() {
                   Email Address <span className="text-zinc-500">(Optional)</span>
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
+                  <Mail className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-zinc-500" />
                   <input
                     type="email"
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -568,14 +568,14 @@ export default function PublicBookingPage() {
                     Service Address <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
+                    <MapPin className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-zinc-500" />
                     <input
                       type="text"
                       required
                       placeholder="123 Main St, City, ST 12345"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500"
+                      className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -590,7 +590,7 @@ export default function PublicBookingPage() {
                   placeholder="Gate code, issue details, or special requests..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-xs focus:outline-none focus:border-blue-500 resize-none"
+                  className="w-full p-3 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500 resize-none"
                 />
               </div>
             </div>

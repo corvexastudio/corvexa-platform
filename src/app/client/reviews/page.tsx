@@ -338,55 +338,97 @@ export default function ReviewsPage() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
-                <TableRow className="border-b border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
-                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Job Reference</TableHead>
-                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
-                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Date</TableHead>
-                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Clicks</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-zinc-800">
-                {requests.map(req => (
-                  <TableRow key={req.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
-                    <TableCell className="py-3 px-4">
-                      <div className="font-medium text-xs text-zinc-100">{req.contacts?.name || 'Customer'}</div>
-                      <div className="text-[11px] text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</div>
-                    </TableCell>
-
-                    <TableCell className="py-3 px-4 text-xs text-zinc-300">
-                      {req.jobs ? (
-                        <span>{req.jobs.job_number} • {req.jobs.title}</span>
-                      ) : (
-                        <span className="text-zinc-500">Manual Dispatch</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell className="py-3 px-4">
-                      {getReviewStatusBadge(req.status)}
-                      {req.suppression_reason && (
-                        <div className="text-[10px] text-zinc-500 mt-0.5">{req.suppression_reason}</div>
-                      )}
-                    </TableCell>
-
-                    <TableCell className="py-3 px-4 text-xs text-zinc-400 whitespace-nowrap tabular-nums">
-                      {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                    </TableCell>
-
-                    <TableCell className="py-3 px-4 text-right font-medium text-xs text-zinc-300 tabular-nums">
-                      {req.click_count > 0 ? (
-                        <span className="text-blue-400 font-semibold">{req.click_count}</span>
-                      ) : (
-                        <span className="text-zinc-600">0</span>
-                      )}
-                    </TableCell>
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
+                  <TableRow className="border-b border-zinc-800 hover:bg-transparent">
+                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
+                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Job Reference</TableHead>
+                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
+                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Date</TableHead>
+                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Clicks</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody className="divide-y divide-zinc-800">
+                  {requests.map(req => (
+                    <TableRow key={req.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
+                      <TableCell className="py-3 px-4">
+                        <div className="font-medium text-xs text-zinc-100">{req.contacts?.name || 'Customer'}</div>
+                        <div className="text-[11px] text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</div>
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-xs text-zinc-300">
+                        {req.jobs ? (
+                          <span>{req.jobs.job_number} • {req.jobs.title}</span>
+                        ) : (
+                          <span className="text-zinc-500">Manual Dispatch</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4">
+                        {getReviewStatusBadge(req.status)}
+                        {req.suppression_reason && (
+                          <div className="text-[10px] text-zinc-500 mt-0.5">{req.suppression_reason}</div>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-xs text-zinc-400 whitespace-nowrap tabular-nums">
+                        {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-right font-medium text-xs text-zinc-300 tabular-nums">
+                        {req.click_count > 0 ? (
+                          <span className="text-blue-400 font-semibold">{req.click_count}</span>
+                        ) : (
+                          <span className="text-zinc-600">0</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="md:hidden divide-y divide-zinc-800">
+              {requests.map(req => (
+                <div key={req.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-medium text-xs text-zinc-100">{req.contacts?.name || 'Customer'}</h3>
+                      <p className="text-[11px] text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</p>
+                    </div>
+                    {getReviewStatusBadge(req.status)}
+                  </div>
+
+                  <div className="text-xs text-zinc-400">
+                    {req.jobs ? (
+                      <span className="text-zinc-300">{req.jobs.job_number} • {req.jobs.title}</span>
+                    ) : (
+                      <span className="text-zinc-500">Manual Dispatch</span>
+                    )}
+                  </div>
+
+                  {req.suppression_reason && (
+                    <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">
+                      {req.suppression_reason}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-zinc-800/60">
+                    <span className="text-[11px] text-zinc-500">
+                      {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </span>
+                    <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                      <MousePointerClick className="h-3 w-3 text-zinc-500" />
+                      <span>{req.click_count > 0 ? `${req.click_count} clicks` : '0 clicks'}</span>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

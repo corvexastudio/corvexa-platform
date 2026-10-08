@@ -181,7 +181,7 @@ function LoginContent() {
                     autoCapitalize="none"
                     autoComplete="email"
                     required
-                    className="w-full h-11 rounded-lg border border-zinc-200 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all"
+                    className="w-full h-11 rounded-lg border border-zinc-200 bg-white px-3.5 text-base sm:text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all"
                   />
                 </div>
                 <button
