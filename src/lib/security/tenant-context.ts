@@ -41,9 +41,35 @@ export async function getTenantContext(
     supabase = await createClient()
   }
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  let user = (await supabase.auth.getUser()).data?.user
+  if (!user && !customSupabase) {
+    try {
+      const { headers } = await import('next/headers')
+      const headerList = await headers()
+      const authHeader = headerList.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const { createClient: createRawClient } = await import('@supabase/supabase-js')
+        const tokenClient = createRawClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: { headers: { Authorization: `Bearer ${token}` } },
+            auth: { persistSession: false }
+          }
+        )
+        const tokenUserRes = await tokenClient.auth.getUser(token)
+        if (tokenUserRes.data?.user) {
+          user = tokenUserRes.data.user
+          supabase = tokenClient
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
 
-  if (authError || !user) {
+  if (!user) {
     return {
       ok: false,
       error: 'Unauthorized: Authentication required',
@@ -53,11 +79,14 @@ export async function getTenantContext(
   }
 
   // Fetch the authoritative profile from the database
-  const { data: profileData, error: profileError } = await supabase
+  const query = supabase
     .from('profiles')
     .select('id, org_id, full_name, email, role')
     .eq('id', user.id)
-    .single()
+
+  const { data: profileData, error: profileError } = typeof (query as any).maybeSingle === 'function'
+    ? await (query as any).maybeSingle()
+    : await query.single()
 
   if (profileError || !profileData) {
     return {

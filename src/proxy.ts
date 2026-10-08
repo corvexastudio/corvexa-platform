@@ -138,13 +138,16 @@ export async function proxy(request: NextRequest) {
 
   // 7. Auth protection for /client/*
   const isClientPath = pathname.startsWith('/client')
-  const isAuthPage = pathname.startsWith('/client/login') || pathname.startsWith('/client/onboarding')
+  const isLoginPage = pathname === '/client/login' || pathname.startsWith('/client/login')
+  const isOnboardingPage = pathname === '/client/onboarding' || pathname.startsWith('/client/onboarding')
 
-  if (isClientPath && !isAuthPage && !user) {
+  // Unauthenticated users trying to access protected client routes go to login
+  if (isClientPath && !isLoginPage && !isOnboardingPage && !user) {
     return finalizeResponse(NextResponse.redirect(new URL('/client/login', request.url)))
   }
 
-  if (isAuthPage && user) {
+  // Authenticated users on the login page go to dashboard
+  if (isLoginPage && user) {
     return finalizeResponse(NextResponse.redirect(new URL('/client/dashboard', request.url)))
   }
 

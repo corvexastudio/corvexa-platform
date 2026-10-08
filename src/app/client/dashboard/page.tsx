@@ -70,7 +70,13 @@ export default function DashboardPage() {
       }
 
       // 2. Fetch aggregated dashboard data
-      const res = await fetch(`/api/client/dashboard?period=${selectedPeriod}`)
+      const { data: { session } } = await supabase.auth.getSession()
+      const reqHeaders: Record<string, string> = {}
+      if (session?.access_token) {
+        reqHeaders['Authorization'] = `Bearer ${session.access_token}`
+      }
+
+      const res = await fetch(`/api/client/dashboard?period=${selectedPeriod}`, { headers: reqHeaders })
       if (res.ok) {
         const data = await res.json()
         setAttentionQueue(data.attentionQueue || [])
@@ -81,25 +87,36 @@ export default function DashboardPage() {
       } else {
         const errData = await res.json().catch(() => ({}))
         if (res.status === 403 && (errData.error?.includes('profile not registered') || errData.error?.includes('not linked to an organization'))) {
-          // Attempt self-healing provisioning before fallback
+          // Attempt self-healing provisioning once
           try {
-            const { data: { session } } = await supabase.auth.getSession()
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            const healHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
             if (session?.access_token) {
-              headers['Authorization'] = `Bearer ${session.access_token}`
+              healHeaders['Authorization'] = `Bearer ${session.access_token}`
             }
             const healRes = await fetch('/api/onboarding', {
               method: 'POST',
-              headers,
+              headers: healHeaders,
               body: JSON.stringify({})
             })
             if (healRes.ok) {
-              return loadDashboard(selectedPeriod)
+              const retryRes = await fetch(`/api/client/dashboard?period=${selectedPeriod}`, { headers: reqHeaders })
+              if (retryRes.ok) {
+                const retryData = await retryRes.json()
+                setAttentionQueue(retryData.attentionQueue || [])
+                setOperations(retryData.operations || null)
+                setOutcomes(retryData.outcomes || null)
+                setJobsToday(retryData.jobsToday || [])
+                setRecentCalls(retryData.recentCalls || [])
+                return
+              }
             }
           } catch {
-            // Proceed to onboarding fallback
+            // Non-fatal
           }
-          window.location.href = '/client/onboarding'
+          setError(
+            errData.error || 
+            'Your user profile is not linked to an organization yet. Please complete workspace setup at /client/onboarding.'
+          )
           return
         }
         setError(errData.error || 'Failed to load dashboard metrics.')
