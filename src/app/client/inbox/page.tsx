@@ -96,6 +96,10 @@ export default function InboxPage() {
         }
       } else {
         const err = await res.json().catch(() => ({}))
+        if (res.status === 403 && (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization'))) {
+          window.location.href = '/client/onboarding'
+          return
+        }
         setConvError(err.error || 'Failed to load conversations.')
       }
     } catch {

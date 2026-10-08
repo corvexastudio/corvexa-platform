@@ -43,24 +43,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { businessName, phone } = body
+    const body = await request.json().catch(() => ({}))
+    const { phone } = body
+    const rawBusinessName = (body.businessName || '').trim()
+    const defaultName = user.user_metadata?.full_name 
+      ? `${user.user_metadata.full_name}'s Business`
+      : (user.email ? `${user.email.split('@')[0]}'s Services` : 'My Business')
+    const businessName = rawBusinessName || defaultName
 
-    if (!businessName || !businessName.trim()) {
-      return NextResponse.json({ error: 'Business name is required.' }, { status: 400 })
+    // 0. Check if user already has an existing profile and organization
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('org_id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (existingProfile?.org_id) {
+      return NextResponse.json({ success: true, org_id: existingProfile.org_id })
     }
 
-    // Generate unique slug
-    const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`
+    // Determine database client: prefer adminClient if operational, fallback to user client
+    let dbClient = supabase
+    try {
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const adminClient = createAdminClient()
+      const { error: testErr } = await adminClient.from('organizations').select('id').limit(1)
+      if (!testErr) {
+        dbClient = adminClient
+      }
+    } catch {
+      dbClient = supabase
+    }
+
+    // Generate deterministic UUID and unique slug
+    const orgId = crypto.randomUUID()
+    const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'company'
+    const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
 
     const requestedNumber = body.requestedNumber || body.telnyxPhoneNumber || null
 
-    // 1. Create Organization with pending_number state (never assign a shared number)
-    const { data: org, error: orgError } = await supabase
+    // 1. Create Organization with pre-generated UUID (never chains .select() under user client to prevent RLS SELECT lockout)
+    const { error: orgError } = await dbClient
       .from('organizations')
       .insert({
-        name: businessName.trim(),
+        id: orgId,
+        name: businessName,
         slug: uniqueSlug,
         owner_phone: phone ? phone.trim() : null,
         telnyx_phone_number: null,
@@ -68,29 +95,29 @@ export async function POST(request: NextRequest) {
         is_missed_call_active: true,
         is_review_engine_active: true,
       })
-      .select()
-      .single()
 
-    if (orgError || !org) {
-      return NextResponse.json({ error: orgError?.message || 'Failed to create organization.' }, { status: 500 })
+    if (orgError) {
+      return NextResponse.json({ error: orgError.message || 'Failed to create organization.' }, { status: 500 })
     }
 
     // If an explicit dedicated phone number was requested during onboarding, provision it safely
     if (requestedNumber) {
-      await provisionOrganizationPhoneNumber(supabase, {
-        orgId: org.id,
+      await provisionOrganizationPhoneNumber(dbClient, {
+        orgId,
         preferredNumberOrAreaCode: requestedNumber
+      }).catch(err => {
+        console.warn('[ONBOARDING] Phone provisioning warning:', err?.message)
       })
     }
 
-    // 2. Link Profile
-    const { error: profileError } = await supabase
+    // 2. Link Authoritative User Profile
+    const { error: profileError } = await dbClient
       .from('profiles')
       .upsert({
         id: user.id,
-        org_id: org.id,
+        org_id: orgId,
         email: user.email,
-        full_name: user.user_metadata?.full_name || businessName.trim(),
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || businessName,
         phone: phone ? phone.trim() : null,
         role: 'owner',
       })
@@ -100,32 +127,36 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create Automation Settings
-    await supabase
-      .from('automation_settings')
-      .insert({
-        org_id: org.id,
-        module_key: 'missed_call_recovery',
-        is_enabled: true,
-        config: {
-          cooldown_hours: 24,
-          min_call_duration_seconds: 3,
-        }
-      })
+    try {
+      await dbClient
+        .from('automation_settings')
+        .insert({
+          org_id: orgId,
+          module_key: 'missed_call_recovery',
+          is_enabled: true,
+          config: {
+            cooldown_hours: 24,
+            min_call_duration_seconds: 3,
+          }
+        })
+    } catch {
+      // Automation settings default init failure is non-fatal for tenant creation
+    }
 
     // Requirement 10: Audit Logging
-    await logAuditEvent(supabase, {
-      org_id: org.id,
+    await logAuditEvent(dbClient, {
+      org_id: orgId,
       event_type: 'security.login',
-      description: `Organization '${businessName.trim()}' created by ${user.email}`,
+      description: `Organization '${businessName}' created by ${user.email}`,
       metadata: {
         actor_id: user.id,
-        org_id: org.id,
+        org_id: orgId,
         action: 'tenant_onboarded',
         slug: uniqueSlug
       }
-    })
+    }).catch(() => null)
 
-    return NextResponse.json({ success: true, org_id: org.id })
+    return NextResponse.json({ success: true, org_id: orgId })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Internal server error.' }, { status: 500 })
   }

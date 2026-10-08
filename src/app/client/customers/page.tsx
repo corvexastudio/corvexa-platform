@@ -65,6 +65,13 @@ export default function CustomersPage() {
         setCustomers(data.customers || [])
         setCounts(data.counts || {})
       } else {
+        if (res.status === 403) {
+          const err = await res.json().catch(() => ({}))
+          if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
+            window.location.href = '/client/onboarding'
+            return
+          }
+        }
         setError('Failed to load customer directory. Please retry.')
       }
     } catch {

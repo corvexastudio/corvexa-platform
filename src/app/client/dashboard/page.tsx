@@ -56,9 +56,12 @@ export default function DashboardPage() {
           .from('profiles')
           .select('org_id, organizations(*)')
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
         if (profile?.organizations) {
           setOrg(profile.organizations)
+        } else if (!profile?.org_id) {
+          window.location.href = '/client/onboarding'
+          return
         }
       }
 
@@ -73,6 +76,10 @@ export default function DashboardPage() {
         setRecentCalls(data.recentCalls || [])
       } else {
         const errData = await res.json().catch(() => ({}))
+        if (res.status === 403 && (errData.error?.includes('profile not registered') || errData.error?.includes('not linked to an organization'))) {
+          window.location.href = '/client/onboarding'
+          return
+        }
         setError(errData.error || 'Failed to load dashboard metrics.')
       }
     } catch {

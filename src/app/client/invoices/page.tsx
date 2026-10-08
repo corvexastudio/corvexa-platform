@@ -165,6 +165,10 @@ export default function ClientInvoicesPage() {
         setInvoices(data.invoices || [])
       } else {
         const errData = await res.json().catch(() => ({}))
+        if (res.status === 403 && (errData.error?.includes('profile not registered') || errData.error?.includes('not linked to an organization'))) {
+          window.location.href = '/client/onboarding'
+          return
+        }
         setError(errData.error || 'Failed to load invoices.')
       }
     } catch {

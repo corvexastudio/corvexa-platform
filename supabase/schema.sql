@@ -1276,3 +1276,31 @@ ALTER TABLE messages ADD CONSTRAINT messages_delivery_status_check
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_org_email 
     ON profiles(org_id, LOWER(email));
+
+-- 25. AUTOMATIC PROFILE PROVISIONING TRIGGER & ONBOARDING SAFETY
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, role)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(
+      new.raw_user_meta_data->>'full_name',
+      new.raw_user_meta_data->>'name',
+      split_part(new.email, '@', 1)
+    ),
+    'owner'
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET email = EXCLUDED.email,
+      full_name = COALESCE(profiles.full_name, EXCLUDED.full_name);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+

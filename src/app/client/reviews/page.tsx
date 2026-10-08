@@ -135,6 +135,12 @@ export default function ReviewsPage() {
         setMetrics(data.metrics || {})
         setSettings(data.settings || {})
         setRequests(data.requests || [])
+      } else if (res.status === 403) {
+        const err = await res.json().catch(() => ({}))
+        if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
+          window.location.href = '/client/onboarding'
+          return
+        }
       }
     } catch (err) {
       console.error('Error fetching review data:', err)

@@ -41,10 +41,10 @@ export default function ActivityPage() {
         .from('profiles')
         .select('org_id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
       if (!profile || !profile.org_id) {
-        setLoading(false)
+        window.location.href = '/client/onboarding'
         return
       }
 

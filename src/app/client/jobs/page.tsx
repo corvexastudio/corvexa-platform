@@ -124,6 +124,10 @@ export default function JobsPage() {
         setJobs(data.jobs || [])
       } else {
         const err = await res.json().catch(() => ({}))
+        if (res.status === 403 && (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization'))) {
+          window.location.href = '/client/onboarding'
+          return
+        }
         setError(err.error || 'Failed to load field jobs.')
       }
     } catch {

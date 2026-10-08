@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,57 @@ export default function OnboardingPage() {
   const [businessName, setBusinessName] = useState('')
   const [phone, setPhone] = useState('')
   const [saving, setSaving] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function checkAuthAndProfile() {
+      try {
+        const { data: { user }, error: userErr } = await supabase.auth.getUser()
+        if (!isMounted) return
+
+        if (userErr || !user) {
+          router.replace('/client/login')
+          return
+        }
+
+        // If user is already linked to an organization, go directly to dashboard
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('org_id')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!isMounted) return
+
+        if (profile?.org_id) {
+          router.replace('/client/dashboard')
+          return
+        }
+
+        // Prefill suggested business name from metadata or email
+        const metaName = user.user_metadata?.full_name || user.user_metadata?.name
+        if (metaName && !businessName) {
+          setBusinessName(`${metaName}'s Business`)
+        } else if (user.email && !businessName) {
+          const prefix = user.email.split('@')[0]
+          const capitalized = prefix.charAt(0).toUpperCase() + prefix.slice(1)
+          setBusinessName(`${capitalized}'s Services`)
+        }
+      } catch (err) {
+        console.warn('[ONBOARDING] Initial auth check warning:', err)
+      } finally {
+        if (isMounted) setCheckingAuth(false)
+      }
+    }
+
+    checkAuthAndProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [supabase, router])
 
   const handlePhone = (e: React.ChangeEvent<HTMLInputElement>) => {
     const x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/)
@@ -25,14 +76,18 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!businessName.trim()) { toast.error('Please enter your business name.'); return }
+    const nameToSubmit = businessName.trim()
+    if (!nameToSubmit) {
+      toast.error('Please enter your business name.')
+      return
+    }
     setSaving(true)
 
     try {
       const res = await fetch('/api/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessName: businessName.trim(), phone: phone.trim() })
+        body: JSON.stringify({ businessName: nameToSubmit, phone: phone.trim() })
       })
 
       const data = await res.json()
@@ -43,12 +98,26 @@ export default function OnboardingPage() {
         return
       }
 
-      toast.success(`Welcome to CaptoDesk, ${businessName}!`)
-      router.push('/client/dashboard')
-    } catch (err: any) {
+      toast.success(`Welcome to CaptoDesk! Workspace ready.`)
+      // Use replace to prevent back-navigation into onboarding
+      router.replace('/client/dashboard')
+    } catch {
       toast.error('Network error. Please try again.')
       setSaving(false)
     }
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center animate-pulse">
+            <span className="text-zinc-200 font-bold text-sm">C</span>
+          </div>
+          <span className="text-xs text-zinc-500">Checking account...</span>
+        </div>
+      </div>
+    )
   }
 
   return (

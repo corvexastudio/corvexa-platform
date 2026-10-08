@@ -62,11 +62,10 @@ export default function SettingsPage() {
         .from('profiles')
         .select('org_id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (profileErr || !profile) {
-        setError('Failed to resolve organization profile.')
-        setLoading(false)
+      if (profileErr || !profile || !profile.org_id) {
+        window.location.href = '/client/onboarding'
         return
       }
       setOrgId(profile.org_id)

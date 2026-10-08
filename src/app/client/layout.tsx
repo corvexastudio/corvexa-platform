@@ -108,6 +108,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
+  const [authState, setAuthState] = useState<'checking' | 'authorized' | 'redirecting'>('checking')
+
   // Auth pages render without shell
   const isAuthPage = 
     pathname === '/login' || 
@@ -116,19 +118,38 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     pathname.startsWith('/client/onboarding')
 
   useEffect(() => {
-    if (isAuthPage) return
+    if (isAuthPage) {
+      setAuthState('authorized')
+      return
+    }
+
+    let isMounted = true
 
     const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (!isMounted) return
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('org_id, role, organizations(name, telnyx_phone_number)')
-        .eq('id', user.id)
-        .single()
+        if (userError || !user) {
+          setAuthState('redirecting')
+          router.replace('/client/login')
+          return
+        }
 
-      if (profile && profile.org_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('org_id, role, organizations(name, telnyx_phone_number)')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!isMounted) return
+
+        if (!profile || !profile.org_id) {
+          setAuthState('redirecting')
+          router.replace('/client/onboarding')
+          return
+        }
+
         setIsSuperAdmin(profile.role === 'super_admin')
         const org: any = profile.organizations
         if (org) {
@@ -142,13 +163,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           .eq('org_id', profile.org_id)
           .gt('unread_count', 0)
         
-        setUnreadTotal(count || 0)
-      } else {
-        router.push('/client/onboarding')
+        if (isMounted) {
+          setUnreadTotal(count || 0)
+          setAuthState('authorized')
+        }
+      } catch {
+        if (isMounted) {
+          setAuthState('redirecting')
+          router.replace('/client/onboarding')
+        }
       }
     }
 
     loadProfile()
+
+    return () => {
+      isMounted = false
+    }
   }, [supabase, isAuthPage, router])
 
   // Close drawer on path change
@@ -157,6 +188,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }, [pathname])
 
   if (isAuthPage) return <>{children}</>
+
+  if (authState === 'checking' || authState === 'redirecting') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center animate-pulse">
+            <span className="text-zinc-200 font-bold text-sm">C</span>
+          </div>
+          <span className="text-xs text-zinc-500">
+            {authState === 'redirecting' ? 'Redirecting to workspace setup...' : 'Loading workspace...'}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

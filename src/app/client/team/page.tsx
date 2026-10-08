@@ -37,10 +37,9 @@ export default function TeamPage() {
         setLoading(false)
         return
       }
-      const { data: profile, error: profileErr } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
-      if (profileErr || !profile) {
-        setError('Failed to resolve organization profile.')
-        setLoading(false)
+      const { data: profile, error: profileErr } = await supabase.from('profiles').select('org_id').eq('id', user.id).maybeSingle()
+      if (profileErr || !profile || !profile.org_id) {
+        window.location.href = '/client/onboarding'
         return
       }
       const { data, error: membersErr } = await supabase.from('profiles').select('*').eq('org_id', profile.org_id)

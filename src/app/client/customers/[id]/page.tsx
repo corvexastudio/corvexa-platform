@@ -67,6 +67,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         setTags(c.tags || [])
         setServiceFrequency(c.service_frequency_days || 90)
       } else {
+        if (res.status === 403) {
+          const err = await res.json().catch(() => ({}))
+          if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
+            window.location.href = '/client/onboarding'
+            return
+          }
+        }
         toast.error('Customer not found')
         router.push('/client/customers')
       }

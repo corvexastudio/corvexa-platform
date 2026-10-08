@@ -49,9 +49,12 @@ export default function AutomationsPage() {
       .from('profiles')
       .select('org_id')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (!profile) return
+    if (!profile || !profile.org_id) {
+      window.location.href = '/client/onboarding'
+      return
+    }
     setOrgId(profile.org_id)
 
     const { data: org } = await supabase
