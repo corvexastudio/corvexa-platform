@@ -49,19 +49,23 @@ export default function DashboardPage() {
     setLoading(true)
     setError(null)
     try {
-      // 1. Fetch organization details
+      // 1. Fetch organization details safely
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('org_id, organizations(*)')
+          .select('org_id')
           .eq('id', user.id)
           .maybeSingle()
-        if (profile?.organizations) {
-          setOrg(profile.organizations)
-        } else if (!profile?.org_id) {
-          window.location.href = '/client/onboarding'
-          return
+        if (profile?.org_id) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('name')
+            .eq('id', profile.org_id)
+            .maybeSingle()
+          if (orgData) {
+            setOrg(orgData)
+          }
         }
       }
 
@@ -77,6 +81,19 @@ export default function DashboardPage() {
       } else {
         const errData = await res.json().catch(() => ({}))
         if (res.status === 403 && (errData.error?.includes('profile not registered') || errData.error?.includes('not linked to an organization'))) {
+          // Attempt self-healing provisioning before fallback
+          try {
+            const healRes = await fetch('/api/onboarding', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({})
+            })
+            if (healRes.ok) {
+              return loadDashboard(selectedPeriod)
+            }
+          } catch {
+            // Proceed to onboarding fallback
+          }
           window.location.href = '/client/onboarding'
           return
         }

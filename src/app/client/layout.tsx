@@ -136,11 +136,40 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           return
         }
 
-        const { data: profile } = await supabase
+        // Direct profile lookup
+        let { data: profile } = await supabase
           .from('profiles')
-          .select('org_id, role, organizations(name, telnyx_phone_number)')
+          .select('org_id, role')
           .eq('id', user.id)
           .maybeSingle()
+
+        if (!isMounted) return
+
+        // Auto-heal/provision organization if profile or org_id is missing
+        if (!profile || !profile.org_id) {
+          try {
+            const defaultName = user.user_metadata?.full_name 
+              ? `${user.user_metadata.full_name}'s Business`
+              : (user.email ? `${user.email.split('@')[0]}'s Services` : 'My Business')
+
+            const onboardRes = await fetch('/api/onboarding', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ businessName: defaultName })
+            })
+
+            if (onboardRes.ok) {
+              const { data: freshProfile } = await supabase
+                .from('profiles')
+                .select('org_id, role')
+                .eq('id', user.id)
+                .maybeSingle()
+              profile = freshProfile
+            }
+          } catch (e) {
+            console.warn('[LAYOUT] Auto-onboarding error:', e)
+          }
+        }
 
         if (!isMounted) return
 
@@ -151,7 +180,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         }
 
         setIsSuperAdmin(profile.role === 'super_admin')
-        const org: any = profile.organizations
+
+        // Fetch organization details safely
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, telnyx_phone_number')
+          .eq('id', profile.org_id)
+          .maybeSingle()
+
         if (org) {
           setOrgName(org.name || 'My Business')
           setOrgPhone(org.telnyx_phone_number || '')
@@ -180,7 +216,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return () => {
       isMounted = false
     }
-  }, [supabase, isAuthPage, router])
+  }, [supabase, isAuthPage, pathname, router])
 
   // Close drawer on path change
   useEffect(() => {

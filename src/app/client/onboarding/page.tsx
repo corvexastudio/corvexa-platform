@@ -41,7 +41,7 @@ export default function OnboardingPage() {
         if (!isMounted) return
 
         if (profile?.org_id) {
-          router.replace('/client/dashboard')
+          window.location.href = '/client/dashboard'
           return
         }
 
@@ -99,8 +99,7 @@ export default function OnboardingPage() {
       }
 
       toast.success(`Welcome to CaptoDesk! Workspace ready.`)
-      // Use replace to prevent back-navigation into onboarding
-      router.replace('/client/dashboard')
+      window.location.href = '/client/dashboard'
     } catch {
       toast.error('Network error. Please try again.')
       setSaving(false)
