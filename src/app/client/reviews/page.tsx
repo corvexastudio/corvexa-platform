@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { 
@@ -16,11 +17,21 @@ import {
   CheckCircle2, 
   Settings, 
   Clock, 
-  ShieldAlert, 
+  ShieldCheck, 
   Activity,
-  Sparkles
+  Globe
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Modal } from '@/components/ui/modal'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
 interface ReviewRequestItem {
   id: string
@@ -35,6 +46,54 @@ interface ReviewRequestItem {
   contacts?: { name?: string; phone: string }
   jobs?: { job_number: string; title: string }
   created_at: string
+}
+
+function getReviewStatusBadge(status: string) {
+  switch (status) {
+    case 'delivered':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          Delivered
+        </span>
+      )
+    case 'clicked':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          Opened
+        </span>
+      )
+    case 'sent':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+          Sent
+        </span>
+      )
+    case 'pending':
+    case 'scheduled':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          Scheduled
+        </span>
+      )
+    case 'suppressed':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-500 border border-zinc-700">
+          Suppressed
+        </span>
+      )
+    case 'failed':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          Failed
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+          {status}
+        </span>
+      )
+  }
 }
 
 export default function ReviewsPage() {
@@ -103,7 +162,7 @@ export default function ReviewsPage() {
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success(`Feedback & review link dispatched to ${name || phone}!`)
+        toast.success(`Review link sent to ${name || phone}`)
         setName('')
         setPhone('')
         loadData()
@@ -127,7 +186,7 @@ export default function ReviewsPage() {
         body: JSON.stringify(settings),
       })
       if (res.ok) {
-        toast.success('Review automation settings updated!')
+        toast.success('Review automation settings updated')
         setShowSettings(false)
       } else {
         toast.error('Failed to update settings.')
@@ -140,280 +199,274 @@ export default function ReviewsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6">
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-            <Star className="h-6 w-6 text-amber-400 fill-amber-400" />
-            Reviews & Reputation
-          </h1>
-          <p className="text-zinc-400 text-sm mt-1">
-            Turn completed jobs into verified Google reviews with zero fake estimates and strict policy compliance.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Reviews & Reputation
+            </h1>
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+              {requests.length}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Automated Google Business review requests dispatched post-job with strict policy compliance.
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           {settings.googleReviewUrl && (
             <a
               href={settings.googleReviewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-blue-400 border border-blue-500/30 rounded-xl px-3 py-2 hover:bg-blue-500/10 transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> View on Google
+              <Globe className="h-3.5 w-3.5 text-blue-400" />
+              <span>Google Profile</span>
             </a>
           )}
+
           <Button
-            variant="outline"
             size="sm"
-            onClick={() => setShowSettings(!showSettings)}
-            className="border-zinc-800 text-zinc-300 hover:text-white"
+            onClick={() => setShowSettings(true)}
+            className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
           >
-            <Settings className="h-4 w-4 mr-1.5" />
-            Settings
+            <Settings className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+            <span>Settings</span>
           </Button>
         </div>
       </div>
 
-      {/* Settings Card */}
-      {showSettings && (
-        <form onSubmit={handleSaveSettings} className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
-            <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
-              <Settings className="h-4 w-4 text-blue-400" />
-              Review Automation Settings
-            </h3>
-            <span className="text-xs text-zinc-400">Strictly anti-gating compliant</span>
+      {/* Honest Metrics Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Requests Sent</p>
+          <p className="text-xl font-bold text-white tabular-nums mt-1">{loading ? '-' : metrics.totalSent}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Outbound SMS invites</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Delivered</p>
+          <p className="text-xl font-bold text-emerald-400 tabular-nums mt-1">{loading ? '-' : metrics.totalDelivered}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Confirmed network delivery</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Link Clicks</p>
+          <p className="text-xl font-bold text-blue-400 tabular-nums mt-1">{loading ? '-' : metrics.totalClicked}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Verified redirect clicks</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Click Rate</p>
+          <p className="text-xl font-bold text-amber-400 tabular-nums mt-1">{loading ? '-' : `${metrics.clickRate}%`}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Customer follow-through</p>
+        </div>
+      </div>
+
+      {/* Manual Dispatch Bar */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+        <div className="mb-3">
+          <h2 className="font-semibold text-xs text-zinc-200">
+            Dispatch One-Off Review Invite
+          </h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Send an instant review invitation. Respects customer opt-outs and cooldown windows automatically.
+          </p>
+        </div>
+
+        <form onSubmit={handleSend} className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <Input
+            placeholder="Customer Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+          />
+          <Input
+            placeholder="(555) 000-0000"
+            value={phone}
+            onChange={handlePhone}
+            className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={sending}
+            className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+          >
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+            <span>Send Invite</span>
+          </Button>
+        </form>
+      </div>
+
+      {/* Recent Requests Table */}
+      <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <h2 className="font-semibold text-xs text-zinc-200">Review Requests Log</h2>
+          <span className="text-[11px] text-zinc-500 tabular-nums">{requests.length} records</span>
+        </div>
+
+        {loading ? (
+          <div className="p-4 space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-zinc-800/60 last:border-0">
+                <Skeleton className="h-4 w-36 bg-zinc-800" />
+                <Skeleton className="h-4 w-28 bg-zinc-800" />
+                <Skeleton className="h-4 w-16 bg-zinc-800" />
+              </div>
+            ))}
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              icon={Star}
+              title="No Review Requests Yet"
+              description="Review requests will be dispatched automatically when field jobs are completed, or you can send one directly using the form above."
+              actionLabel="Review Settings"
+              onAction={() => setShowSettings(true)}
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
+                <TableRow className="border-b border-zinc-800 hover:bg-transparent">
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Job Reference</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Date</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Clicks</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-zinc-800">
+                {requests.map(req => (
+                  <TableRow key={req.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
+                    <TableCell className="py-3 px-4">
+                      <div className="font-medium text-xs text-zinc-100">{req.contacts?.name || 'Customer'}</div>
+                      <div className="text-[11px] text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</div>
+                    </TableCell>
+
+                    <TableCell className="py-3 px-4 text-xs text-zinc-300">
+                      {req.jobs ? (
+                        <span>{req.jobs.job_number} • {req.jobs.title}</span>
+                      ) : (
+                        <span className="text-zinc-500">Manual Dispatch</span>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="py-3 px-4">
+                      {getReviewStatusBadge(req.status)}
+                      {req.suppression_reason && (
+                        <div className="text-[10px] text-zinc-500 mt-0.5">{req.suppression_reason}</div>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="py-3 px-4 text-xs text-zinc-400 whitespace-nowrap tabular-nums">
+                      {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </TableCell>
+
+                    <TableCell className="py-3 px-4 text-right font-medium text-xs text-zinc-300 tabular-nums">
+                      {req.click_count > 0 ? (
+                        <span className="text-blue-400 font-semibold">{req.click_count}</span>
+                      ) : (
+                        <span className="text-zinc-600">0</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Review Automation Settings Modal */}
+      <Modal
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        title="Review Automation Settings"
+        description="Configure post-job automated review requests and cooldown intervals."
+        size="md"
+      >
+        <form onSubmit={handleSaveSettings} className="space-y-4">
+          <div>
+            <Label className="text-xs text-zinc-300 mb-1 block">Google Review URL</Label>
+            <Input
+              placeholder="https://g.page/r/your-google-review-link/review"
+              value={settings.googleReviewUrl}
+              onChange={e => setSettings({ ...settings, googleReviewUrl: e.target.value })}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">Direct link to your Google Business Profile review dialog.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Google Review URL</Label>
-              <Input
-                placeholder="https://g.page/r/your-google-review-link/review"
-                value={settings.googleReviewUrl}
-                onChange={e => setSettings({ ...settings, googleReviewUrl: e.target.value })}
-                className="bg-zinc-950 border-zinc-800 text-sm"
-              />
-              <p className="text-[11px] text-zinc-500">Direct Google Business Profile review link provided to customers.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Automation Trigger Delay (Hours)</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-zinc-300 mb-1 block">Delay After Job (Hours)</Label>
               <Input
                 type="number"
                 min={1}
                 max={168}
                 value={settings.delayHours}
                 onChange={e => setSettings({ ...settings, delayHours: parseInt(e.target.value) || 24 })}
-                className="bg-zinc-950 border-zinc-800 text-sm"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
               />
-              <p className="text-[11px] text-zinc-500">Wait time after job completion before sending review request (Default: 24h).</p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Customer Cooldown (Days)</Label>
+            <div>
+              <Label className="text-xs text-zinc-300 mb-1 block">Customer Cooldown (Days)</Label>
               <Input
                 type="number"
                 min={7}
                 max={365}
                 value={settings.cooldownDays}
                 onChange={e => setSettings({ ...settings, cooldownDays: parseInt(e.target.value) || 60 })}
-                className="bg-zinc-950 border-zinc-800 text-sm"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
               />
-              <p className="text-[11px] text-zinc-500">Minimum days between review requests for the same contact (Default: 60d).</p>
-            </div>
-
-            <div className="flex items-center gap-3 pt-6">
-              <input
-                type="checkbox"
-                id="reviewEnabled"
-                checked={settings.reviewRequestsEnabled}
-                onChange={e => setSettings({ ...settings, reviewRequestsEnabled: e.target.checked })}
-                className="rounded border-zinc-700 bg-zinc-900 text-blue-600 focus:ring-blue-500 h-4 w-4"
-              />
-              <Label htmlFor="reviewEnabled" className="text-sm text-zinc-200 cursor-pointer">
-                Automatically send review request on job completion
-              </Label>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowSettings(false)}>
+          <div className="flex items-center gap-2 pt-2">
+            <input
+              type="checkbox"
+              id="reviewEnabled"
+              checked={settings.reviewRequestsEnabled}
+              onChange={e => setSettings({ ...settings, reviewRequestsEnabled: e.target.checked })}
+              className="rounded border-zinc-800 bg-zinc-950 text-blue-600 h-4 w-4"
+            />
+            <Label htmlFor="reviewEnabled" className="text-xs text-zinc-200 cursor-pointer">
+              Automatically trigger review request when job is marked completed
+            </Label>
+          </div>
+
+          <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(false)}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+            >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={savingSettings} className="bg-blue-600 hover:bg-blue-700">
-              {savingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={savingSettings}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            >
+              {savingSettings ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
               Save Settings
             </Button>
           </div>
         </form>
-      )}
+      </Modal>
 
-      {/* Honest Verifiable Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Requests Sent</span>
-            <Send className="h-4 w-4 text-blue-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-white">
-            {loading ? '-' : metrics.totalSent}
-          </div>
-          <p className="text-[11px] text-zinc-500 mt-1">Verified outbound SMS</p>
-        </div>
-
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Delivered</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-emerald-400">
-            {loading ? '-' : metrics.totalDelivered}
-          </div>
-          <p className="text-[11px] text-zinc-500 mt-1">Confirmed delivery</p>
-        </div>
-
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Link Clicks</span>
-            <MousePointerClick className="h-4 w-4 text-purple-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-purple-400">
-            {loading ? '-' : metrics.totalClicked}
-          </div>
-          <p className="text-[11px] text-zinc-500 mt-1">Cryptographically tracked</p>
-        </div>
-
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Click-Through Rate</span>
-            <Activity className="h-4 w-4 text-amber-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-amber-400">
-            {loading ? '-' : `${metrics.clickRate}%`}
-          </div>
-          <p className="text-[11px] text-zinc-500 mt-1">Genuine customer engagement</p>
-        </div>
-      </div>
-
-      {/* Manual Send Invitation Card */}
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-        <h3 className="font-semibold text-white text-sm mb-1 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-blue-400" />
-          Send Immediate Review Invitation
-        </h3>
-        <p className="text-zinc-400 text-xs mb-4">
-          Dispatches a trackable review link. Automatically checks opt-outs, invalid phone numbers, and cooldown intervals.
-        </p>
-
-        <form onSubmit={handleSend} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Input
-            placeholder="Customer Name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="bg-zinc-950 border-zinc-800 text-sm"
-          />
-          <Input
-            placeholder="(555) 000-0000"
-            value={phone}
-            onChange={handlePhone}
-            className="bg-zinc-950 border-zinc-800 text-sm"
-          />
-          <Button
-            type="submit"
-            disabled={sending}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Send className="h-4 w-4 mr-1.5" />}
-            Send Review Link
-          </Button>
-        </form>
-      </div>
-
-      {/* Recent Requests Table */}
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-zinc-800/80 flex items-center justify-between">
-          <h3 className="font-semibold text-white text-sm">Review Requests Log</h3>
-          <span className="text-xs text-zinc-500">Tracked interactions</span>
-        </div>
-
-        {loading ? (
-          <div className="p-8 text-center text-zinc-500 text-sm">Loading activity logs...</div>
-        ) : requests.length === 0 ? (
-          <div className="p-4 sm:p-6">
-            <EmptyState
-              icon={Star}
-              title="No Review Requests Dispatched Yet"
-              description="CaptoDesk automatically texts homeowners a link to your Google Business Profile after completed jobs, inviting customers to share honest feedback on Google."
-              actionLabel="Adjust Review Settings"
-              onAction={() => setShowSettings(true)}
-              tip="When you mark a job as 'Completed' in the Jobs pipeline, CaptoDesk schedules a review request automatically."
-              compact
-            />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-950/60 text-zinc-400 uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Recipient</th>
-                  <th className="px-4 py-3 font-semibold">Job Reference</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Dispatched</th>
-                  <th className="px-4 py-3 font-semibold">Clicks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60">
-                {requests.map(req => {
-                  const statusColors: Record<string, string> = {
-                    sent: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                    delivered: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-                    clicked: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-                    failed: 'bg-red-500/10 text-red-400 border-red-500/20',
-                    suppressed: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
-                    pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                  }
-
-                  return (
-                    <tr key={req.id} className="hover:bg-zinc-800/30 transition-colors">
-                      <td className="px-5 py-3">
-                        <div className="font-medium text-white">{req.contacts?.name || 'Customer'}</div>
-                        <div className="text-zinc-500 text-[11px]">{req.contacts?.phone || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-zinc-300">
-                        {req.jobs ? (
-                          <span>{req.jobs.job_number} - {req.jobs.title}</span>
-                        ) : (
-                          <span className="text-zinc-600">Manual / Direct</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusColors[req.status] || statusColors.pending}`}>
-                          {req.status}
-                        </span>
-                        {req.suppression_reason && (
-                          <div className="text-[10px] text-zinc-500 mt-0.5">{req.suppression_reason}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-400">
-                        {req.sent_at ? new Date(req.sent_at).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {req.click_count > 0 ? (
-                          <span className="text-purple-400 font-semibold">{req.click_count} click{req.click_count > 1 ? 's' : ''}</span>
-                        ) : (
-                          <span className="text-zinc-600">0</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

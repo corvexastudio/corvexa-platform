@@ -23,14 +23,15 @@ import {
   MessageSquare, 
   CheckCircle2, 
   AlertCircle, 
-  HelpCircle,
-  Tag,
-  Save,
-  Send,
-  Loader2,
-  ExternalLink,
-  DollarSign
+  HelpCircle, 
+  Tag, 
+  Save, 
+  Loader2, 
+  ExternalLink, 
+  DollarSign,
+  ChevronRight
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -98,7 +99,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         })
       })
       if (res.ok) {
-        toast.success('Customer details updated!')
+        toast.success('Customer details updated')
         loadProfile()
       } else {
         toast.error('Failed to update customer details')
@@ -132,7 +133,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success('Review invite dispatched!')
+        toast.success('Review invite sent')
         loadProfile()
       } else {
         toast.error(data.error || 'Failed to send review invite')
@@ -144,8 +145,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
       </div>
     )
   }
@@ -153,88 +154,107 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   if (!profile) return null
 
   const contact = profile.contact || {}
-  const statusPills: Record<string, { label: string; class: string; icon: any }> = {
-    active: { label: 'Active', class: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
-    due: { label: 'Service Due', class: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: Clock },
-    overdue: { label: 'Overdue', class: 'bg-red-500/10 text-red-400 border-red-500/20', icon: AlertCircle },
-    inactive: { label: 'Inactive', class: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20', icon: HelpCircle }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Active
+          </span>
+        )
+      case 'due':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            Service Due
+          </span>
+        )
+      case 'overdue':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+            Overdue
+          </span>
+        )
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+            Inactive
+          </span>
+        )
+    }
   }
-  const statusInfo = statusPills[profile.lifecycleStatus] || statusPills.active
-  const StatusIcon = statusInfo.icon
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="space-y-6">
+
       {/* Top Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
         <Link
           href="/client/customers"
           className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Directory
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to Customers</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={sendReviewQuick}
-            className="border-zinc-800 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 text-xs"
+            className="h-8 text-xs border-zinc-800 bg-zinc-900 text-amber-400 hover:bg-zinc-800"
           >
-            <Star className="h-3.5 w-3.5 mr-1 fill-amber-400" />
-            Send Review Link
+            <Star className="h-3.5 w-3.5 mr-1" />
+            <span>Send Review Link</span>
           </Button>
           <Link href="/client/inbox">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs">
+            <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">
               <MessageSquare className="h-3.5 w-3.5 mr-1" />
-              Open in Inbox
+              <span>Inbox</span>
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Customer 360 Header Profile Card */}
-      <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6">
+      {/* Profile Overview Card */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-                {contact.name || 'Valued Customer'}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl font-bold tracking-tight text-white">
+                {contact.name || 'Customer'}
               </h1>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${statusInfo.class}`}>
-                <StatusIcon className="h-3.5 w-3.5" />
-                {statusInfo.label}
-              </span>
+              {getStatusBadge(profile.lifecycleStatus || 'active')}
               {profile.leadSource && (
-                <span className="text-[11px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full capitalize">
-                  Source: {profile.leadSource.replace('_', ' ')}
+                <span className="text-[11px] bg-zinc-950 text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded capitalize">
+                  {profile.leadSource.replace('_', ' ')}
                 </span>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 pt-1">
-              <span className="flex items-center gap-1">
-                <Phone className="h-3.5 w-3.5 text-blue-400" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400 pt-1">
+              <span className="flex items-center gap-1 text-zinc-300">
+                <Phone className="h-3.5 w-3.5 text-zinc-500" />
                 <a href={`tel:${contact.phone}`} className="hover:text-blue-400">{contact.phone}</a>
               </span>
               {contact.email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="h-3.5 w-3.5 text-zinc-400" />
+                <span className="flex items-center gap-1 text-zinc-300">
+                  <Mail className="h-3.5 w-3.5 text-zinc-500" />
                   <a href={`mailto:${contact.email}`} className="hover:text-blue-400">{contact.email}</a>
                 </span>
               )}
               {contact.address && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5 text-zinc-400" />
+                <span className="flex items-center gap-1 text-zinc-300">
+                  <MapPin className="h-3.5 w-3.5 text-zinc-500" />
                   <span>{contact.address}</span>
                 </span>
               )}
             </div>
           </div>
 
-          {/* Quick LTV display */}
-          <div className="bg-zinc-950/80 border border-zinc-800/80 rounded-xl px-4 py-3 min-w-[140px] text-right">
+          {/* Lifetime Value Box */}
+          <div className="bg-zinc-950 border border-zinc-800 rounded-md px-4 py-2.5 md:text-right shrink-0">
             <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Lifetime Value</div>
-            <div className="text-2xl font-black text-emerald-400 mt-0.5">
+            <div className="text-xl font-bold text-emerald-400 tabular-nums mt-0.5">
               ${Number(profile.lifetimeValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -242,108 +262,100 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* 4 Stat Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Completed Jobs</span>
-            <Briefcase className="h-4 w-4 text-blue-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-white">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Completed Jobs</p>
+          <p className="text-xl font-bold text-white tabular-nums mt-1">
             {profile.stats?.completedJobs} <span className="text-xs font-normal text-zinc-500">/ {profile.stats?.totalJobs} total</span>
-          </div>
+          </p>
         </div>
 
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Invoices & Quotes</span>
-            <FileText className="h-4 w-4 text-purple-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-white">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Billing Records</p>
+          <p className="text-xl font-bold text-white tabular-nums mt-1">
             {profile.stats?.totalInvoices} <span className="text-xs font-normal text-zinc-500">invoices ({profile.stats?.totalQuotes} quotes)</span>
-          </div>
+          </p>
         </div>
 
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Last Service Date</span>
-            <Calendar className="h-4 w-4 text-emerald-400" />
-          </div>
-          <div className="mt-2 text-sm font-semibold text-white">
-            {contact.last_service_date ? new Date(contact.last_service_date).toLocaleDateString() : 'No completed jobs'}
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-0.5">Every {contact.service_frequency_days || 90} days</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Last Service</p>
+          <p className="text-sm font-semibold text-zinc-100 tabular-nums mt-1">
+            {contact.last_service_date ? new Date(contact.last_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'No prior jobs'}
+          </p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Every {contact.service_frequency_days || 90} days</p>
         </div>
 
-        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4">
-          <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span>Next Expected Service</span>
-            <Clock className="h-4 w-4 text-amber-400" />
-          </div>
-          <div className="mt-2 text-sm font-semibold text-white">
-            {contact.next_expected_service_date ? new Date(contact.next_expected_service_date).toLocaleDateString() : '-'}
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-0.5">Automated reactivation enabled</div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Next Expected Service</p>
+          <p className="text-sm font-semibold text-zinc-100 tabular-nums mt-1">
+            {contact.next_expected_service_date ? new Date(contact.next_expected_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+          </p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Automated reactivation</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 text-sm font-medium">
+      <div className="flex items-center gap-1 border-b border-zinc-800 text-xs font-medium">
         <button
           onClick={() => setActiveTab('timeline')}
-          className={`pb-3 px-1 border-b-2 transition-colors ${
+          className={cn(
+            "pb-2.5 px-3 border-b-2 transition-colors",
             activeTab === 'timeline'
-              ? 'border-blue-500 text-white font-semibold'
-              : 'border-transparent text-zinc-400 hover:text-zinc-200'
-          }`}
+              ? "border-blue-500 text-white font-semibold"
+              : "border-transparent text-zinc-400 hover:text-zinc-200"
+          )}
         >
-          Customer Timeline ({profile.timeline?.length || 0})
+          Timeline ({profile.timeline?.length || 0})
         </button>
         <button
           onClick={() => setActiveTab('jobs')}
-          className={`pb-3 px-1 border-b-2 transition-colors ${
+          className={cn(
+            "pb-2.5 px-3 border-b-2 transition-colors",
             activeTab === 'jobs'
-              ? 'border-blue-500 text-white font-semibold'
-              : 'border-transparent text-zinc-400 hover:text-zinc-200'
-          }`}
+              ? "border-blue-500 text-white font-semibold"
+              : "border-transparent text-zinc-400 hover:text-zinc-200"
+          )}
         >
-          Jobs & Bookings ({profile.jobs?.length || 0})
+          Jobs ({profile.jobs?.length || 0})
         </button>
         <button
           onClick={() => setActiveTab('quotes_invoices')}
-          className={`pb-3 px-1 border-b-2 transition-colors ${
+          className={cn(
+            "pb-2.5 px-3 border-b-2 transition-colors",
             activeTab === 'quotes_invoices'
-              ? 'border-blue-500 text-white font-semibold'
-              : 'border-transparent text-zinc-400 hover:text-zinc-200'
-          }`}
+              ? "border-blue-500 text-white font-semibold"
+              : "border-transparent text-zinc-400 hover:text-zinc-200"
+          )}
         >
           Quotes & Invoices ({profile.invoices?.length || 0})
         </button>
         <button
           onClick={() => setActiveTab('notes')}
-          className={`pb-3 px-1 border-b-2 transition-colors ${
+          className={cn(
+            "pb-2.5 px-3 border-b-2 transition-colors",
             activeTab === 'notes'
-              ? 'border-blue-500 text-white font-semibold'
-              : 'border-transparent text-zinc-400 hover:text-zinc-200'
-          }`}
+              ? "border-blue-500 text-white font-semibold"
+              : "border-transparent text-zinc-400 hover:text-zinc-200"
+          )}
         >
-          CRM Notes & Details
+          Details & Notes
         </button>
       </div>
 
-      {/* Tab 1: Dynamic Chronological Timeline */}
+      {/* Tab 1: Chronological Timeline */}
       {activeTab === 'timeline' && (
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+        <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5">
           <div className="mb-4">
-            <h3 className="font-bold text-white text-base">Interaction & Service Timeline</h3>
-            <p className="text-zinc-400 text-xs">
-              Chronological log synthesized dynamically from real calls, SMS messages, estimates, field jobs, and payments.
+            <h2 className="font-semibold text-xs text-zinc-200 uppercase tracking-wider">Activity Timeline</h2>
+            <p className="text-zinc-500 text-xs mt-0.5">
+              Call logs, SMS messages, estimates, dispatches, and payment events.
             </p>
           </div>
 
           {profile.timeline?.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500 text-sm">No historical events recorded for this customer yet.</div>
+            <div className="p-8 text-center text-zinc-500 text-xs">No historical activity recorded yet.</div>
           ) : (
-            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-800">
+            <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-zinc-800">
               {profile.timeline.map((item: any) => {
                 const eventIcons: Record<string, any> = {
                   call: Phone,
@@ -357,32 +369,19 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 }
                 const Icon = eventIcons[item.type] || Clock
 
-                const iconColors: Record<string, string> = {
-                  call: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-                  message: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-                  quote: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
-                  appointment: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
-                  job: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-                  invoice: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
-                  payment: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-                  review_request: 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                }
-
                 return (
                   <div key={item.id} className="relative group">
-                    {/* Bullet marker */}
-                    <div className={`absolute -left-6 top-1 h-5 w-5 rounded-full flex items-center justify-center border ${iconColors[item.type] || 'text-zinc-400 bg-zinc-800 border-zinc-700'}`}>
+                    <div className="absolute -left-6 top-1 h-5 w-5 rounded-full flex items-center justify-center bg-zinc-950 border border-zinc-800 text-zinc-400">
                       <Icon className="h-2.5 w-2.5" />
                     </div>
 
-                    <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-xl p-3.5 ml-2 hover:border-zinc-700 transition-colors">
+                    <div className="bg-zinc-950 border border-zinc-800/80 rounded-md p-3 ml-2 hover:border-zinc-700 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="font-semibold text-sm text-white">{item.title}</span>
-                        <span className="text-[11px] text-zinc-500">
-                          {new Date(item.timestamp).toLocaleString(undefined, {
+                        <span className="font-medium text-xs text-zinc-100">{item.title}</span>
+                        <span className="text-[11px] text-zinc-500 tabular-nums">
+                          {new Date(item.timestamp).toLocaleString([], {
                             month: 'short',
                             day: 'numeric',
-                            year: 'numeric',
                             hour: 'numeric',
                             minute: '2-digit'
                           })}
@@ -400,48 +399,55 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      {/* Tab 2: Jobs & Appointments */}
+      {/* Tab 2: Jobs */}
       {activeTab === 'jobs' && (
-        <div className="space-y-4">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-            <h3 className="font-bold text-white text-sm mb-3">Field Service Jobs</h3>
-            {profile.jobs?.length === 0 ? (
-              <p className="text-zinc-500 text-xs">No jobs on record for this customer.</p>
-            ) : (
-              <div className="space-y-2">
-                {profile.jobs.map((j: any) => (
-                  <div key={j.id} className="bg-zinc-950/80 border border-zinc-800/80 rounded-xl p-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm text-white">{j.job_number} - {j.title}</div>
-                      <div className="text-xs text-zinc-500">{new Date(j.created_at).toLocaleDateString()}</div>
-                    </div>
-                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                      {j.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="border border-zinc-800 rounded-lg bg-zinc-900 overflow-hidden">
+          <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+            <h2 className="font-semibold text-xs text-zinc-200 uppercase tracking-wider">Field Jobs</h2>
+            <Link href="/client/jobs">
+              <Button size="sm" variant="outline" className="h-7 text-xs border-zinc-800 bg-zinc-950 text-zinc-300">
+                Dispatch New
+              </Button>
+            </Link>
           </div>
+          {profile.jobs?.length === 0 ? (
+            <p className="p-6 text-zinc-500 text-xs text-center">No field jobs recorded for this customer.</p>
+          ) : (
+            <div className="divide-y divide-zinc-800">
+              {profile.jobs.map((j: any) => (
+                <div key={j.id} className="p-3.5 flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-xs text-zinc-100">{j.job_number} • {j.title}</div>
+                    <div className="text-[11px] text-zinc-500 tabular-nums">{new Date(j.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-zinc-950 text-zinc-300 border border-zinc-800">
+                    {j.status.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Tab 3: Quotes & Invoices */}
       {activeTab === 'quotes_invoices' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-            <h3 className="font-bold text-white text-sm mb-3">Invoices & Payments</h3>
+          <div className="border border-zinc-800 rounded-lg bg-zinc-900 overflow-hidden">
+            <div className="p-3.5 border-b border-zinc-800">
+              <h2 className="font-semibold text-xs text-zinc-200 uppercase tracking-wider">Invoices</h2>
+            </div>
             {profile.invoices?.length === 0 ? (
-              <p className="text-zinc-500 text-xs">No invoices created.</p>
+              <p className="p-6 text-zinc-500 text-xs text-center">No invoices generated.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-zinc-800">
                 {profile.invoices.map((inv: any) => (
-                  <div key={inv.id} className="bg-zinc-950/80 border border-zinc-800/80 rounded-xl p-3 flex items-center justify-between">
+                  <div key={inv.id} className="p-3 flex items-center justify-between">
                     <div>
-                      <div className="font-medium text-sm text-white">{inv.invoice_number}</div>
-                      <div className="text-xs text-zinc-500">$${inv.total} (Due: $${inv.amount_due})</div>
+                      <div className="font-medium text-xs text-zinc-100">{inv.invoice_number}</div>
+                      <div className="text-[11px] text-zinc-400 tabular-nums">${Number(inv.total).toFixed(2)} (Due: ${Number(inv.amount_due).toFixed(2)})</div>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full capitalize bg-zinc-800 text-zinc-300">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded capitalize bg-zinc-950 text-zinc-300 border border-zinc-800">
                       {inv.status}
                     </span>
                   </div>
@@ -450,19 +456,21 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             )}
           </div>
 
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-            <h3 className="font-bold text-white text-sm mb-3">Quotes & Estimates</h3>
+          <div className="border border-zinc-800 rounded-lg bg-zinc-900 overflow-hidden">
+            <div className="p-3.5 border-b border-zinc-800">
+              <h2 className="font-semibold text-xs text-zinc-200 uppercase tracking-wider">Estimates</h2>
+            </div>
             {profile.quotes?.length === 0 ? (
-              <p className="text-zinc-500 text-xs">No estimates created.</p>
+              <p className="p-6 text-zinc-500 text-xs text-center">No estimates created.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-zinc-800">
                 {profile.quotes.map((q: any) => (
-                  <div key={q.id} className="bg-zinc-950/80 border border-zinc-800/80 rounded-xl p-3 flex items-center justify-between">
+                  <div key={q.id} className="p-3 flex items-center justify-between">
                     <div>
-                      <div className="font-medium text-sm text-white">{q.quote_number} - {q.title}</div>
-                      <div className="text-xs text-zinc-500">Total: $${q.total}</div>
+                      <div className="font-medium text-xs text-zinc-100">{q.quote_number} • {q.title}</div>
+                      <div className="text-[11px] text-zinc-400 tabular-nums">Total: ${Number(q.total).toFixed(2)}</div>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full capitalize bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded capitalize bg-zinc-950 text-zinc-300 border border-zinc-800">
                       {q.status}
                     </span>
                   </div>
@@ -475,84 +483,85 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Tab 4: CRM Notes & Details */}
       {activeTab === 'notes' && (
-        <form onSubmit={handleSaveContact} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 space-y-4">
+        <form onSubmit={handleSaveContact} className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Customer Full Name</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} className="bg-zinc-950 border-zinc-800" />
+            <div>
+              <Label className="text-xs text-zinc-300 mb-1 block">Customer Full Name</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} className="h-8.5 bg-zinc-950 border-zinc-800 text-xs" />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Phone Number</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} className="bg-zinc-950 border-zinc-800" />
+            <div>
+              <Label className="text-xs text-zinc-300 mb-1 block">Phone Number</Label>
+              <Input value={phone} onChange={e => setPhone(e.target.value)} className="h-8.5 bg-zinc-950 border-zinc-800 text-xs" />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Email Address</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} className="bg-zinc-950 border-zinc-800" />
+            <div>
+              <Label className="text-xs text-zinc-300 mb-1 block">Email Address</Label>
+              <Input value={email} onChange={e => setEmail(e.target.value)} className="h-8.5 bg-zinc-950 border-zinc-800 text-xs" />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300">Service Frequency (Days)</Label>
+            <div>
+              <Label className="text-xs text-zinc-300 mb-1 block">Service Frequency (Days)</Label>
               <Input
                 type="number"
                 min={7}
                 value={serviceFrequency}
                 onChange={e => setServiceFrequency(parseInt(e.target.value) || 90)}
-                className="bg-zinc-950 border-zinc-800"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs"
               />
             </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs text-zinc-300">Service Address</Label>
-              <Input value={address} onChange={e => setAddress(e.target.value)} className="bg-zinc-950 border-zinc-800" />
+            <div className="sm:col-span-2">
+              <Label className="text-xs text-zinc-300 mb-1 block">Service Address</Label>
+              <Input value={address} onChange={e => setAddress(e.target.value)} className="h-8.5 bg-zinc-950 border-zinc-800 text-xs" />
             </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs text-zinc-300">Customer Tags</Label>
+            <div className="sm:col-span-2">
+              <Label className="text-xs text-zinc-300 mb-1 block">Customer Tags</Label>
               <div className="flex items-center gap-2 mb-2">
                 <Input
-                  placeholder="Add a tag (e.g. VIP, Residential, Commercial)..."
+                  placeholder="Add a tag (e.g. VIP, Residential)..."
                   value={tagInput}
                   onChange={e => setTagInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag() } }}
-                  className="bg-zinc-950 border-zinc-800 text-sm"
+                  className="h-8 bg-zinc-950 border-zinc-800 text-xs"
                 />
-                <Button type="button" onClick={handleAddTag} variant="outline" className="border-zinc-800 text-xs">
+                <Button type="button" onClick={handleAddTag} variant="outline" size="sm" className="h-8 text-xs border-zinc-800 bg-zinc-950">
                   Add Tag
                 </Button>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {tags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 bg-zinc-800 text-zinc-200 text-xs px-2.5 py-1 rounded-full">
-                    <Tag className="h-3 w-3 text-blue-400" />
+                  <span key={t} className="inline-flex items-center gap-1 bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs px-2 py-0.5 rounded">
+                    <Tag className="h-3 w-3 text-zinc-500" />
                     {t}
-                    <button type="button" onClick={() => handleRemoveTag(t)} className="text-zinc-500 hover:text-white ml-1">×</button>
+                    <button type="button" onClick={() => handleRemoveTag(t)} className="text-zinc-500 hover:text-rose-400 ml-1">×</button>
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs text-zinc-300">CRM Relationship Notes</Label>
+            <div className="sm:col-span-2">
+              <Label className="text-xs text-zinc-300 mb-1 block">Relationship Notes</Label>
               <textarea
-                rows={4}
+                rows={3}
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Important gate codes, preferences, pets, or service history..."
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Gate codes, preferences, equipment details..."
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-md p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700 resize-none"
               />
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+          <div className="flex justify-end pt-2 border-t border-zinc-800">
+            <Button type="submit" size="sm" disabled={saving} className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
               Save Changes
             </Button>
           </div>
         </form>
       )}
+
     </div>
   )
 }

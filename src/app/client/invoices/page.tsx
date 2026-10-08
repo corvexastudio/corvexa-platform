@@ -1,6 +1,7 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   CreditCard,
   Plus,
@@ -18,16 +19,29 @@ import {
   FileText,
   User,
   Calendar,
-  X,
   Loader2,
   Trash2,
-  RefreshCw
+  Banknote,
+  Ban
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface InvoiceItem {
   id?: string
@@ -62,9 +76,59 @@ interface Invoice {
   }
 }
 
+function getInvoiceStatusBadge(inv: Invoice) {
+  const isPaid = inv.status === 'paid'
+  const isVoid = inv.status === 'void'
+  const isOverdue =
+    inv.status === 'overdue' ||
+    (!isPaid && !isVoid && new Date(inv.due_date).getTime() < Date.now())
+
+  if (isPaid) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        Paid
+      </span>
+    )
+  }
+  if (inv.status === 'partially_paid') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        Partially Paid
+      </span>
+    )
+  }
+  if (isOverdue) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+        Overdue
+      </span>
+    )
+  }
+  if (inv.status === 'sent') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        Sent
+      </span>
+    )
+  }
+  if (isVoid) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-500 border border-zinc-700">
+        Void
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+      Draft
+    </span>
+  )
+}
+
 export default function ClientInvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid' | 'void'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -91,9 +155,7 @@ export default function ClientInvoicesPage() {
   const [referenceNote, setReferenceNote] = useState('')
   const [recordingPayment, setRecordingPayment] = useState(false)
 
-  const [error, setError] = useState<string | null>(null)
-
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -110,24 +172,24 @@ export default function ClientInvoicesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadContacts = async () => {
+  const loadContacts = useCallback(async () => {
     try {
       const res = await fetch('/api/client/customers')
       if (res.ok) {
         const data = await res.json()
         setContacts(data.customers || data.contacts || [])
       }
-    } catch (err) {
-      console.error('Failed to load contacts:', err)
+    } catch {
+      // quiet fail
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadInvoices()
     loadContacts()
-  }, [])
+  }, [loadInvoices, loadContacts])
 
   // Calculations for new invoice form
   const subtotal = newItems.reduce((acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0)
@@ -140,6 +202,7 @@ export default function ClientInvoicesPage() {
   }
 
   const handleRemoveItem = (index: number) => {
+    if (newItems.length === 1) return
     setNewItems(newItems.filter((_, i) => i !== index))
   }
 
@@ -180,9 +243,9 @@ export default function ClientInvoicesPage() {
 
       if (sendImmediately && data.invoice?.id) {
         await fetch(`/api/client/invoices/${data.invoice.id}/send`, { method: 'POST' })
-        toast.success('Invoice created and sent via SMS!')
+        toast.success('Invoice created and sent via SMS')
       } else {
-        toast.success('Draft invoice created successfully!')
+        toast.success('Draft invoice created successfully')
       }
 
       setShowCreateModal(false)
@@ -199,7 +262,7 @@ export default function ClientInvoicesPage() {
     try {
       const res = await fetch(`/api/client/invoices/${invoiceId}/send`, { method: 'POST' })
       if (res.ok) {
-        toast.success('Invoice sent to customer via SMS!')
+        toast.success('Invoice sent to customer via SMS')
         await loadInvoices()
       } else {
         const data = await res.json().catch(() => ({}))
@@ -231,7 +294,7 @@ export default function ClientInvoicesPage() {
       })
 
       if (res.ok) {
-        toast.success('Offline payment recorded successfully!')
+        toast.success('Offline payment recorded successfully')
         setPaymentModalInvoice(null)
         setPaymentAmount('')
         setReferenceNote('')
@@ -262,20 +325,19 @@ export default function ClientInvoicesPage() {
       toast.error('Network error voiding invoice.')
     } finally {
       setActionLoadingId(null)
+      setVoidInvoiceId(null)
     }
-  }
-
-  const handleVoidInvoice = (invoiceId: string) => {
-    setVoidInvoiceId(invoiceId)
   }
 
   const handleCopyLink = (token: string, id: string) => {
     const url = `${window.location.origin}/invoice/${token}`
     navigator.clipboard.writeText(url)
     setCopiedId(id)
+    toast.success('Invoice link copied to clipboard')
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  // Financial aggregates
   const totalInvoiced = invoices.reduce((acc, inv) => acc + (Number(inv.total) || 0), 0)
   const totalDue = invoices.reduce((acc, inv) => acc + (Number(inv.amount_due) || 0), 0)
   const paidInvoices = invoices.filter((i) => i.status === 'paid')
@@ -294,7 +356,7 @@ export default function ClientInvoicesPage() {
     }
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+      const q = searchQuery.toLowerCase().trim()
       const matchNum = inv.invoice_number.toLowerCase().includes(q)
       const matchTitle = inv.title.toLowerCase().includes(q)
       const matchContact = inv.contact?.name.toLowerCase().includes(q) || inv.contact?.phone.includes(q)
@@ -305,562 +367,630 @@ export default function ClientInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Invoices & Payments</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Lightweight invoicing with instant Stripe payment collection & automated reminders.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Invoices & Payments
+            </h1>
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+              {invoices.length}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Fast mobile checkout links with Stripe, offline payment tracking, and automated reminders.
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm transition text-sm cursor-pointer"
+          size="sm"
+          className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="h-3.5 w-3.5 mr-1" />
           <span>New Invoice</span>
-        </button>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Total Invoiced</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-white">${totalInvoiced.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-1">{invoices.length} invoices generated</p>
+      {/* Financial Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Total Invoiced</p>
+          <p className="text-xl font-bold text-white tabular-nums mt-1">${totalInvoiced.toFixed(2)}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">{invoices.length} total generated</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Balance Due</p>
-          <p className="text-2xl font-black text-blue-600 dark:text-blue-400">${totalDue.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-1">Pending customer settlement</p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Balance Due</p>
+          <p className="text-xl font-bold text-blue-400 tabular-nums mt-1">${totalDue.toFixed(2)}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Pending customer payment</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Collected</p>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">${totalPaid.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-1">{paidInvoices.length} invoices paid in full</p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Collected</p>
+          <p className="text-xl font-bold text-emerald-400 tabular-nums mt-1">${totalPaid.toFixed(2)}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">{paidInvoices.length} paid in full</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Overdue</p>
-          <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{overdueInvoices.length}</p>
-          <p className="text-xs text-rose-500 mt-1">Automated reminders scheduled</p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Overdue</p>
+          <p className="text-xl font-bold text-rose-400 tabular-nums mt-1">{overdueInvoices.length}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Auto reminders scheduled</p>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              statusFilter === 'all'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            All ({invoices.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter('unpaid')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              statusFilter === 'unpaid'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Unpaid
-          </button>
-          <button
-            onClick={() => setStatusFilter('paid')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              statusFilter === 'paid'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Paid ({paidInvoices.length})
-          </button>
-          <button
-            onClick={() => setStatusFilter('void')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              statusFilter === 'void'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Void
-          </button>
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          {[
+            { key: 'all', label: 'All Invoices' },
+            { key: 'unpaid', label: 'Unpaid' },
+            { key: 'paid', label: `Paid (${paidInvoices.length})` },
+            { key: 'void', label: 'Void' }
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setStatusFilter(t.key as any)}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
+                statusFilter === t.key
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+          <Input
             placeholder="Search invoice or customer..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500"
+            onChange={e => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-400 rounded-md"
           />
         </div>
       </div>
 
+      {/* Main Content Feed */}
       {error ? (
         <ErrorState
           title="Failed to load invoices"
           message={error}
           onRetry={loadInvoices}
+          retryLabel="Retry Loading"
         />
       ) : loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-5 w-28 bg-zinc-800/80" />
-                <Skeleton className="h-4 w-20 bg-zinc-800/60" />
+        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-36 bg-zinc-800" />
+                  <Skeleton className="h-3 w-48 bg-zinc-800/60" />
+                </div>
+                <Skeleton className="h-5 w-20 bg-zinc-800" />
+                <Skeleton className="h-4 w-16 bg-zinc-800" />
+                <Skeleton className="h-8 w-24 bg-zinc-800" />
               </div>
-              <Skeleton className="h-4 w-48 bg-zinc-800/80" />
-              <div className="flex gap-4">
-                <Skeleton className="h-3 w-32 bg-zinc-800/60" />
-                <Skeleton className="h-3 w-24 bg-zinc-800/60" />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : filteredInvoices.length === 0 ? (
         <EmptyState
           icon={CreditCard}
-          title={searchQuery ? 'No Matching Invoices Found' : 'No Invoices Created Yet'}
+          title={searchQuery ? 'No Matching Invoices' : 'No Invoices Created Yet'}
           description={
             searchQuery
               ? `No invoices match "${searchQuery}". Try searching by customer name, phone number, or invoice number.`
-              : 'Send SMS invoices with 1-click Apple Pay, Google Pay, and credit card checkout so homeowners pay you immediately upon job completion.'
+              : 'Dispatched jobs can be invoiced immediately. Customers receive a secure mobile checkout link for instant payment.'
           }
           actionLabel={searchQuery ? 'Clear Search' : 'Create First Invoice'}
           onAction={searchQuery ? () => setSearchQuery('') : () => setShowCreateModal(true)}
-          tip="Homeowners can tap the SMS link and pay instantly with Apple Pay, Google Pay, or card."
         />
       ) : (
-        <div className="space-y-3">
-          {filteredInvoices.map((inv) => {
-            const isPaid = inv.status === 'paid'
-            const isVoid = inv.status === 'void'
-            const isOverdue =
-              inv.status === 'overdue' ||
-              (!isPaid && !isVoid && new Date(inv.due_date).getTime() < Date.now())
+        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
+                <TableRow className="border-b border-zinc-800 hover:bg-transparent">
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Invoice #</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Title</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Due Date</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Balance Due</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Total</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-zinc-800">
+                {filteredInvoices.map(inv => {
+                  const isPaid = inv.status === 'paid'
+                  const isVoid = inv.status === 'void'
 
-            return (
-              <div
-                key={inv.id}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition hover:border-blue-200 dark:hover:border-blue-900"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
-                    <span className="font-black text-slate-900 dark:text-white text-base">
-                      {inv.invoice_number}
-                    </span>
+                  return (
+                    <TableRow key={inv.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
+                      <TableCell className="py-3 px-4 font-mono font-medium text-xs text-zinc-300">
+                        {inv.invoice_number}
+                      </TableCell>
 
-                    {isPaid && (
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                        <CheckCircle2 className="w-3 h-3" /> Paid
-                      </span>
-                    )}
-                    {inv.status === 'partially_paid' && (
-                      <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                        <Clock className="w-3 h-3" /> Partially Paid
-                      </span>
-                    )}
-                    {isOverdue && !isPaid && (
-                      <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                        <AlertCircle className="w-3 h-3" /> Overdue
-                      </span>
-                    )}
-                    {!isPaid && !isOverdue && !isVoid && inv.status !== 'partially_paid' && (
-                      <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                        <Clock className="w-3 h-3" /> {inv.status === 'sent' ? 'Sent' : 'Draft'}
-                      </span>
-                    )}
-                    {isVoid && (
-                      <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                        Void
-                      </span>
-                    )}
+                      <TableCell className="py-3 px-4">
+                        <div className="font-medium text-xs text-zinc-100">
+                          {inv.contact?.name || 'Customer'}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 tabular-nums">
+                          {inv.contact?.phone}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-xs text-zinc-300 max-w-xs truncate">
+                        {inv.title}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4">
+                        {getInvoiceStatusBadge(inv)}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-xs text-zinc-400 whitespace-nowrap tabular-nums">
+                        {new Date(inv.due_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-right font-medium text-xs text-blue-400 tabular-nums">
+                        ${Number(inv.amount_due).toFixed(2)}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-right font-semibold text-xs text-zinc-100 tabular-nums">
+                        ${Number(inv.total).toFixed(2)}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-right">
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          {!isPaid && !isVoid && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleSendInvoice(inv.id)}
+                              disabled={actionLoadingId === inv.id}
+                              className="h-7 px-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-zinc-800"
+                            >
+                              {actionLoadingId === inv.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Send className="h-3 w-3 mr-1" />
+                              )}
+                              <span>Send</span>
+                            </Button>
+                          )}
+
+                          {!isPaid && !isVoid && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setPaymentModalInvoice(inv)
+                                setPaymentAmount(String(inv.amount_due))
+                              }}
+                              className="h-7 px-2 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800"
+                              title="Record offline payment"
+                            >
+                              <Banknote className="h-3 w-3 mr-1" />
+                              <span>Pay Offline</span>
+                            </Button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(inv.manage_token, inv.id)}
+                            title="Copy link"
+                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                          >
+                            {copiedId === inv.id ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+
+                          <a
+                            href={`/invoice/${inv.manage_token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Preview customer invoice"
+                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+
+                          {!isPaid && !isVoid && (
+                            <button
+                              type="button"
+                              onClick={() => setVoidInvoiceId(inv.id)}
+                              title="Void invoice"
+                              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-rose-400 transition-colors"
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-zinc-800">
+            {filteredInvoices.map(inv => {
+              const isPaid = inv.status === 'paid'
+              const isVoid = inv.status === 'void'
+
+              return (
+                <div key={inv.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-zinc-400 font-medium">{inv.invoice_number}</span>
+                        {getInvoiceStatusBadge(inv)}
+                      </div>
+                      <h3 className="font-medium text-xs text-zinc-100 mt-1">{inv.title}</h3>
+                      <p className="text-[11px] text-zinc-400">{inv.contact?.name || 'Customer'} • {inv.contact?.phone}</p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-zinc-100 tabular-nums">
+                        ${Number(inv.total).toFixed(2)}
+                      </p>
+                      {!isPaid && (
+                        <p className="text-[10px] text-blue-400 tabular-nums">
+                          Due ${Number(inv.amount_due).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{inv.title}</p>
-
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {inv.contact?.name || 'Unassigned'}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      Due {new Date(inv.due_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between md:justify-end gap-6 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
-                  <div className="text-left md:text-right">
-                    <p className="text-xs text-slate-400">Total</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white">${Number(inv.total).toFixed(2)}</p>
-                    {!isPaid && Number(inv.amount_paid) > 0 && (
-                      <p className="text-xs text-emerald-600">Paid: ${Number(inv.amount_paid).toFixed(2)}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-zinc-800/80">
                     {!isPaid && !isVoid && (
-                      <button
+                      <Button
+                        size="sm"
                         onClick={() => handleSendInvoice(inv.id)}
                         disabled={actionLoadingId === inv.id}
-                        title="Send / Resend SMS with Payment Link"
-                        className="p-2 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                        className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-500 text-white"
                       >
                         {actionLoadingId === inv.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         ) : (
-                          <Send className="w-4 h-4" />
+                          <Send className="h-3 w-3 mr-1" />
                         )}
-                        <span className="hidden sm:inline">Send SMS</span>
-                      </button>
+                        <span>Send</span>
+                      </Button>
                     )}
 
                     {!isPaid && !isVoid && (
-                      <button
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => {
                           setPaymentModalInvoice(inv)
                           setPaymentAmount(String(inv.amount_due))
                         }}
-                        title="Record Cash or Check Payment"
-                        className="p-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        className="h-7 px-2 text-xs border-zinc-800 bg-zinc-900 text-emerald-400 hover:bg-zinc-800"
                       >
-                        <DollarSign className="w-4 h-4" />
-                        <span className="hidden sm:inline">Pay</span>
-                      </button>
+                        <Banknote className="h-3 w-3 mr-1" />
+                        <span>Pay</span>
+                      </Button>
                     )}
 
                     <button
+                      type="button"
                       onClick={() => handleCopyLink(inv.manage_token, inv.id)}
-                      title="Copy Public Link"
-                      className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                      className="p-1.5 rounded bg-zinc-800 text-zinc-300"
+                      title="Copy link"
                     >
-                      {copiedId === inv.id ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                      {copiedId === inv.id ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
                     </button>
 
                     <a
                       href={`/invoice/${inv.manage_token}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Open Public Invoice Portal"
-                      className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition"
+                      className="p-1.5 rounded bg-zinc-800 text-zinc-300"
+                      title="View public invoice"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-
-                    {!isPaid && !isVoid && (
-                      <button
-                        onClick={() => handleVoidInvoice(inv.id)}
-                        title="Void Invoice"
-                        className="p-2 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-600 rounded-xl text-xs transition cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
 
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 shadow-xl border border-slate-200 dark:border-slate-800">
-            <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">Create New Invoice</h2>
+      {/* Create New Invoice Modal */}
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Create New Invoice"
+        description="Set line items, tax, and discount for instant mobile checkout."
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">
+              Customer
+            </label>
+            <select
+              aria-label="Select Customer"
+              value={selectedContactId}
+              onChange={e => setSelectedContactId(e.target.value)}
+              className="w-full p-2 text-xs bg-zinc-950 border border-zinc-800 rounded-md text-zinc-200 focus:outline-none focus:border-zinc-700 cursor-pointer"
+            >
+              <option value="">-- Choose Customer --</option>
+              {contacts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Valued Customer'} ({c.phone})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">
+                Invoice Title
+              </label>
+              <Input
+                value={invoiceTitle}
+                onChange={e => setInvoiceTitle(e.target.value)}
+                placeholder="e.g. Service & Labor Completion"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">
+                Payment Terms (Days)
+              </label>
+              <Input
+                type="number"
+                value={dueDateDays}
+                onChange={e => setDueDateDays(e.target.value)}
+                min="0"
+                max="60"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              />
+            </div>
+          </div>
+
+          {/* Line Items */}
+          <div className="space-y-2 pt-2 border-t border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Line Items</span>
               <button
-                onClick={() => setShowCreateModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                type="button"
+                onClick={handleAddItem}
+                className="text-xs text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-1"
               >
-                <X className="w-5 h-5" />
+                <Plus className="h-3 w-3" /> Add Item
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Customer
-                </label>
-                <select
-                  value={selectedContactId}
-                  onChange={(e) => setSelectedContactId(e.target.value)}
-                  className="w-full p-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">-- Choose Customer --</option>
-                  {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Invoice Title
-                </label>
-                <input
-                  type="text"
-                  value={invoiceTitle}
-                  onChange={(e) => setInvoiceTitle(e.target.value)}
-                  className="w-full p-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500"
-                  placeholder="e.g. Completed HVAC Repair & Service"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  Payment Terms
-                </label>
-                <select
-                  value={dueDateDays}
-                  onChange={(e) => setDueDateDays(e.target.value)}
-                  className="w-full p-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-blue-500"
-                >
-                  <option value="0">Due on Receipt (Today)</option>
-                  <option value="7">Net 7 Days</option>
-                  <option value="14">Net 14 Days</option>
-                  <option value="30">Net 30 Days</option>
-                </select>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Line Items</label>
-                  <button
-                    onClick={handleAddItem}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Item
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {newItems.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Description"
-                        value={item.description}
-                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className="flex-1 p-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="Qty"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                        className="w-16 p-2 text-xs text-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Rate"
-                        value={item.unit_price}
-                        onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
-                        className="w-24 p-2 text-xs text-right bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none"
-                      />
-                      {newItems.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveItem(index)}
-                          className="p-2 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Tax Rate (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(e.target.value)}
-                    className="w-full p-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+            <div className="space-y-2">
+              {newItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Description (e.g. System replacement)"
+                    value={item.description}
+                    onChange={e => handleItemChange(idx, 'description', e.target.value)}
+                    className="flex-1 h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
                   />
+                  <Input
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={e => handleItemChange(idx, 'quantity', Number(e.target.value))}
+                    min="1"
+                    className="w-16 h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md text-center"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Price"
+                    value={item.unit_price}
+                    onChange={e => handleItemChange(idx, 'unit_price', Number(e.target.value))}
+                    min="0"
+                    step="0.01"
+                    className="w-24 h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md text-right"
+                  />
+                  {newItems.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Discount ($)</label>
+              ))}
+            </div>
+
+            {/* Calculations Breakdown */}
+            <div className="pt-2 border-t border-zinc-800/80 space-y-1.5 text-xs">
+              <div className="flex justify-between text-zinc-400">
+                <span>Subtotal:</span>
+                <span className="font-medium text-zinc-200 tabular-nums">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-zinc-400">
+                <span className="flex items-center gap-1">
+                  Discount ($):
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={discountAmount}
-                    onChange={(e) => setDiscountAmount(e.target.value)}
-                    className="w-full p-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+                    onChange={e => setDiscountAmount(e.target.value)}
+                    className="w-16 h-6 px-1.5 bg-zinc-950 border border-zinc-800 rounded text-right text-xs text-zinc-200"
                   />
-                </div>
+                </span>
+                <span className="tabular-nums">-${discount.toFixed(2)}</span>
               </div>
-
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-500">
-                  <span>Subtotal:</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-emerald-600">
-                    <span>Discount:</span>
-                    <span>-${discount.toFixed(2)}</span>
-                  </div>
-                )}
-                {tax > 0 && (
-                  <div className="flex justify-between text-slate-500">
-                    <span>Tax:</span>
-                    <span>+${tax.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-black text-slate-900 dark:text-white text-base pt-1 border-t border-slate-200 dark:border-slate-700">
-                  <span>Total Amount:</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
+              <div className="flex justify-between items-center text-zinc-400">
+                <span className="flex items-center gap-1">
+                  Tax Rate (%):
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={taxRate}
+                    onChange={e => setTaxRate(e.target.value)}
+                    className="w-16 h-6 px-1.5 bg-zinc-950 border border-zinc-800 rounded text-right text-xs text-zinc-200"
+                  />
+                </span>
+                <span className="tabular-nums">+${tax.toFixed(2)}</span>
               </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => handleSaveInvoice(false)}
-                  disabled={savingInvoice}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition cursor-pointer"
-                >
-                  Save Draft
-                </button>
-                <button
-                  onClick={() => handleSaveInvoice(true)}
-                  disabled={savingInvoice}
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {savingInvoice ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Create & Send SMS</span>
-                    </>
-                  )}
-                </button>
+              <div className="flex justify-between pt-1 border-t border-zinc-800 text-white font-bold text-sm">
+                <span>Total Amount:</span>
+                <span className="tabular-nums">${total.toFixed(2)}</span>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {paymentModalInvoice && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                Record Payment for {paymentModalInvoice.invoice_number}
-              </h2>
-              <button
-                onClick={() => setPaymentModalInvoice(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Amount Received ($)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                className="w-full p-2.5 text-base font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Payment Method
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['cash', 'check', 'card_offline'] as const).map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => setPaymentMethod(method)}
-                    className={`py-2 text-xs font-bold rounded-xl border capitalize transition cursor-pointer ${
-                      paymentMethod === method
-                        ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-600 dark:text-blue-400'
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {method.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Check # / Reference Note
-              </label>
-              <input
-                type="text"
-                value={referenceNote}
-                onChange={(e) => setReferenceNote(e.target.value)}
-                placeholder="e.g. Check #4029 received on site"
-                className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={() => setPaymentModalInvoice(null)}
-                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl text-xs cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRecordOfflinePayment}
-                disabled={recordingPayment}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {recordingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Payment'}
-              </button>
-            </div>
+          <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateModal(false)}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={savingInvoice}
+              onClick={() => handleSaveInvoice(false)}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+            >
+              Save Draft
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingInvoice}
+              onClick={() => handleSaveInvoice(true)}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            >
+              {savingInvoice ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Send via SMS'
+              )}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* Record Offline Payment Modal */}
+      <Modal
+        open={!!paymentModalInvoice}
+        onOpenChange={(open) => !open && setPaymentModalInvoice(null)}
+        title="Record Offline Payment"
+        description={`Record cash, check, or on-site POS card payment for invoice #${paymentModalInvoice?.invoice_number || ''}.`}
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPaymentModalInvoice(null)}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={recordingPayment}
+              onClick={handleRecordOfflinePayment}
+              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+            >
+              {recordingPayment ? 'Recording...' : 'Record Payment'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">
+              Amount Paid ($)
+            </label>
+            <Input
+              type="number"
+              step="0.01"
+              value={paymentAmount}
+              onChange={e => setPaymentAmount(e.target.value)}
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">
+              Payment Method
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={e => setPaymentMethod(e.target.value as any)}
+              className="w-full p-2 text-xs bg-zinc-950 border border-zinc-800 rounded-md text-zinc-200 focus:outline-none focus:border-zinc-700"
+            >
+              <option value="cash">Cash</option>
+              <option value="check">Check</option>
+              <option value="card_offline">External Credit Card Terminal</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">
+              Reference Note / Check #
+            </label>
+            <Input
+              value={referenceNote}
+              onChange={e => setReferenceNote(e.target.value)}
+              placeholder="e.g. Check #1042 or Cash in hand"
+              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Confirm Void Dialog */}
       <ConfirmDialog
         open={!!voidInvoiceId}
         onOpenChange={(open) => !open && setVoidInvoiceId(null)}
         title="Void Invoice"
-        description="Are you sure you want to void this invoice? This will cancel any pending payments and cannot be undone."
+        description="Are you sure you want to void this invoice? This will cancel open balances and halt automated SMS reminders."
         confirmText="Void Invoice"
-        cancelText="Cancel"
         variant="destructive"
-        loading={actionLoadingId === voidInvoiceId}
-        onConfirm={async () => {
-          if (!voidInvoiceId) return
-          await executeVoidInvoice(voidInvoiceId)
-          setVoidInvoiceId(null)
+        onConfirm={() => {
+          if (voidInvoiceId) executeVoidInvoice(voidInvoiceId)
         }}
       />
+
     </div>
   )
 }

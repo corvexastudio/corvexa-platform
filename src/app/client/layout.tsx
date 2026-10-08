@@ -1,80 +1,96 @@
 'use client'
 
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
   LayoutDashboard, 
   MessageSquare, 
   Target, 
-  Users, 
   Calendar, 
-  FileText,
   Briefcase,
+  FileText,
   CreditCard,
   Star,
+  Users, 
   Zap, 
   Settings, 
   PhoneCall,
   LogOut,
   ShieldCheck,
   Menu,
-  X
+  X,
+  Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { useEffect, useState } from 'react'
 
-// The exact 11-module information architecture mandated for small-business owners
-export const navItems = [
-  { href: '/dashboard', clientHref: '/client/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/inbox', clientHref: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
-  { href: '/leads', clientHref: '/client/leads', label: 'Leads', icon: Target },
-  { href: '/customers', clientHref: '/client/customers', label: 'Customers', icon: Users },
-  { href: '/calendar', clientHref: '/client/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/quotes', clientHref: '/client/quotes', label: 'Quotes', icon: FileText },
-  { href: '/jobs', clientHref: '/client/jobs', label: 'Jobs', icon: Briefcase },
-  { href: '/invoices', clientHref: '/client/invoices', label: 'Invoices', icon: CreditCard },
-  { href: '/reviews', clientHref: '/client/reviews', label: 'Reviews', icon: Star },
-  { href: '/automations', clientHref: '/client/automations', label: 'Automations', icon: Zap },
-  { href: '/settings', clientHref: '/client/settings', label: 'Settings', icon: Settings },
+// Workflow-centric information architecture for field service businesses
+export const navSections = [
+  {
+    title: 'Daily Work',
+    items: [
+      { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
+      { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
+      { href: '/client/leads', label: 'Leads', icon: Target },
+      { href: '/client/calendar', label: 'Calendar', icon: Calendar },
+      { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
+    ]
+  },
+  {
+    title: 'Finances & Reviews',
+    items: [
+      { href: '/client/quotes', label: 'Quotes', icon: FileText },
+      { href: '/client/invoices', label: 'Invoices', icon: CreditCard },
+      { href: '/client/reviews', label: 'Reviews', icon: Star },
+    ]
+  },
+  {
+    title: 'Management',
+    items: [
+      { href: '/client/customers', label: 'Customers', icon: Users },
+      { href: '/client/automations', label: 'Automations', icon: Zap },
+      { href: '/client/settings', label: 'Settings', icon: Settings },
+    ]
+  }
 ]
 
-function SidebarLink({ 
-  href, 
-  clientHref, 
-  label, 
+// Flattened list for lookup
+export const navItems = navSections.flatMap(s => s.items)
+
+function NavLinkItem({
+  href,
+  label,
   icon: Icon,
   unreadCount,
   onClick
-}: { 
+}: {
   href: string
-  clientHref: string
   label: string
   icon: any
   unreadCount?: number
   onClick?: () => void
 }) {
   const pathname = usePathname()
-  const isActive = pathname === href || pathname === clientHref || 
-    pathname.startsWith(href + '/') || pathname.startsWith(clientHref + '/')
+  const isActive = pathname === href || (href !== '/client/dashboard' && pathname.startsWith(href + '/'))
 
   return (
     <Link
-      href={clientHref}
+      href={href}
       onClick={onClick}
       className={cn(
-        'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-all group',
-        isActive 
-          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 font-semibold' 
-          : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/60'
+        'group flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+        isActive
+          ? 'bg-zinc-800 text-zinc-100 font-semibold'
+          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
       )}
     >
-      <div className="flex items-center gap-3">
-        <Icon className={cn('h-4 w-4 transition-transform group-hover:scale-110', isActive ? 'text-white' : 'text-zinc-400')} />
+      <div className="flex items-center gap-2.5">
+        <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300')} />
         <span>{label}</span>
       </div>
       {typeof unreadCount === 'number' && unreadCount > 0 && (
-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-white shadow-sm">
+        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white tabular-nums">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}
@@ -88,12 +104,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const [unreadTotal, setUnreadTotal] = useState(0)
   const [orgName, setOrgName] = useState<string>('')
+  const [orgPhone, setOrgPhone] = useState<string>('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
-  // Auth pages render clean without dashboard shell
-  const isAuthPage = pathname === '/login' || pathname === '/onboarding' ||
-    pathname.startsWith('/client/login') || pathname.startsWith('/client/onboarding')
+  // Auth pages render without shell
+  const isAuthPage = 
+    pathname === '/login' || 
+    pathname === '/onboarding' ||
+    pathname.startsWith('/client/login') || 
+    pathname.startsWith('/client/onboarding')
 
   useEffect(() => {
     if (isAuthPage) return
@@ -104,16 +124,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('org_id, role, organizations(name, is_missed_call_active)')
+        .select('org_id, role, organizations(name, telnyx_phone_number)')
         .eq('id', user.id)
         .single()
 
       if (profile && profile.org_id) {
         setIsSuperAdmin(profile.role === 'super_admin')
         const org: any = profile.organizations
-        if (org) setOrgName(org.name)
+        if (org) {
+          setOrgName(org.name || 'My Business')
+          setOrgPhone(org.telnyx_phone_number || '')
+        }
 
-        // Count unread conversations
         const { count } = await supabase
           .from('conversations')
           .select('*', { count: 'exact', head: true })
@@ -129,6 +151,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     loadProfile()
   }, [supabase, isAuthPage, router])
 
+  // Close drawer on path change
+  useEffect(() => {
+    setMobileDrawerOpen(false)
+  }, [pathname])
+
   if (isAuthPage) return <>{children}</>
 
   const handleSignOut = async () => {
@@ -136,200 +163,284 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push('/client/login')
   }
 
-  // Top mobile quick touch targets
-  const mobileQuickItems = [
-    { clientHref: '/client/dashboard', label: 'Home', icon: LayoutDashboard },
-    { clientHref: '/client/inbox', label: 'Inbox', icon: MessageSquare, badge: unreadTotal },
-    { clientHref: '/client/jobs', label: 'Jobs', icon: Briefcase },
-    { clientHref: '/client/invoices', label: 'Invoices', icon: CreditCard },
-  ]
+  // Current active page title for mobile top bar
+  const currentItem = navItems.find(item => 
+    pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
+  )
+  const pageTitle = currentItem ? currentItem.label : 'CaptoDesk'
 
   return (
-    <div className="flex min-h-screen w-full bg-[#090D16] text-zinc-100 font-sans selection:bg-blue-500/30 selection:text-blue-200">
+    <div className="flex min-h-screen w-full bg-zinc-950 text-zinc-100 font-sans antialiased">
 
-      {/* ── Desktop Fixed Sidebar ── */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-zinc-800/80 bg-[#0B101B]/95 backdrop-blur-md sm:flex">
-        {/* Brand Header */}
-        <div className="flex h-16 items-center justify-between border-b border-zinc-800/80 px-5">
-          <Link href="/client/dashboard" className="flex items-center gap-2.5 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25 ring-1 ring-white/20 transition-transform group-hover:scale-105">
-              <PhoneCall className="h-4 w-4 text-white" />
+      {/* ── Desktop Persistent Sidebar (>= 768px) ── */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-zinc-800 bg-zinc-950 md:flex">
+        
+        {/* Workspace Identity */}
+        <div className="flex h-14 items-center justify-between border-b border-zinc-800 px-4">
+          <Link href="/client/dashboard" className="flex items-center gap-2.5 min-w-0 group">
+            <div className="h-7 w-7 rounded-md bg-zinc-900 border border-zinc-700/80 flex items-center justify-center shrink-0 text-zinc-200">
+              <PhoneCall className="h-3.5 w-3.5 text-blue-400" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-extrabold tracking-tight text-white">CaptoDesk</span>
-                <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-400 border border-blue-500/20">Pro</span>
-              </div>
-              <p className="text-[10px] text-zinc-400 font-medium truncate max-w-[140px]">
-                {orgName || 'Digital Front Desk'}
-              </p>
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-zinc-100 truncate">
+                {orgName || 'CaptoDesk'}
+              </span>
+              <span className="block text-[11px] text-zinc-400 truncate">
+                {orgPhone ? orgPhone : 'Front Desk'}
+              </span>
             </div>
           </Link>
+
+          <span 
+            className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" 
+            title="Front desk safety net active" 
+          />
         </div>
 
-        {/* Navigation Menu (11 Clean Core Modules) */}
-        <div className="flex-1 overflow-y-auto py-4 px-3">
-          <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Main Menu
-          </div>
-          <nav className="flex flex-col gap-0.5">
-            {navItems.map(item => (
-              <SidebarLink 
-                key={item.clientHref} 
-                {...item} 
-                unreadCount={item.badgeKey === 'inbox' ? unreadTotal : undefined}
-              />
-            ))}
-          </nav>
+        {/* Structured Navigation Groups */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+          {navSections.map(sec => (
+            <div key={sec.title} className="space-y-0.5">
+              <div className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                {sec.title}
+              </div>
+              <nav className="flex flex-col gap-0.5">
+                {sec.items.map(item => (
+                  <NavLinkItem
+                    key={item.href}
+                    {...item}
+                    unreadCount={item.badgeKey === 'inbox' ? unreadTotal : undefined}
+                  />
+                ))}
+              </nav>
+            </div>
+          ))}
 
           {isSuperAdmin && (
-            <div className="mt-5 border-t border-zinc-800/60 pt-4">
-              <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-amber-500/80">
-                Administration
+            <div className="pt-2 border-t border-zinc-800">
+              <div className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-500/80">
+                System
               </div>
               <Link
                 href="/admin"
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
               >
                 <ShieldCheck className="h-4 w-4" />
-                Super Admin Portal
+                <span>Super Admin</span>
               </Link>
             </div>
           )}
         </div>
 
-        {/* Footer / User Sign Out */}
-        <div className="border-t border-zinc-800/80 p-3 bg-zinc-950/40">
+        {/* Footer / Account Actions */}
+        <div className="border-t border-zinc-800 p-2.5 bg-zinc-950">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors cursor-pointer"
           >
-            <LogOut className="h-4 w-4 text-zinc-400" />
+            <LogOut className="h-3.5 w-3.5" />
             <span>Sign out</span>
           </button>
         </div>
       </aside>
 
-      {/* ── Main Content Container ── */}
-      <div className="flex flex-col sm:pl-64 w-full min-h-screen">
-        
-        {/* Desktop Top Status Bar */}
-        <header className="hidden sm:flex h-14 items-center justify-between border-b border-zinc-800/70 bg-[#0B101B]/80 backdrop-blur-md px-8 sticky top-0 z-20">
-          <div className="flex items-center gap-2.5 text-xs text-zinc-400">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-zinc-300 font-medium">Front Desk Status:</span>
-            <span className="text-emerald-400 font-semibold">Active & Answering Missed Calls</span>
+      {/* ── Main Layout Column ── */}
+      <div className="flex flex-col md:pl-60 w-full min-h-screen">
+
+        {/* ── Mobile Top Header (< 768px) ── */}
+        <header className="sticky top-0 z-20 flex h-13 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 md:hidden">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <h1 className="text-sm font-semibold text-zinc-100 truncate">
+              {pageTitle}
+            </h1>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-2">
+            {unreadTotal > 0 && (
+              <Link
+                href="/client/inbox"
+                className="flex items-center gap-1 rounded-full bg-blue-600/10 border border-blue-500/20 px-2 py-0.5 text-[11px] font-semibold text-blue-400"
+              >
+                <MessageSquare className="h-3 w-3" />
+                <span>{unreadTotal}</span>
+              </Link>
+            )}
+            <span className="h-2 w-2 rounded-full bg-emerald-500" title="Safety net active" />
+          </div>
+        </header>
+
+        {/* ── Desktop Subtle Top Status Bar (>= 768px) ── */}
+        <header className="hidden md:flex h-11 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-6 sticky top-0 z-20">
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="text-zinc-300">Front desk answering calls & messages</span>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
             <Link 
               href="/client/settings" 
-              className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5"
+              className="text-zinc-400 hover:text-zinc-200 transition-colors"
             >
-              <span>Call Forwarding Guide</span>
-              <span>&rarr;</span>
+              Forwarding status
             </Link>
           </div>
         </header>
 
-        {/* Page Content Viewport */}
-        <main className="flex-1 p-4 sm:p-8 pb-24 sm:pb-8 max-w-7xl w-full mx-auto">
+        {/* ── Page Content Container ── */}
+        <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl w-full mx-auto">
           {children}
         </main>
       </div>
 
-      {/* ── Mobile Bottom Navigation Bar (< 640px) ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 border-t border-zinc-800/90 bg-[#0B101B]/95 backdrop-blur-lg sm:hidden px-2 shadow-2xl safe-area-bottom">
-        {mobileQuickItems.map(item => {
-          const isActive = pathname === item.clientHref || pathname.startsWith(item.clientHref + '/')
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.clientHref}
-              href={item.clientHref}
-              className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-medium transition-colors',
-                isActive ? 'text-blue-500 font-bold' : 'text-zinc-400 hover:text-zinc-200'
-              )}
-            >
-              <div className="relative">
-                <Icon className={cn('h-5 w-5 transition-transform', isActive && 'scale-110')} />
-                {typeof item.badge === 'number' && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
-
-        {/* 5th Mobile Tab: "More" Menu Toggle */}
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className={cn(
-            'relative flex flex-1 flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-medium transition-colors cursor-pointer',
-            mobileMenuOpen ? 'text-blue-500 font-bold' : 'text-zinc-400 hover:text-zinc-200'
-          )}
+      {/* ── Mobile Slide-Out Drawer Overlay ── */}
+      {mobileDrawerOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs md:hidden"
+          onClick={() => setMobileDrawerOpen(false)}
         >
-          <Menu className="h-5 w-5" />
-          <span>More</span>
-        </button>
-      </nav>
-
-      {/* ── Mobile "More" Full Navigation Drawer ── */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm sm:hidden flex flex-col justify-end">
-          <div className="bg-[#0B101B] border-t border-zinc-800 rounded-t-3xl max-h-[85vh] flex flex-col p-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-800/80 mb-3">
-              <div>
-                <h3 className="text-base font-bold text-white">All Menu Items</h3>
-                <p className="text-xs text-zinc-400">{orgName || 'CaptoDesk Digital Desk'}</p>
+          <div 
+            className="fixed inset-y-0 left-0 w-72 bg-zinc-950 border-r border-zinc-800 p-4 flex flex-col shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-7 w-7 rounded-md bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-blue-400 shrink-0">
+                  <PhoneCall className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-zinc-100 truncate">{orgName || 'CaptoDesk'}</div>
+                  <div className="text-[11px] text-zinc-400 truncate">{orgPhone || 'Digital Front Desk'}</div>
+                </div>
               </div>
               <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-xl text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 cursor-pointer"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="h-8 w-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-100"
+                aria-label="Close menu"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1 py-2 space-y-1">
-              {navItems.map(item => (
-                <SidebarLink
-                  key={item.clientHref}
-                  {...item}
-                  onClick={() => setMobileMenuOpen(false)}
-                  unreadCount={item.badgeKey === 'inbox' ? unreadTotal : undefined}
-                />
-              ))}
-
-              {isSuperAdmin && (
-                <div className="pt-3 border-t border-zinc-800/60 mt-3">
-                  <Link
-                    href="/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20"
-                  >
-                    <ShieldCheck className="h-4 w-4" />
-                    Super Admin Portal
-                  </Link>
+            {/* Drawer Navigation List with 44px+ touch targets */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4">
+              {navSections.map(sec => (
+                <div key={sec.title} className="space-y-1">
+                  <div className="px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                    {sec.title}
+                  </div>
+                  {sec.items.map(item => {
+                    const isActive = pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
+                    const Icon = item.icon
+                    const unread = item.badgeKey === 'inbox' ? unreadTotal : 0
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={cn(
+                          'flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]',
+                          isActive
+                            ? 'bg-zinc-800 text-zinc-100 font-semibold'
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className={cn('h-4 w-4', isActive ? 'text-zinc-100' : 'text-zinc-400')} />
+                          <span>{item.label}</span>
+                        </div>
+                        {unread > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-bold text-white tabular-nums">
+                            {unread}
+                          </span>
+                        )}
+                      </Link>
+                    )
+                  })}
                 </div>
-              )}
+              ))}
             </div>
 
-            <div className="pt-4 border-t border-zinc-800/80 mt-2">
+            {/* Drawer Sign Out */}
+            <div className="pt-3 border-t border-zinc-800">
               <button
                 onClick={handleSignOut}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 border border-zinc-800 py-2.5 text-xs font-semibold text-rose-400 hover:text-rose-300 cursor-pointer"
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors min-h-[44px]"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Sign Out of CaptoDesk</span>
+                <span>Sign out</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ── Mobile Purpose-Built Bottom Action Bar (< 768px) ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-14 border-t border-zinc-800 bg-zinc-950 md:hidden px-1 safe-area-bottom">
+        <Link
+          href="/client/dashboard"
+          className={cn(
+            'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+            pathname === '/client/dashboard' ? 'text-zinc-100 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+          )}
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          <span>Today</span>
+        </Link>
+
+        <Link
+          href="/client/inbox"
+          className={cn(
+            'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+            pathname.startsWith('/client/inbox') ? 'text-zinc-100 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+          )}
+        >
+          <div className="relative">
+            <MessageSquare className="h-4 w-4" />
+            {unreadTotal > 0 && (
+              <span className="absolute -top-1 -right-2 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-zinc-950" />
+            )}
+          </div>
+          <span>Inbox</span>
+        </Link>
+
+        <Link
+          href="/client/jobs"
+          className={cn(
+            'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+            pathname.startsWith('/client/jobs') ? 'text-zinc-100 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+          )}
+        >
+          <Briefcase className="h-4 w-4" />
+          <span>Jobs</span>
+        </Link>
+
+        <Link
+          href="/client/invoices"
+          className={cn(
+            'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+            pathname.startsWith('/client/invoices') ? 'text-zinc-100 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+          )}
+        >
+          <CreditCard className="h-4 w-4" />
+          <span>Invoices</span>
+        </Link>
+
+        <button
+          onClick={() => setMobileDrawerOpen(true)}
+          className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-zinc-400 hover:text-zinc-200 min-h-[44px]"
+        >
+          <Menu className="h-4 w-4" />
+          <span>More</span>
+        </button>
+      </nav>
+
     </div>
   )
 }

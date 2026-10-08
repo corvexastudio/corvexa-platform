@@ -17,19 +17,26 @@ import {
   DollarSign, 
   User, 
   Calendar, 
-  X, 
   Loader2, 
   Trash2,
-  ChevronRight,
-  AlertCircle,
-  RefreshCw
+  TrendingUp,
+  Percent
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -63,6 +70,47 @@ interface Quote {
     email?: string
   }
   items?: QuoteItem[]
+}
+
+function getQuoteStatusBadge(status: Quote['status']) {
+  switch (status) {
+    case 'accepted':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          Approved
+        </span>
+      )
+    case 'viewed':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          Viewed
+        </span>
+      )
+    case 'sent':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          Sent
+        </span>
+      )
+    case 'declined':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          Declined
+        </span>
+      )
+    case 'expired':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-500 border border-zinc-700">
+          Expired
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+          Draft
+        </span>
+      )
+  }
 }
 
 export default function ClientQuotesPage() {
@@ -126,13 +174,11 @@ export default function ClientQuotesPage() {
 
   // Filter quotes based on search and status tab
   const filteredQuotes = quotes.filter(q => {
-    // Status Filter
     if (tab === 'pending' && q.status !== 'sent' && q.status !== 'viewed') return false
     if (tab === 'accepted' && q.status !== 'accepted') return false
     if (tab === 'declined' && q.status !== 'declined') return false
     if (tab === 'draft' && q.status !== 'draft') return false
 
-    // Search Filter
     if (search.trim()) {
       const query = search.toLowerCase()
       const matchesNum = q.quote_number?.toLowerCase().includes(query)
@@ -149,7 +195,7 @@ export default function ClientQuotesPage() {
     const url = `${window.location.origin}/quote/${token}`
     navigator.clipboard.writeText(url)
     setCopiedId(id)
-    toast.success('Quote link copied to clipboard!')
+    toast.success('Quote link copied to clipboard')
     setTimeout(() => setCopiedId(null), 2500)
   }
 
@@ -158,10 +204,10 @@ export default function ClientQuotesPage() {
     try {
       const res = await fetch(`/api/client/quotes/${quoteId}/send`, { method: 'POST' })
       if (res.ok) {
-        toast.success('Quote sent to customer via SMS!')
+        toast.success('Quote sent to customer via SMS')
         loadQuotes()
       } else {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({}))
         toast.error(err.error || 'Failed to send quote.')
       }
     } catch {
@@ -171,7 +217,7 @@ export default function ClientQuotesPage() {
     }
   }
 
-  // Create Quote Handler
+  // Create Quote Handlers
   const handleAddItem = () => {
     setNewItems([...newItems, { description: '', quantity: 1, unit_price: 0 }])
   }
@@ -217,14 +263,14 @@ export default function ClientQuotesPage() {
         const data = await res.json()
         if (andSend && data.quote?.id) {
           await fetch(`/api/client/quotes/${data.quote.id}/send`, { method: 'POST' })
-          toast.success('Quote created and texted to customer!')
+          toast.success('Quote created and sent via SMS')
         } else {
-          toast.success('Draft estimate created successfully!')
+          toast.success('Draft estimate created successfully')
         }
         setShowCreateModal(false)
         loadQuotes()
       } else {
-        const err = await res.json()
+        const err = await res.json().catch(() => ({}))
         toast.error(err.error || 'Failed to create quote.')
       }
     } catch {
@@ -234,37 +280,79 @@ export default function ClientQuotesPage() {
     }
   }
 
+  // Metrics
+  const totalValue = quotes.reduce((acc, q) => acc + (Number(q.total) || 0), 0)
+  const pendingQuotes = quotes.filter(q => q.status === 'sent' || q.status === 'viewed')
+  const pendingValue = pendingQuotes.reduce((acc, q) => acc + (Number(q.total) || 0), 0)
+  const acceptedQuotes = quotes.filter(q => q.status === 'accepted')
+  const acceptedValue = acceptedQuotes.reduce((acc, q) => acc + (Number(q.total) || 0), 0)
+  const resolvedCount = acceptedQuotes.length + quotes.filter(q => q.status === 'declined').length
+  const winRate = resolvedCount > 0 ? Math.round((acceptedQuotes.length / resolvedCount) * 100) : 0
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* ── Top Header Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
+    <div className="space-y-6">
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <FileText className="h-7 w-7 text-blue-500" />
-            Quotes & Estimates
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Send mobile estimates to homeowners, get approval via text, and convert won jobs with 1 click.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Quotes & Estimates
+            </h1>
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+              {quotes.length}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Send transparent service estimates, track customer views, and convert won jobs.
           </p>
         </div>
 
         <Button
           onClick={() => setShowCreateModal(true)}
-          className="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-blue-600/20 cursor-pointer self-start sm:self-auto"
+          size="sm"
+          className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium self-start sm:self-auto"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5 mr-1" />
           <span>New Quote</span>
         </Button>
       </div>
 
-      {/* ── Filter Tabs & Search Bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Total Estimates</p>
+          <p className="text-xl font-bold text-white tabular-nums mt-1">${totalValue.toFixed(2)}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">{quotes.length} quotes generated</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Awaiting Approval</p>
+          <p className="text-xl font-bold text-amber-400 tabular-nums mt-1">${pendingValue.toFixed(2)}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">{pendingQuotes.length} active with customers</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Won Revenue</p>
+          <p className="text-xl font-bold text-emerald-400 tabular-nums mt-1">${acceptedValue.toFixed(2)}</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">{acceptedQuotes.length} quotes accepted</p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Win Rate</p>
+          <p className="text-xl font-bold text-blue-400 tabular-nums mt-1">{winRate}%</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Based on resolved quotes</p>
+        </div>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {[
             { key: 'all', label: 'All Quotes', count: quotes.length },
-            { key: 'pending', label: 'Awaiting Response', count: quotes.filter(q => q.status === 'sent' || q.status === 'viewed').length },
-            { key: 'accepted', label: 'Approved', count: quotes.filter(q => q.status === 'accepted').length },
+            { key: 'pending', label: 'Awaiting Response', count: pendingQuotes.length },
+            { key: 'accepted', label: 'Approved', count: acceptedQuotes.length },
             { key: 'declined', label: 'Declined', count: quotes.filter(q => q.status === 'declined').length },
             { key: 'draft', label: 'Drafts', count: quotes.filter(q => q.status === 'draft').length },
           ].map(t => (
@@ -272,14 +360,14 @@ export default function ClientQuotesPage() {
               key={t.key}
               onClick={() => setTab(t.key as any)}
               className={cn(
-                'px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5',
+                "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
                 tab === t.key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
               )}
             >
               <span>{t.label}</span>
-              <span className={cn('text-[10px] px-1.5 py-0.2 rounded-full', tab === t.key ? 'bg-blue-700 text-blue-100' : 'bg-zinc-800 text-zinc-400')}>
+              <span className="text-[10px] px-1 py-0.2 rounded bg-zinc-950 text-zinc-400 tabular-nums">
                 {t.count}
               </span>
             </button>
@@ -288,348 +376,416 @@ export default function ClientQuotesPage() {
 
         {/* Search Input */}
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
           <Input
-            placeholder="Search by customer or quote #..."
+            placeholder="Search customer, quote #..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-9 bg-zinc-900/90 border-zinc-800 text-xs rounded-xl text-zinc-100 placeholder:text-zinc-500 focus:border-blue-500"
+            className="h-8 pl-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-400 rounded-md"
           />
         </div>
       </div>
 
-      {/* ── Content Viewport ── */}
+      {/* Main Content Area */}
       {error ? (
         <ErrorState
           title="Failed to load quotes"
           message={error}
           onRetry={loadQuotes}
+          retryLabel="Retry Loading"
         />
       ) : loading ? (
-        <div className="grid grid-cols-1 gap-3.5">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-5 w-28 bg-zinc-800/80" />
-                <Skeleton className="h-4 w-20 bg-zinc-800/60" />
+        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-36 bg-zinc-800" />
+                  <Skeleton className="h-3 w-48 bg-zinc-800/60" />
+                </div>
+                <Skeleton className="h-5 w-20 bg-zinc-800" />
+                <Skeleton className="h-4 w-16 bg-zinc-800" />
+                <Skeleton className="h-8 w-24 bg-zinc-800" />
               </div>
-              <Skeleton className="h-4 w-48 bg-zinc-800/80" />
-              <div className="flex gap-4">
-                <Skeleton className="h-3 w-32 bg-zinc-800/60" />
-                <Skeleton className="h-3 w-24 bg-zinc-800/60" />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : filteredQuotes.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title={search ? 'No Matching Estimates Found' : 'No Estimates Created Yet'}
+          title={search ? 'No Matching Estimates' : 'No Estimates Created Yet'}
           description={
             search 
               ? 'No quotes match your search criteria. Try searching by a different name, phone number, or quote ID.'
-              : 'Sending professional mobile estimates via text lets homeowners approve pricing on their phone in seconds, helping you win jobs before competitors call back.'
+              : 'Create and dispatch professional estimates directly via SMS. Homeowners can approve pricing on their phone in one click.'
           }
           actionLabel={search ? 'Clear Search' : 'Create First Quote'}
           onAction={search ? () => setSearch('') : () => setShowCreateModal(true)}
-          tip="Homeowners can review line items and click 'Accept' on their phone without logging in."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3.5">
-          {filteredQuotes.map(quote => {
-            const isAccepted = quote.status === 'accepted'
-            const isDeclined = quote.status === 'declined'
-            const isPending = quote.status === 'sent' || quote.status === 'viewed'
-            const isDraft = quote.status === 'draft'
+        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
+                <TableRow className="border-b border-zinc-800 hover:bg-transparent">
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Quote #</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Title</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Valid Until</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Total</TableHead>
+                  <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-zinc-800">
+                {filteredQuotes.map(quote => {
+                  const isAccepted = quote.status === 'accepted'
+                  const isDeclined = quote.status === 'declined'
 
-            return (
-              <div
-                key={quote.id}
-                className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-900/70 p-4 sm:p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group"
-              >
-                {/* Left: Quote info */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-extrabold text-white text-base tracking-tight">
-                      {quote.quote_number}
-                    </span>
+                  return (
+                    <TableRow key={quote.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
+                      <TableCell className="py-3 px-4 font-mono font-medium text-xs text-zinc-300">
+                        {quote.quote_number}
+                      </TableCell>
 
-                    {/* Status Badge */}
-                    {isAccepted && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-                        <CheckCircle2 className="h-3 w-3" /> Approved
-                      </span>
-                    )}
-                    {isPending && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-400 border border-blue-500/20">
-                        <Clock className="h-3 w-3" /> {quote.status === 'viewed' ? 'Opened by Customer' : 'Sent (Awaiting)'}
-                      </span>
-                    )}
-                    {isDeclined && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-400 border border-rose-500/20">
-                        <XCircle className="h-3 w-3" /> Declined
-                      </span>
-                    )}
-                    {isDraft && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-semibold text-zinc-400 border border-zinc-700">
-                        Draft
-                      </span>
-                    )}
+                      <TableCell className="py-3 px-4">
+                        <div className="font-medium text-xs text-zinc-100">
+                          {quote.contact?.name || 'Homeowner'}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 tabular-nums">
+                          {quote.contact?.phone}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-xs text-zinc-300 max-w-xs truncate">
+                        {quote.title}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4">
+                        {getQuoteStatusBadge(quote.status)}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-xs text-zinc-400 whitespace-nowrap tabular-nums">
+                        {new Date(quote.expires_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-right font-semibold text-xs text-zinc-100 tabular-nums">
+                        ${Number(quote.total).toFixed(2)}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4 text-right">
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          {!isAccepted && !isDeclined && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleSendQuote(quote.id)}
+                              disabled={actionLoadingId === quote.id}
+                              className="h-7 px-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-zinc-800"
+                            >
+                              {actionLoadingId === quote.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Send className="h-3 w-3 mr-1" />
+                              )}
+                              <span>{quote.status === 'sent' ? 'Resend' : 'Send'}</span>
+                            </Button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(quote.manage_token, quote.id)}
+                            title="Copy link"
+                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                          >
+                            {copiedId === quote.id ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+
+                          <a
+                            href={`/quote/${quote.manage_token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Preview customer view"
+                            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+
+                          {isAccepted && (
+                            <Link
+                              href="/client/jobs"
+                              className="inline-flex items-center gap-1 h-7 px-2 rounded text-xs font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
+                            >
+                              <Briefcase className="h-3 w-3" />
+                              <span>In Jobs</span>
+                            </Link>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-zinc-800">
+            {filteredQuotes.map(quote => {
+              const isAccepted = quote.status === 'accepted'
+              const isDeclined = quote.status === 'declined'
+
+              return (
+                <div key={quote.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-zinc-400 font-medium">{quote.quote_number}</span>
+                        {getQuoteStatusBadge(quote.status)}
+                      </div>
+                      <h3 className="font-medium text-xs text-zinc-100 mt-1">{quote.title}</h3>
+                      <p className="text-[11px] text-zinc-400">{quote.contact?.name || 'Homeowner'} • {quote.contact?.phone}</p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-zinc-100 tabular-nums">
+                        ${Number(quote.total).toFixed(2)}
+                      </p>
+                      <p className="text-[10px] text-zinc-500">
+                        Exp {new Date(quote.expires_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
 
-                  <p className="text-sm font-semibold text-zinc-200">
-                    {quote.title}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-                    <span className="flex items-center gap-1 text-zinc-300">
-                      <User className="h-3 w-3 text-zinc-400" />
-                      {quote.contact?.name || 'Homeowner'}
-                    </span>
-                    <span>•</span>
-                    <span>{quote.contact?.phone}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-zinc-400" />
-                      Valid until {new Date(quote.expires_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right: Pricing & Quick Actions */}
-                <div className="flex items-center justify-between md:justify-end gap-5 pt-3 md:pt-0 border-t md:border-t-0 border-zinc-800/80">
-                  <div className="text-left md:text-right">
-                    <p className="text-[11px] text-zinc-400 font-medium">Estimate Total</p>
-                    <p className="text-lg sm:text-xl font-black text-white">
-                      ${Number(quote.total).toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Send SMS Action */}
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-zinc-800/80">
                     {!isAccepted && !isDeclined && (
                       <Button
                         size="sm"
                         onClick={() => handleSendQuote(quote.id)}
                         disabled={actionLoadingId === quote.id}
-                        className="h-8.5 px-3 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-500 text-white"
                       >
                         {actionLoadingId === quote.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         ) : (
-                          <Send className="h-3.5 w-3.5" />
+                          <Send className="h-3 w-3 mr-1" />
                         )}
-                        <span>{quote.status === 'sent' ? 'Resend SMS' : 'Send SMS'}</span>
+                        <span>{quote.status === 'sent' ? 'Resend' : 'Send'}</span>
                       </Button>
                     )}
 
-                    {/* Copy Link */}
                     <button
+                      type="button"
                       onClick={() => handleCopyLink(quote.manage_token, quote.id)}
-                      title="Copy Customer Approval Link"
-                      className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
+                      className="p-1.5 rounded bg-zinc-800 text-zinc-300"
+                      title="Copy link"
                     >
                       {copiedId === quote.id ? (
-                        <Check className="h-4 w-4 text-emerald-400" />
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Copy className="h-3.5 w-3.5" />
                       )}
                     </button>
 
-                    {/* View Public Estimate */}
                     <a
                       href={`/quote/${quote.manage_token}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Preview Homeowner View"
-                      className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white transition cursor-pointer"
+                      className="p-1.5 rounded bg-zinc-800 text-zinc-300"
+                      title="View public quote"
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </a>
 
-                    {/* Convert to Job if Accepted */}
                     {isAccepted && (
                       <Link
                         href="/client/jobs"
-                        className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 text-xs font-semibold transition"
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded text-xs font-medium text-emerald-400 bg-emerald-500/10"
                       >
-                        <Briefcase className="h-3.5 w-3.5" />
-                        <span>View In Jobs</span>
+                        <Briefcase className="h-3 w-3" />
+                        <span>Jobs</span>
                       </Link>
                     )}
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* ── Create New Quote Modal ── */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#0B101B] border border-zinc-800 rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-800/80 mb-5">
-              <div>
-                <h2 className="text-lg font-bold text-white">Create New Estimate</h2>
-                <p className="text-xs text-zinc-400">Generate a professional estimate ready to text to the customer.</p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-xl text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Modal Form */}
-            <div className="space-y-4 flex-1">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Select Customer
-                </label>
-                <select
-                  value={selectedContactId}
-                  onChange={e => setSelectedContactId(e.target.value)}
-                  className="w-full p-2.5 text-xs sm:text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">-- Choose Customer --</option>
-                  {contacts.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name || 'Valued Customer'} ({c.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Estimate Title
-                </label>
-                <Input
-                  value={quoteTitle}
-                  onChange={e => setQuoteTitle(e.target.value)}
-                  placeholder="e.g. Water Heater Replacement & Installation"
-                  className="bg-zinc-900 border-zinc-800 text-xs sm:text-sm text-white"
-                />
-              </div>
-
-              {/* Line Items */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Line Items
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="h-3 w-3" /> Add Item
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {newItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Input
-                        placeholder="Service / Part description"
-                        value={item.description}
-                        onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                        className="flex-1 bg-zinc-900 border-zinc-800 text-xs text-white"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Qty"
-                        value={item.quantity}
-                        onChange={e => handleItemChange(idx, 'quantity', Number(e.target.value))}
-                        className="w-16 bg-zinc-900 border-zinc-800 text-xs text-white text-center"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Price"
-                        value={item.unit_price}
-                        onChange={e => handleItemChange(idx, 'unit_price', Number(e.target.value))}
-                        className="w-24 bg-zinc-900 border-zinc-800 text-xs text-white text-right"
-                      />
-                      {newItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(idx)}
-                          className="p-2 text-zinc-400 hover:text-rose-400 cursor-pointer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex justify-between items-center mt-3 pt-2 border-t border-zinc-800/60 text-xs font-bold text-zinc-300">
-                  <span>Subtotal</span>
-                  <span className="text-white text-sm font-black">${calculatedSubtotal.toFixed(2)}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Valid For
-                </label>
-                <select
-                  value={validDays}
-                  onChange={e => setValidDays(e.target.value)}
-                  className="w-full p-2.5 text-xs sm:text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="7">7 Days</option>
-                  <option value="14">14 Days (Standard)</option>
-                  <option value="30">30 Days</option>
-                  <option value="60">60 Days</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                  Customer Notes (Optional)
-                </label>
-                <textarea
-                  value={quoteNotes}
-                  onChange={e => setQuoteNotes(e.target.value)}
-                  placeholder="e.g. Estimate includes all labor, disposal of old unit, and 1-year parts warranty."
-                  rows={2}
-                  className="w-full p-2.5 text-xs sm:text-sm bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-5 border-t border-zinc-800/80 mt-5">
-              <Button
-                variant="outline"
-                onClick={() => setShowCreateModal(false)}
-                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs cursor-pointer"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => handleSaveQuote(false)}
-                disabled={savingQuote}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs cursor-pointer"
-              >
-                Save Draft
-              </Button>
-              <Button
-                onClick={() => handleSaveQuote(true)}
-                disabled={savingQuote}
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-blue-600/20"
-              >
-                {savingQuote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                <span>Save & Text Quote</span>
-              </Button>
-            </div>
+              )
+            })}
           </div>
         </div>
       )}
+
+      {/* Create New Quote Modal */}
+      <Modal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        title="Create Service Estimate"
+        description="Build line items and send an instant approval link via SMS."
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">
+              Customer
+            </label>
+            <select
+              aria-label="Select Customer"
+              value={selectedContactId}
+              onChange={e => setSelectedContactId(e.target.value)}
+              className="w-full p-2 text-xs bg-zinc-950 border border-zinc-800 rounded-md text-zinc-200 focus:outline-none focus:border-zinc-700 cursor-pointer"
+            >
+              <option value="">-- Choose Customer --</option>
+              {contacts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Valued Customer'} ({c.phone})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">
+                Estimate Title
+              </label>
+              <Input
+                value={quoteTitle}
+                onChange={e => setQuoteTitle(e.target.value)}
+                placeholder="e.g. AC Repair & Maintenance"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1">
+                Valid For (Days)
+              </label>
+              <Input
+                type="number"
+                value={validDays}
+                onChange={e => setValidDays(e.target.value)}
+                min="1"
+                max="90"
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              />
+            </div>
+          </div>
+
+          {/* Line Items */}
+          <div className="space-y-2 pt-2 border-t border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Line Items</span>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="text-xs text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" /> Add Item
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {newItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Description (e.g. Capacitor replacement)"
+                    value={item.description}
+                    onChange={e => handleItemChange(idx, 'description', e.target.value)}
+                    className="flex-1 h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={e => handleItemChange(idx, 'quantity', Number(e.target.value))}
+                    min="1"
+                    className="w-16 h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md text-center"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Price"
+                    value={item.unit_price}
+                    onChange={e => handleItemChange(idx, 'unit_price', Number(e.target.value))}
+                    min="0"
+                    step="0.01"
+                    className="w-24 h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md text-right"
+                  />
+                  {newItems.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2 text-xs">
+              <span className="text-zinc-400 mr-2">Estimated Total:</span>
+              <span className="font-bold text-white tabular-nums">${calculatedSubtotal.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-300 mb-1">
+              Customer Notes / Terms
+            </label>
+            <textarea
+              rows={2}
+              value={quoteNotes}
+              onChange={e => setQuoteNotes(e.target.value)}
+              placeholder="e.g. Includes 1-year parts warranty. Payment due upon completion."
+              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700 resize-none"
+            />
+          </div>
+
+          <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateModal(false)}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={savingQuote}
+              onClick={() => handleSaveQuote(false)}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+            >
+              Save Draft
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingQuote}
+              onClick={() => handleSaveQuote(true)}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            >
+              {savingQuote ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Send via SMS'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   )
 }

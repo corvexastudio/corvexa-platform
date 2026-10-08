@@ -4,29 +4,30 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Modal } from '@/components/ui/modal'
 import { 
   Calendar as CalendarIcon, 
   Clock, 
   MapPin, 
   PhoneCall, 
-  MessageSquare, 
-  Plus, 
+  Check, 
+  X, 
+  XCircle, 
+  Sliders, 
+  ExternalLink, 
+  Copy, 
   CheckCircle2, 
   CalendarDays,
-  Settings,
-  ExternalLink,
-  Check,
-  X,
-  XCircle,
-  AlertCircle,
-  Tag,
-  Sliders,
-  DollarSign
+  Plus,
+  Trash2,
+  Globe
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { cn } from '@/lib/utils'
 
 interface AppointmentItem {
   id: string
@@ -56,6 +57,43 @@ interface ServiceItem {
   is_active: boolean
 }
 
+function getAppointmentBadge(status: AppointmentItem['status']) {
+  switch (status) {
+    case 'confirmed':
+    case 'scheduled':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          Confirmed
+        </span>
+      )
+    case 'requested':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          Pending Approval
+        </span>
+      )
+    case 'completed':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+          Completed
+        </span>
+      )
+    case 'cancelled':
+    case 'no_show':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          {status === 'no_show' ? 'No Show' : 'Cancelled'}
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+          {status}
+        </span>
+      )
+  }
+}
+
 export default function CalendarPage() {
   const supabase = createClient()
   const [appointments, setAppointments] = useState<AppointmentItem[]>([])
@@ -63,10 +101,10 @@ export default function CalendarPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [orgSlug, setOrgSlug] = useState<string>('')
-  const [orgId, setOrgId] = useState<string>('')
   const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
+  const [copiedLink, setCopiedLink] = useState(false)
 
-  // Settings Drawer / Modal State
+  // Settings Modal State
   const [showSettings, setShowSettings] = useState(false)
   const [services, setServices] = useState<ServiceItem[]>([])
   const [bookingConfig, setBookingConfig] = useState({
@@ -109,7 +147,6 @@ export default function CalendarPage() {
         setLoading(false)
         return
       }
-      setOrgId(profile.org_id)
 
       // Load Org Settings & Timezone
       const { data: org } = await supabase
@@ -172,6 +209,9 @@ export default function CalendarPage() {
 
   // Status Action Handler
   const handleUpdateStatus = async (appointmentId: string, newStatus: string) => {
+    // Optimistic update
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: newStatus as any } : a))
+
     try {
       const res = await fetch(`/api/client/appointments/${appointmentId}`, {
         method: 'PATCH',
@@ -181,13 +221,14 @@ export default function CalendarPage() {
 
       if (!res.ok) {
         toast.error('Failed to update appointment status.')
+        loadAppointments()
         return
       }
 
       toast.success(`Appointment marked as ${newStatus}`)
-      await loadAppointments()
     } catch {
       toast.error('An error occurred while updating status.')
+      loadAppointments()
     }
   }
 
@@ -202,7 +243,8 @@ export default function CalendarPage() {
       })
 
       if (res.ok) {
-        toast.success('Booking settings updated successfully!')
+        toast.success('Booking settings updated successfully')
+        setShowSettings(false)
       } else {
         toast.error('Failed to save settings.')
       }
@@ -250,7 +292,7 @@ export default function CalendarPage() {
       })
 
       if (res.ok) {
-        toast.success(`Service "${newServiceName}" added!`)
+        toast.success(`Service "${newServiceName}" created`)
         setNewServiceName('')
         setNewServicePrice('')
         await loadAppointments()
@@ -264,10 +306,19 @@ export default function CalendarPage() {
     }
   }
 
+  const handleCopyBookingLink = () => {
+    if (!orgSlug) return
+    const url = `${window.location.origin}/book/${orgSlug}`
+    navigator.clipboard.writeText(url)
+    setCopiedLink(true)
+    toast.success('Public booking URL copied to clipboard')
+    setTimeout(() => setCopiedLink(false), 2000)
+  }
+
   // Filter appointments
   const filteredAppointments = appointments.filter((apt) => {
     if (statusFilter === 'all') return true
-    if (statusFilter === 'scheduled') return ['scheduled', 'confirmed'].includes(apt.status)
+    if (statusFilter === 'confirmed') return ['confirmed', 'scheduled'].includes(apt.status)
     return apt.status === statusFilter
   })
 
@@ -276,231 +327,67 @@ export default function CalendarPage() {
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-            <CalendarIcon className="h-6 w-6 text-blue-500" />
-            Appointments & Schedule
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Real-time availability, bookings, and customer scheduling portal • <span className="text-zinc-300 font-medium">Timezone: {orgTimezone}</span>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Schedule & Bookings
+            </h1>
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+              {appointments.length}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Real-time calendar agenda, customer booking requests, and availability rules • <span className="text-zinc-300">{orgTimezone}</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {orgSlug && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyBookingLink}
+              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+            >
+              {copiedLink ? (
+                <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+              )}
+              <span>Copy Booking Link</span>
+            </Button>
+          )}
+
           {orgSlug && (
             <a
               href={`/book/${orgSlug}`}
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 flex items-center gap-1.5 transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
             >
-              <span>Public Booking Page</span>
-              <ExternalLink className="h-3 w-3" />
+              <Globe className="h-3.5 w-3.5 text-blue-400" />
+              <span>Public Page</span>
             </a>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowSettings(!showSettings)}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 flex items-center gap-1.5 transition-colors"
+          <Button
+            size="sm"
+            onClick={() => setShowSettings(true)}
+            className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
           >
-            <Settings className="h-3.5 w-3.5 text-zinc-400" />
+            <Sliders className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
             <span>Booking Rules</span>
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* CONFIGURATION & SERVICES DRAWER */}
-      {showSettings && (
-        <div className="rounded-2xl border border-blue-500/30 bg-[#0D1322] p-5 sm:p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-blue-400" />
-              Booking Rules & Service Catalog
-            </h2>
-            <button
-              type="button"
-              onClick={() => setShowSettings(false)}
-              className="text-xs text-zinc-400 hover:text-white"
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Booking Rules Form */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Availability Settings</h3>
-
-              <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">Booking Confirmation Mode</label>
-                <select
-                  value={bookingConfig.booking_mode}
-                  onChange={(e) => setBookingConfig({ ...bookingConfig, booking_mode: e.target.value as any })}
-                  className="w-full p-2.5 rounded-xl bg-[#0B0F19] border border-zinc-800 text-xs text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="instant">Instant Confirmation (Auto-books slot & schedules reminders)</option>
-                  <option value="request">Booking Request (Requires owner approval from calendar)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-zinc-300 block mb-1">Buffer Time (mins)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="5"
-                    value={bookingConfig.buffer_minutes}
-                    onChange={(e) => setBookingConfig({ ...bookingConfig, buffer_minutes: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full p-2 rounded-xl bg-[#0B0F19] border border-zinc-800 text-xs text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-zinc-300 block mb-1">Minimum Notice (hours)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={bookingConfig.minimum_notice_hours}
-                    onChange={(e) => setBookingConfig({ ...bookingConfig, minimum_notice_hours: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full p-2 rounded-xl bg-[#0B0F19] border border-zinc-800 text-xs text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">Max Booking Window (days in advance)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="90"
-                  value={bookingConfig.max_booking_days_ahead}
-                  onChange={(e) => setBookingConfig({ ...bookingConfig, max_booking_days_ahead: parseInt(e.target.value, 10) || 30 })}
-                  className="w-full p-2 rounded-xl bg-[#0B0F19] border border-zinc-800 text-xs text-white"
-                />
-              </div>
-
-              {/* Blocked Dates */}
-              <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">Blocked Dates (Blackouts)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={newBlockedDate}
-                    onChange={(e) => setNewBlockedDate(e.target.value)}
-                    className="flex-1 p-2 rounded-xl bg-[#0B0F19] border border-zinc-800 text-xs text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddBlockedDate}
-                    className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white"
-                  >
-                    Add
-                  </button>
-                </div>
-                {bookingConfig.blocked_dates.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {bookingConfig.blocked_dates.map((d) => (
-                      <span key={d} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 text-[11px] text-zinc-300">
-                        {d}
-                        <button type="button" onClick={() => handleRemoveBlockedDate(d)}>
-                          <X className="h-3 w-3 text-red-400" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                disabled={savingConfig}
-                onClick={handleSaveConfig}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
-              >
-                {savingConfig ? 'Saving...' : 'Save Availability Rules'}
-              </button>
-            </div>
-
-            {/* Services Catalog */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Service Offerings</h3>
-
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {services.map((svc) => (
-                  <div key={svc.id} className="p-3 rounded-xl bg-[#0B0F19] border border-zinc-800 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-white block">{svc.name}</span>
-                      <span className="text-zinc-400">{svc.duration_minutes} mins {svc.price ? `• $${svc.price}` : ''}</span>
-                    </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      Active
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add Service Sub-Form */}
-              <form onSubmit={handleAddService} className="p-3.5 rounded-xl bg-[#0B0F19] border border-zinc-800 space-y-2.5">
-                <span className="text-xs font-bold text-zinc-300 block">Add New Service</span>
-                <input
-                  type="text"
-                  required
-                  placeholder="Service Name (e.g. AC Tune-Up)"
-                  value={newServiceName}
-                  onChange={(e) => setNewServiceName(e.target.value)}
-                  className="w-full p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-white"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    min="15"
-                    step="15"
-                    placeholder="Duration (mins)"
-                    value={newServiceDuration}
-                    onChange={(e) => setNewServiceDuration(e.target.value)}
-                    className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-white"
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Price ($ optional)"
-                    value={newServicePrice}
-                    onChange={(e) => setNewServicePrice(e.target.value)}
-                    className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-white"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-1 text-xs text-zinc-400">
-                  <input
-                    type="checkbox"
-                    id="reqAddr"
-                    checked={newServiceRequiresAddress}
-                    onChange={(e) => setNewServiceRequiresAddress(e.target.checked)}
-                    className="rounded bg-zinc-800 border-zinc-700"
-                  />
-                  <label htmlFor="reqAddr">Requires customer service address</label>
-                </div>
-                <button
-                  type="submit"
-                  disabled={addingService}
-                  className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
-                >
-                  {addingService ? 'Adding...' : 'Add Service'}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* STATUS TABS */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
         {[
           { key: 'all', label: 'All Bookings', count: appointments.length },
-          { key: 'requested', label: 'Requests', count: requestedCount, highlight: requestedCount > 0 },
+          { key: 'requested', label: 'Requests', count: requestedCount, isAlert: requestedCount > 0 },
           { key: 'confirmed', label: 'Confirmed', count: appointments.filter(a => ['confirmed', 'scheduled'].includes(a.status)).length },
           { key: 'completed', label: 'Completed', count: appointments.filter(a => a.status === 'completed').length },
           { key: 'cancelled', label: 'Cancelled', count: appointments.filter(a => a.status === 'cancelled').length }
@@ -509,185 +396,164 @@ export default function CalendarPage() {
             key={tab.key}
             type="button"
             onClick={() => setStatusFilter(tab.key)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={cn(
+              "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
               statusFilter === tab.key
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                : tab.highlight
-                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
-                : 'bg-[#0D1322] text-zinc-400 hover:text-white border border-zinc-800/80'
-            }`}
+                ? "bg-zinc-800 text-white"
+                : tab.isAlert
+                ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+            )}
           >
             <span>{tab.label}</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              statusFilter === tab.key ? 'bg-white/20 text-white' : 'bg-zinc-800 text-zinc-400'
-            }`}>
+            <span className={cn(
+              "text-[10px] px-1 py-0.2 rounded tabular-nums",
+              statusFilter === tab.key ? "bg-zinc-950 text-white" : "bg-zinc-900 text-zinc-500"
+            )}>
               {tab.count}
             </span>
           </button>
         ))}
       </div>
 
-      {/* Agenda Feed */}
-      <div className="rounded-2xl border border-zinc-800/80 bg-[#0D1322] p-5 sm:p-6 shadow-xl">
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-800/70 mb-5">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-            Upcoming Bookings
-          </h2>
-          <span className="text-xs text-zinc-400">
-            {filteredAppointments.length} matching appointments
-          </span>
-        </div>
-
-        {error ? (
-          <ErrorState
-            title="Failed to load appointments"
-            message={error}
-            onRetry={loadAppointments}
-            retryLabel="Retry Loading Appointments"
-          />
-        ) : loading ? (
-          <div className="space-y-3">
+      {/* Main Agenda Section */}
+      {error ? (
+        <ErrorState
+          title="Failed to load appointments"
+          message={error}
+          onRetry={loadAppointments}
+          retryLabel="Retry Loading"
+        />
+      ) : loading ? (
+        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+          <div className="p-4 space-y-3">
             {[1, 2, 3, 4].map(i => (
-              <div
-                key={i}
-                className="rounded-xl bg-[#0B0F19] border border-zinc-800/80 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
-              >
-                <div className="flex items-start gap-4">
-                  <Skeleton className="h-12 w-12 rounded-xl bg-zinc-800 shrink-0" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-48 bg-zinc-800" />
-                    <Skeleton className="h-3 w-64 bg-zinc-800/60" />
-                  </div>
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-40 bg-zinc-800" />
+                  <Skeleton className="h-3 w-56 bg-zinc-800/60" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-8 w-20 rounded-lg bg-zinc-800" />
-                  <Skeleton className="h-8 w-20 rounded-lg bg-zinc-800" />
-                </div>
+                <Skeleton className="h-5 w-20 bg-zinc-800" />
+                <Skeleton className="h-8 w-24 bg-zinc-800" />
               </div>
             ))}
           </div>
-        ) : filteredAppointments.length === 0 ? (
-          <EmptyState
-            icon={CalendarDays}
-            title={statusFilter === 'all' ? 'No Upcoming Bookings on Calendar' : `No ${statusFilter} Appointments`}
-            description="Homeowners can book service appointments online directly from your public booking page without phone tag, respecting your minimum notice hours and travel buffers."
-            actionLabel={orgSlug ? 'Copy Public Booking Link' : undefined}
-            onAction={
-              orgSlug
-                ? () => {
-                    navigator.clipboard.writeText(`${window.location.origin}/book/${orgSlug}`)
-                    toast.success('Public booking link copied!')
-                  }
-                : undefined
-            }
-            secondaryActionLabel="Adjust Booking Rules"
-            onSecondaryAction={() => setShowSettings(true)}
-            tip="Confirmed bookings automatically flow directly into your daily Jobs dispatch pipeline."
-            compact
-          />
-        ) : (
-          <div className="space-y-3">
-            {filteredAppointments.map(apt => (
+        </div>
+      ) : filteredAppointments.length === 0 ? (
+        <EmptyState
+          icon={CalendarDays}
+          title={statusFilter === 'all' ? 'No Bookings on Calendar' : `No ${statusFilter} Appointments`}
+          description="Online bookings from your public scheduling page appear here automatically, respecting travel buffers and lead times."
+          actionLabel={orgSlug ? 'Copy Public Booking Link' : undefined}
+          onAction={orgSlug ? handleCopyBookingLink : undefined}
+          secondaryActionLabel="Review Booking Rules"
+          onSecondaryAction={() => setShowSettings(true)}
+        />
+      ) : (
+        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900 divide-y divide-zinc-800">
+          {filteredAppointments.map(apt => {
+            const startDate = new Date(apt.start_time)
+
+            return (
               <div
                 key={apt.id}
-                className="rounded-xl bg-[#0B0F19] border border-zinc-800/80 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-700 transition-all shadow-sm"
+                className="p-4 hover:bg-zinc-800/30 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex flex-col items-center justify-center shrink-0 text-blue-400">
-                    <span className="text-xs font-black">
-                      {new Date(apt.start_time).toLocaleDateString('en-US', { timeZone: orgTimezone, day: 'numeric' })}
+                <div className="flex items-start gap-3.5 min-w-0">
+                  {/* Date badge */}
+                  <div className="h-10 w-12 rounded border border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center shrink-0 text-zinc-300">
+                    <span className="text-xs font-bold tabular-nums">
+                      {startDate.toLocaleDateString('en-US', { timeZone: orgTimezone, day: 'numeric' })}
                     </span>
-                    <span className="text-[9px] uppercase font-bold text-zinc-400">
-                      {new Date(apt.start_time).toLocaleDateString('en-US', { timeZone: orgTimezone, month: 'short' })}
+                    <span className="text-[10px] uppercase text-zinc-500">
+                      {startDate.toLocaleDateString('en-US', { timeZone: orgTimezone, month: 'short' })}
                     </span>
                   </div>
 
-                  <div>
+                  <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-sm text-white">
+                      <h2 className="font-semibold text-xs text-zinc-100 truncate">
                         {apt.title}
-                      </h3>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold border uppercase tracking-wider ${
-                        apt.status === 'confirmed' || apt.status === 'scheduled'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : apt.status === 'requested'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse'
-                          : apt.status === 'cancelled'
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                          : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                      }`}>
-                        {apt.status}
-                      </span>
+                      </h2>
+                      {getAppointmentBadge(apt.status)}
                       {apt.source && (
-                        <span className="rounded-full bg-zinc-800/80 px-2 py-0.5 text-[9px] text-zinc-400 border border-zinc-700">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-950 text-zinc-500 border border-zinc-800">
                           {apt.source}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400 mt-1">
-                      <span className="flex items-center gap-1 text-zinc-300 font-medium">
-                        <Clock className="h-3 w-3 text-blue-400" />
-                        {new Date(apt.start_time).toLocaleTimeString('en-US', { timeZone: orgTimezone, hour: 'numeric', minute: '2-digit' })}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+                      <span className="flex items-center gap-1 text-zinc-300 font-medium tabular-nums">
+                        <Clock className="h-3 w-3 text-zinc-500" />
+                        {startDate.toLocaleTimeString('en-US', { timeZone: orgTimezone, hour: 'numeric', minute: '2-digit' })}
                       </span>
-                      {apt.contact?.address && (
-                        <span className="flex items-center gap-1 text-zinc-400">
-                          <MapPin className="h-3 w-3" />
-                          {apt.contact.address}
-                        </span>
-                      )}
+
                       <span>• {apt.contact?.name || apt.contact?.phone}</span>
+
+                      {apt.contact?.address && (
+                        <a
+                          href={`https://maps.google.com/?q=${encodeURIComponent(apt.contact.address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200 truncate max-w-xs"
+                        >
+                          <MapPin className="h-3 w-3 text-zinc-500 shrink-0" />
+                          <span className="truncate">{apt.contact.address}</span>
+                        </a>
+                      )}
                     </div>
 
                     {apt.notes && (
-                      <p className="text-[11px] text-zinc-500 mt-1.5 italic">
-                        Note: {apt.notes}
+                      <p className="text-xs text-zinc-500 line-clamp-1 italic pt-0.5">
+                        {apt.notes}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* Owner Actions */}
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
                   {apt.status === 'requested' && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
                       onClick={() => handleUpdateStatus(apt.id, 'confirmed')}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-md shadow-emerald-600/20"
+                      className="h-7.5 px-3 rounded text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
                     >
-                      <Check className="h-3.5 w-3.5" />
-                      <span>Approve</span>
-                    </button>
+                      <Check className="h-3 w-3 mr-1" />
+                      Approve
+                    </Button>
                   )}
 
                   {['requested', 'confirmed', 'scheduled'].includes(apt.status) && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => handleUpdateStatus(apt.id, 'completed')}
-                      className="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold"
+                      className="h-7.5 px-2.5 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
                     >
-                      Done
-                    </button>
+                      Complete
+                    </Button>
                   )}
 
                   {['requested', 'confirmed', 'scheduled'].includes(apt.status) && (
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(apt.id, 'cancelled')}
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors"
+                      className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-rose-400 transition-colors"
                       title="Cancel Booking"
                     >
-                      <XCircle className="h-3.5 w-3.5" />
+                      <XCircle className="h-4 w-4" />
                     </button>
                   )}
 
                   {apt.contact?.phone && (
                     <a
                       href={`tel:${apt.contact.phone}`}
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                      className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
                       title="Call customer"
                     >
-                      <PhoneCall className="h-3.5 w-3.5 text-blue-400" />
+                      <PhoneCall className="h-3.5 w-3.5" />
                     </a>
                   )}
 
@@ -696,18 +562,204 @@ export default function CalendarPage() {
                       href={`/book/manage/${apt.manage_token}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                      className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
                       title="Open customer portal"
                     >
-                      <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}
                 </div>
               </div>
-            ))}
+            )
+          })}
+        </div>
+      )}
+
+      {/* Booking Rules & Services Modal */}
+      <Modal
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        title="Booking Rules & Services"
+        description="Configure automated slot availability, buffers, and services catalog."
+        size="lg"
+      >
+        <div className="space-y-5">
+          {/* Rules Form */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+              Availability Settings
+            </h3>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">
+                Confirmation Mode
+              </label>
+              <select
+                aria-label="Confirmation Mode"
+                value={bookingConfig.booking_mode}
+                onChange={(e) => setBookingConfig({ ...bookingConfig, booking_mode: e.target.value as any })}
+                className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+              >
+                <option value="instant">Instant Confirmation (Auto-confirms slot & schedules SMS reminder)</option>
+                <option value="request">Booking Request (Requires approval from calendar)</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Buffer Time (mins)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={bookingConfig.buffer_minutes}
+                  onChange={(e) => setBookingConfig({ ...bookingConfig, buffer_minutes: parseInt(e.target.value, 10) || 0 })}
+                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Minimum Notice (hours)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={bookingConfig.minimum_notice_hours}
+                  onChange={(e) => setBookingConfig({ ...bookingConfig, minimum_notice_hours: parseInt(e.target.value, 10) || 0 })}
+                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Max Advance Booking (days)</label>
+              <Input
+                type="number"
+                min="1"
+                max="90"
+                value={bookingConfig.max_booking_days_ahead}
+                onChange={(e) => setBookingConfig({ ...bookingConfig, max_booking_days_ahead: parseInt(e.target.value, 10) || 30 })}
+                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              />
+            </div>
+
+            {/* Blackout Dates */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Blackout Dates</label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={newBlockedDate}
+                  onChange={(e) => setNewBlockedDate(e.target.value)}
+                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddBlockedDate}
+                  className="h-8.5 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                >
+                  Block Date
+                </Button>
+              </div>
+
+              {bookingConfig.blocked_dates.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {bookingConfig.blocked_dates.map((d) => (
+                    <span key={d} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-xs text-zinc-300">
+                      {d}
+                      <button type="button" onClick={() => handleRemoveBlockedDate(d)}>
+                        <X className="h-3 w-3 text-zinc-500 hover:text-rose-400" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingConfig}
+              onClick={handleSaveConfig}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            >
+              {savingConfig ? 'Saving...' : 'Save Availability Rules'}
+            </Button>
           </div>
-        )}
-      </div>
+
+          {/* Services Catalog */}
+          <div className="space-y-3 pt-3 border-t border-zinc-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+              Service Catalog
+            </h3>
+
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {services.map((svc) => (
+                <div key={svc.id} className="p-2.5 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-medium text-zinc-200 block">{svc.name}</span>
+                    <span className="text-[11px] text-zinc-500">{svc.duration_minutes} mins {svc.price ? `• $${svc.price}` : ''}</span>
+                  </div>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Active
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Add Service Sub-Form */}
+            <form onSubmit={handleAddService} className="p-3 rounded-md bg-zinc-950 border border-zinc-800 space-y-2">
+              <span className="text-xs font-medium text-zinc-300 block">Add New Service Offering</span>
+              <Input
+                type="text"
+                required
+                placeholder="Service Name (e.g. Diagnostic & Tune-Up)"
+                value={newServiceName}
+                onChange={(e) => setNewServiceName(e.target.value)}
+                className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="number"
+                  min="15"
+                  step="15"
+                  placeholder="Duration (mins)"
+                  value={newServiceDuration}
+                  onChange={(e) => setNewServiceDuration(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Price ($ optional)"
+                  value={newServicePrice}
+                  onChange={(e) => setNewServicePrice(e.target.value)}
+                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <input
+                  type="checkbox"
+                  id="reqAddr"
+                  checked={newServiceRequiresAddress}
+                  onChange={(e) => setNewServiceRequiresAddress(e.target.checked)}
+                  className="rounded bg-zinc-900 border-zinc-700"
+                />
+                <label htmlFor="reqAddr">Requires service address</label>
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={addingService}
+                className="h-7.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+              >
+                {addingService ? 'Adding...' : 'Add Service'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   )
