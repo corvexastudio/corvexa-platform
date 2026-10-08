@@ -1238,3 +1238,41 @@ BEGIN
         );
     END IF;
 END $$;
+
+-- 24. PHASE 15: BACKEND BORING RELIABILITY & INVARIANT ENFORCEMENT
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
+
+CREATE INDEX IF NOT EXISTS idx_appointments_org_active 
+    ON appointments(org_id) 
+    WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_org_active_slot 
+    ON appointments(org_id, start_time) 
+    WHERE status IN ('requested', 'confirmed', 'scheduled') AND deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_org_stripe_pi 
+    ON payments(org_id, stripe_payment_intent_id) 
+    WHERE stripe_payment_intent_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_org_stripe_cs 
+    ON payments(org_id, stripe_checkout_session_id) 
+    WHERE stripe_checkout_session_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_calls_org_call_control_id 
+    ON calls(org_id, telnyx_call_control_id) 
+    WHERE telnyx_call_control_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_calls_org_session_id 
+    ON calls(org_id, call_session_id) 
+    WHERE call_session_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_review_requests_org_job 
+    ON review_requests(org_id, job_id) 
+    WHERE job_id IS NOT NULL AND status != 'suppressed';
+
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_delivery_status_check;
+ALTER TABLE messages ADD CONSTRAINT messages_delivery_status_check
+    CHECK (delivery_status IN ('queued', 'sending', 'sent', 'delivered', 'failed', 'received', 'undelivered'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_org_email 
+    ON profiles(org_id, LOWER(email));

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { processInboundSms } from '@/lib/services/sms-handler'
 import { verifyTelnyxSignature } from '@/lib/telnyx'
+import { shouldUpdateMessageStatus } from '@/lib/telephony/message-state'
 import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
@@ -148,6 +149,40 @@ export async function POST(request: Request) {
         payload?.to?.[0]?.status ||
         (newStatus === 'failed' || newStatus === 'undelivered' ? 'Carrier delivery failure' : null)
 
+      // Guard: Monotonic state transitions & out-of-order webhook protection
+      const { data: existingMsg } = await supabase
+        .from('messages')
+        .select('id, org_id, delivery_status')
+        .eq('telnyx_message_id', telnyxMessageId)
+        .maybeSingle()
+
+      if (existingMsg) {
+        const transitionCheck = shouldUpdateMessageStatus(existingMsg.delivery_status, newStatus)
+        if (!transitionCheck.allowed) {
+          telemetryStore.recordWebhook({
+            provider: 'telnyx',
+            eventType,
+            stage: 'duplicated',
+            providerEventId: eventId,
+            requestId
+          })
+          logger.info('Telnyx delivery status transition skipped', {
+            telnyxMessageId,
+            currentStatus: existingMsg.delivery_status,
+            targetStatus: newStatus,
+            reason: transitionCheck.reason
+          })
+
+          return NextResponse.json({
+            success: true,
+            action: 'delivery_status_skipped',
+            reason: transitionCheck.reason,
+            status: existingMsg.delivery_status,
+            messageId: telnyxMessageId
+          })
+        }
+      }
+
       const { data: updatedMsg, error: updateError } = await supabase
         .from('messages')
         .update({
@@ -158,31 +193,31 @@ export async function POST(request: Request) {
         .select('id, org_id')
         .maybeSingle()
 
-        if (newStatus === 'sent' || newStatus === 'delivered' || newStatus === 'failed') {
-          telemetryStore.recordMessaging(newStatus)
-        }
-
-        telemetryStore.recordWebhook({
-          provider: 'telnyx',
-          eventType,
-          stage: 'processed',
-          providerEventId: eventId,
-          requestId
-        })
-
-        logger.info('Telnyx delivery status updated', {
-          telnyxMessageId,
-          status: newStatus,
-          org_id: updatedMsg?.org_id
-        })
-
-        return NextResponse.json({
-          success: true,
-          action: 'delivery_status_updated',
-          status: newStatus,
-          messageId: telnyxMessageId
-        })
+      if (newStatus === 'sent' || newStatus === 'delivered' || newStatus === 'failed') {
+        telemetryStore.recordMessaging(newStatus)
       }
+
+      telemetryStore.recordWebhook({
+        provider: 'telnyx',
+        eventType,
+        stage: 'processed',
+        providerEventId: eventId,
+        requestId
+      })
+
+      logger.info('Telnyx delivery status updated', {
+        telnyxMessageId,
+        status: newStatus,
+        org_id: updatedMsg?.org_id || existingMsg?.org_id
+      })
+
+      return NextResponse.json({
+        success: true,
+        action: 'delivery_status_updated',
+        status: newStatus,
+        messageId: telnyxMessageId
+      })
+    }
 
       // 6. Handle Inbound SMS (message.received)
       if (eventType === 'message.received') {

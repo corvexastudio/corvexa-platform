@@ -166,6 +166,22 @@ export async function dispatchReviewRequest(
   }
 
   const { contact, org } = eligibility
+
+  // 1.5 Idempotency guard: If an active review request already exists for this job, return it without duplicate SMS
+  if (jobId) {
+    const { data: existingJobReview } = await supabase
+      .from('review_requests')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('job_id', jobId)
+      .neq('status', 'suppressed')
+      .maybeSingle()
+
+    if (existingJobReview) {
+      return { success: true, reviewRequest: existingJobReview }
+    }
+  }
+
   const token = crypto.randomBytes(16).toString('hex')
   const safeBaseUrl = baseUrl.replace(/\/$/, '')
   const trackableReviewUrl = `${safeBaseUrl}/r/${token}`
@@ -188,6 +204,24 @@ export async function dispatchReviewRequest(
     .single()
 
   if (insertError) {
+    if (
+      jobId && (
+        insertError.code === '23505' ||
+        insertError.message?.toLowerCase().includes('unique') ||
+        insertError.message?.toLowerCase().includes('duplicate')
+      )
+    ) {
+      const { data: existingJobReview } = await supabase
+        .from('review_requests')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('job_id', jobId)
+        .maybeSingle()
+
+      if (existingJobReview) {
+        return { success: true, reviewRequest: existingJobReview }
+      }
+    }
     return { success: false, error: insertError.message }
   }
 

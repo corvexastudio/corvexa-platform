@@ -115,6 +115,19 @@ export async function POST(request: Request) {
     })
 
     if (!result.success) {
+      // Record failed message attempt in database for observability and inbox truthfulness
+      await supabase
+        .from('messages')
+        .insert({
+          org_id: conv.org_id,
+          conversation_id: conv.id,
+          direction: 'outbound',
+          sender_type: 'owner',
+          body: message.trim(),
+          delivery_status: 'failed',
+          failure_reason: result.error || 'Failed to dispatch SMS'
+        })
+
       return NextResponse.json(
         { error: result.error || 'Failed to dispatch SMS' },
         { status: 500, headers: rateHeaders }

@@ -129,7 +129,7 @@ export async function updateJobStatus(
     notifyCustomer?: boolean
     notes?: string
   }
-): Promise<{ success: boolean; job?: any; error?: string }> {
+): Promise<{ success: boolean; job?: any; error?: string; alreadyInStatus?: boolean }> {
   const { jobId, orgId, newStatus, notifyCustomer = false, notes } = params
 
   const { data: job, error: findError } = await supabase
@@ -141,6 +141,19 @@ export async function updateJobStatus(
 
   if (findError || !job) {
     return { success: false, error: 'Job not found' }
+  }
+
+  // Idempotency guard: If job is already in the target status, return cleanly without duplicating hooks or SMS
+  if (job.status === newStatus) {
+    return { success: true, job, alreadyInStatus: true }
+  }
+
+  // Terminal lifecycle guard: completed and cancelled jobs cannot regress
+  if (job.status === 'completed') {
+    return { success: false, error: 'Cannot change status of an already completed job' }
+  }
+  if (job.status === 'cancelled') {
+    return { success: false, error: 'Cannot change status of a cancelled job' }
   }
 
   const updateFields: Record<string, any> = {

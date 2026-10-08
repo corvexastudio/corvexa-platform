@@ -252,7 +252,19 @@ export async function createBooking(
     .single()
 
   if (aptError || !appointment) {
-    return { success: false, error: 'Failed to save appointment record' }
+    if (
+      aptError?.code === '23505' ||
+      aptError?.message?.toLowerCase().includes('unique') ||
+      aptError?.message?.toLowerCase().includes('duplicate') ||
+      aptError?.message?.toLowerCase().includes('slot') ||
+      aptError?.message?.includes('idx_appointments_org_active_slot')
+    ) {
+      return {
+        success: false,
+        error: 'This time slot is no longer available. Please select another time.'
+      }
+    }
+    return { success: false, error: aptError?.message || 'Failed to save appointment record' }
   }
 
   const slotStartDate = new Date(startTime)

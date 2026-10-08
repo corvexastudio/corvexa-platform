@@ -350,64 +350,84 @@ export async function scheduleQuoteFollowUps(
   const nowMs = Date.now()
 
   // 1. Follow-up 1 (2 Days Later - Marketing)
-  const fu1Time = new Date(nowMs + 2 * 24 * 60 * 60 * 1000).toISOString()
-  const rawTextFu1 = `Hi ${customerName || 'there'}, just following up on your estimate #${quoteNumber} from ${orgName} ($${total.toFixed(2)}). Let us know if you have any questions or review here: ${manageUrl}`
-  const textFu1 = formatCompliantOutboundText({
-    businessName: orgName,
-    text: rawTextFu1,
-    messageType: 'marketing'
-  })
+  const fu1Key = `quote_fu1_${quoteId}`
+  const { data: existingFu1 } = await supabase
+    .from('automation_runs')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('idempotency_key', fu1Key)
+    .maybeSingle()
 
-  await supabase.from('automation_runs').insert({
-    org_id: orgId,
-    job_id: `job_quote_fu1_${quoteId}`,
-    idempotency_key: `quote_fu1_${quoteId}`,
-    event_type: 'quote.sent',
-    action_type: 'send_sms',
-    action_params: {
-      to: customerPhone,
-      from: senderNumber,
-      text: textFu1,
-      flowType: 'quote_follow_up',
+  if (!existingFu1) {
+    const fu1Time = new Date(nowMs + 2 * 24 * 60 * 60 * 1000).toISOString()
+    const rawTextFu1 = `Hi ${customerName || 'there'}, just following up on your estimate #${quoteNumber} from ${orgName} ($${total.toFixed(2)}). Let us know if you have any questions or review here: ${manageUrl}`
+    const textFu1 = formatCompliantOutboundText({
+      businessName: orgName,
+      text: rawTextFu1,
       messageType: 'marketing'
-    },
-    status: 'scheduled',
-    scheduled_at: fu1Time,
-    event_payload: {
-      quote_id: quoteId,
-      step: 1
-    }
-  })
+    })
+
+    await supabase.from('automation_runs').insert({
+      org_id: orgId,
+      job_id: `job_${fu1Key}`,
+      idempotency_key: fu1Key,
+      event_type: 'quote.sent',
+      action_type: 'send_sms',
+      action_params: {
+        to: customerPhone,
+        from: senderNumber,
+        text: textFu1,
+        flowType: 'quote_follow_up',
+        messageType: 'marketing'
+      },
+      status: 'scheduled',
+      scheduled_at: fu1Time,
+      event_payload: {
+        quote_id: quoteId,
+        step: 1
+      }
+    })
+  }
 
   // 2. Follow-up 2 (5 Days Later - Marketing)
-  const fu2Time = new Date(nowMs + 5 * 24 * 60 * 60 * 1000).toISOString()
-  const rawTextFu2 = `Hi ${customerName || 'there'}, friendly reminder that your estimate #${quoteNumber} from ${orgName} is awaiting your review. Check details or accept here: ${manageUrl}`
-  const textFu2 = formatCompliantOutboundText({
-    businessName: orgName,
-    text: rawTextFu2,
-    messageType: 'marketing'
-  })
+  const fu2Key = `quote_fu2_${quoteId}`
+  const { data: existingFu2 } = await supabase
+    .from('automation_runs')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('idempotency_key', fu2Key)
+    .maybeSingle()
 
-  await supabase.from('automation_runs').insert({
-    org_id: orgId,
-    job_id: `job_quote_fu2_${quoteId}`,
-    idempotency_key: `quote_fu2_${quoteId}`,
-    event_type: 'quote.sent',
-    action_type: 'send_sms',
-    action_params: {
-      to: customerPhone,
-      from: senderNumber,
-      text: textFu2,
-      flowType: 'quote_follow_up',
+  if (!existingFu2) {
+    const fu2Time = new Date(nowMs + 5 * 24 * 60 * 60 * 1000).toISOString()
+    const rawTextFu2 = `Hi ${customerName || 'there'}, friendly reminder that your estimate #${quoteNumber} from ${orgName} is awaiting your review. Check details or accept here: ${manageUrl}`
+    const textFu2 = formatCompliantOutboundText({
+      businessName: orgName,
+      text: rawTextFu2,
       messageType: 'marketing'
-    },
-    status: 'scheduled',
-    scheduled_at: fu2Time,
-    event_payload: {
-      quote_id: quoteId,
-      step: 2
-    }
-  })
+    })
+
+    await supabase.from('automation_runs').insert({
+      org_id: orgId,
+      job_id: `job_${fu2Key}`,
+      idempotency_key: fu2Key,
+      event_type: 'quote.sent',
+      action_type: 'send_sms',
+      action_params: {
+        to: customerPhone,
+        from: senderNumber,
+        text: textFu2,
+        flowType: 'quote_follow_up',
+        messageType: 'marketing'
+      },
+      status: 'scheduled',
+      scheduled_at: fu2Time,
+      event_payload: {
+        quote_id: quoteId,
+        step: 2
+      }
+    })
+  }
 }
 
 /**

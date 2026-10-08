@@ -524,6 +524,31 @@ export async function recordPayment(
     return { success: false, error: invoiceError?.message || 'Invoice not found' }
   }
 
+  // 0. Idempotency check: Guard against duplicate Stripe webhook processing
+  if (stripePaymentIntentId) {
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('stripe_payment_intent_id', stripePaymentIntentId)
+      .maybeSingle()
+
+    if (existingPayment) {
+      return { success: true, invoice, payment: existingPayment }
+    }
+  } else if (stripeCheckoutSessionId) {
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('stripe_checkout_session_id', stripeCheckoutSessionId)
+      .maybeSingle()
+
+    if (existingPayment) {
+      return { success: true, invoice, payment: existingPayment }
+    }
+  }
+
   // 1. Insert payment record
   const { data: payment, error: paymentError } = await supabase
     .from('payments')
@@ -544,6 +569,23 @@ export async function recordPayment(
     .single()
 
   if (paymentError) {
+    if (
+      paymentError.code === '23505' ||
+      paymentError.message?.toLowerCase().includes('unique') ||
+      paymentError.message?.toLowerCase().includes('duplicate')
+    ) {
+      // Conflict resolution: Another thread or webhook inserted the payment concurrently
+      const query = supabase.from('payments').select('*').eq('org_id', orgId)
+      const { data: existingPayment } = stripePaymentIntentId
+        ? await query.eq('stripe_payment_intent_id', stripePaymentIntentId).maybeSingle()
+        : stripeCheckoutSessionId
+        ? await query.eq('stripe_checkout_session_id', stripeCheckoutSessionId).maybeSingle()
+        : await query.eq('invoice_id', invoiceId).maybeSingle()
+
+      if (existingPayment) {
+        return { success: true, invoice, payment: existingPayment }
+      }
+    }
     return { success: false, error: paymentError.message }
   }
 

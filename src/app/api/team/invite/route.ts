@@ -33,6 +33,25 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.trim().toLowerCase()
 
+    // Check if team member is already registered in this organization
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, email, role')
+      .eq('org_id', orgId)
+      .eq('email', normalizedEmail)
+      .maybeSingle()
+
+    if (existingProfile) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'A team member with this email address already exists in your organization.',
+          status: 'INVITE_FAILED'
+        },
+        { status: 400, headers: rateHeaders }
+      )
+    }
+
     // Role mapping: dispatcher (default) or client_admin
     const assignedRole = ['client_admin', 'admin'].includes(rawTargetRole) ? 'client_admin' : 'dispatcher'
 
