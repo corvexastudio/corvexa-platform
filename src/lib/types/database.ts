@@ -29,6 +29,18 @@ export interface Organization {
   cooldown_hours: number
   subscription_status: 'trial' | 'active' | 'past_due' | 'canceled'
   monthly_rate: number
+  legal_business_name?: string | null
+  business_type?: 'llc' | 'corporation' | 'partnership' | 'sole_proprietorship' | 'non_profit' | 'other' | null
+  ein?: string | null
+  is_sole_proprietor?: boolean
+  address_street?: string | null
+  address_city?: string | null
+  address_state?: string | null
+  address_postal_code?: string | null
+  website_url?: string | null
+  carrier_registration_status?: 'unregistered' | 'pending' | 'in_review' | 'verified' | 'rejected'
+  tcr_brand_id?: string | null
+  tcr_campaign_id?: string | null
   created_at: string
   updated_at: string
 }

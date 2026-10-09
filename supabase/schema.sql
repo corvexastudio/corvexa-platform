@@ -60,6 +60,20 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS max_booking_days_ahead INT DE
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS blocked_dates TEXT[] DEFAULT '{}';
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
+-- 10DLC Carrier & Brand Registration Fields (Migration 29)
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS legal_business_name TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS business_type TEXT DEFAULT 'llc';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS ein TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS is_sole_proprietor BOOLEAN DEFAULT false;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS address_street TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS address_city TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS address_state TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS address_postal_code TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS website_url TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS carrier_registration_status TEXT DEFAULT 'pending';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS tcr_brand_id TEXT;
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS tcr_campaign_id TEXT;
+
 -- 3. USER PROFILES
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

@@ -45,7 +45,19 @@ export default function SettingsPage() {
     reactivation_cooldown_days: 30,
     reactivation_template: "Hi {customer_name}, it's been a little while since your last service with {business_name}. Would you like us to schedule your next visit? You can book online anytime: {booking_url}",
     reactivation_quiet_hours: true,
-    reactivation_max_daily: 50
+    reactivation_max_daily: 50,
+    legal_business_name: '',
+    business_type: 'llc',
+    ein: '',
+    is_sole_proprietor: false,
+    address_street: '',
+    address_city: '',
+    address_state: '',
+    address_postal_code: '',
+    website_url: '',
+    carrier_registration_status: 'unregistered',
+    tcr_brand_id: '',
+    tcr_campaign_id: ''
   })
 
   const loadSettings = useCallback(async () => {
@@ -93,7 +105,19 @@ export default function SettingsPage() {
           reactivation_cooldown_days: org.reactivation_cooldown_days ?? 30,
           reactivation_template: org.reactivation_template || "Hi {customer_name}, it's been a little while since your last service with {business_name}. Would you like us to schedule your next visit? You can book online anytime: {booking_url}",
           reactivation_quiet_hours: org.reactivation_quiet_hours ?? true,
-          reactivation_max_daily: org.reactivation_max_daily ?? 50
+          reactivation_max_daily: org.reactivation_max_daily ?? 50,
+          legal_business_name: org.legal_business_name || '',
+          business_type: org.business_type || 'llc',
+          ein: org.ein || '',
+          is_sole_proprietor: org.is_sole_proprietor ?? false,
+          address_street: org.address_street || '',
+          address_city: org.address_city || '',
+          address_state: org.address_state || '',
+          address_postal_code: org.address_postal_code || '',
+          website_url: org.website_url || '',
+          carrier_registration_status: org.carrier_registration_status || 'unregistered',
+          tcr_brand_id: org.tcr_brand_id || '',
+          tcr_campaign_id: org.tcr_campaign_id || ''
         })
       }
     } catch {
@@ -141,7 +165,17 @@ export default function SettingsPage() {
           reactivation_cooldown_days: parseInt(String(formData.reactivation_cooldown_days), 10) || 30,
           reactivation_template: formData.reactivation_template,
           reactivation_quiet_hours: formData.reactivation_quiet_hours,
-          reactivation_max_daily: parseInt(String(formData.reactivation_max_daily), 10) || 50
+          reactivation_max_daily: parseInt(String(formData.reactivation_max_daily), 10) || 50,
+          legal_business_name: formData.legal_business_name,
+          business_type: formData.business_type,
+          ein: formData.is_sole_proprietor ? null : formData.ein,
+          is_sole_proprietor: formData.is_sole_proprietor,
+          address_street: formData.address_street,
+          address_city: formData.address_city,
+          address_state: formData.address_state,
+          address_postal_code: formData.address_postal_code,
+          website_url: formData.website_url,
+          submit_carrier_verification: true
         })
       })
 
@@ -453,6 +487,147 @@ export default function SettingsPage() {
                   onChange={e => setFormData(d => ({ ...d, reactivation_template: e.target.value }))}
                   className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-700 resize-none"
                 />
+              </div>
+            </div>
+
+            {/* 10DLC Brand & Carrier Verification */}
+            <div className="pt-4 border-t border-zinc-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                    US Carrier &amp; 10DLC Brand Verification
+                  </h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Official business registration details filed with The Campaign Registry (TCR) for US SMS deliverability.
+                  </p>
+                </div>
+
+                <div>
+                  {formData.carrier_registration_status === 'verified' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-950/80 border border-emerald-800 text-emerald-300">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      Verified Brand
+                    </span>
+                  ) : formData.carrier_registration_status === 'pending' || formData.carrier_registration_status === 'in_review' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-amber-950/80 border border-amber-800 text-amber-300">
+                      <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+                      Carrier Review Pending
+                    </span>
+                  ) : formData.carrier_registration_status === 'rejected' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-rose-950/80 border border-rose-800 text-rose-300">
+                      Verification Action Required
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-zinc-800 text-zinc-400">
+                      Not Registered
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <Label className="text-xs text-zinc-400 mb-1 block">Legal Business Entity Name</Label>
+                  <Input
+                    value={formData.legal_business_name}
+                    onChange={e => setFormData(d => ({ ...d, legal_business_name: e.target.value }))}
+                    placeholder="e.g. Acme Plumbing LLC"
+                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs text-zinc-400 mb-1 block">Business Structure</Label>
+                  <select
+                    aria-label="Business Structure"
+                    value={formData.business_type}
+                    onChange={e => setFormData(d => ({ ...d, business_type: e.target.value }))}
+                    className="w-full h-8.5 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-zinc-700"
+                  >
+                    <option value="llc">LLC (Limited Liability Co)</option>
+                    <option value="corporation">Corporation (C-Corp / S-Corp)</option>
+                    <option value="sole_proprietorship">Sole Proprietorship</option>
+                    <option value="partnership">Partnership</option>
+                    <option value="non_profit">Non-Profit (501c3)</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs text-zinc-400">Federal EIN / Tax ID</Label>
+                    <label className="flex items-center gap-1 text-[10px] text-zinc-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_sole_proprietor}
+                        onChange={e => setFormData(d => ({ ...d, is_sole_proprietor: e.target.checked }))}
+                        className="rounded bg-zinc-950 border-zinc-800 text-blue-600 h-3 w-3"
+                      />
+                      <span>Sole Prop (No EIN)</span>
+                    </label>
+                  </div>
+                  <Input
+                    value={formData.is_sole_proprietor ? '' : formData.ein}
+                    disabled={formData.is_sole_proprietor}
+                    onChange={e => setFormData(d => ({ ...d, ein: e.target.value }))}
+                    placeholder="12-3456789"
+                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md font-mono disabled:opacity-50"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs text-zinc-400 mb-1 block">Website / Social Profile</Label>
+                  <Input
+                    value={formData.website_url}
+                    onChange={e => setFormData(d => ({ ...d, website_url: e.target.value }))}
+                    placeholder="https://acmeplumbing.com"
+                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <Label className="text-xs text-zinc-400 mb-1 block">Street Address</Label>
+                  <Input
+                    value={formData.address_street}
+                    onChange={e => setFormData(d => ({ ...d, address_street: e.target.value }))}
+                    placeholder="123 Main St, Suite 100"
+                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-400 mb-1 block">City</Label>
+                  <Input
+                    value={formData.address_city}
+                    onChange={e => setFormData(d => ({ ...d, address_city: e.target.value }))}
+                    placeholder="Austin"
+                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-zinc-400 mb-1 block">State</Label>
+                    <Input
+                      maxLength={2}
+                      value={formData.address_state}
+                      onChange={e => setFormData(d => ({ ...d, address_state: e.target.value.toUpperCase() }))}
+                      placeholder="TX"
+                      className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-zinc-400 mb-1 block">ZIP</Label>
+                    <Input
+                      maxLength={10}
+                      value={formData.address_postal_code}
+                      onChange={e => setFormData(d => ({ ...d, address_postal_code: e.target.value }))}
+                      placeholder="78701"
+                      className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md font-mono"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

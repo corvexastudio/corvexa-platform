@@ -44,6 +44,18 @@ export async function GET() {
       max_booking_days_ahead,
       blocked_dates,
       subscription_status,
+      legal_business_name,
+      business_type,
+      ein,
+      is_sole_proprietor,
+      address_street,
+      address_city,
+      address_state,
+      address_postal_code,
+      website_url,
+      carrier_registration_status,
+      tcr_brand_id,
+      tcr_campaign_id,
       created_at
     `)
     .eq('id', orgId)
@@ -164,6 +176,54 @@ export async function PATCH(request: Request) {
 
     if (Array.isArray(body.blocked_dates)) {
       allowedUpdates.blocked_dates = body.blocked_dates.filter((d: any) => typeof d === 'string')
+    }
+
+    // 10DLC Carrier & Brand Registration Updates
+    if (typeof body.legal_business_name === 'string') {
+      allowedUpdates.legal_business_name = body.legal_business_name.trim().slice(0, 200) || null
+    }
+
+    if (typeof body.business_type === 'string') {
+      const bType = body.business_type.trim().toLowerCase()
+      if (['llc', 'corporation', 'partnership', 'sole_proprietorship', 'non_profit', 'other'].includes(bType)) {
+        allowedUpdates.business_type = bType
+      }
+    }
+
+    if (typeof body.ein === 'string') {
+      allowedUpdates.ein = body.ein.trim().slice(0, 30) || null
+    }
+
+    if (typeof body.is_sole_proprietor === 'boolean') {
+      allowedUpdates.is_sole_proprietor = body.is_sole_proprietor
+    }
+
+    if (typeof body.address_street === 'string') {
+      allowedUpdates.address_street = body.address_street.trim().slice(0, 200) || null
+    }
+
+    if (typeof body.address_city === 'string') {
+      allowedUpdates.address_city = body.address_city.trim().slice(0, 100) || null
+    }
+
+    if (typeof body.address_state === 'string') {
+      allowedUpdates.address_state = body.address_state.trim().slice(0, 50) || null
+    }
+
+    if (typeof body.address_postal_code === 'string') {
+      allowedUpdates.address_postal_code = body.address_postal_code.trim().slice(0, 20) || null
+    }
+
+    if (typeof body.website_url === 'string') {
+      allowedUpdates.website_url = body.website_url.trim().slice(0, 300) || null
+    }
+
+    // If client submits updated carrier verification fields, update status to pending review
+    if (
+      body.submit_carrier_verification === true ||
+      (allowedUpdates.ein && allowedUpdates.legal_business_name)
+    ) {
+      allowedUpdates.carrier_registration_status = 'pending'
     }
 
     if (Object.keys(allowedUpdates).length === 0) {

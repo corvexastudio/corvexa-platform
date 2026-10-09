@@ -120,6 +120,33 @@ export async function POST(request: NextRequest) {
       ? (cleanDigits.length === 10 ? `+1${cleanDigits}` : `+${cleanDigits}`)
       : `+1999${randomSuffix}`
 
+    // 10DLC carrier and business verification fields
+    const legalBusinessName = (body.legalBusinessName || body.legal_business_name || '').trim() || null
+    const rawBusinessType = (body.businessType || body.business_type || '').trim().toLowerCase()
+    const validBusinessTypes = ['llc', 'corporation', 'partnership', 'sole_proprietorship', 'non_profit', 'other']
+    const businessType = validBusinessTypes.includes(rawBusinessType) ? rawBusinessType : 'llc'
+    const ein = (body.ein || '').trim() || null
+    const isSoleProprietor = Boolean(body.isSoleProprietor ?? body.is_sole_proprietor ?? false)
+    const addressStreet = (body.addressStreet || body.address_street || '').trim() || null
+    const addressCity = (body.addressCity || body.address_city || '').trim() || null
+    const addressState = (body.addressState || body.address_state || '').trim() || null
+    const addressPostalCode = (body.addressPostalCode || body.address_postal_code || '').trim() || null
+    const websiteUrl = (body.websiteUrl || body.website_url || '').trim() || null
+    const carrierRegistrationStatus = (ein || isSoleProprietor || legalBusinessName) ? 'pending' : 'unregistered'
+
+    const tenDlcFields: Record<string, any> = {
+      legal_business_name: legalBusinessName,
+      business_type: businessType,
+      ein,
+      is_sole_proprietor: isSoleProprietor,
+      address_street: addressStreet,
+      address_city: addressCity,
+      address_state: addressState,
+      address_postal_code: addressPostalCode,
+      website_url: websiteUrl,
+      carrier_registration_status: carrierRegistrationStatus,
+    }
+
     const baseOrgPayload: Record<string, any> = {
       id: orgId,
       name: businessName,
@@ -129,6 +156,7 @@ export async function POST(request: NextRequest) {
       phone_provisioning_status: requestedNumber ? 'provisioning' : 'pending_number',
       is_missed_call_active: true,
       is_review_engine_active: true,
+      ...tenDlcFields,
     }
 
     // 1. Create Organization with pre-generated UUID (satisfies PostgreSQL NOT NULL constraint on phone_number)
@@ -150,7 +178,23 @@ export async function POST(request: NextRequest) {
       orgError = retryRes.error
     }
 
-    // Fallback B: If phone_number had a unique constraint violation (code 23505), retry with a random unique phone
+    // Fallback B: If 10DLC columns do not exist in older database schema (error 42703), retry without them
+    if (orgError && orgError.code === '42703') {
+      const strippedPayload: Record<string, any> = {
+        id: orgId,
+        name: businessName,
+        slug: uniqueSlug,
+        owner_phone: rawPhone || fallbackPhone,
+        telnyx_phone_number: requestedNumber || null,
+        phone_provisioning_status: requestedNumber ? 'provisioning' : 'pending_number',
+        is_missed_call_active: true,
+        is_review_engine_active: true,
+      }
+      const retryWithout10Dlc = await dbClient.from('organizations').insert(strippedPayload)
+      orgError = retryWithout10Dlc.error
+    }
+
+    // Fallback C: If phone_number had a unique constraint violation (code 23505), retry with a random unique phone
     if (orgError && orgError.code === '23505' && orgError.message?.toLowerCase().includes('phone_number')) {
       const freshRandom = `+1999${Math.floor(1000000 + Math.random() * 9000000)}`
       const retryRes = await dbClient
