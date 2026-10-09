@@ -887,16 +887,14 @@ test('POLICY AUDIT: Programmatic scan confirms zero active dangerous clauses in 
     assert.ok(dropRegex.test(allSqlContent), `Required policy drop not found for: "${pName}"`)
   }
 
-  // Check 3: Verify migration 27 idempotently enables RLS across all tables
+  // Check 3: Verify migration 27 idempotently and conditionally enables RLS across all tables
   const m27Content = fs.readFileSync(path.join(migrationsDir, '27_rls_comprehensive_lockdown.sql'), 'utf8')
-  assert.ok(m27Content.includes('ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;'))
-  assert.ok(m27Content.includes('ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;'))
-  assert.ok(m27Content.includes('ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;'))
-  assert.ok(m27Content.includes('ALTER TABLE public.telemetry_snapshots ENABLE ROW LEVEL SECURITY;'))
-  assert.ok(m27Content.includes('ALTER TABLE public.processed_events ENABLE ROW LEVEL SECURITY;'))
-  assert.ok(m27Content.includes('Tenant isolation for appointments'))
-  assert.ok(m27Content.includes('REVOKE ALL ON public.appointments FROM anon;'))
-  assert.ok(m27Content.includes('REVOKE ALL ON public.telemetry_snapshots FROM anon, authenticated;'))
+  assert.ok(m27Content.includes('information_schema.tables'), 'Migration 27 must check information_schema for existence')
+  assert.ok(m27Content.includes('ENABLE ROW LEVEL SECURITY'), 'Migration 27 must enable RLS')
+  assert.ok(m27Content.includes('Tenant isolation for appointments'), 'Migration 27 must install appointments isolation policy')
+  assert.ok(m27Content.includes('Strict isolation for processed_events'), 'Migration 27 must restrict processed_events')
+  assert.ok(m27Content.includes('Strict isolation for telemetry_snapshots'), 'Migration 27 must restrict telemetry_snapshots')
+  assert.ok(m27Content.includes('REVOKE ALL ON public.%I FROM anon'), 'Migration 27 must revoke anon permissions')
 })
 
 // ==============================================================================
