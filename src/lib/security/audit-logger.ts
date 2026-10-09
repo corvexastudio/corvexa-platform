@@ -7,6 +7,7 @@ export type AuditEventType =
   | 'security.privilege_escalation_attempt'
   | 'user.profile_updated'
   | 'organization.settings_updated'
+  | 'organization.10dlc_submitted'
   | 'team.invite_sent'
   | 'team.invite_created_email_pending'
   | 'team.invite_failed'

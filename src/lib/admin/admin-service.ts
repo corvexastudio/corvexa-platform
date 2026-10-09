@@ -67,6 +67,12 @@ export interface TenantHealthSummary {
   webhookFailuresCount: number
   automationFailuresCount: number
   healthGrade: 'healthy' | 'warning' | 'degraded'
+  carrierRegistrationStatus: 'unregistered' | 'pending' | 'in_review' | 'verified' | 'rejected'
+  legalBusinessName: string | null
+  ein: string | null
+  isSoleProprietor: boolean
+  tcrBrandId: string | null
+  tcrCampaignId: string | null
   createdAt: string
 }
 
@@ -445,6 +451,12 @@ export async function getTenantHealthList(
       webhookFailuresCount: webhookFailures,
       automationFailuresCount: autoFailures,
       healthGrade,
+      carrierRegistrationStatus: org.carrier_registration_status || 'unregistered',
+      legalBusinessName: org.legal_business_name || null,
+      ein: org.ein || null,
+      isSoleProprietor: Boolean(org.is_sole_proprietor),
+      tcrBrandId: org.tcr_brand_id || null,
+      tcrCampaignId: org.tcr_campaign_id || null,
       createdAt: org.created_at
     })
   }

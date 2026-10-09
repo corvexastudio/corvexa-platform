@@ -14,7 +14,8 @@ import {
   ExternalLink,
   PhoneCall,
   Terminal,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { TenantHealthSummary } from '@/lib/admin/admin-service'
@@ -25,6 +26,65 @@ export default function AdminOrganizationsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [activating10DlcId, setActivating10DlcId] = useState<string | null>(null)
+  const [batchActivating, setBatchActivating] = useState(false)
+
+  const handleActivate10Dlc = async (orgId: string) => {
+    setActivating10DlcId(orgId)
+    try {
+      const res = await fetch('/api/admin/10dlc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(data.result?.message || '10DLC Brand & Campaign registered with Telnyx!')
+        setTenants(prev => prev.map(t => t.id === orgId ? {
+          ...t,
+          carrierRegistrationStatus: data.result?.carrierStatus || 'in_review',
+          tcrBrandId: data.result?.brandId || t.tcrBrandId,
+          tcrCampaignId: data.result?.campaignId || t.tcrCampaignId
+        } : t))
+      } else {
+        toast.error(data.result?.message || data.error || 'Failed to activate 10DLC')
+      }
+    } catch {
+      toast.error('Network error activating 10DLC')
+    } finally {
+      setActivating10DlcId(null)
+    }
+  }
+
+  const handleBatchActivate10Dlc = async () => {
+    const pendingTenants = tenants.filter(t => t.carrierRegistrationStatus === 'pending' || (t.carrierRegistrationStatus === 'unregistered' && t.legalBusinessName))
+    if (pendingTenants.length === 0) {
+      toast.info('No pending organizations ready for 10DLC registration.')
+      return
+    }
+
+    setBatchActivating(true)
+    try {
+      const res = await fetch('/api/admin/10dlc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgIds: pendingTenants.map(t => t.id) })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`Batch 10DLC completed: ${data.succeeded} of ${data.total} brands registered.`)
+        fetchTenants()
+      } else {
+        toast.error(data.error || 'Batch activation encountered an issue')
+      }
+    } catch {
+      toast.error('Network error during batch activation')
+    } finally {
+      setBatchActivating(false)
+    }
+  }
 
   const fetchTenants = useCallback(async () => {
     setLoading(true)
@@ -77,6 +137,8 @@ export default function AdminOrganizationsPage() {
     }
   }
 
+  const pending10DlcCount = tenants.filter(t => t.carrierRegistrationStatus === 'pending' || (t.carrierRegistrationStatus === 'unregistered' && t.legalBusinessName)).length
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
@@ -91,6 +153,22 @@ export default function AdminOrganizationsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {pending10DlcCount > 0 && (
+            <button
+              onClick={handleBatchActivate10Dlc}
+              disabled={batchActivating}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-all disabled:opacity-50"
+              title="Activate 10DLC for all pending businesses"
+            >
+              {batchActivating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              )}
+              <span>1-Click Activate All ({pending10DlcCount})</span>
+            </button>
+          )}
+
           <button
             onClick={fetchTenants}
             disabled={loading}
@@ -142,6 +220,7 @@ export default function AdminOrganizationsPage() {
                 <th className="py-3.5 px-4">Organization</th>
                 <th className="py-3.5 px-4">Health Grade</th>
                 <th className="py-3.5 px-4">Subscription</th>
+                <th className="py-3.5 px-4">10DLC Carrier Brand</th>
                 <th className="py-3.5 px-4">Last Activity</th>
                 <th className="py-3.5 px-4">Messaging Failures</th>
                 <th className="py-3.5 px-4">Automation / Webhooks</th>
@@ -152,7 +231,7 @@ export default function AdminOrganizationsPage() {
             <tbody className="divide-y divide-zinc-800/80 text-zinc-300">
               {tenants.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-zinc-500">
+                  <td colSpan={9} className="py-12 text-center text-zinc-500">
                     No tenant organizations match the current filters.
                   </td>
                 </tr>
@@ -198,6 +277,59 @@ export default function AdminOrganizationsPage() {
                         <option value="suspended">Suspended</option>
                         <option value="churned">Churned</option>
                       </select>
+                    </td>
+
+                    {/* 10DLC Carrier Brand */}
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {t.carrierRegistrationStatus === 'verified' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                              <CheckCircle2 className="h-2.5 w-2.5" />
+                              Verified TCR
+                            </span>
+                          ) : t.carrierRegistrationStatus === 'in_review' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-500/15 border border-blue-500/20 px-2 py-0.5 rounded-md">
+                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              Under Review
+                            </span>
+                          ) : t.carrierRegistrationStatus === 'pending' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                              Pending Filing
+                            </span>
+                          ) : t.carrierRegistrationStatus === 'rejected' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/20 px-2 py-0.5 rounded-md">
+                              Rejected
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-zinc-500 bg-zinc-800/80 px-2 py-0.5 rounded-md">
+                              Unregistered
+                            </span>
+                          )}
+
+                          {t.carrierRegistrationStatus !== 'verified' && (
+                            <button
+                              onClick={() => handleActivate10Dlc(t.id)}
+                              disabled={activating10DlcId === t.id}
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors disabled:opacity-50"
+                              title="Submit brand to Telnyx 10DLC"
+                            >
+                              {activating10DlcId === t.id ? (
+                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              ) : (
+                                <ShieldCheck className="h-2.5 w-2.5" />
+                              )}
+                              <span>{activating10DlcId === t.id ? 'Filing...' : '1-Click Submit'}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {t.legalBusinessName && (
+                          <div className="text-[10px] text-zinc-400 truncate max-w-[170px]" title={t.legalBusinessName}>
+                            {t.legalBusinessName} {t.ein ? `• EIN: ${t.ein}` : t.isSoleProprietor ? '• Sole Prop' : ''}
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Last Activity */}
