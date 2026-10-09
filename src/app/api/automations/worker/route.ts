@@ -3,20 +3,44 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { processDueAutomationJobs } from '@/lib/automations/worker'
 import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 
+import { timingSafeEqual } from 'node:crypto'
+
 export const dynamic = 'force-dynamic'
+
+function safeCompareSecrets(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a, 'utf8')
+    const bufB = Buffer.from(b, 'utf8')
+    if (bufA.length !== bufB.length) {
+      return false
+    }
+    return timingSafeEqual(bufA, bufB)
+  } catch {
+    return false
+  }
+}
 
 async function handleWorkerExecution(request: Request) {
   const clientIp = extractClientIp(request)
 
-  // 1. Check CRON_SECRET authorization if configured
+  // 1. Check CRON_SECRET authorization
   const configuredCronSecret = process.env.CRON_SECRET
+  const isProd = process.env.NODE_ENV === 'production'
+
+  if (isProd && !configuredCronSecret) {
+    return NextResponse.json(
+      { error: 'Server misconfiguration: CRON_SECRET is required in production environment' },
+      { status: 503 }
+    )
+  }
+
   if (configuredCronSecret) {
     const authHeader = request.headers.get('authorization')
     const xCronSecret = request.headers.get('x-cron-secret')
     const bearerSecret = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
     const providedSecret = bearerSecret || xCronSecret
-    if (!providedSecret || providedSecret !== configuredCronSecret) {
+    if (!providedSecret || !safeCompareSecrets(providedSecret, configuredCronSecret)) {
       return NextResponse.json(
         { error: 'Unauthorized: Invalid or missing cron secret' },
         { status: 401 }

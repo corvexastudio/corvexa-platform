@@ -48,7 +48,15 @@ export async function GET(request: NextRequest) {
   if (authSuccess) {
     // Check if user has an existing profile and organization
     const { data: { user } } = await supabase.auth.getUser()
-    let destination = next
+    // Validate destination is a strictly relative path to prevent Open Redirect (HIGH-01)
+    let safeDestination = '/client/dashboard'
+    if (next && typeof next === 'string') {
+      const trimmed = next.trim()
+      if (trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.includes('\\') && !trimmed.includes(':')) {
+        safeDestination = trimmed
+      }
+    }
+    let destination = safeDestination
 
     if (user) {
       const { data: profile } = await supabase
@@ -59,7 +67,7 @@ export async function GET(request: NextRequest) {
 
       // If super_admin, direct them to /admin without forcing tenant onboarding
       if (profile?.role === 'super_admin') {
-        destination = next && next !== '/client/dashboard' ? next : '/admin'
+        destination = safeDestination !== '/client/dashboard' ? safeDestination : '/admin'
       } else if (!profile || !profile.org_id) {
         // If brand new signup with Gmail, direct to 1-step onboarding
         destination = '/client/onboarding'

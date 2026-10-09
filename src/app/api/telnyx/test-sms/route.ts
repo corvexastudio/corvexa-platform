@@ -53,8 +53,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Organization configuration not found.' }, { status: 404, headers: rateHeaders })
     }
 
-    // 3. Resolve Target Test Phone Number
-    const rawTargetPhone = body?.phone || org.owner_phone
+    // 3. Resolve Target Test Phone Number (Strictly bound to organization's registered owner_phone)
+    const rawTargetPhone = org.owner_phone
     if (!rawTargetPhone) {
       return NextResponse.json(
         { error: 'Please enter your mobile phone number in Settings to receive the test SMS.' },

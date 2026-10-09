@@ -15,12 +15,11 @@ export async function GET(
     let supabase
     try {
       supabase = createAdminClient()
-    } catch {
-      const { createClient } = await import('@supabase/supabase-js')
-      supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vlztovqaummczupslymr.supabase.co',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        { auth: { persistSession: false } }
+    } catch (adminErr: any) {
+      console.error('[BOOKING_GET_FATAL_CONFIG]', adminErr?.message)
+      return NextResponse.json(
+        { error: 'Booking service temporarily unavailable. Database credentials must be configured.' },
+        { status: 503 }
       )
     }
 

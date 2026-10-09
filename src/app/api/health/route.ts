@@ -27,7 +27,8 @@ export async function GET() {
     }
   } catch (err: any) {
     dbStatus = 'unhealthy'
-    dbError = err.message || 'Failed to connect to database'
+    dbError = 'Database service unavailable'
+    console.error('[HEALTH_CHECK_DB_ERROR]', err?.message)
   }
 
   // 2. Telemetry and Error Rate Check
@@ -59,7 +60,7 @@ export async function GET() {
         services: {
           telnyx: envValidation.config.hasTelnyxApiKey ? 'configured' : 'simulated',
           stripe: envValidation.config.stripeMode,
-          cronProtection: envValidation.config.hasCronSecret ? 'active' : 'unprotected'
+          cronProtection: envValidation.config.hasCronSecret ? 'active' : 'disabled'
         },
         telemetry: {
           totalRequests: apiSummary.totalRequests,
