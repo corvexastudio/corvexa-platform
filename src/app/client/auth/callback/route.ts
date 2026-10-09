@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { sanitizeRedirectDestination } from '@/lib/security/redirect-sanitizer'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -49,13 +50,7 @@ export async function GET(request: NextRequest) {
     // Check if user has an existing profile and organization
     const { data: { user } } = await supabase.auth.getUser()
     // Validate destination is a strictly relative path to prevent Open Redirect (HIGH-01)
-    let safeDestination = '/client/dashboard'
-    if (next && typeof next === 'string') {
-      const trimmed = next.trim()
-      if (trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.includes('\\') && !trimmed.includes(':')) {
-        safeDestination = trimmed
-      }
-    }
+    const safeDestination = sanitizeRedirectDestination(next)
     let destination = safeDestination
 
     if (user) {

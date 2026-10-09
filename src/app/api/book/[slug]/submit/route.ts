@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createBooking } from '@/lib/booking/booking-manager'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { validateBookingOrigin } from '@/lib/booking/origin-validator'
 
 export async function POST(
   request: Request,
@@ -10,9 +11,9 @@ export async function POST(
   try {
     const { slug } = await props.params
 
-    // 1. Rate limiting on public booking submission
+    // 1. Distributed Rate limiting on public booking submission (HIGH-05)
     const clientIp = extractClientIp(request)
-    const rateLimit = checkRateLimit(`booking:submit:${clientIp}`, RATE_LIMITS.BOOKING_SUBMIT)
+    const rateLimit = await checkRateLimitAsync(`booking:slug:${slug}:${clientIp}`, RATE_LIMITS.BOOKING_SUBMIT)
     const rateHeaders = getRateLimitHeaders(rateLimit)
 
     if (!rateLimit.allowed) {
@@ -30,13 +31,23 @@ export async function POST(
       customerEmail,
       customerAddress,
       startTime,
-      notes
+      notes,
+      bookingToken
     } = body
 
     if (!slug || !customerName?.trim() || !customerPhone?.trim() || !startTime) {
       return NextResponse.json(
         { error: 'Missing required booking fields: name, phone, or appointment time' },
         { status: 400, headers: rateHeaders }
+      )
+    }
+
+    // Phone-level rate limit to prevent slot squatting / spam
+    const phoneRateLimit = await checkRateLimitAsync(`booking:phone:${customerPhone.trim()}`, { max: 5, windowMs: 60000 })
+    if (!phoneRateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many bookings attempted with this phone number. Please wait a few minutes.' },
+        { status: 429, headers: getRateLimitHeaders(phoneRateLimit) }
       )
     }
 
@@ -61,6 +72,16 @@ export async function POST(
     if (orgError || !org) {
       console.warn('[BOOKING_SUBMIT_ORG_NOT_FOUND]', { slug, error: orgError?.message })
       return NextResponse.json({ error: 'Business not found' }, { status: 404, headers: rateHeaders })
+    }
+
+    // 3. Origin & CSRF Validation (ADD-03)
+    const providedToken = bookingToken || request.headers.get('x-booking-token')
+    const originCheck = validateBookingOrigin(request, slug, org.id, providedToken)
+    if (!originCheck.allowed) {
+      return NextResponse.json(
+        { error: originCheck.reason || 'Forbidden: Cross-origin booking submission rejected' },
+        { status: 403, headers: rateHeaders }
+      )
     }
 
     // 3. Create booking atomically

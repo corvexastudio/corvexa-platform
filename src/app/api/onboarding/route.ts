@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { provisionOrganizationPhoneNumber } from '@/lib/telephony/provisioning'
 
 export async function POST(request: NextRequest) {
-  // Requirement 9: Rate limit public onboarding requests per IP
+  // Requirement 9 & HIGH-05: Distributed Rate limit public onboarding requests per IP
   const clientIp = extractClientIp(request)
-  const rateLimit = checkRateLimit(`ip:${clientIp}:onboard`, RATE_LIMITS.ONBOARDING)
+  const rateLimit = await checkRateLimitAsync(`onboard:ip:${clientIp}`, RATE_LIMITS.ONBOARDING)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {

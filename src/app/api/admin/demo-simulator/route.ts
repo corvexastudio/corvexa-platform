@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
 
@@ -21,9 +21,9 @@ export async function POST(request: Request) {
     )
   }
 
-  // Rate Limiting (Requirement 9)
+  // Distributed Rate Limiting (HIGH-05)
   const clientIp = extractClientIp(request)
-  const rateLimit = checkRateLimit(`admin:demo:${user.id}:${clientIp}`, RATE_LIMITS.DEMO_SIMULATOR)
+  const rateLimit = await checkRateLimitAsync(`admin:demo:${user.id}:${clientIp}`, RATE_LIMITS.DEMO_SIMULATOR)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {
@@ -44,6 +44,15 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = toE164(phone)
+
+    // Composite Destination Rate Limiting (HIGH-05)
+    const destRateLimit = await checkRateLimitAsync(`sms:dest:${cleanPhone}`, { max: 5, windowMs: 60000 })
+    if (!destRateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Destination rate limit exceeded. Too many demo messages sent to this phone number.' },
+        { status: 429, headers: getRateLimitHeaders(destRateLimit) }
+      )
+    }
     const result = await sendTelnyxSms({
       to: cleanPhone,
       text: message

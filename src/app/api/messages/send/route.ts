@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
 
@@ -13,8 +13,8 @@ export async function POST(request: Request) {
 
   const { orgId, user, role, isSuperAdmin, supabase } = tenantResult
 
-  // 2. Rate Limiting per Tenant (Requirement 9)
-  const rateLimit = checkRateLimit(`tenant:${orgId}:sms`, RATE_LIMITS.SMS_SEND)
+  // 2. Distributed Rate Limiting per Tenant (HIGH-05)
+  const rateLimit = await checkRateLimitAsync(`sms:tenant:${orgId}`, RATE_LIMITS.SMS_SEND)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {
@@ -104,6 +104,15 @@ export async function POST(request: Request) {
     if (clientTo && toE164(clientTo) !== verifiedRecipient) {
       console.warn(
         `[SECURITY WARNING] Mismatched destination phone: client supplied '${clientTo}', but conversation contact is '${verifiedRecipient}'. Enforcing contact record.`
+      )
+    }
+
+    // Composite Rate Limiting per Destination Phone (Toll fraud / bombing prevention)
+    const destRateLimit = await checkRateLimitAsync(`sms:dest:${verifiedRecipient}`, { max: 15, windowMs: 60000 })
+    if (!destRateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Destination rate limit exceeded. Too many messages sent to this number.' },
+        { status: 429, headers: getRateLimitHeaders(destRateLimit) }
       )
     }
 

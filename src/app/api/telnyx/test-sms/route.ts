@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 import { verifyOutboundCompliance, logComplianceAudit } from '@/lib/compliance/compliance-engine'
 import { sendTelnyxSms } from '@/lib/telnyx'
@@ -23,8 +23,8 @@ export async function POST(request: Request) {
 
   const { orgId, user, role, supabase } = tenantResult
 
-  // 1. Rate Limiting on Test SMS (Max 5 per minute per tenant)
-  const rateLimit = checkRateLimit(`tenant:${orgId}:test_sms`, { max: 5, windowMs: 60000 })
+  // 1. Distributed Rate Limiting on Test SMS (Max 5 per minute per tenant) (HIGH-05)
+  const rateLimit = await checkRateLimitAsync(`sms:tenant:${orgId}`, { max: 5, windowMs: 60000 })
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {
@@ -67,6 +67,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Invalid recipient phone number format. Please enter a valid US phone number.' },
         { status: 400, headers: rateHeaders }
+      )
+    }
+
+    // Composite Destination Rate Limit (HIGH-05)
+    const destRateLimit = await checkRateLimitAsync(`sms:dest:${normTarget.e164}`, { max: 5, windowMs: 60000 })
+    if (!destRateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Destination rate limit exceeded. Too many test messages sent to this phone number.' },
+        { status: 429, headers: getRateLimitHeaders(destRateLimit) }
       )
     }
 

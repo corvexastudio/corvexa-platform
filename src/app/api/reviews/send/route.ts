@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 import { dispatchReviewRequest } from '@/lib/reviews/review-manager'
 import { toE164 } from '@/lib/telnyx'
 
@@ -13,8 +13,8 @@ export async function POST(request: Request) {
 
   const { orgId, user, role, supabase } = tenantResult
 
-  // 2. Rate Limiting per Tenant
-  const rateLimit = checkRateLimit(`tenant:${orgId}:reviews`, RATE_LIMITS.REVIEWS_SEND)
+  // 2. Distributed Rate Limiting per Tenant (HIGH-05)
+  const rateLimit = await checkRateLimitAsync(`reviews:tenant:${orgId}`, RATE_LIMITS.REVIEWS_SEND)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {
@@ -32,6 +32,15 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = toE164(phone)
+
+    // Composite Destination Rate Limiting (HIGH-05)
+    const destRateLimit = await checkRateLimitAsync(`sms:dest:${cleanPhone}`, { max: 10, windowMs: 60000 })
+    if (!destRateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Destination rate limit exceeded. Too many review requests sent to this phone number.' },
+        { status: 429, headers: getRateLimitHeaders(destRateLimit) }
+      )
+    }
 
     // Find or create contact
     let { data: contact } = await supabase

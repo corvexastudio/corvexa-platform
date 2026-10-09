@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { processMissedCall } from '@/lib/services/call-recovery'
 import { verifyTelnyxSignature } from '@/lib/telnyx'
 import { evaluateCallOutcome } from '@/lib/telephony/call-state-machine'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
 
@@ -18,9 +18,9 @@ export async function POST(request: Request) {
     requestId
   })
 
-  // 1. Rate limiting on webhooks
+  // 1. Distributed Rate limiting on webhooks (HIGH-05)
   const clientIp = extractClientIp(request)
-  const rateLimit = checkRateLimit(`webhook:voice:${clientIp}`, RATE_LIMITS.WEBHOOK)
+  const rateLimit = await checkRateLimitAsync(`webhook:voice:${clientIp}`, RATE_LIMITS.WEBHOOK)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {

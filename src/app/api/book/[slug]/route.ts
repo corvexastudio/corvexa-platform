@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generateBookingToken } from '@/lib/booking/origin-validator'
 
 export async function GET(
   request: Request,
@@ -69,7 +70,8 @@ export async function GET(
         minimum_notice_hours: org.minimum_notice_hours ?? 2,
         max_booking_days_ahead: org.max_booking_days_ahead ?? 30
       },
-      services: activeServices
+      services: activeServices,
+      bookingToken: generateBookingToken(org.slug, org.id)
     })
   } catch (err: any) {
     console.error('[BOOKING_GET_ORG_ERROR]', err)

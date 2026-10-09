@@ -54,6 +54,7 @@ export default function PublicBookingPage() {
   const [error, setError] = useState<string | null>(null)
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [services, setServices] = useState<ServiceItem[]>([])
+  const [bookingToken, setBookingToken] = useState<string | null>(null)
 
   // Booking Flow Steps: 1: Service, 2: Date & Time, 3: Details, 4: Confirmed
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
@@ -97,6 +98,9 @@ export default function PublicBookingPage() {
         const data = await res.json()
         setOrg(data.organization)
         setServices(data.services || [])
+        if (data.bookingToken) {
+          setBookingToken(data.bookingToken)
+        }
         if (data.services?.length === 1) {
           setSelectedService(data.services[0])
         }
@@ -194,7 +198,8 @@ export default function PublicBookingPage() {
           customerEmail: formData.email,
           customerAddress: formData.address,
           startTime: selectedSlot.startTime,
-          notes: formData.notes
+          notes: formData.notes,
+          bookingToken: bookingToken || undefined
         })
       })
 

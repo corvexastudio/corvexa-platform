@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getTenantContext } from '@/lib/security/tenant-context'
-import { checkRateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 
 export async function POST(request: Request) {
@@ -13,8 +13,8 @@ export async function POST(request: Request) {
 
   const { orgId, user, role, supabase } = tenantResult
 
-  // 2. Rate Limiting per Tenant (Requirement 9)
-  const rateLimit = checkRateLimit(`tenant:${orgId}:invite`, RATE_LIMITS.TEAM_INVITE)
+  // 2. Distributed Rate Limiting per Tenant (HIGH-05)
+  const rateLimit = await checkRateLimitAsync(`team:invite:${orgId}`, RATE_LIMITS.TEAM_INVITE)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {

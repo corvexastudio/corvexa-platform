@@ -31,6 +31,7 @@ export default function SettingsPage() {
   const [testingSms, setTestingSms] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string>('member')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -60,7 +61,7 @@ export default function SettingsPage() {
 
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('org_id')
+        .select('org_id, role')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -69,6 +70,7 @@ export default function SettingsPage() {
         return
       }
       setOrgId(profile.org_id)
+      setUserRole(profile.role || 'member')
 
       const { data: org, error: orgErr } = await supabase
         .from('organizations')
@@ -111,31 +113,49 @@ export default function SettingsPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const canEditSettings = ['owner', 'admin', 'super_admin'].includes(userRole)
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!orgId) return
+
+    if (!canEditSettings) {
+      toast.error('Only organization owners and admins can update settings.')
+      return
+    }
+
     setSaving(true)
 
-    const { error } = await supabase
-      .from('organizations')
-      .update({
-        name: formData.name,
-        owner_phone: formData.owner_phone,
-        carrier: formData.carrier,
-        timezone: formData.timezone,
-        google_review_url: formData.google_review_url,
-        reactivation_enabled: formData.reactivation_enabled,
-        default_reactivation_interval_days: parseInt(String(formData.default_reactivation_interval_days), 10) || 90,
-        reactivation_cooldown_days: parseInt(String(formData.reactivation_cooldown_days), 10) || 30,
-        reactivation_template: formData.reactivation_template,
-        reactivation_quiet_hours: formData.reactivation_quiet_hours,
-        reactivation_max_daily: parseInt(String(formData.reactivation_max_daily), 10) || 50
+    try {
+      const res = await fetch('/api/client/organization', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          owner_phone: formData.owner_phone,
+          carrier: formData.carrier,
+          timezone: formData.timezone,
+          google_review_url: formData.google_review_url,
+          reactivation_enabled: formData.reactivation_enabled,
+          default_reactivation_interval_days: parseInt(String(formData.default_reactivation_interval_days), 10) || 90,
+          reactivation_cooldown_days: parseInt(String(formData.reactivation_cooldown_days), 10) || 30,
+          reactivation_template: formData.reactivation_template,
+          reactivation_quiet_hours: formData.reactivation_quiet_hours,
+          reactivation_max_daily: parseInt(String(formData.reactivation_max_daily), 10) || 50
+        })
       })
-      .eq('id', orgId)
 
-    setSaving(false)
-    if (error) toast.error('Failed to update settings.')
-    else toast.success('Settings saved successfully')
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to update settings.')
+      } else {
+        toast.success('Settings saved successfully')
+      }
+    } catch {
+      toast.error('Network error while saving settings.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSendTestSms = async () => {
@@ -436,16 +456,23 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-zinc-800 flex justify-end">
-              <Button
-                type="submit"
-                disabled={saving}
-                size="sm"
-                className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
-              >
-                {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
-                <span>Save Settings</span>
-              </Button>
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+              {!canEditSettings && (
+                <p className="text-[11px] text-amber-400/90 font-medium">
+                  Read-only: Only organization owners and administrators can modify settings.
+                </p>
+              )}
+              <div className="ml-auto">
+                <Button
+                  type="submit"
+                  disabled={saving || !canEditSettings}
+                  size="sm"
+                  className="h-8 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-medium"
+                >
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                  <span>Save Settings</span>
+                </Button>
+              </div>
             </div>
           </form>
 

@@ -97,6 +97,83 @@ export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitR
 }
 
 /**
+ * Asynchronously checks rate limit across distributed serverless environments (HIGH-05).
+ * 1. Checks Redis REST if UPSTASH_REDIS_REST_URL is configured.
+ * 2. Checks Supabase atomic rate_limits RPC if service role key is configured.
+ * 3. Gracefully falls back to local in-memory sliding window store on network/service outage or local dev.
+ */
+export async function checkRateLimitAsync(
+  key: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  // 1. Try Upstash / Redis REST if configured
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+
+  if (redisUrl && redisToken) {
+    try {
+      const windowSeconds = Math.max(1, Math.ceil(config.windowMs / 1000))
+      const sanitizedKey = `ratelimit:${key.replace(/[^a-zA-Z0-9:_-]/g, '_')}`
+      const res = await fetch(`${redisUrl}/pipeline`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${redisToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([
+          ['INCR', sanitizedKey],
+          ['EXPIRE', sanitizedKey, windowSeconds, 'NX'],
+          ['TTL', sanitizedKey]
+        ]),
+        signal: AbortSignal.timeout(600)
+      })
+
+      if (res.ok) {
+        const results = await res.json()
+        const count = results[0]?.result || 1
+        const ttl = results[2]?.result || windowSeconds
+        const allowed = count <= config.max
+        const remaining = Math.max(0, config.max - count)
+        const resetTime = Math.ceil(Date.now() / 1000) + (ttl > 0 ? ttl : windowSeconds)
+        return { allowed, remaining, resetTime, totalLimit: config.max }
+      }
+    } catch {
+      // Non-fatal: fallback
+    }
+  }
+
+  // 2. Try Supabase Atomic RPC if service role is available
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const supabase = createAdminClient()
+      const windowSeconds = Math.max(1, Math.ceil(config.windowMs / 1000))
+
+      const { data, error } = await supabase.rpc('check_rate_limit', {
+        p_key: key,
+        p_max: config.max,
+        p_window_seconds: windowSeconds
+      })
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const row = data[0]
+        return {
+          allowed: Boolean(row.allowed),
+          remaining: Number(row.remaining),
+          resetTime: Number(row.reset_time),
+          totalLimit: Number(row.total_limit)
+        }
+      }
+    } catch {
+      // Non-fatal: fallback to local in-memory
+    }
+  }
+
+  // 3. Fallback to local in-memory sliding window
+  return checkRateLimit(key, config)
+}
+
+/**
  * Safely validates an IP string format (IPv4 or IPv6)
  */
 function isValidIp(ip: string): boolean {
