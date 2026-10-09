@@ -6,6 +6,12 @@ import { shouldUpdateMessageStatus } from '@/lib/telephony/message-state'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
+import {
+  claimWebhookEvent,
+  completeWebhookEvent,
+  failWebhookEvent,
+  waitForConcurrentWebhookCompletion
+} from '@/lib/webhooks/idempotency'
 
 export async function POST(request: Request) {
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID()
@@ -87,6 +93,10 @@ export async function POST(request: Request) {
     const payload = body.data.payload
     eventId = body.data.id
 
+    if (!eventId) {
+      return NextResponse.json({ error: 'Missing Telnyx event ID' }, { status: 400 })
+    }
+
     telemetryStore.recordWebhook({
       provider: 'telnyx',
       eventType,
@@ -95,35 +105,53 @@ export async function POST(request: Request) {
       requestId
     })
 
-    // 4. Atomic Idempotency guard: Claim event ID
-    if (eventId) {
-      const { error: insertError } = await supabase.from('processed_events').insert({
-        id: eventId,
-        provider: 'telnyx',
-        event_type: eventType,
-        provider_event_id: eventId
-      })
+    // 4. Atomic Database-Enforced Idempotency Claim (HIGH-INFRA-01)
+    const claim = await claimWebhookEvent(supabase, {
+      eventId,
+      provider: 'telnyx',
+      eventType,
+      staleTimeoutSeconds: 60
+    })
 
-      if (insertError) {
-        if (
-          insertError.code === '23505' ||
-          insertError.message?.toLowerCase().includes('unique') ||
-          insertError.message?.toLowerCase().includes('duplicate')
-        ) {
-          telemetryStore.recordWebhook({
-            provider: 'telnyx',
-            eventType,
-            stage: 'duplicated',
-            providerEventId: eventId,
-            requestId
-          })
-          logger.info('Duplicate Telnyx message webhook skipped', { eventId, eventType })
-          return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
-        }
-        console.error('[TELNYX MESSAGE IDEMPOTENCY ERROR]', insertError)
-        return NextResponse.json({ error: 'Database idempotency error' }, { status: 500 })
-      }
+    if (claim.action === 'completed') {
+      telemetryStore.recordWebhook({
+        provider: 'telnyx',
+        eventType,
+        stage: 'duplicated',
+        providerEventId: eventId,
+        requestId
+      })
+      logger.info('Duplicate completed Telnyx message webhook skipped', { eventId, eventType, attempt: claim.attemptCount })
+      return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
     }
+
+    if (claim.action === 'concurrent_active') {
+      logger.warn('Concurrent Telnyx message webhook execution detected; awaiting resolution', { eventId, eventType })
+      const didComplete = await waitForConcurrentWebhookCompletion(supabase, eventId, 1500, 300)
+      if (didComplete) {
+        telemetryStore.recordWebhook({
+          provider: 'telnyx',
+          eventType,
+          stage: 'duplicated',
+          providerEventId: eventId,
+          requestId
+        })
+        logger.info('Concurrent Telnyx message webhook resolved to completed', { eventId, eventType })
+        return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
+      }
+
+      logger.warn('Concurrent Telnyx message webhook still active; requesting provider retry', { eventId, eventType })
+      return NextResponse.json(
+        { error: 'Concurrent webhook processing in progress. Retry requested.' },
+        { status: 429 }
+      )
+    }
+
+    logger.info(`Telnyx message webhook claimed for execution (${claim.action})`, {
+      eventId,
+      eventType,
+      attempt: claim.attemptCount
+    })
 
     // 5. Handle Delivery Status Callbacks (queued, sent, delivered, failed, undelivered)
     const deliveryStatusEvents = new Set([
@@ -159,6 +187,7 @@ export async function POST(request: Request) {
       if (existingMsg) {
         const transitionCheck = shouldUpdateMessageStatus(existingMsg.delivery_status, newStatus)
         if (!transitionCheck.allowed) {
+          await completeWebhookEvent(supabase, eventId, { skipped_reason: transitionCheck.reason })
           telemetryStore.recordWebhook({
             provider: 'telnyx',
             eventType,
@@ -193,9 +222,19 @@ export async function POST(request: Request) {
         .select('id, org_id')
         .maybeSingle()
 
+      if (updateError) {
+        throw new Error(`Failed to update message delivery status: ${updateError.message}`)
+      }
+
       if (newStatus === 'sent' || newStatus === 'delivered' || newStatus === 'failed') {
         telemetryStore.recordMessaging(newStatus)
       }
+
+      // Mark Event Completed AFTER successful update
+      await completeWebhookEvent(supabase, eventId, {
+        telnyx_message_id: telnyxMessageId,
+        new_status: newStatus
+      })
 
       telemetryStore.recordWebhook({
         provider: 'telnyx',
@@ -219,35 +258,33 @@ export async function POST(request: Request) {
       })
     }
 
-      // 6. Handle Inbound SMS (message.received)
-      if (eventType === 'message.received') {
-        const fromPhone = payload?.from?.phone_number
-        const toPhone = payload?.to?.[0]?.phone_number || payload?.to
-        const text = payload?.text || ''
+    // 6. Handle Inbound SMS (message.received)
+    if (eventType === 'message.received') {
+      const fromPhone = payload?.from?.phone_number
+      const toPhone = payload?.to?.[0]?.phone_number || payload?.to
+      const text = payload?.text || ''
 
-        if (!fromPhone || !toPhone) {
-          return NextResponse.json({ success: false, error: 'Missing phone parameters' }, { status: 400 })
-        }
-
-        const result = await processInboundSms(supabase, {
-          fromPhone,
-          toPhone,
-          text,
-          telnyxMessageId: payload?.id
-        })
-
-        telemetryStore.recordWebhook({
-          provider: 'telnyx',
-          eventType,
-          stage: 'processed',
-          providerEventId: eventId,
-          requestId
-        })
-
-        return NextResponse.json(result)
+      if (!fromPhone || !toPhone) {
+        return NextResponse.json({ success: false, error: 'Missing phone parameters' }, { status: 400 })
       }
 
-      // Acknowledge other event types safely
+      const result = await processInboundSms(supabase, {
+        fromPhone,
+        toPhone,
+        text,
+        telnyxMessageId: payload?.id
+      })
+
+      if (!result.success) {
+        throw new Error(`Failed to process inbound SMS: ${result.action}`)
+      }
+
+      // Mark Event Completed AFTER successful SMS processing
+      await completeWebhookEvent(supabase, eventId, {
+        action: result.action,
+        telnyx_message_id: payload?.id
+      })
+
       telemetryStore.recordWebhook({
         provider: 'telnyx',
         eventType,
@@ -255,17 +292,39 @@ export async function POST(request: Request) {
         providerEventId: eventId,
         requestId
       })
-      return NextResponse.json({ success: true, message: `Ignored event: ${eventType}` })
-    } catch (err: any) {
-      telemetryStore.recordWebhook({
-        provider: 'telnyx',
-        eventType,
-        stage: 'failed',
-        providerEventId: eventId,
-        requestId,
-        error: err?.message || 'Processing error'
-      })
-      logger.error('Telnyx message webhook processing error', err, { eventId })
-      return NextResponse.json({ error: err.message }, { status: 500 })
+
+      return NextResponse.json(result)
     }
+
+    // Acknowledge other event types safely
+    await completeWebhookEvent(supabase, eventId, { ignored: true })
+    telemetryStore.recordWebhook({
+      provider: 'telnyx',
+      eventType,
+      stage: 'processed',
+      providerEventId: eventId,
+      requestId
+    })
+    return NextResponse.json({ success: true, message: `Ignored event: ${eventType}` })
+  } catch (err: any) {
+    if (eventId) {
+      // Release lock / mark failed so provider retry can re-enter safely (HIGH-INFRA-01)
+      try {
+        await failWebhookEvent(supabase, eventId, err?.message || String(err))
+      } catch (failErr) {
+        console.error('[TELNYX MESSAGE FAIL EVENT LOG ERROR]', failErr)
+      }
+    }
+
+    telemetryStore.recordWebhook({
+      provider: 'telnyx',
+      eventType,
+      stage: 'failed',
+      providerEventId: eventId,
+      requestId,
+      error: err?.message || 'Processing error'
+    })
+    logger.error('Telnyx message webhook processing error', err, { eventId })
+    return NextResponse.json({ error: err.message || 'Webhook processing failed' }, { status: 500 })
+  }
 }

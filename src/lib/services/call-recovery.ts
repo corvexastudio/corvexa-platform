@@ -61,10 +61,29 @@ export async function processMissedCall(
 
   const org = tenantResolution.org
 
+  // 1.5 Semantic Deduplication: Check if this callControlId was already processed for this tenant
+  if (call.callControlId) {
+    const { data: existingCall } = await supabase
+      .from('calls')
+      .select('id, status, auto_reply_sent')
+      .eq('org_id', org.id)
+      .eq('telnyx_call_control_id', call.callControlId)
+      .maybeSingle()
+
+    if (existingCall) {
+      return {
+        success: true,
+        action: 'call_already_processed',
+        orgId: org.id,
+        callId: existingCall.id
+      }
+    }
+  }
+
   // 2. Answered Call Protection: Answered calls must NEVER trigger recovery SMS
   if (call.callOutcome.wasAnswered || !call.callOutcome.isEligibleForRecovery) {
     // Record telemetry for analytics without sending SMS
-    await supabase.from('calls').insert({
+    const { error: callInsertError } = await supabase.from('calls').insert({
       org_id: org.id,
       caller_number: formattedCaller,
       called_number: formattedCalled,
@@ -76,6 +95,11 @@ export async function processMissedCall(
       hangup_cause: call.callOutcome.hangupCause,
       auto_reply_sent: false
     })
+
+    if (callInsertError && callInsertError.code !== '23505') {
+      console.error('[CALL RECORD INSERT ERROR]', callInsertError)
+    }
+
     return {
       success: true,
       action: 'call_answered_logged',
@@ -185,7 +209,7 @@ export async function processMissedCall(
   }
 
   // 7. Record Call
-  await supabase.from('calls').insert({
+  const { error: callInsertError } = await supabase.from('calls').insert({
     org_id: org.id,
     contact_id: contact?.id,
     caller_number: formattedCaller,
@@ -198,6 +222,10 @@ export async function processMissedCall(
     hangup_cause: call.callOutcome.hangupCause,
     auto_reply_sent: smsResult.success
   })
+
+  if (callInsertError && callInsertError.code !== '23505') {
+    console.error('[MISSED CALL RECORD INSERT ERROR]', callInsertError)
+  }
 
   // 8. Lead Deduplication: Check for existing open lead for this contact in this organization
   if (contact?.id) {

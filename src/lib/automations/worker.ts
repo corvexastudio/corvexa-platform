@@ -49,7 +49,9 @@ export async function executeAutomationJob(
     return {
       success: false,
       actionType: job.action_type,
-      error: `Job ${job.job_id} is in non-executable state '${job.status}'`
+      error: `Job ${job.job_id} is in non-executable state '${job.status}'`,
+      isDeadLetter: false,
+      isRetried: false
     }
   }
 
@@ -148,7 +150,11 @@ export async function executeAutomationJob(
       })
       .eq('id', job.id)
 
-    return result
+    return {
+      ...result,
+      isDeadLetter: false,
+      isRetried: false
+    }
   }
 
   // 5. Job Failed - Evaluate Retry vs Dead-Letter
@@ -187,7 +193,9 @@ export async function executeAutomationJob(
 
     return {
       ...result,
-      error: deadLetterReason
+      error: deadLetterReason,
+      isDeadLetter: true,
+      isRetried: false
     }
   }
 
@@ -218,7 +226,11 @@ export async function executeAutomationJob(
     })
     .eq('id', job.id)
 
-  return result
+  return {
+    ...result,
+    isDeadLetter: false,
+    isRetried: true
+  }
 }
 
 /**
@@ -349,6 +361,200 @@ export async function claimDueAutomationJobs(
   return claimed
 }
 
+export interface DrainAutomationJobsOptions {
+  batchSize?: number
+  maxBatches?: number
+  maxDurationMs?: number
+  safetyMarginMs?: number
+  staleThresholdSeconds?: number
+  workerId?: string
+  invocationId?: string
+}
+
+export interface DrainAutomationJobsSummary {
+  invocationId: string
+  workerId: string
+  batchesClaimed: number
+  claimed: number
+  processed: number
+  succeeded: number
+  failed: number
+  retried: number
+  deadLettered: number
+  remainingDue: number
+  durationMs: number
+  stopReason: 'queue_empty' | 'time_budget_exhausted' | 'max_batches_reached'
+}
+
+/**
+ * Drains due automation runs across batches within a serverless execution time budget.
+ * Atomically reserves jobs batch-by-batch using PostgreSQL FOR UPDATE SKIP LOCKED.
+ * 
+ * Guarantees:
+ * 1. Bounded Loop: Strictly honors maxBatches and runtime deadline to avoid serverless timeout kills.
+ * 2. Concurrency Safety: Each batch claimed atomically; concurrent workers process distinct jobs.
+ * 3. Infinite Loop Prevention: Never re-processes the same job ID within a single invocation.
+ * 4. Structured Observability: Logs complete run lifecycle with redaction of sensitive credentials.
+ */
+export async function drainDueAutomationJobs(
+  supabase: SupabaseClient,
+  options: DrainAutomationJobsOptions = {}
+): Promise<DrainAutomationJobsSummary> {
+  const startTime = Date.now()
+  const invocationId = options.invocationId || `inv_${startTime}_${Math.random().toString(36).slice(2, 8)}`
+  const workerId = options.workerId || `worker_${startTime}_${Math.random().toString(36).slice(2, 8)}`
+  const batchSize = Math.max(1, options.batchSize ?? 25)
+  const maxBatches = Math.max(1, options.maxBatches ?? 10)
+  const maxDurationMs = options.maxDurationMs ?? (process.env.WORKER_MAX_DURATION_MS ? parseInt(process.env.WORKER_MAX_DURATION_MS, 10) : 25000)
+  const safetyMarginMs = options.safetyMarginMs ?? (process.env.WORKER_SAFETY_MARGIN_MS ? parseInt(process.env.WORKER_SAFETY_MARGIN_MS, 10) : 5000)
+  const staleThresholdSeconds = options.staleThresholdSeconds ?? 600
+
+  const deadline = startTime + Math.max(0, maxDurationMs - safetyMarginMs)
+
+  const logger = createStructuredLogger({
+    request_id: invocationId
+  })
+
+  logger.info('Automation worker invocation started', {
+    invocation_id: invocationId,
+    worker_id: workerId,
+    batch_size: batchSize,
+    max_batches: maxBatches,
+    max_duration_ms: maxDurationMs,
+    safety_margin_ms: safetyMarginMs,
+    stale_threshold_seconds: staleThresholdSeconds
+  })
+
+  let batchesClaimed = 0
+  let totalClaimed = 0
+  let totalProcessed = 0
+  let totalSucceeded = 0
+  let totalFailed = 0
+  let totalRetried = 0
+  let totalDeadLettered = 0
+  let stopReason: 'queue_empty' | 'time_budget_exhausted' | 'max_batches_reached' = 'queue_empty'
+  const processedRunIds = new Set<string>()
+  let lastBatchDurationMs = 0
+
+  while (batchesClaimed < maxBatches) {
+    const now = Date.now()
+    // Verify time budget: if deadline reached or insufficient budget for another batch, stop
+    if (now >= deadline || (batchesClaimed > 0 && deadline - now < Math.min(1000, lastBatchDurationMs))) {
+      stopReason = 'time_budget_exhausted'
+      break
+    }
+
+    const batchStartTime = Date.now()
+    const claimedJobs = await claimDueAutomationJobs(
+      supabase,
+      workerId,
+      batchSize,
+      staleThresholdSeconds
+    )
+
+    if (!claimedJobs || claimedJobs.length === 0) {
+      stopReason = 'queue_empty'
+      break
+    }
+
+    // Filter out runs already touched in this invocation (loop safeguard)
+    const runsToProcess = claimedJobs.filter((job) => !processedRunIds.has(job.id))
+    if (runsToProcess.length === 0) {
+      stopReason = 'queue_empty'
+      break
+    }
+
+    batchesClaimed++
+    totalClaimed += runsToProcess.length
+
+    logger.info('Automation worker batch claimed', {
+      invocation_id: invocationId,
+      worker_id: workerId,
+      batch_index: batchesClaimed,
+      batch_count: runsToProcess.length,
+      remaining_budget_ms: Math.max(0, deadline - Date.now())
+    })
+
+    for (const job of runsToProcess) {
+      processedRunIds.add(job.id)
+      totalProcessed++
+      try {
+        const res = await executeAutomationJob(supabase, job as AutomationRunRecord)
+        if (res.success) {
+          totalSucceeded++
+        } else {
+          totalFailed++
+          if (res.isDeadLetter) {
+            totalDeadLettered++
+          } else if (res.isRetried) {
+            totalRetried++
+          }
+        }
+      } catch (err) {
+        console.error(`[AUTOMATION WORKER ERROR] Job ${job.id} exception:`, err)
+        totalFailed++
+      }
+    }
+
+    lastBatchDurationMs = Date.now() - batchStartTime
+
+    if (batchesClaimed >= maxBatches) {
+      stopReason = 'max_batches_reached'
+      break
+    }
+  }
+
+  // Count remaining due jobs for queue backlog visibility
+  let remainingDue = 0
+  try {
+    const { count, data } = await supabase
+      .from('automation_runs')
+      .select('id', { count: 'exact' })
+      .in('status', ['pending', 'scheduled'])
+      .lte('scheduled_at', new Date().toISOString())
+
+    if (typeof count === 'number') {
+      remainingDue = count
+    } else if (Array.isArray(data)) {
+      remainingDue = data.length
+    }
+  } catch {
+    remainingDue = 0
+  }
+
+  const durationMs = Date.now() - startTime
+
+  logger.info('Automation worker invocation completed', {
+    invocation_id: invocationId,
+    worker_id: workerId,
+    batches_claimed: batchesClaimed,
+    claimed: totalClaimed,
+    processed: totalProcessed,
+    succeeded: totalSucceeded,
+    failed: totalFailed,
+    retried: totalRetried,
+    dead_lettered: totalDeadLettered,
+    remaining_due: remainingDue,
+    duration_ms: durationMs,
+    stop_reason: stopReason
+  })
+
+  return {
+    invocationId,
+    workerId,
+    batchesClaimed,
+    claimed: totalClaimed,
+    processed: totalProcessed,
+    succeeded: totalSucceeded,
+    failed: totalFailed,
+    retried: totalRetried,
+    deadLettered: totalDeadLettered,
+    remainingDue,
+    durationMs,
+    stopReason
+  }
+}
+
 /**
  * Polls and processes all pending or scheduled automation runs whose scheduled_at has arrived.
  * Atomically reserves jobs before processing so concurrent workers never process the same run.
@@ -357,37 +563,26 @@ export async function processDueAutomationJobs(
   supabase: SupabaseClient,
   batchSize = 25,
   workerId?: string
-): Promise<{ processed: number; succeeded: number; failed: number; claimed: number }> {
-  const resolvedWorkerId = workerId || `worker_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-
-  // 1. Atomically claim eligible jobs
-  const claimedJobs = await claimDueAutomationJobs(supabase, resolvedWorkerId, batchSize)
-
-  if (!claimedJobs || claimedJobs.length === 0) {
-    return { processed: 0, succeeded: 0, failed: 0, claimed: 0 }
-  }
-
-  let succeeded = 0
-  let failed = 0
-
-  for (const job of claimedJobs) {
-    try {
-      const res = await executeAutomationJob(supabase, job as AutomationRunRecord)
-      if (res.success) {
-        succeeded++
-      } else {
-        failed++
-      }
-    } catch (err) {
-      console.error(`[AUTOMATION WORKER ERROR] Job ${job.id} exception:`, err)
-      failed++
-    }
-  }
+): Promise<{
+  processed: number
+  succeeded: number
+  failed: number
+  claimed: number
+  retried: number
+  deadLettered: number
+}> {
+  const summary = await drainDueAutomationJobs(supabase, {
+    batchSize,
+    workerId,
+    maxBatches: 1
+  })
 
   return {
-    processed: claimedJobs.length,
-    claimed: claimedJobs.length,
-    succeeded,
-    failed
+    processed: summary.processed,
+    claimed: summary.claimed,
+    succeeded: summary.succeeded,
+    failed: summary.failed,
+    retried: summary.retried,
+    deadLettered: summary.deadLettered
   }
 }

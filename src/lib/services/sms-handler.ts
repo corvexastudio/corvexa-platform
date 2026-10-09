@@ -63,6 +63,20 @@ export async function processInboundSms(
     return { success: true, action: compliance.action || 'compliance_keyword_processed' }
   }
 
+  // 4. Semantic deduplication: Guard against duplicate delivery of identical telnyxMessageId
+  if (sms.telnyxMessageId) {
+    const { data: existingMsg } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('org_id', org.id)
+      .eq('telnyx_message_id', sms.telnyxMessageId)
+      .maybeSingle()
+
+    if (existingMsg) {
+      return { success: true, action: 'message_already_stored' }
+    }
+  }
+
   // 5. Append to conversation and messages
   let { data: conversation } = await supabase
     .from('conversations')
@@ -98,7 +112,7 @@ export async function processInboundSms(
   }
 
   if (conversation) {
-    await supabase.from('messages').insert({
+    const { error: msgInsertError } = await supabase.from('messages').insert({
       org_id: org.id,
       conversation_id: conversation.id,
       direction: 'inbound',
@@ -107,6 +121,17 @@ export async function processInboundSms(
       delivery_status: 'received',
       telnyx_message_id: sms.telnyxMessageId
     })
+
+    if (msgInsertError) {
+      if (
+        msgInsertError.code === '23505' ||
+        msgInsertError.message?.toLowerCase().includes('unique') ||
+        msgInsertError.message?.toLowerCase().includes('duplicate')
+      ) {
+        return { success: true, action: 'message_already_stored' }
+      }
+      throw new Error(`Failed to store message: ${msgInsertError.message}`)
+    }
   }
 
   // 6. Inbound Customer Reply: Transition any open lead for this contact from 'new' to 'contacted'

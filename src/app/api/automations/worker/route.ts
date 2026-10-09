@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { processDueAutomationJobs } from '@/lib/automations/worker'
+import { drainDueAutomationJobs } from '@/lib/automations/worker'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
+import { createStructuredLogger } from '@/lib/observability/logger'
 
 import { createHash, timingSafeEqual } from 'node:crypto'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
  * Constant-time secret comparison with SHA-256 digest normalization (ADD-02).
@@ -24,6 +26,7 @@ function safeCompareSecrets(provided: string, expected: string): boolean {
 }
 
 async function handleWorkerExecution(request: Request) {
+  const invocationId = `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const clientIp = extractClientIp(request)
 
   // 1. Enforce fail-closed CRON_SECRET authorization (HIGH-03)
@@ -48,14 +51,14 @@ async function handleWorkerExecution(request: Request) {
     )
   }
 
-  // 2. Distributed Rate Limiting to prevent runaway schedulers (max 60 executions/min) (HIGH-05)
+  // 2. Distributed Rate Limiting to prevent runaway schedulers (max 100 executions/min) (HIGH-05)
   const rateLimit = await checkRateLimitAsync(`worker:cron:${clientIp}`, RATE_LIMITS.DEFAULT_API)
   if (!rateLimit.allowed) {
     const rateHeaders = getRateLimitHeaders(rateLimit)
     return NextResponse.json({ error: 'Worker rate limit exceeded' }, { status: 429, headers: rateHeaders })
   }
 
-  // 2. Use service role key via createAdminClient to process cross-tenant background jobs safely
+  // 3. Use service role key via createAdminClient to process cross-tenant background jobs safely
   let supabase
   try {
     supabase = createAdminClient()
@@ -65,10 +68,17 @@ async function handleWorkerExecution(request: Request) {
 
   try {
     const workerId = `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const summary = await processDueAutomationJobs(supabase, 25, workerId)
+    const summary = await drainDueAutomationJobs(supabase, {
+      workerId,
+      invocationId,
+      batchSize: 25,
+      maxBatches: 10,
+      maxDurationMs: process.env.WORKER_MAX_DURATION_MS ? parseInt(process.env.WORKER_MAX_DURATION_MS, 10) : 25000,
+      safetyMarginMs: process.env.WORKER_SAFETY_MARGIN_MS ? parseInt(process.env.WORKER_SAFETY_MARGIN_MS, 10) : 5000
+    })
+
     return NextResponse.json({
       success: true,
-      workerId,
       timestamp: new Date().toISOString(),
       ...summary
     })

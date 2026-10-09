@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   processDueAutomationJobs,
-  claimDueAutomationJobs,
+  drainDueAutomationJobs,
   executeAutomationJob,
-  calculateNextRetry,
-  type AutomationRunRecord
+  type AutomationRunRecord,
+  type DrainAutomationJobsOptions
 } from '../automations/worker.ts'
 import {
   checkWorkerHealth,
@@ -13,7 +13,6 @@ import {
 import {
   canTransition,
   assertValidTransition,
-  isTerminalState,
   isRetryEligible,
   evaluateStaleLockRecovery,
   type AutomationState
@@ -28,6 +27,16 @@ import { createEventEnvelope, type DomainEventType } from '../automations/events
  * atomic PostgreSQL job claiming, state machine validation, and health checks.
  */
 export class AutomationService {
+  /**
+   * Drains due runs across batches within serverless time budget.
+   */
+  static async drainPendingRuns(
+    supabase: SupabaseClient,
+    options: DrainAutomationJobsOptions = {}
+  ) {
+    return drainDueAutomationJobs(supabase, options)
+  }
+
   /**
    * Triggers worker polling loop with atomic PostgreSQL row-claiming (SKIP LOCKED).
    */

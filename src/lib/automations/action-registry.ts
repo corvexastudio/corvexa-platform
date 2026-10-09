@@ -35,6 +35,8 @@ export interface ActionResult {
   actionType: string
   data?: any
   error?: string
+  isDeadLetter?: boolean
+  isRetried?: boolean
 }
 
 export type ActionHandler = (

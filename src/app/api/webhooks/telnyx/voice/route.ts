@@ -6,6 +6,12 @@ import { evaluateCallOutcome } from '@/lib/telephony/call-state-machine'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
+import {
+  claimWebhookEvent,
+  completeWebhookEvent,
+  failWebhookEvent,
+  waitForConcurrentWebhookCompletion
+} from '@/lib/webhooks/idempotency'
 
 export async function POST(request: Request) {
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID()
@@ -87,6 +93,10 @@ export async function POST(request: Request) {
     const payload = body.data.payload
     eventId = body.data.id
 
+    if (!eventId) {
+      return NextResponse.json({ error: 'Missing Telnyx event ID' }, { status: 400 })
+    }
+
     telemetryStore.recordWebhook({
       provider: 'telnyx',
       eventType,
@@ -95,41 +105,63 @@ export async function POST(request: Request) {
       requestId
     })
 
-    // 4. Atomic Idempotency Check: Claim event via processed_events table
-    if (eventId) {
-      const { error: insertError } = await supabase.from('processed_events').insert({
-        id: eventId,
-        provider: 'telnyx',
-        event_type: eventType,
-        provider_event_id: eventId
-      })
+    // 4. Atomic Database-Enforced Idempotency Claim (HIGH-INFRA-01)
+    const claim = await claimWebhookEvent(supabase, {
+      eventId,
+      provider: 'telnyx',
+      eventType,
+      staleTimeoutSeconds: 60
+    })
 
-      if (insertError) {
-        if (
-          insertError.code === '23505' ||
-          insertError.message?.toLowerCase().includes('unique') ||
-          insertError.message?.toLowerCase().includes('duplicate')
-        ) {
-          telemetryStore.recordWebhook({
-            provider: 'telnyx',
-            eventType,
-            stage: 'duplicated',
-            providerEventId: eventId,
-            requestId
-          })
-          logger.info('Duplicate Telnyx voice webhook skipped', { eventId, eventType })
-          return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
-        }
-        console.error('[TELNYX VOICE IDEMPOTENCY ERROR]', insertError)
-        return NextResponse.json({ error: 'Database idempotency error' }, { status: 500 })
-      }
+    if (claim.action === 'completed') {
+      telemetryStore.recordWebhook({
+        provider: 'telnyx',
+        eventType,
+        stage: 'duplicated',
+        providerEventId: eventId,
+        requestId
+      })
+      logger.info('Duplicate completed Telnyx voice webhook skipped', { eventId, eventType, attempt: claim.attemptCount })
+      return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
     }
+
+    if (claim.action === 'concurrent_active') {
+      logger.warn('Concurrent Telnyx voice webhook execution detected; awaiting resolution', { eventId, eventType })
+      const didComplete = await waitForConcurrentWebhookCompletion(supabase, eventId, 1500, 300)
+      if (didComplete) {
+        telemetryStore.recordWebhook({
+          provider: 'telnyx',
+          eventType,
+          stage: 'duplicated',
+          providerEventId: eventId,
+          requestId
+        })
+        logger.info('Concurrent Telnyx voice webhook resolved to completed', { eventId, eventType })
+        return NextResponse.json({ success: true, message: 'Already processed (idempotent)' }, { status: 200 })
+      }
+
+      logger.warn('Concurrent Telnyx voice webhook still active; requesting provider retry', { eventId, eventType })
+      return NextResponse.json(
+        { error: 'Concurrent webhook processing in progress. Retry requested.' },
+        { status: 429 }
+      )
+    }
+
+    logger.info(`Telnyx voice webhook claimed for execution (${claim.action})`, {
+      eventId,
+      eventType,
+      attempt: claim.attemptCount
+    })
 
     // 5. Evaluate call state machine outcome
     const callOutcome = evaluateCallOutcome(eventType, payload)
 
     // Acknowledge intermediate call progress events (call.initiated, call.ringing, call.answered)
     if (eventType !== 'call.hangup') {
+      await completeWebhookEvent(supabase, eventId, {
+        state: callOutcome.state,
+        intermediate: true
+      })
       telemetryStore.recordWebhook({
         provider: 'telnyx',
         eventType,
@@ -160,6 +192,16 @@ export async function POST(request: Request) {
       callSessionId: payload?.call_session_id
     })
 
+    if (!result.success) {
+      throw new Error(`Failed to process call: ${result.error || result.action}`)
+    }
+
+    // Mark Event Completed AFTER successful call processing
+    await completeWebhookEvent(supabase, eventId, {
+      action: result.action,
+      call_id: result.callId
+    })
+
     telemetryStore.recordWebhook({
       provider: 'telnyx',
       eventType,
@@ -170,6 +212,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result)
   } catch (err: any) {
+    if (eventId) {
+      // Release lock / mark failed so provider retry can re-enter safely (HIGH-INFRA-01)
+      try {
+        await failWebhookEvent(supabase, eventId, err?.message || String(err))
+      } catch (failErr) {
+        console.error('[TELNYX VOICE FAIL EVENT LOG ERROR]', failErr)
+      }
+    }
+
     telemetryStore.recordWebhook({
       provider: 'telnyx',
       eventType,
@@ -179,6 +230,6 @@ export async function POST(request: Request) {
       error: err?.message || 'Processing error'
     })
     logger.error('Telnyx voice webhook processing error', err, { eventId })
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Webhook processing failed' }, { status: 500 })
   }
 }

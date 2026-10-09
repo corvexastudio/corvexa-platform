@@ -4,6 +4,12 @@ import { verifyStripeWebhookSignature } from '@/lib/payments/stripe-adapter'
 import { recordPayment } from '@/lib/payments/invoice-manager'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
+import {
+  claimWebhookEvent,
+  completeWebhookEvent,
+  failWebhookEvent,
+  waitForConcurrentWebhookCompletion
+} from '@/lib/webhooks/idempotency'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,20 +63,30 @@ export async function POST(request: Request) {
       requestId
     })
 
-    // 2. Atomic Database-Enforced Idempotency: Claim event ID
-    const { error: insertError } = await supabase.from('processed_events').insert({
-      id: event.id,
+    // 2. Atomic Database-Enforced Idempotency Claim (HIGH-INFRA-01)
+    const claim = await claimWebhookEvent(supabase, {
+      eventId: event.id,
       provider: 'stripe',
-      event_type: event.type,
-      provider_event_id: event.id
+      eventType: event.type,
+      staleTimeoutSeconds: 60
     })
 
-    if (insertError) {
-      if (
-        insertError.code === '23505' ||
-        insertError.message?.toLowerCase().includes('unique') ||
-        insertError.message?.toLowerCase().includes('duplicate')
-      ) {
+    if (claim.action === 'completed') {
+      telemetryStore.recordWebhook({
+        provider: 'stripe',
+        eventType,
+        stage: 'duplicated',
+        providerEventId: eventId,
+        requestId
+      })
+      logger.info('Duplicate completed Stripe webhook skipped', { eventId, eventType, attempt: claim.attemptCount })
+      return NextResponse.json({ received: true, duplicate: true }, { status: 200 })
+    }
+
+    if (claim.action === 'concurrent_active') {
+      logger.warn('Concurrent Stripe webhook execution detected; awaiting resolution', { eventId, eventType })
+      const didComplete = await waitForConcurrentWebhookCompletion(supabase, event.id, 1500, 300)
+      if (didComplete) {
         telemetryStore.recordWebhook({
           provider: 'stripe',
           eventType,
@@ -78,13 +94,22 @@ export async function POST(request: Request) {
           providerEventId: eventId,
           requestId
         })
-        logger.info('Duplicate Stripe webhook skipped', { eventId, eventType })
+        logger.info('Concurrent Stripe webhook resolved to completed', { eventId, eventType })
         return NextResponse.json({ received: true, duplicate: true }, { status: 200 })
       }
 
-      console.error('[STRIPE IDEMPOTENCY INSERT ERROR]', insertError)
-      return NextResponse.json({ error: 'Database idempotency error' }, { status: 500 })
+      logger.warn('Concurrent Stripe webhook still active; requesting provider retry', { eventId, eventType })
+      return NextResponse.json(
+        { error: 'Concurrent webhook processing in progress. Retry requested.' },
+        { status: 429 }
+      )
     }
+
+    logger.info(`Stripe webhook claimed for execution (${claim.action})`, {
+      eventId,
+      eventType,
+      attempt: claim.attemptCount
+    })
 
     // 3. Process Authoritative Payment Events
     if (event.type === 'checkout.session.completed') {
@@ -94,7 +119,7 @@ export async function POST(request: Request) {
       const amountTotal = (Number(session.amount_total) || 0) / 100
 
       if (invoiceId && orgId) {
-        await recordPayment(supabase, {
+        const result = await recordPayment(supabase, {
           invoiceId,
           orgId,
           amount: amountTotal,
@@ -104,6 +129,9 @@ export async function POST(request: Request) {
           stripePaymentIntentId: session.payment_intent ? String(session.payment_intent) : undefined,
           referenceNote: `Stripe Checkout: ${session.customer_details?.email || session.id}`
         })
+        if (!result.success) {
+          throw new Error(`Failed to record checkout payment: ${result.error}`)
+        }
       }
     } else if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as any
@@ -112,7 +140,7 @@ export async function POST(request: Request) {
       const amount = (Number(paymentIntent.amount) || 0) / 100
 
       if (invoiceId && orgId) {
-        await recordPayment(supabase, {
+        const result = await recordPayment(supabase, {
           invoiceId,
           orgId,
           amount,
@@ -121,8 +149,36 @@ export async function POST(request: Request) {
           stripePaymentIntentId: paymentIntent.id,
           referenceNote: `Stripe PaymentIntent: ${paymentIntent.id}`
         })
+        if (!result.success) {
+          throw new Error(`Failed to record payment intent: ${result.error}`)
+        }
+      }
+    } else if (event.type === 'invoice.payment_succeeded') {
+      const stripeInvoice = event.data.object as any
+      const invoiceId = stripeInvoice.metadata?.invoice_id
+      const orgId = stripeInvoice.metadata?.org_id
+      const amount = (Number(stripeInvoice.amount_paid) || 0) / 100
+
+      if (invoiceId && orgId) {
+        const result = await recordPayment(supabase, {
+          invoiceId,
+          orgId,
+          amount,
+          paymentMethod: 'stripe',
+          paymentStatus: 'succeeded',
+          stripePaymentIntentId: stripeInvoice.payment_intent ? String(stripeInvoice.payment_intent) : undefined,
+          referenceNote: `Stripe Invoice: ${stripeInvoice.id}`
+        })
+        if (!result.success) {
+          throw new Error(`Failed to record invoice payment: ${result.error}`)
+        }
       }
     }
+
+    // 4. Mark Event Completed AFTER successful business processing
+    await completeWebhookEvent(supabase, event.id, {
+      processed_at: new Date().toISOString()
+    })
 
     telemetryStore.recordWebhook({
       provider: 'stripe',
@@ -132,9 +188,19 @@ export async function POST(request: Request) {
       requestId
     })
 
-    logger.info('Stripe webhook processed successfully', { eventId, eventType })
+    logger.info('Stripe webhook processed successfully', { eventId, eventType, attempt: claim.attemptCount })
     return NextResponse.json({ received: true })
   } catch (err: any) {
+    if (eventId) {
+      // Release lock / mark failed so provider retry can re-enter safely (HIGH-INFRA-01)
+      try {
+        const supabase = getServiceSupabase()
+        await failWebhookEvent(supabase, eventId, err?.message || String(err))
+      } catch (failErr) {
+        console.error('[STRIPE FAIL EVENT LOG ERROR]', failErr)
+      }
+    }
+
     telemetryStore.recordWebhook({
       provider: 'stripe',
       eventType,
