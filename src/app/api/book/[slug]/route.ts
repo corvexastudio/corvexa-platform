@@ -44,18 +44,7 @@ export async function GET(
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
 
-    // Provide default fallback service if none configured
-    const activeServices = services && services.length > 0 ? services : [
-      {
-        id: 'default-service',
-        name: 'Standard Consultation & Inspection',
-        description: 'Comprehensive on-site inspection and quote.',
-        duration_minutes: org.default_duration_minutes || 60,
-        price: null,
-        requires_address: true,
-        is_active: true
-      }
-    ]
+    const activeServices = services || []
 
     return NextResponse.json({
       organization: {

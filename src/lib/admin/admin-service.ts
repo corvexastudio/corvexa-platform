@@ -59,6 +59,7 @@ export interface TenantHealthSummary {
   subscriptionStatus: 'active' | 'trial' | 'suspended' | 'churned'
   monthlyRate: number
   telnyxNumber: string | null
+  phoneProvisioningStatus?: 'pending_number' | 'provisioning' | 'active' | 'failed' | null
   carrier: string
   isMissedCallActive: boolean
   lastActivity: string | null
@@ -443,6 +444,7 @@ export async function getTenantHealthList(
       subscriptionStatus: normStatus,
       monthlyRate: Number(org.monthly_rate) || 99,
       telnyxNumber: org.telnyx_phone_number || null,
+      phoneProvisioningStatus: (org.phone_provisioning_status as any) || (org.telnyx_phone_number ? 'active' : 'pending_number'),
       carrier: org.carrier || 'Unknown',
       isMissedCallActive: org.is_missed_call_active ?? true,
       lastActivity,

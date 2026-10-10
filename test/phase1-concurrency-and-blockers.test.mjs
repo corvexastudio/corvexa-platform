@@ -247,6 +247,34 @@ function createPhase1MockDb(initialState = {}) {
             }
           }
           return updateBuilder
+        },
+        upsert: (record, opts = {}) => {
+          const onConflict = opts.onConflict || 'id'
+          const conflictCol = onConflict.split(',')[0].trim()
+          if (!tables[tableName]) tables[tableName] = []
+          const existingIdx = tables[tableName].findIndex((r) => r[conflictCol] === record[conflictCol])
+          let target
+          if (existingIdx >= 0) {
+            Object.assign(tables[tableName][existingIdx], record)
+            target = tables[tableName][existingIdx]
+          } else {
+            const newRow = {
+              id: record.id || `mock_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+              created_at: new Date().toISOString(),
+              ...record
+            }
+            tables[tableName].push(newRow)
+            target = newRow
+          }
+          return {
+            data: target,
+            error: null,
+            select: () => ({
+              single: async () => ({ data: target, error: null }),
+              maybeSingle: async () => ({ data: target, error: null })
+            }),
+            then: (resolve, reject) => Promise.resolve({ data: target, error: null }).then(resolve, reject)
+          }
         }
       }
 

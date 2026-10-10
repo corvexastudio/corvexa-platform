@@ -296,6 +296,91 @@ export async function POST(request: Request) {
       return NextResponse.json(result)
     }
 
+    // 7. Handle Asynchronous Number Order Fulfillment (number_order.complete, number_order.failed)
+    if (eventType === 'number_order.complete') {
+      const orderId = payload?.id
+      const customerRef = payload?.customer_reference
+      const phoneNumbers = Array.isArray(payload?.phone_numbers) ? payload.phone_numbers : []
+      const primaryNumber = phoneNumbers[0]
+
+      if (orderId && primaryNumber?.phone_number) {
+        let targetOrgId = customerRef?.startsWith('org_') ? customerRef.replace('org_', '') : null
+
+        if (!targetOrgId) {
+          const { data: numRecord } = await supabase
+            .from('telnyx_phone_numbers')
+            .select('org_id')
+            .eq('order_id', orderId)
+            .maybeSingle()
+          targetOrgId = numRecord?.org_id || null
+        }
+
+        if (targetOrgId) {
+          await supabase
+            .from('telnyx_phone_numbers')
+            .update({
+              status: 'active',
+              verification_status: 'verified',
+              telnyx_phone_number_id: primaryNumber.id || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('order_id', orderId)
+
+          await supabase
+            .from('organizations')
+            .update({
+              telnyx_phone_number: primaryNumber.phone_number,
+              phone_provisioning_status: 'active',
+              telnyx_provisioned_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', targetOrgId)
+
+          logger.info('Asynchronous Telnyx Number Order fulfilled successfully', {
+            orderId,
+            orgId: targetOrgId,
+            phoneNumber: primaryNumber.phone_number
+          })
+        }
+      }
+
+      await completeWebhookEvent(supabase, eventId, {
+        action: 'number_order_completed',
+        orderId
+      })
+
+      return NextResponse.json({ success: true, action: 'number_order_completed', orderId })
+    }
+
+    if (eventType === 'number_order.failed') {
+      const orderId = payload?.id
+      if (orderId) {
+        await supabase
+          .from('telnyx_phone_numbers')
+          .update({
+            status: 'released',
+            verification_status: 'failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', orderId)
+
+        await supabase
+          .from('organizations')
+          .update({
+            phone_provisioning_status: 'failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('telnyx_order_id', orderId)
+      }
+
+      await completeWebhookEvent(supabase, eventId, {
+        action: 'number_order_failed',
+        orderId
+      })
+
+      return NextResponse.json({ success: true, action: 'number_order_failed', orderId })
+    }
+
     // Acknowledge other event types safely
     await completeWebhookEvent(supabase, eventId, { ignored: true })
     telemetryStore.recordWebhook({

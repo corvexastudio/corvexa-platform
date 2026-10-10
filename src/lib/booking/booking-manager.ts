@@ -88,12 +88,20 @@ export async function createBooking(
       .from('services')
       .select('*')
       .eq('id', serviceId)
-      .eq('org_id', orgId)
       .maybeSingle()
-    if (svc) service = svc
-  }
 
-  if (!service) {
+    if (svc) {
+      if (svc.org_id !== orgId) {
+        return { success: false, error: 'The selected service does not belong to this organization' }
+      }
+      if (!svc.is_active) {
+        return { success: false, error: 'The selected service is currently inactive and cannot be booked' }
+      }
+      service = svc
+    } else {
+      return { success: false, error: 'Selected service not found' }
+    }
+  } else {
     // Check for any active service or fallback default
     const { data: defaultSvc } = await supabase
       .from('services')
@@ -253,10 +261,14 @@ export async function createBooking(
 
   if (aptError || !appointment) {
     if (
+      aptError?.code === '23P01' ||
       aptError?.code === '23505' ||
+      aptError?.message?.toLowerCase().includes('exclusion') ||
+      aptError?.message?.toLowerCase().includes('overlap') ||
       aptError?.message?.toLowerCase().includes('unique') ||
       aptError?.message?.toLowerCase().includes('duplicate') ||
       aptError?.message?.toLowerCase().includes('slot') ||
+      aptError?.message?.includes('appointments_no_overlapping_bookings') ||
       aptError?.message?.includes('idx_appointments_org_active_slot')
     ) {
       return {
@@ -338,12 +350,12 @@ export async function createBooking(
   }
 
   // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed
-  if (isInstant) {
+  if (isInstant && senderNumber) {
     await scheduleAppointmentReminders(supabase, {
       appointmentId: appointment.id,
       orgId,
       orgName: org.name,
-      senderNumber: senderNumber || '+15555550100',
+      senderNumber: senderNumber,
       customerPhone: normalizedPhone.e164,
       serviceName: activeService.name,
       startTime,
@@ -650,6 +662,22 @@ export async function customerRescheduleBooking(
     .single()
 
   if (updateError || !updatedApt) {
+    if (
+      updateError?.code === '23P01' ||
+      updateError?.code === '23505' ||
+      updateError?.message?.toLowerCase().includes('exclusion') ||
+      updateError?.message?.toLowerCase().includes('overlap') ||
+      updateError?.message?.toLowerCase().includes('unique') ||
+      updateError?.message?.toLowerCase().includes('duplicate') ||
+      updateError?.message?.toLowerCase().includes('slot') ||
+      updateError?.message?.includes('appointments_no_overlapping_bookings') ||
+      updateError?.message?.includes('idx_appointments_org_active_slot')
+    ) {
+      return {
+        success: false,
+        error: 'This time slot is no longer available. Please select another time.'
+      }
+    }
     return { success: false, error: 'Failed to update appointment' }
   }
 
@@ -660,8 +688,8 @@ export async function customerRescheduleBooking(
   const manageUrl = `${appBaseUrl}/book/manage/${manageToken}`
 
   // 4. Schedule new reminders
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone || '+15555550100'
-  if (contact?.phone) {
+  const senderNumber = org?.telnyx_phone_number || org?.owner_phone || null
+  if (contact?.phone && senderNumber) {
     await scheduleAppointmentReminders(supabase, {
       appointmentId: apt.id,
       orgId: apt.org_id,
@@ -743,6 +771,19 @@ export async function ownerUpdateBookingStatus(
     .single()
 
   if (updateError || !updatedApt) {
+    if (
+      updateError?.code === '23P01' ||
+      updateError?.code === '23505' ||
+      updateError?.message?.toLowerCase().includes('exclusion') ||
+      updateError?.message?.toLowerCase().includes('overlap') ||
+      updateError?.message?.includes('appointments_no_overlapping_bookings') ||
+      updateError?.message?.includes('idx_appointments_org_active_slot')
+    ) {
+      return {
+        success: false,
+        error: 'Cannot confirm appointment: this time slot overlaps with another scheduled appointment.'
+      }
+    }
     return { success: false, error: 'Failed to update booking status' }
   }
 

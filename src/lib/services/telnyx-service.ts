@@ -62,21 +62,18 @@ export class TelnyxService {
   }
 
   /**
-   * Searches available Telnyx numbers in an area code.
+   * Searches available Telnyx numbers in an area code using the official Telnyx API.
    */
   static async searchAvailableNumbers(areaCode: string, limit: number = 5): Promise<TelnyxAvailableNumber[]> {
-    const code = areaCode.replace(/\D/g, '') || '214'
-    const results: TelnyxAvailableNumber[] = []
-    for (let i = 0; i < limit; i++) {
-      const randomSuffix = Math.floor(1000000 + Math.random() * 9000000).toString().slice(0, 7)
-      results.push({
-        phoneNumber: `+1${code}${randomSuffix}`,
-        locality: 'Dallas',
-        region: 'TX',
-        capabilities: ['voice', 'sms']
-      })
-    }
-    return results
+    const { TelnyxApiClient } = await import('../telephony/telnyx-api-client.ts')
+    const client = new TelnyxApiClient()
+    const results = await client.searchAvailableNumbers({ areaCode, limit })
+    return results.map((r) => ({
+      phoneNumber: r.phoneNumber,
+      locality: r.locality,
+      region: r.region,
+      capabilities: r.features
+    }))
   }
 
   /**

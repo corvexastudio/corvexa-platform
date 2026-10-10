@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { provisionOrganizationPhoneNumber } from '@/lib/telephony/provisioning'
+import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 
 export async function POST(request: NextRequest) {
   // Requirement 9 & HIGH-05: Distributed Rate limit public onboarding requests per IP
@@ -112,13 +113,20 @@ export async function POST(request: NextRequest) {
 
     const requestedNumber = body.requestedNumber || body.telnyxPhoneNumber || null
 
-    // Format phone numbers to satisfy potential NOT NULL or UNIQUE constraints on organizations.phone_number
+    // Validate and normalize notification phone if provided; genuinely optional, store NULL if omitted
+    let normalizedOwnerPhone: string | null = null
     const rawPhone = typeof phone === 'string' ? phone.trim() : ''
-    const cleanDigits = rawPhone.replace(/\D/g, '')
-    const randomSuffix = Math.floor(1000000 + Math.random() * 9000000).toString()
-    const fallbackPhone = cleanDigits.length >= 10
-      ? (cleanDigits.length === 10 ? `+1${cleanDigits}` : `+${cleanDigits}`)
-      : `+1999${randomSuffix}`
+
+    if (rawPhone.length > 0) {
+      const norm = normalizePhoneToE164(rawPhone)
+      if (!norm.isValid || !norm.e164) {
+        return NextResponse.json(
+          { error: `Invalid notification mobile number: ${norm.error || 'Please provide a valid 10-digit phone number or leave blank.'}` },
+          { status: 400, headers: rateHeaders }
+        )
+      }
+      normalizedOwnerPhone = norm.e164
+    }
 
     // 10DLC carrier and business verification fields
     const legalBusinessName = (body.legalBusinessName || body.legal_business_name || '').trim() || null
@@ -151,21 +159,19 @@ export async function POST(request: NextRequest) {
       id: orgId,
       name: businessName,
       slug: uniqueSlug,
-      owner_phone: rawPhone || fallbackPhone,
-      telnyx_phone_number: requestedNumber || null,
-      phone_provisioning_status: requestedNumber ? 'provisioning' : 'pending_number',
+      owner_phone: normalizedOwnerPhone,
+      phone_number: normalizedOwnerPhone,
+      telnyx_phone_number: null,
+      phone_provisioning_status: 'pending_number',
       is_missed_call_active: true,
       is_review_engine_active: true,
       ...tenDlcFields,
     }
 
-    // 1. Create Organization with pre-generated UUID (satisfies PostgreSQL NOT NULL constraint on phone_number)
+    // 1. Create Organization with pre-generated UUID
     let { error: orgError } = await dbClient
       .from('organizations')
-      .insert({
-        ...baseOrgPayload,
-        phone_number: fallbackPhone,
-      })
+      .insert(baseOrgPayload)
 
     // Fallback A: If column "phone_number" does not exist in schema (error 42703), retry without it
     if (
@@ -174,7 +180,9 @@ export async function POST(request: NextRequest) {
         (orgError.message?.toLowerCase().includes('phone_number') &&
           orgError.message?.toLowerCase().includes('does not exist')))
     ) {
-      const retryRes = await dbClient.from('organizations').insert(baseOrgPayload)
+      const payloadWithoutPhone = { ...baseOrgPayload }
+      delete payloadWithoutPhone.phone_number
+      const retryRes = await dbClient.from('organizations').insert(payloadWithoutPhone)
       orgError = retryRes.error
     }
 
@@ -184,9 +192,10 @@ export async function POST(request: NextRequest) {
         id: orgId,
         name: businessName,
         slug: uniqueSlug,
-        owner_phone: rawPhone || fallbackPhone,
-        telnyx_phone_number: requestedNumber || null,
-        phone_provisioning_status: requestedNumber ? 'provisioning' : 'pending_number',
+        owner_phone: normalizedOwnerPhone,
+        phone_number: normalizedOwnerPhone,
+        telnyx_phone_number: null,
+        phone_provisioning_status: 'pending_number',
         is_missed_call_active: true,
         is_review_engine_active: true,
       }
@@ -194,23 +203,11 @@ export async function POST(request: NextRequest) {
       orgError = retryWithout10Dlc.error
     }
 
-    // Fallback C: If phone_number had a unique constraint violation (code 23505), retry with a random unique phone
-    if (orgError && orgError.code === '23505' && orgError.message?.toLowerCase().includes('phone_number')) {
-      const freshRandom = `+1999${Math.floor(1000000 + Math.random() * 9000000)}`
-      const retryRes = await dbClient
-        .from('organizations')
-        .insert({
-          ...baseOrgPayload,
-          phone_number: freshRandom,
-        })
-      orgError = retryRes.error
-    }
-
     if (orgError) {
       console.error('[ONBOARDING] Failed to create organization:', orgError)
       return NextResponse.json(
         { error: orgError.message || 'Failed to create organization.' },
-        { status: 500 }
+        { status: 500, headers: rateHeaders }
       )
     }
 
@@ -232,7 +229,7 @@ export async function POST(request: NextRequest) {
         org_id: orgId,
         email: user.email,
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || businessName,
-        phone: rawPhone || fallbackPhone,
+        phone: normalizedOwnerPhone,
         role: 'owner',
       })
 
@@ -275,6 +272,53 @@ export async function POST(request: NextRequest) {
         })
     } catch {
       // Automation settings default init failure is non-fatal for tenant creation
+    }
+
+    // 4. Seed Default Service for Organization (P1-01 Idempotent & Concurrency Safe)
+    try {
+      const defaultServiceName = 'General Service'
+      const defaultServiceDuration = 60
+
+      const { data: existingServices } = await dbClient
+        .from('services')
+        .select('id')
+        .eq('org_id', orgId)
+        .limit(1)
+
+      if (!existingServices || existingServices.length === 0) {
+        const defaultServicePayload = {
+          org_id: orgId,
+          name: defaultServiceName,
+          description: 'Standard consultation and service appointment.',
+          duration_minutes: defaultServiceDuration,
+          price: null,
+          requires_address: true,
+          is_active: true,
+          sort_order: 0
+        }
+
+        const { error: serviceInsertError } = await dbClient
+          .from('services')
+          .upsert(defaultServicePayload, { onConflict: 'org_id,name', ignoreDuplicates: true })
+
+        if (serviceInsertError) {
+          if (
+            serviceInsertError.code === '42703' ||
+            serviceInsertError.code === '42P01' ||
+            serviceInsertError.message?.toLowerCase().includes('conflict')
+          ) {
+            try {
+              await dbClient.from('services').insert(defaultServicePayload)
+            } catch {
+              // fallback insert failure is non-fatal
+            }
+          } else if (serviceInsertError.code !== '23505') {
+            console.warn('[ONBOARDING] Default service seeding warning:', serviceInsertError.message)
+          }
+        }
+      }
+    } catch (svcErr: any) {
+      console.warn('[ONBOARDING] Service seeding error:', svcErr?.message)
     }
 
     // Requirement 10: Audit Logging

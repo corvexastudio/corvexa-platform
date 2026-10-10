@@ -99,6 +99,15 @@ export async function POST(request: Request) {
       )
     }
 
+    const { verifyTenantOutboundSender } = await import('@/lib/telephony/telnyx-numbers')
+    const senderCheck = await verifyTenantOutboundSender(supabase, orgId, senderNumber)
+    if (!senderCheck.allowed) {
+      return NextResponse.json(
+        { error: `Cannot send test SMS: ${senderCheck.reason || 'Sender number is unverified or not active.'}` },
+        { status: 400, headers: rateHeaders }
+      )
+    }
+
     // 5. Render Missed-Call Template Text
     const template = org.auto_reply_template || 'Sorry we missed your call! How can we help you today?'
     const rawTestBody = `[CaptoDesk Test] ${template}`

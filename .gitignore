@@ -47,3 +47,7 @@ next-env.d.ts
 # temporary uploads
 New folder/
 New folder.zip
+
+# disposable postgres data directories
+.tmp_pg_*
+

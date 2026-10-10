@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   Menu,
   X,
-  Plus
+  Plus,
+  Wrench
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -49,6 +50,7 @@ export const navSections = [
     title: 'Management',
     items: [
       { href: '/client/customers', label: 'Customers', icon: Users },
+      { href: '/client/services', label: 'Services', icon: Wrench },
       { href: '/client/automations', label: 'Automations', icon: Zap },
       { href: '/client/settings', label: 'Settings', icon: Settings },
     ]

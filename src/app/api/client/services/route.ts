@@ -1,8 +1,18 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
 
-export async function GET() {
-  const tenantResult = await getTenantContext('appointments:read')
+export interface ServiceRouteDependencies {
+  customSupabase?: any
+}
+
+export async function GET(
+  request?: Request,
+  contextOrDeps?: any,
+  deps?: ServiceRouteDependencies
+) {
+  const actualDeps: ServiceRouteDependencies | undefined =
+    deps || (contextOrDeps && typeof contextOrDeps === 'object' && 'customSupabase' in contextOrDeps ? contextOrDeps : undefined)
+  const tenantResult = await getTenantContext('appointments:read', actualDeps?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -29,8 +39,15 @@ export async function GET() {
   })
 }
 
-export async function POST(request: Request) {
-  const tenantResult = await getTenantContext('appointments:manage')
+export async function POST(
+  request: Request,
+  contextOrDeps?: any,
+  deps?: ServiceRouteDependencies
+) {
+  // Service catalog mutation requires tenant management permission (owner or admin)
+  const actualDeps: ServiceRouteDependencies | undefined =
+    deps || (contextOrDeps && typeof contextOrDeps === 'object' && 'customSupabase' in contextOrDeps ? contextOrDeps : undefined)
+  const tenantResult = await getTenantContext('org:update', actualDeps?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -39,38 +56,100 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { name, description, duration_minutes, price, requires_address, is_active } = body
+    const { name, description, duration_minutes, price, requires_address, is_active, sort_order } = body
 
-    if (!name?.trim()) {
+    if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'Service name is required' }, { status: 400 })
+    }
+
+    const trimmedName = name.trim()
+    if (trimmedName.length > 100) {
+      return NextResponse.json({ error: 'Service name cannot exceed 100 characters' }, { status: 400 })
+    }
+
+    // Validate duration
+    let parsedDuration = 60
+    if (duration_minutes !== undefined && duration_minutes !== null && duration_minutes !== '') {
+      const parsed = Number(duration_minutes)
+      if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 1440) {
+        return NextResponse.json({ error: 'Duration must be a positive integer in minutes (max 1440)' }, { status: 400 })
+      }
+      parsedDuration = parsed
+    }
+
+    // Validate price
+    let parsedPrice: number | null = null
+    if (price !== undefined && price !== null && price !== '') {
+      const parsed = Number(price)
+      if (isNaN(parsed) || parsed < 0) {
+        return NextResponse.json({ error: 'Price must be a valid non-negative number' }, { status: 400 })
+      }
+      parsedPrice = Math.round(parsed * 100) / 100
+    }
+
+    // Check duplicate ACTIVE service name within organization (case-insensitive)
+    if (is_active !== false) {
+      const { data: existingDup } = await supabase
+        .from('services')
+        .select('id, name')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+        .ilike('name', trimmedName)
+        .maybeSingle()
+
+      if (existingDup) {
+        return NextResponse.json(
+          { error: 'A service with this name already exists' },
+          { status: 409 }
+        )
+      }
     }
 
     const { data: newService, error } = await supabase
       .from('services')
       .insert({
         org_id: orgId,
-        name: name.trim(),
-        description: description?.trim() || null,
-        duration_minutes: duration_minutes ? parseInt(duration_minutes, 10) : 60,
-        price: price ? parseFloat(price) : null,
+        name: trimmedName,
+        description: typeof description === 'string' && description.trim() ? description.trim() : null,
+        duration_minutes: parsedDuration,
+        price: parsedPrice,
         requires_address: requires_address !== false,
-        is_active: is_active !== false
+        is_active: is_active !== false,
+        sort_order: typeof sort_order === 'number' ? Math.floor(sort_order) : 0
       })
       .select('*')
       .single()
 
     if (error) {
+      if (
+        error.code === '23505' ||
+        error.message?.toLowerCase().includes('unique') ||
+        error.message?.toLowerCase().includes('duplicate') ||
+        error.message?.includes('uq_services_org_id_name') ||
+        error.message?.includes('uq_services_org_id_active_name')
+      ) {
+        return NextResponse.json(
+          { error: 'A service with this name already exists' },
+          { status: 409 }
+        )
+      }
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ service: newService })
+    return NextResponse.json({ service: newService }, { status: 201 })
   } catch (err: any) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-export async function PUT(request: Request) {
-  const tenantResult = await getTenantContext('appointments:manage')
+export async function PUT(
+  request: Request,
+  contextOrDeps?: any,
+  deps?: ServiceRouteDependencies
+) {
+  const actualDeps: ServiceRouteDependencies | undefined =
+    deps || (contextOrDeps && typeof contextOrDeps === 'object' && 'customSupabase' in contextOrDeps ? contextOrDeps : undefined)
+  const tenantResult = await getTenantContext('appointments:manage', actualDeps?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }

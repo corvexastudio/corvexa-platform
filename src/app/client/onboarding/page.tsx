@@ -107,6 +107,11 @@ export default function OnboardingPage() {
       toast.error('Please enter your business name.')
       return
     }
+    const cleanDigits = phone.replace(/\D/g, '')
+    if (phone.trim() && cleanDigits.length > 0 && cleanDigits.length < 10) {
+      toast.error('Please enter a valid 10-digit mobile number, or leave it blank.')
+      return
+    }
     if (!legalBusinessName.trim()) {
       setLegalBusinessName(businessName.trim())
     }
@@ -117,6 +122,13 @@ export default function OnboardingPage() {
     const nameToSubmit = businessName.trim()
     if (!nameToSubmit) {
       toast.error('Please enter your business name.')
+      setStep(1)
+      return
+    }
+
+    const cleanDigits = phone.replace(/\D/g, '')
+    if (phone.trim() && cleanDigits.length > 0 && cleanDigits.length < 10) {
+      toast.error('Please enter a valid 10-digit mobile number, or leave it blank.')
       setStep(1)
       return
     }
@@ -132,7 +144,7 @@ export default function OnboardingPage() {
 
       const payload: Record<string, any> = {
         businessName: nameToSubmit,
-        phone: phone.trim()
+        phone: phone.trim() || null
       }
 
       if (include10Dlc) {
@@ -241,7 +253,7 @@ export default function OnboardingPage() {
                     className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 font-mono"
                   />
                   <p className="text-[11px] text-zinc-500">
-                    Used for instant owner notifications and missed-call test alerts.
+                    Used for instant owner notifications and missed-call test alerts. Leave blank if not needed.
                   </p>
                 </div>
 

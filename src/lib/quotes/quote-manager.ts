@@ -314,17 +314,19 @@ export async function sendQuote(
   )
 
   // 6. Schedule Automated Follow-Up Sequences (2-Day & 5-Day)
-  await scheduleQuoteFollowUps(supabase, {
-    quoteId: quote.id,
-    orgId,
-    orgName: org?.name || 'CaptoDesk',
-    quoteNumber: quote.quote_number,
-    total: quote.total,
-    customerPhone: contact.phone,
-    customerName: contact.name || '',
-    senderNumber: senderNumber || '+15555550100',
-    manageUrl
-  })
+  if (senderNumber) {
+    await scheduleQuoteFollowUps(supabase, {
+      quoteId: quote.id,
+      orgId,
+      orgName: org?.name || 'CaptoDesk',
+      quoteNumber: quote.quote_number,
+      total: quote.total,
+      customerPhone: contact.phone,
+      customerName: contact.name || '',
+      senderNumber,
+      manageUrl
+    })
+  }
 
   return { success: true, quote: updatedQuote }
 }

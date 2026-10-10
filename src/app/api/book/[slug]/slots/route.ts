@@ -53,16 +53,27 @@ export async function GET(
     if (serviceId && !serviceId.startsWith('default')) {
       const { data: svc } = await supabase
         .from('services')
-        .select('id, name, duration_minutes')
+        .select('id, name, duration_minutes, is_active, org_id')
         .eq('id', serviceId)
-        .eq('org_id', org.id)
         .maybeSingle()
 
-      if (svc) {
-        serviceDuration = svc.duration_minutes
-        serviceName = svc.name
-        serviceIdResolved = svc.id
+      if (!svc || svc.org_id !== org.id) {
+        return NextResponse.json(
+          { error: 'The selected service does not belong to this organization' },
+          { status: 400 }
+        )
       }
+
+      if (!svc.is_active) {
+        return NextResponse.json(
+          { error: 'The selected service is currently inactive and cannot be booked' },
+          { status: 400 }
+        )
+      }
+
+      serviceDuration = svc.duration_minutes
+      serviceName = svc.name
+      serviceIdResolved = svc.id
     }
 
     // 3. Query existing active appointments for this org on/near that date

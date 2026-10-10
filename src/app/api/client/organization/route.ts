@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
 import { logAuditEvent } from '@/lib/security/audit-logger'
+import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,7 +91,21 @@ export async function PATCH(request: Request) {
     }
 
     if (typeof body.owner_phone === 'string') {
-      allowedUpdates.owner_phone = body.owner_phone.trim()
+      const trimmed = body.owner_phone.trim()
+      if (trimmed.length === 0) {
+        allowedUpdates.owner_phone = null
+      } else {
+        const norm = normalizePhoneToE164(trimmed)
+        if (!norm.isValid || !norm.e164) {
+          return NextResponse.json(
+            { error: `Invalid owner notification phone: ${norm.error || 'Please provide a valid phone number.'}` },
+            { status: 400 }
+          )
+        }
+        allowedUpdates.owner_phone = norm.e164
+      }
+    } else if (body.owner_phone === null) {
+      allowedUpdates.owner_phone = null
     }
 
     if (typeof body.carrier === 'string') {

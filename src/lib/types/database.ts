@@ -155,3 +155,44 @@ export interface ActivityLog {
   metadata?: Record<string, any>
   created_at: string
 }
+
+export type SaasSubscriptionStatus = 'pending' | 'active' | 'past_due' | 'canceled' | 'expired'
+export type SaasBillingInterval = 'month' | 'year'
+export type SaasPaymentStatus = 'completed' | 'refunded' | 'pending' | 'failed'
+
+export interface SaasSubscription {
+  id: string
+  org_id: string
+  plan_id: string
+  status: SaasSubscriptionStatus
+  billing_interval: SaasBillingInterval
+  amount: number
+  currency: string
+  current_period_start: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  canceled_at: string | null
+  provider: string
+  provider_customer_id: string | null
+  provider_subscription_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SaasPayment {
+  id: string
+  org_id: string
+  subscription_id: string
+  amount: number
+  currency: string
+  payment_date: string
+  billing_period_start: string
+  billing_period_end: string
+  provider: string
+  provider_payment_reference: string | null
+  payment_status: SaasPaymentStatus
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+

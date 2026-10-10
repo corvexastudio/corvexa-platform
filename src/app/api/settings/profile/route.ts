@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { profileUpdateSchema, FORBIDDEN_ESCALATION_KEYS } from '@/lib/security/profile-schema'
+import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 
 export async function GET(request: Request) {
   const tenantResult = await getTenantContext()
@@ -88,6 +89,22 @@ export async function PATCH(request: Request) {
     const fullName = [validData.first_name, validData.last_name].filter(Boolean).join(' ').trim()
     if (fullName) {
       updates.full_name = fullName
+    }
+  }
+
+  if (validData.phone !== undefined) {
+    const raw = (validData.phone || '').trim()
+    if (raw.length === 0) {
+      updates.phone = null
+    } else {
+      const norm = normalizePhoneToE164(raw)
+      if (!norm.isValid || !norm.e164) {
+        return NextResponse.json(
+          { error: `Invalid profile phone: ${norm.error || 'Please provide a valid phone number.'}` },
+          { status: 400 }
+        )
+      }
+      updates.phone = norm.e164
     }
   }
 
