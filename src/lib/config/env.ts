@@ -18,6 +18,9 @@ export interface EnvValidationResult {
 export interface SafeEnvConfig {
   tier: EnvironmentTier
   supabaseUrl: string
+  supabaseProjectRef?: string
+  supabaseServiceRoleProjectRef?: string
+  isSupabaseProjectAligned: boolean
   hasSupabaseAnonKey: boolean
   hasSupabaseServiceRoleKey: boolean
   appUrl: string
@@ -27,8 +30,35 @@ export interface SafeEnvConfig {
   hasStripeSecretKey: boolean
   stripeMode: 'live' | 'test' | 'missing'
   hasStripeWebhookSecret: boolean
+  saasBillingMode: 'manual_paypal'
   hasCronSecret: boolean
   superAdminEmails: string[]
+}
+
+/**
+ * Safely extracts the Supabase project reference from a project URL.
+ */
+export function extractSupabaseUrlProjectRef(url: string): string | null {
+  if (!url) return null
+  const match = url.match(/^https?:\/\/([a-z0-9]+)\.supabase\.co/i)
+  return match ? match[1].toLowerCase() : null
+}
+
+/**
+ * Safely extracts the project reference or issuer from a JWT without external libraries.
+ * Returns null if token is not a valid 3-part JWT or payload lacks ref/iss.
+ */
+export function extractJwtProjectRef(token: string): string | null {
+  if (!token || typeof token !== 'string') return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  try {
+    const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8')
+    const payload = JSON.parse(payloadStr)
+    return (payload.ref || payload.iss || '').toLowerCase() || null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -68,6 +98,9 @@ export function validateEnvironment(envSource: NodeJS.ProcessEnv = process.env):
   const superAdminEmailsStr = envSource.SUPER_ADMIN_EMAILS || ''
 
   // 1. Supabase Validation
+  const urlProjectRef = extractSupabaseUrlProjectRef(supabaseUrl)
+  const serviceKeyProjectRef = extractJwtProjectRef(supabaseServiceKey)
+
   if (!supabaseUrl) {
     errors.push('NEXT_PUBLIC_SUPABASE_URL is required.')
   } else if (!supabaseUrl.startsWith('https://') && tier === 'production') {
@@ -78,11 +111,19 @@ export function validateEnvironment(envSource: NodeJS.ProcessEnv = process.env):
     errors.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is required for client authentication.')
   }
 
+  let isSupabaseProjectAligned = true
   if (!supabaseServiceKey) {
     if (tier === 'production') {
       errors.push('SUPABASE_SERVICE_ROLE_KEY is required in production for background automation processing and webhook handling.')
     } else {
       warnings.push('SUPABASE_SERVICE_ROLE_KEY is absent. Some background services may fail.')
+    }
+  } else if (urlProjectRef && serviceKeyProjectRef) {
+    if (urlProjectRef !== serviceKeyProjectRef) {
+      isSupabaseProjectAligned = false
+      errors.push(
+        `SUPABASE_SERVICE_ROLE_KEY project mismatch: Key was issued for project ref "${serviceKeyProjectRef}", but NEXT_PUBLIC_SUPABASE_URL is "${urlProjectRef}". Both credentials must belong to the same Supabase project.`
+      )
     }
   }
 
@@ -149,6 +190,9 @@ export function validateEnvironment(envSource: NodeJS.ProcessEnv = process.env):
   const config: SafeEnvConfig = {
     tier,
     supabaseUrl: supabaseUrl || 'http://localhost:54321',
+    supabaseProjectRef: urlProjectRef || undefined,
+    supabaseServiceRoleProjectRef: serviceKeyProjectRef || undefined,
+    isSupabaseProjectAligned,
     hasSupabaseAnonKey: Boolean(supabaseAnonKey),
     hasSupabaseServiceRoleKey: Boolean(supabaseServiceKey),
     appUrl: appUrl || 'http://localhost:3000',
@@ -158,6 +202,7 @@ export function validateEnvironment(envSource: NodeJS.ProcessEnv = process.env):
     hasStripeSecretKey: Boolean(stripeSecretKey),
     stripeMode,
     hasStripeWebhookSecret: Boolean(stripeWebhookSecret),
+    saasBillingMode: 'manual_paypal',
     hasCronSecret: Boolean(cronSecret),
     superAdminEmails
   }

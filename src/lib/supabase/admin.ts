@@ -50,6 +50,27 @@ export function createAdminClient(): SupabaseClient {
     throw new Error(diagnostic)
   }
 
+  // Pre-flight Project Reference Alignment Check (P0-ENV-01)
+  const urlMatch = url.match(/^https?:\/\/([a-z0-9]+)\.supabase\.co/i)
+  if (urlMatch) {
+    const urlRef = urlMatch[1].toLowerCase()
+    const parts = serviceRoleKey.split('.')
+    if (parts.length === 3) {
+      try {
+        const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8')
+        const claims = JSON.parse(payloadStr)
+        const keyRef = (claims.ref || '').toLowerCase()
+        if (keyRef && keyRef !== urlRef) {
+          const mismatchErr = `[SECURITY FATAL] SUPABASE_SERVICE_ROLE_KEY project mismatch: Key was issued for project "${keyRef}", but NEXT_PUBLIC_SUPABASE_URL points to "${urlRef}". Both credentials must belong to the same Supabase project.`
+          console.error(mismatchErr)
+          throw new Error(mismatchErr)
+        }
+      } catch (err: any) {
+        if (err.message?.includes('project mismatch')) throw err
+      }
+    }
+  }
+
   return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
