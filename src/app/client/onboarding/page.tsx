@@ -222,7 +222,7 @@ export default function OnboardingPage() {
             <div>
               <h1 className="text-lg font-semibold text-zinc-100 mb-1 tracking-tight">Workspace Setup</h1>
               <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
-                Enter your business details to configure your phone line, dispatcher dashboard, and client portal.
+                Enter your business details to configure your dispatcher dashboard and client portal. Your business phone connection will be configured during setup.
               </p>
 
               <form onSubmit={handleStep1Next} className="space-y-4">

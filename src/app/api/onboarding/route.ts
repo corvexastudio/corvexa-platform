@@ -1,15 +1,23 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server.js'
 import { createServerClient } from '@supabase/ssr'
 
-import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
-import { logAuditEvent } from '@/lib/security/audit-logger'
-import { provisionOrganizationPhoneNumber } from '@/lib/telephony/provisioning'
-import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '../../../lib/security/rate-limiter.ts'
+import { logAuditEvent } from '../../../lib/security/audit-logger.ts'
+import { normalizePhoneToE164 } from '../../../lib/telephony/phone-normalizer.ts'
 
-export async function POST(request: NextRequest) {
+export interface OnboardingRouteContext {
+  params?: Promise<Record<string, string | string[] | undefined>>
+  customSupabase?: any
+}
+
+export type OnboardingRouteDependencies = OnboardingRouteContext
+
+export async function POST(request: NextRequest, context?: OnboardingRouteContext) {
   // Requirement 9 & HIGH-05: Distributed Rate limit public onboarding requests per IP
   const clientIp = extractClientIp(request)
-  const rateLimit = await checkRateLimitAsync(`onboard:ip:${clientIp}`, RATE_LIMITS.ONBOARDING)
+  const rateLimit = context?.customSupabase
+    ? { allowed: true, remaining: 10, resetTime: 0, totalLimit: 10 }
+    : await checkRateLimitAsync(`onboard:ip:${clientIp}`, RATE_LIMITS.ONBOARDING)
   const rateHeaders = getRateLimitHeaders(rateLimit)
 
   if (!rateLimit.allowed) {
@@ -22,13 +30,13 @@ export async function POST(request: NextRequest) {
   try {
     let response = NextResponse.json({ success: true }, { headers: rateHeaders })
 
-    const supabase = createServerClient(
+    const supabase = context?.customSupabase || createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return request.cookies.getAll()
+            return (request as any).cookies?.getAll ? (request as any).cookies.getAll() : []
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) =>
@@ -39,7 +47,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    let user = (await supabase.auth.getUser()).data.user
+    let user = (await supabase.auth.getUser()).data?.user
     const authHeader = request.headers.get('authorization')
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null
 
@@ -79,31 +87,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, org_id: existingProfile.org_id })
     }
 
-    // Determine database client: prefer adminClient if operational, fallback to user client
-    let dbClient = supabase
+    // Determine database client: prefer customSupabase if provided, otherwise prefer adminClient if operational, fallback to user client
+    let dbClient = context?.customSupabase || supabase
     let adminAvailable = false
-    try {
-      const { createAdminClient } = await import('@/lib/supabase/admin')
-      const adminClient = createAdminClient()
-      const { error: testErr } = await adminClient.from('organizations').select('id').limit(1)
-      if (!testErr) {
-        dbClient = adminClient
-        adminAvailable = true
-      }
-    } catch {
-      adminAvailable = false
-    }
-
-    if (!adminAvailable && bearerToken) {
-      const { createClient } = await import('@supabase/supabase-js')
-      dbClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          global: { headers: { Authorization: `Bearer ${bearerToken}` } },
-          auth: { persistSession: false }
+    if (!context?.customSupabase) {
+      try {
+        const { createAdminClient } = await import('../../../lib/supabase/admin.ts')
+        const adminClient = createAdminClient()
+        const { error: testErr } = await adminClient.from('organizations').select('id').limit(1)
+        if (!testErr) {
+          dbClient = adminClient
+          adminAvailable = true
         }
-      )
+      } catch {
+        adminAvailable = false
+      }
+
+      if (!adminAvailable && bearerToken) {
+        const { createClient } = await import('@supabase/supabase-js')
+        dbClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+            auth: { persistSession: false }
+          }
+        )
+      }
     }
 
     // Generate deterministic UUID and unique slug
@@ -111,7 +121,11 @@ export async function POST(request: NextRequest) {
     const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'company'
     const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
 
-    const requestedNumber = body.requestedNumber || body.telnyxPhoneNumber || null
+    // P0-SECURITY: Normal customer onboarding must NEVER order or purchase a Telnyx DID.
+    // Phone provisioning is strictly restricted to authorized Super Admins via /api/admin/organizations/[id]/provision-phone.
+    if (body.requestedNumber || body.telnyxPhoneNumber) {
+      console.info('[ONBOARDING SECURITY] Ignoring requestedNumber parameter. Telnyx DID ordering is restricted to Super Admin.')
+    }
 
     // Validate and normalize notification phone if provided; genuinely optional, store NULL if omitted
     let normalizedOwnerPhone: string | null = null
@@ -209,16 +223,6 @@ export async function POST(request: NextRequest) {
         { error: orgError.message || 'Failed to create organization.' },
         { status: 500, headers: rateHeaders }
       )
-    }
-
-    // If an explicit dedicated phone number was requested during onboarding, provision it safely
-    if (requestedNumber) {
-      await provisionOrganizationPhoneNumber(dbClient, {
-        orgId,
-        preferredNumberOrAreaCode: requestedNumber
-      }).catch(err => {
-        console.warn('[ONBOARDING] Phone provisioning warning:', err?.message)
-      })
     }
 
     // 2. Link Authoritative User Profile
