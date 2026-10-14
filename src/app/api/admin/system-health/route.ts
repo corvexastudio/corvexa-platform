@@ -71,7 +71,8 @@ export async function GET() {
         services: {
           telnyx: envValidation.config.hasTelnyxApiKey ? 'configured' : 'simulated',
           stripe: envValidation.config.stripeMode,
-          cronProtection: envValidation.config.hasCronSecret ? 'active' : 'disabled'
+          cronProtection: envValidation.config.hasCronSecret ? 'active' : 'disabled',
+          alerting: envValidation.config.hasAlertWebhookUrl ? 'configured' : 'disabled'
         },
         telemetry: {
           totalRequests: apiSummary.totalRequests,

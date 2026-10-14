@@ -37,7 +37,11 @@ const SENSITIVE_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
   // Telnyx keys
   { pattern: /KEY[a-zA-Z0-9_\-]{20,}/gi, replacement: '[REDACTED_TELNYX_KEY]' },
   // 13-19 digit Credit card patterns (with optional spaces/dashes)
-  { pattern: /\b(?:\d[ -]*?){13,19}\b/g, replacement: '[REDACTED_CARD]' }
+  { pattern: /\b(?:\d[ -]*?){13,19}\b/g, replacement: '[REDACTED_CARD]' },
+  // Phone numbers
+  { pattern: /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, replacement: '[REDACTED_PHONE]' },
+  // Email addresses
+  { pattern: /[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g, replacement: '[REDACTED_EMAIL]' }
 ]
 
 /**
@@ -76,7 +80,11 @@ export function redactSensitiveData(obj: any): any {
     const lowerKey = key.toLowerCase()
     
     // Check if key itself matches a sensitive name
-    const isSensitiveKey =
+    if (lowerKey.includes('phone') || lowerKey.includes('mobile')) {
+      sanitized[key] = '[REDACTED_PHONE]'
+    } else if (lowerKey.includes('email')) {
+      sanitized[key] = '[REDACTED_EMAIL]'
+    } else if (
       SENSITIVE_KEY_NAMES.has(lowerKey) ||
       lowerKey.includes('password') ||
       lowerKey.includes('token') ||
@@ -86,8 +94,7 @@ export function redactSensitiveData(obj: any): any {
       lowerKey.includes('auth') ||
       lowerKey.includes('card_number') ||
       lowerKey.includes('cvv')
-
-    if (isSensitiveKey) {
+    ) {
       sanitized[key] = '[REDACTED]'
     } else if (typeof val === 'string') {
       sanitized[key] = sanitizeString(val)

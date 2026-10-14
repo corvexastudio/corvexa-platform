@@ -32,6 +32,7 @@ export interface SafeEnvConfig {
   hasStripeWebhookSecret: boolean
   saasBillingMode: 'manual_paypal'
   hasCronSecret: boolean
+  hasAlertWebhookUrl: boolean
   superAdminEmails: string[]
 }
 
@@ -204,6 +205,7 @@ export function validateEnvironment(envSource: NodeJS.ProcessEnv = process.env):
     hasStripeWebhookSecret: Boolean(stripeWebhookSecret),
     saasBillingMode: 'manual_paypal',
     hasCronSecret: Boolean(cronSecret),
+    hasAlertWebhookUrl: Boolean(envSource.ALERT_WEBHOOK_URL),
     superAdminEmails
   }
 

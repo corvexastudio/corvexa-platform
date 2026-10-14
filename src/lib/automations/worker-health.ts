@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createStructuredLogger } from '../observability/logger.ts'
+import { alertManager } from '../observability/alerts/alert-manager.ts'
 
 export interface WorkerHealthOptions {
   degradedThresholdSeconds?: number
@@ -140,6 +141,24 @@ export async function checkWorkerHealth(
         console.error('[WORKER HEALTH ALERT CALLBACK ERROR]', alertErr)
       }
     }
+
+    alertManager.sendAlert({
+      category: 'stale_job_backlog',
+      severity: status === 'unhealthy' ? 'critical' : 'warning',
+      dedupKey: 'worker_health_backlog',
+      title: status === 'unhealthy' ? 'Automation Worker Backlog Unhealthy' : 'Automation Worker Backlog Degraded',
+      description: message,
+      metadata: {
+        delaySeconds: currentDelaySeconds,
+        overdueCount: totalOverdueRuns,
+        stuckLockCount
+      }
+    }).catch(() => {})
+  } else if (alertManager.isAlertActive('worker_health_backlog')) {
+    alertManager.sendRecovery('worker_health_backlog', {
+      title: 'Automation Worker Health Restored',
+      description: 'Worker processing delay and stuck locks returned to healthy state.'
+    }).catch(() => {})
   }
 
   return {

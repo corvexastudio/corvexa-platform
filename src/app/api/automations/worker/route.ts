@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { drainDueAutomationJobs } from '@/lib/automations/worker'
-import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
-import { createStructuredLogger } from '@/lib/observability/logger'
+import { NextResponse } from 'next/server.js'
+import { createAdminClient } from '../../../../lib/supabase/admin.ts'
+import { drainDueAutomationJobs } from '../../../../lib/automations/worker.ts'
+import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '../../../../lib/security/rate-limiter.ts'
+import { alertManager } from '../../../../lib/observability/alerts/alert-manager.ts'
+import { evaluateSystemHealthAndAlert } from '../../../../lib/observability/monitors/system-monitor.ts'
 
 import { createHash, timingSafeEqual } from 'node:crypto'
 
@@ -33,6 +34,14 @@ async function handleWorkerExecution(request: Request) {
   const configuredCronSecret = process.env.CRON_SECRET
 
   if (!configuredCronSecret || configuredCronSecret.trim().length === 0) {
+    alertManager.sendAlert({
+      category: 'worker_cron_stale',
+      severity: 'critical',
+      dedupKey: 'worker_cron_misconfiguration',
+      title: 'Cron Worker Unconfigured',
+      description: 'CRON_SECRET is missing or blank in runtime environment'
+    }).catch(() => {})
+
     return NextResponse.json(
       { error: 'Cron worker unconfigured: CRON_SECRET is required' },
       { status: 503 }
@@ -49,6 +58,14 @@ async function handleWorkerExecution(request: Request) {
       { error: 'Unauthorized: Invalid or missing cron secret' },
       { status: 401 }
     )
+  }
+
+  // Clear any active misconfiguration alert upon successful authenticated execution
+  if (alertManager.isAlertActive('worker_cron_misconfiguration')) {
+    alertManager.sendRecovery('worker_cron_misconfiguration', {
+      title: 'Cron Worker Configuration Restored',
+      description: 'Authenticated worker execution succeeded.'
+    }).catch(() => {})
   }
 
   // 2. Distributed Rate Limiting to prevent runaway schedulers (max 100 executions/min) (HIGH-05)
@@ -76,6 +93,13 @@ async function handleWorkerExecution(request: Request) {
       maxDurationMs: process.env.WORKER_MAX_DURATION_MS ? parseInt(process.env.WORKER_MAX_DURATION_MS, 10) : 25000,
       safetyMarginMs: process.env.WORKER_SAFETY_MARGIN_MS ? parseInt(process.env.WORKER_SAFETY_MARGIN_MS, 10) : 5000
     })
+
+    // 4. Lightweight system health evaluation & alert dispatch (safe & non-blocking)
+    try {
+      await evaluateSystemHealthAndAlert(supabase)
+    } catch (monErr) {
+      console.error('[WORKER_HEALTH_EVALUATION_ERROR]', monErr)
+    }
 
     return NextResponse.json({
       success: true,
