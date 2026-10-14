@@ -712,4 +712,32 @@ export class SubscriptionService {
     if (error || !data) return []
     return data as SaasPayment[]
   }
+
+  /**
+   * Fast server-authoritative check for SaaS active entitlement.
+   * Derives state strictly from internal database models (saas_subscriptions & organizations).
+   * Fails closed (returns false) if organization or subscription is missing, past_due, canceled, expired, or churned.
+   */
+  static async hasActiveSaaSEntitlement(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<boolean> {
+    if (!orgId || !supabase) return false
+    try {
+      const entitlement = await this.getEntitlement(supabase, orgId)
+      return Boolean(entitlement?.isEntitled)
+    } catch {
+      return false
+    }
+  }
+}
+
+/**
+ * Convenience helper for evaluating server-side SaaS active entitlement.
+ */
+export async function hasActiveSaaSEntitlement(
+  supabase: SupabaseClient,
+  orgId: string
+): Promise<boolean> {
+  return SubscriptionService.hasActiveSaaSEntitlement(supabase, orgId)
 }

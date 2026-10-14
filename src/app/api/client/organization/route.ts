@@ -1,19 +1,27 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { logAuditEvent } from '@/lib/security/audit-logger'
-import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
+import { logAuditEvent } from '../../../../lib/security/audit-logger.ts'
+import { normalizePhoneToE164 } from '../../../../lib/telephony/phone-normalizer.ts'
 
 export const dynamic = 'force-dynamic'
 
+export interface OrganizationRouteContext {
+  params?: Promise<Record<string, string | string[] | undefined>>
+  customSupabase?: any
+}
+
+export type OrganizationRouteDependencies = OrganizationRouteContext
+
 /**
- * Tenant Organization Management API (HIGH-02)
+ * Tenant Organization Management API (HIGH-02 & P1-BILLING-01)
  * Strictly enforces RBAC:
  * - GET: requires 'org:view' (accessible to all tenant roles)
  * - PATCH: strictly requires 'org:update' (restricted to owner and admin roles only; members/technicians/dispatchers are 403 Forbidden)
+ * - Rejects any attempt to tamper with billing (subscription_status, monthly_rate), identity, or phone routing.
  */
 
-export async function GET() {
-  const tenantResult = await getTenantContext('org:view')
+export async function GET(request?: Request, context?: OrganizationRouteContext) {
+  const tenantResult = await getTenantContext('org:view', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -45,6 +53,7 @@ export async function GET() {
       max_booking_days_ahead,
       blocked_dates,
       subscription_status,
+      monthly_rate,
       legal_business_name,
       business_type,
       ein,
@@ -69,9 +78,9 @@ export async function GET() {
   return NextResponse.json({ organization: org })
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: Request, context?: OrganizationRouteContext) {
   // 1. Strict RBAC enforcement: Requires 'org:update' permission (owner/admin only)
-  const tenantResult = await getTenantContext('org:update')
+  const tenantResult = await getTenantContext('org:update', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -81,7 +90,53 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json()
 
-    // 2. Strict Allowlist of Mutable Operational Fields
+    // 2. Strict Prohibition of Billing & Identity Tampering (P1-BILLING-01)
+    // Tenant owners/admins must NEVER be able to modify SaaS billing, payment, routing, or identity state.
+    const FORBIDDEN_BILLING_KEYS = [
+      'subscription_status',
+      'monthly_rate',
+      'org_id',
+      'orgId',
+      'id',
+      'role',
+      'provider',
+      'provider_customer_id',
+      'provider_subscription_id',
+      'stripe_customer_id',
+      'stripe_subscription_id',
+      'billing_period',
+      'billing_period_start',
+      'billing_period_end',
+      'payment_status',
+      'telnyx_phone_number',
+      'telnyx_order_id',
+      'phone_provisioning_status',
+      'carrier_registration_status',
+      'tcr_brand_id',
+      'tcr_campaign_id',
+      'requestedNumber',
+      'telnyxPhoneNumber'
+    ] as const
+
+    const attemptedForbiddenKey = FORBIDDEN_BILLING_KEYS.find(k => k in body)
+    if (attemptedForbiddenKey) {
+      await logAuditEvent(supabase, {
+        org_id: orgId,
+        event_type: 'security.privilege_escalation_attempt',
+        description: `Tenant user ${user.id} attempted to modify protected billing/identity field: ${attemptedForbiddenKey}`,
+        metadata: {
+          actor_id: user.id,
+          actor_role: role,
+          attempted_key: attemptedForbiddenKey
+        }
+      })
+      return NextResponse.json(
+        { error: `Prohibited parameter: '${attemptedForbiddenKey}' is server-authoritative and cannot be modified by tenant.` },
+        { status: 400 }
+      )
+    }
+
+    // 3. Strict Allowlist of Mutable Operational Fields
     // Prevents tampering with tenant identity (id, slug), routing (telnyx_phone_number),
     // or billing credentials (stripe_customer_id, subscription_status).
     const allowedUpdates: Record<string, any> = {}

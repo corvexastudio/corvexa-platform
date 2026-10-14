@@ -1,9 +1,19 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { evaluateCustomerReactivation, computeLifecycleStatus } from '@/lib/retention/lifecycle-manager'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
+import { evaluateCustomerReactivation, computeLifecycleStatus } from '../../../../lib/retention/lifecycle-manager.ts'
+import { hasActiveSaaSEntitlement } from '../../../../lib/billing/subscription-service.ts'
 
-export async function GET(request: Request) {
-  const tenantResult = await getTenantContext('contacts:read')
+export const dynamic = 'force-dynamic'
+
+export interface RetentionRouteContext {
+  params?: Promise<Record<string, string | string[] | undefined>>
+  customSupabase?: any
+}
+
+export type RetentionRouteDependencies = RetentionRouteContext
+
+export async function GET(request: Request, context?: RetentionRouteContext) {
+  const tenantResult = await getTenantContext('contacts:read', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -64,13 +74,22 @@ export async function GET(request: Request) {
   })
 }
 
-export async function POST(request: Request) {
-  const tenantResult = await getTenantContext('contacts:manage')
+export async function POST(request: Request, context?: RetentionRouteContext) {
+  const tenantResult = await getTenantContext('contacts:manage', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
 
   const { orgId, supabase } = tenantResult
+
+  // P1-BILLING: Enforce SaaS entitlement check for automated retention features
+  const isEntitled = await hasActiveSaaSEntitlement(supabase, orgId)
+  if (!isEntitled) {
+    return NextResponse.json({
+      error: 'Active SaaS subscription required to execute customer reactivation campaigns'
+    }, { status: 402 })
+  }
+
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com'
 
   let body: any = {}
@@ -89,13 +108,22 @@ export async function POST(request: Request) {
   return NextResponse.json(result)
 }
 
-export async function PUT(request: Request) {
-  const tenantResult = await getTenantContext('org:update')
+export async function PUT(request: Request, context?: RetentionRouteContext) {
+  const tenantResult = await getTenantContext('org:update', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
 
   const { orgId, supabase } = tenantResult
+
+  // P1-BILLING: Enforce SaaS entitlement check for automated retention features
+  const isEntitled = await hasActiveSaaSEntitlement(supabase, orgId)
+  if (!isEntitled) {
+    return NextResponse.json({
+      error: 'Active SaaS subscription required to configure customer retention campaigns'
+    }, { status: 402 })
+  }
+
   const body = await request.json()
 
   // Validate incoming configuration
