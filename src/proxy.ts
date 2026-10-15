@@ -128,13 +128,7 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(NextResponse.rewrite(destination))
   }
 
-  // 6. Root path handling: redirect directly to client portal
-  if (pathname === '/') {
-    if (user) {
-      return finalizeResponse(NextResponse.redirect(new URL('/client/dashboard', request.url)))
-    }
-    return finalizeResponse(NextResponse.redirect(new URL('/client/login', request.url)))
-  }
+  // 6. Root path (/) serves the public marketing landing page to all visitors
 
   // 7. Auth protection for /client/*
   const isClientPath = pathname.startsWith('/client')
