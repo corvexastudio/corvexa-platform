@@ -164,13 +164,13 @@ export function RevenueCalculator() {
             href="/client/login"
             className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5"
           >
-            <span>Stop Leaking Revenue — Start Free</span>
+            <span>Stop Leaking Revenue — Get Started</span>
             <ArrowRight className="w-4 h-4" />
           </a>
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500">
             <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
-            <span>14-day free trial • 2-minute setup • No credit card</span>
+            <span>Dedicated phone line included • 30-day money-back guarantee • Cancel anytime</span>
           </div>
         </div>
       </div>

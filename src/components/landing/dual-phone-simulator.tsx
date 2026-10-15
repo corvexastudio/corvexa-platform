@@ -602,7 +602,7 @@ export function DualPhoneSimulator() {
           href="/client/login"
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs whitespace-nowrap shadow-md shadow-emerald-600/20 transition-all"
         >
-          <span>Start 14-Day Free Trial</span>
+          <span>Get Started Today</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </a>
       </div>

@@ -32,6 +32,10 @@ const FAQS: FaqItem[] = [
   {
     q: 'Can my crew or sub-contractors use this on their phones?',
     a: "Yes. Every technician gets their own clean mobile login. When they leave for a job, they tap 'On My Way'. The homeowner instantly gets their live tracking link with the technician's name and ETA, eliminating 'Where are you?' phone calls to your main line."
+  },
+  {
+    q: 'Why do you offer a 30-day money-back guarantee instead of a free trial?',
+    a: "Unlike generic software apps, CaptoDesk provisions a real, dedicated phone number and pays for strict 10DLC carrier compliance registration for your business the moment you join. We absorb those upfront telecom costs for you. To keep it completely risk-free, we back it with a 30-day money-back guarantee: if CaptoDesk doesn't save you at least two jobs in your first month, we will refund 100% of your software fee."
   }
 ]
 

@@ -113,7 +113,7 @@ export default function LandingPage() {
                   href="/client/login"
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1"
                 >
-                  <span>Start Free Trial</span>
+                  <span>Get Started</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </>
@@ -187,7 +187,7 @@ export default function LandingPage() {
                 href="/client/login"
                 className="w-full text-center py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg shadow"
               >
-                Start 14-Day Free Trial
+                Get Started Today
               </Link>
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function LandingPage() {
               href="/client/login"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm sm:text-base shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5"
             >
-              <span>Start 14-Day Free Trial</span>
+              <span>Get CaptoDesk Pro</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
             <a
@@ -243,10 +243,10 @@ export default function LandingPage() {
               <Check className="w-3.5 h-3.5 text-emerald-400" /> Keeps your existing business number
             </span>
             <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-400" /> Zero customer app downloads
+              <Check className="w-3.5 h-3.5 text-emerald-400" /> Dedicated Phone Line Included
             </span>
             <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-400" /> No credit card required
+              <Check className="w-3.5 h-3.5 text-emerald-400" /> Zero customer app downloads
             </span>
           </div>
         </div>
@@ -500,7 +500,7 @@ export default function LandingPage() {
         {/* Pricing Card */}
         <div className="rounded-3xl border-2 border-emerald-500/40 bg-zinc-950 p-6 sm:p-10 shadow-2xl relative overflow-hidden space-y-8">
           <div className="absolute top-0 right-0 px-4 py-1.5 bg-emerald-600 text-white font-bold text-xs uppercase font-mono tracking-wider rounded-bl-xl">
-            14-DAY RISK-FREE TRIAL
+            30-DAY MONEY-BACK GUARANTEE
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
@@ -533,7 +533,7 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Dedicated carrier-verified phone line (10DLC)</span>
+              <span>Dedicated carrier-verified phone line (10DLC included)</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -546,11 +546,11 @@ export default function LandingPage() {
               href="/client/login"
               className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
             >
-              <span>Start 14-Day Free Trial</span>
+              <span>Get Started Today</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
             <span className="text-xs text-zinc-400 text-center sm:text-right">
-              No credit card required. Cancel in 1 click anytime.
+              Month-to-month. Cancel anytime with 1 click.
             </span>
           </div>
         </div>
@@ -568,14 +568,14 @@ export default function LandingPage() {
             Stop Donating Jobs to the Next Guy on Google.
           </h2>
           <p className="text-sm sm:text-base text-zinc-300 max-w-xl mx-auto">
-            Test CaptoDesk on your next 20 service calls. If you don&apos;t save at least two jobs that would have slipped through the cracks, it costs you nothing.
+            Activate CaptoDesk on your next 20 service calls. If you don&apos;t save at least two jobs that would have slipped through the cracks, we will refund 100% of your software fee.
           </p>
           <div className="pt-2">
             <Link
               href="/client/login"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base shadow-xl shadow-emerald-600/30 transition-all transform hover:-translate-y-0.5"
             >
-              <span>Start Your 14-Day Free Trial →</span>
+              <span>Activate CaptoDesk Pro →</span>
             </Link>
           </div>
           <p className="text-xs text-zinc-500 font-mono">
