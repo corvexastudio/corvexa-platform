@@ -762,7 +762,7 @@ export default function SettingsPage() {
                   When customers pay through their live job tracker or invoice link, payments process securely through Stripe. Funds deposit automatically to your linked bank account on a rolling 2-day schedule.
                 </p>
                 <div className="pt-1 text-[11px] text-zinc-500 flex items-center gap-1">
-                  <span>Platform fee: 1% facilitation per successful invoice.</span>
+                  <span>Platform fee: 0.5% facilitation per successful invoice.</span>
                 </div>
               </div>
 

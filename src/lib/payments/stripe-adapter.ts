@@ -120,9 +120,9 @@ export async function createStripeCheckoutSession(
 
   let requestOptions: Stripe.RequestOptions | undefined = undefined
 
-  // Apply 1% platform fee take-rate when routing through connected account
+  // Apply 0.5% platform fee take-rate when routing through connected account
   if (connectedStripeAccountId && connectedStripeAccountId.startsWith('acct_')) {
-    const platformFeeInCents = Math.max(1, Math.round(amountInCents * 0.01)) // 1% platform fee
+    const platformFeeInCents = Math.max(1, Math.round(amountInCents * 0.005)) // 0.5% platform fee
     sessionParams.payment_intent_data = {
       application_fee_amount: platformFeeInCents,
     }
