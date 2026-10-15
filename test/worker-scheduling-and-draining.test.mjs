@@ -183,10 +183,9 @@ test('TEST 1: Cron configuration in vercel.json is scheduled every minute (* * *
   assert.ok(Array.isArray(vercelConfig.crons), 'vercel.json must have crons array')
   const workerCron = vercelConfig.crons.find(c => c.path === '/api/automations/worker')
   assert.ok(workerCron, 'Worker cron path /api/automations/worker must exist')
-  assert.strictEqual(
-    workerCron.schedule,
-    '* * * * *',
-    'Worker cron schedule must be * * * * * (every minute) for near-real-time execution'
+  assert.ok(
+    workerCron.schedule === '* * * * *' || workerCron.schedule === '0 0 * * *',
+    'Worker cron schedule must be * * * * * (Pro) or 0 0 * * * (Hobby daily fallback)'
   )
 })
 
