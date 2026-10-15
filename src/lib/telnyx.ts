@@ -23,7 +23,7 @@ export async function sendTelnyxSms({
   from?: string
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const apiKey = process.env.TELNYX_API_KEY
-  const defaultFrom = process.env.TELNYX_PHONE_NUMBER || from
+  const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || from
 
   if (!apiKey) {
     if (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production') {
