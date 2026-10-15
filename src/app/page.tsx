@@ -33,6 +33,7 @@ import { createClient } from '@/lib/supabase/client'
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
 
   // Check if visitor is already logged in to customize CTA
   useEffect(() => {
@@ -484,7 +485,7 @@ export default function LandingPage() {
 
       {/* ── 9. Straightforward Pricing ── */}
       <section id="pricing" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-10">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <DollarSign className="w-3.5 h-3.5" />
             <span>TRANSPARENT CONTRACTOR PRICING</span>
@@ -493,8 +494,37 @@ export default function LandingPage() {
             Simple Pricing. Zero Contracts.
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
-            One extra booked job pays for your entire year of CaptoDesk.
+            One extra booked job covers your entire year of CaptoDesk.
           </p>
+
+          {/* Billing Cycle Toggle */}
+          <div className="inline-flex items-center p-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                billingCycle === 'monthly'
+                  ? 'bg-zinc-800 text-white shadow-md border border-zinc-700'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Monthly Billing
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle('annual')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                billingCycle === 'annual'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <span>Annual Billing</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-400/40 text-[10px] font-extrabold uppercase">
+                Save 47%
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Pricing Card */}
@@ -503,15 +533,44 @@ export default function LandingPage() {
             30-DAY MONEY-BACK GUARANTEE
           </div>
 
+          {/* Header & Price with MRP Strikethrough */}
           <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
             <div>
-              <h3 className="text-2xl font-bold text-white">CaptoDesk Pro</h3>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">Everything you need to capture, track, and get paid.</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-2xl font-bold text-white">CaptoDesk Pro</h3>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono">
+                  REGULAR MRP $149/MO
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
+                Complete AI front desk, live technician tracking, and 0.5% mobile invoicing.
+              </p>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">$97</span>
-              <span className="text-zinc-400 text-sm font-medium">/ month</span>
+
+            <div className="flex flex-col sm:items-end">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl sm:text-2xl font-bold text-zinc-500 line-through decoration-rose-500 decoration-2">
+                  $149
+                </span>
+                <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">
+                  ${billingCycle === 'monthly' ? '97' : '79'}
+                </span>
+                <span className="text-zinc-400 text-sm font-medium">/ month</span>
+              </div>
+              <span className="text-[11px] font-semibold text-emerald-400 font-mono mt-0.5">
+                {billingCycle === 'monthly'
+                  ? '✓ Save $52/mo vs MRP — Locked-in Launch Rate'
+                  : '✓ Billed annually ($948/yr) — Save $840/yr'}
+              </span>
             </div>
+          </div>
+
+          {/* Launch Rate Lock Callout */}
+          <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-200 flex items-center gap-2.5">
+            <Flame className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Early Contractor Launch Rate:</strong> The regular price is <strong>$149/month</strong>. Activate today to lock in <strong>${billingCycle === 'monthly' ? '97' : '79'}/mo</strong> for the lifetime of your account before rates increase.
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-zinc-200">
