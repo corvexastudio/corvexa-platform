@@ -173,6 +173,25 @@ export async function POST(request: Request) {
           throw new Error(`Failed to record invoice payment: ${result.error}`)
         }
       }
+    } else if (event.type === 'account.updated') {
+      const account = event.data.object as any
+      if (account.id) {
+        const isChargesEnabled = Boolean(account.charges_enabled)
+        const isPayoutsEnabled = Boolean(account.payouts_enabled)
+        const status = isChargesEnabled ? 'active' : 'pending'
+
+        await supabase
+          .from('organizations')
+          .update({
+            stripe_charges_enabled: isChargesEnabled,
+            stripe_payouts_enabled: isPayoutsEnabled,
+            stripe_account_status: status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('stripe_account_id', account.id)
+
+        logger.info(`Updated organization stripe connect status: ${account.id} -> ${status}`)
+      }
     }
 
     // 4. Mark Event Completed AFTER successful business processing

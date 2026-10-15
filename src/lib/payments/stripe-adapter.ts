@@ -12,6 +12,7 @@ export interface CreateCheckoutSessionInput {
   title: string
   manageToken: string
   baseUrl: string
+  connectedStripeAccountId?: string | null
   items?: Array<{
     description: string
     quantity: number
@@ -60,6 +61,7 @@ export async function createStripeCheckoutSession(
     title,
     manageToken,
     baseUrl,
+    connectedStripeAccountId,
     items = []
   } = input
 
@@ -82,10 +84,10 @@ export async function createStripeCheckoutSession(
     }
   }
 
-  // 2. Real Stripe Checkout Session
+  // 2. Real Stripe Checkout Session with 1% Application Fee for Connected Accounts
   const amountInCents = Math.max(50, Math.round(amountDue * 100))
 
-  const session = await stripe.checkout.sessions.create({
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'payment',
     customer_email: customerEmail || undefined,
     client_reference_id: invoiceId,
@@ -94,7 +96,8 @@ export async function createStripeCheckoutSession(
       org_id: orgId,
       contact_id: contactId,
       invoice_number: invoiceNumber,
-      manage_token: manageToken
+      manage_token: manageToken,
+      connected_stripe_account: connectedStripeAccountId || 'platform_direct'
     },
     line_items: [
       {
@@ -113,7 +116,22 @@ export async function createStripeCheckoutSession(
     ],
     success_url: successUrl,
     cancel_url: cancelUrl,
-  })
+  }
+
+  let requestOptions: Stripe.RequestOptions | undefined = undefined
+
+  // Apply 1% platform fee take-rate when routing through connected account
+  if (connectedStripeAccountId && connectedStripeAccountId.startsWith('acct_')) {
+    const platformFeeInCents = Math.max(1, Math.round(amountInCents * 0.01)) // 1% platform fee
+    sessionParams.payment_intent_data = {
+      application_fee_amount: platformFeeInCents,
+    }
+    requestOptions = {
+      stripeAccount: connectedStripeAccountId,
+    }
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams, requestOptions)
 
   return {
     sessionId: session.id,

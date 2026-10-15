@@ -44,6 +44,7 @@ interface JobItem {
   started_at?: string | null
   completed_at?: string | null
   notes?: string | null
+  tracking_token?: string | null
   contact?: {
     id: string
     name?: string | null
@@ -534,6 +535,33 @@ function JobsContent() {
                     >
                       <DollarSign className="h-3.5 w-3.5" />
                     </Link>
+
+                    {/* Customer Live Tracker Link */}
+                    {job.tracking_token && (
+                      <div className="flex items-center gap-0.5 border-l border-zinc-800 pl-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = `${window.location.origin}/t/${job.tracking_token}`
+                            navigator.clipboard.writeText(url)
+                            toast.success('Customer live tracking link copied to clipboard!')
+                          }}
+                          className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-indigo-400 transition-colors"
+                          title="Copy Customer Tracking Link"
+                        >
+                          <Navigation className="h-3.5 w-3.5 text-indigo-400" />
+                        </button>
+                        <a
+                          href={`/t/${job.tracking_token}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-indigo-400 transition-colors"
+                          title="Open Customer Live Tracker"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

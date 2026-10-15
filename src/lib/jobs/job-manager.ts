@@ -83,7 +83,8 @@ export async function createJob(
       status: 'scheduled',
       scheduled_start: scheduledStart,
       scheduled_end: scheduledEnd || null,
-      notes: notes?.trim() || null
+      notes: notes?.trim() || null,
+      tracking_token: crypto.randomUUID().replace(/-/g, '')
     })
     .select('*')
     .single()
@@ -338,5 +339,131 @@ export async function restoreJob(
     return { success: false, error: error.message }
   }
   return { success: true }
+}
+
+/**
+ * Retrieves public job tracking data by tracking_token for customer-facing live status page
+ */
+export async function customerViewJobTracking(
+  supabase: SupabaseClient,
+  token: string
+): Promise<{
+  success: boolean
+  job?: any
+  org?: any
+  contact?: any
+  service?: any
+  invoice?: any
+  reviewUrl?: string | null
+  error?: string
+}> {
+  if (!token || !token.trim()) {
+    return { success: false, error: 'Tracking token is required' }
+  }
+
+  // 1. Fetch job with organization, contact, and service relations
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .select(`
+      id,
+      job_number,
+      title,
+      description,
+      status,
+      scheduled_start,
+      scheduled_end,
+      en_route_at,
+      started_at,
+      completed_at,
+      notes,
+      tracking_token,
+      org_id,
+      contact_id,
+      service_id,
+      assigned_to,
+      organizations (
+        id,
+        name,
+        telnyx_phone_number,
+        owner_phone,
+        google_review_url,
+        logo_url
+      ),
+      contacts (
+        id,
+        name,
+        phone,
+        address
+      ),
+      services (
+        id,
+        name,
+        duration_minutes,
+        price
+      )
+    `)
+    .eq('tracking_token', token.trim())
+    .single()
+
+  if (jobError || !job) {
+    return { success: false, error: 'Job tracking link not found or expired' }
+  }
+
+  // 2. Lookup any associated invoice for this job or contact
+  const { data: invoice } = await supabase
+    .from('invoices')
+    .select('id, invoice_number, title, total, amount_paid, amount_due, status, manage_token')
+    .eq('org_id', job.org_id)
+    .or(`job_id.eq.${job.id},contact_id.eq.${job.contact_id}`)
+    .in('status', ['sent', 'viewed', 'partially_paid', 'paid'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  // 3. Review Link Resolution
+  const org = (job as any).organizations
+  const reviewUrl: string | null = org?.google_review_url || null
+
+  return {
+    success: true,
+    job: {
+      id: job.id,
+      jobNumber: job.job_number,
+      title: job.title,
+      description: job.description,
+      status: job.status,
+      scheduledStart: job.scheduled_start,
+      scheduledEnd: job.scheduled_end,
+      enRouteAt: job.en_route_at,
+      startedAt: job.started_at,
+      completedAt: job.completed_at,
+      notes: job.notes,
+      trackingToken: job.tracking_token
+    },
+    org: {
+      id: org?.id,
+      name: org?.name || 'Service Provider',
+      phone: org?.telnyx_phone_number || org?.owner_phone || null,
+      logoUrl: org?.logo_url || null
+    },
+    contact: (job as any).contacts ? {
+      name: (job as any).contacts.name,
+      address: (job as any).contacts.address
+    } : null,
+    service: (job as any).services ? {
+      name: (job as any).services.name,
+      durationMinutes: (job as any).services.duration_minutes,
+      price: (job as any).services.price
+    } : null,
+    invoice: invoice ? {
+      invoiceNumber: invoice.invoice_number,
+      total: Number(invoice.total),
+      amountPaid: Number(invoice.amount_paid),
+      amountDue: Number(invoice.amount_due),
+      status: invoice.status,
+      manageToken: invoice.manage_token
+    } : null,
+    reviewUrl
+  }
 }
 

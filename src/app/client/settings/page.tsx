@@ -19,7 +19,9 @@ import {
   Save, 
   Smartphone,
   Loader2,
-  Check
+  Check,
+  CreditCard,
+  ExternalLink
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -32,6 +34,17 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string>('member')
+
+  // Stripe Connect State
+  const [stripeStatus, setStripeStatus] = useState<{
+    connected: boolean
+    accountId?: string | null
+    status: string
+    chargesEnabled: boolean
+    payoutsEnabled: boolean
+  } | null>(null)
+  const [connectingStripe, setConnectingStripe] = useState(false)
+  const [openingDashboard, setOpeningDashboard] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -127,7 +140,68 @@ export default function SettingsPage() {
     }
   }, [supabase])
 
-  useEffect(() => { loadSettings() }, [loadSettings])
+  const loadStripeStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/client/payments/connect')
+      if (res.ok) {
+        const json = await res.json()
+        setStripeStatus(json)
+      }
+    } catch {
+      // quiet fail
+    }
+  }, [])
+
+  useEffect(() => { 
+    loadSettings()
+    loadStripeStatus()
+  }, [loadSettings, loadStripeStatus])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('connect') === 'success' || params.get('connect') === 'simulated_success') {
+        toast.success('Stripe Connect onboarding completed! Payments and direct deposits are active.')
+        loadStripeStatus()
+      } else if (params.get('connect') === 'refresh') {
+        toast.info('Stripe verification was interrupted. Click Connect to resume.')
+      }
+    }
+  }, [loadStripeStatus])
+
+  const handleConnectStripe = async () => {
+    setConnectingStripe(true)
+    try {
+      const res = await fetch('/api/client/payments/connect', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        window.location.href = data.url
+      } else {
+        toast.error(data.error || 'Failed to initiate Stripe onboarding.')
+      }
+    } catch {
+      toast.error('Network error connecting to Stripe.')
+    } finally {
+      setConnectingStripe(false)
+    }
+  }
+
+  const handleOpenStripeDashboard = async () => {
+    setOpeningDashboard(true)
+    try {
+      const res = await fetch('/api/client/payments/connect/dashboard', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        window.open(data.url, '_blank')
+      } else {
+        toast.error(data.error || 'Failed to open Stripe dashboard.')
+      }
+    } catch {
+      toast.error('Network error opening dashboard.')
+    } finally {
+      setOpeningDashboard(false)
+    }
+  }
 
   const handleCopyNumber = () => {
     if (!formData.telnyx_phone_number) return
@@ -651,7 +725,108 @@ export default function SettingsPage() {
             </div>
           </form>
 
-          {/* ── Section 3: TCPA & Carrier Compliance ── */}
+          {/* ── Section 3: Online Payments & Payouts (Stripe Connect) ── */}
+          <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-emerald-400" />
+                  Online Payments &amp; Direct Bank Deposits
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Accept credit card, debit card, and Apple Pay payments on invoices and live customer tracking links.
+                </p>
+              </div>
+
+              {stripeStatus?.connected ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Stripe Express Active</span>
+                </div>
+              ) : stripeStatus?.status === 'pending' ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>Verification Pending</span>
+                </div>
+              ) : (
+                <span className="text-xs text-zinc-500 font-medium">
+                  Not Configured
+                </span>
+              )}
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 text-xs">
+              <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-850 space-y-2">
+                <span className="font-semibold text-zinc-200 block">How Payouts Work</span>
+                <p className="text-zinc-400 text-[11.5px] leading-relaxed">
+                  When customers pay through their live job tracker or invoice link, payments process securely through Stripe. Funds deposit automatically to your linked bank account on a rolling 2-day schedule.
+                </p>
+                <div className="pt-1 text-[11px] text-zinc-500 flex items-center gap-1">
+                  <span>Platform fee: 1% facilitation per successful invoice.</span>
+                </div>
+              </div>
+
+              <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-850 flex flex-col justify-between space-y-3">
+                <div>
+                  <span className="font-semibold text-zinc-200 block">Account Status</span>
+                  <div className="mt-1 space-y-1 text-[11.5px] text-zinc-400">
+                    <div className="flex items-center justify-between">
+                      <span>Card Payments:</span>
+                      <span className={stripeStatus?.chargesEnabled ? 'text-emerald-400 font-medium' : 'text-zinc-500'}>
+                        {stripeStatus?.chargesEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Bank Payouts:</span>
+                      <span className={stripeStatus?.payoutsEnabled ? 'text-emerald-400 font-medium' : 'text-zinc-500'}>
+                        {stripeStatus?.payoutsEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-800/80">
+                  {stripeStatus?.connected ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleOpenStripeDashboard}
+                      disabled={openingDashboard}
+                      className="w-full h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-white font-medium flex items-center justify-center gap-1.5"
+                    >
+                      {openingDashboard ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+                      )}
+                      <span>Open Stripe Express Dashboard</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleConnectStripe}
+                      disabled={connectingStripe || !canEditSettings}
+                      className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
+                    >
+                      {connectingStripe ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {stripeStatus?.status === 'pending'
+                          ? 'Complete Stripe Verification'
+                          : 'Connect Bank with Stripe'}
+                      </span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Section 4: TCPA & Carrier Compliance ── */}
           <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-4 text-xs text-zinc-400 space-y-1.5">
             <div className="flex items-center gap-2 text-zinc-200 font-medium">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />

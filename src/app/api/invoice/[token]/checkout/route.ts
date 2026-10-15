@@ -13,7 +13,7 @@ export async function POST(
 
   const { data: invoice, error } = await supabase
     .from('invoices')
-    .select('*, contacts(*), invoice_items(*)')
+    .select('*, contacts(*), invoice_items(*), organizations(id, stripe_account_id, stripe_charges_enabled)')
     .eq('manage_token', token)
     .single()
 
@@ -27,6 +27,7 @@ export async function POST(
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
   const contact = invoice.contacts
+  const org = (invoice as any).organizations
 
   const sessionResult = await createStripeCheckoutSession({
     invoiceId: invoice.id,
@@ -39,6 +40,7 @@ export async function POST(
     title: invoice.title,
     manageToken: invoice.manage_token,
     baseUrl,
+    connectedStripeAccountId: org?.stripe_charges_enabled ? org?.stripe_account_id : undefined,
     items: invoice.invoice_items || []
   })
 
