@@ -24,7 +24,10 @@ function createMockTelephonyDb(initialState = {}) {
     messages: initialState.messages || [],
     calls: initialState.calls || [],
     leads: initialState.leads || [],
-    processed_events: initialState.processed_events || []
+    processed_events: initialState.processed_events || [],
+    notifications: initialState.notifications || [],
+    activity_logs: initialState.activity_logs || [],
+    profiles: initialState.profiles || []
   }
 
   const client = {

@@ -16,6 +16,8 @@ export type AuditEventType =
   | 'sms.inbound_received'
   | 'sms.opt_out'
   | 'telephony.test_sms_sent'
+  | 'telephony.owner_alert_sent'
+  | 'telephony.owner_alert_failed'
   | 'automation.settings_updated'
   | 'automation.run_retried'
   | 'billing.status_toggled'

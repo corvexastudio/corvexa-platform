@@ -6,6 +6,7 @@ import { evaluateSuppression } from '../telephony/suppression-rules.ts'
 import { resolveMissedCallTemplate } from '../telephony/template-engine.ts'
 import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
 import { formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
+import { notifyOwnerOfMissedCall, type OwnerNotificationResult } from '../telephony/owner-notifier.ts'
 
 export interface InboundCallContext {
   callerNumber: string
@@ -14,6 +15,8 @@ export interface InboundCallContext {
   callControlId?: string
   callLegId?: string
   callSessionId?: string
+  sendSmsFn?: typeof sendTelnyxSms
+  sendOwnerSmsFn?: typeof sendTelnyxSms
 }
 
 export interface ProcessCallResult {
@@ -24,6 +27,7 @@ export interface ProcessCallResult {
   messageId?: string
   orgId?: string
   callId?: string
+  ownerAlert?: OwnerNotificationResult
 }
 
 /**
@@ -191,7 +195,8 @@ export async function processMissedCall(
   })
 
   // 6. Dispatch SMS via Telnyx (using tenant's dedicated phone number)
-  const smsResult = await sendTelnyxSms({
+  const sendCustomerSms = call.sendSmsFn || sendTelnyxSms
+  const smsResult = await sendCustomerSms({
     to: formattedCaller,
     from: formattedCalled,
     text: compliantText
@@ -209,22 +214,32 @@ export async function processMissedCall(
   }
 
   // 7. Record Call
-  const { error: callInsertError } = await supabase.from('calls').insert({
-    org_id: org.id,
-    contact_id: contact?.id,
-    caller_number: formattedCaller,
-    called_number: formattedCalled,
-    status: call.callOutcome.state,
-    duration_seconds: call.callOutcome.durationSeconds,
-    telnyx_call_control_id: call.callControlId,
-    call_session_id: call.callSessionId,
-    call_leg_id: call.callLegId,
-    hangup_cause: call.callOutcome.hangupCause,
-    auto_reply_sent: smsResult.success
-  })
+  let insertedCallId: string | undefined
+  try {
+    const { data: callRow, error: callInsertError } = await supabase
+      .from('calls')
+      .insert({
+        org_id: org.id,
+        contact_id: contact?.id,
+        caller_number: formattedCaller,
+        called_number: formattedCalled,
+        status: call.callOutcome.state,
+        duration_seconds: call.callOutcome.durationSeconds,
+        telnyx_call_control_id: call.callControlId,
+        call_session_id: call.callSessionId,
+        call_leg_id: call.callLegId,
+        hangup_cause: call.callOutcome.hangupCause,
+        auto_reply_sent: smsResult.success
+      })
+      .select('id')
+      .maybeSingle()
 
-  if (callInsertError && callInsertError.code !== '23505') {
-    console.error('[MISSED CALL RECORD INSERT ERROR]', callInsertError)
+    if (callInsertError && callInsertError.code !== '23505') {
+      console.error('[MISSED CALL RECORD INSERT ERROR]', callInsertError)
+    }
+    insertedCallId = callRow?.id
+  } catch (callErr) {
+    console.error('[CALL RECORD EXCEPTION]', callErr)
   }
 
   // 8. Lead Deduplication: Check for existing open lead for this contact in this organization
@@ -267,11 +282,44 @@ export async function processMissedCall(
     })
   }
 
+  // 10. Dispatch Owner Missed-Call Alert (P1-NOTIF-01)
+  let ownerAlert: OwnerNotificationResult | undefined
+  try {
+    ownerAlert = await notifyOwnerOfMissedCall(supabase, {
+      org,
+      callerPhone: formattedCaller,
+      calledPhone: formattedCalled,
+      customerSmsSuccess: smsResult.success,
+      callId: insertedCallId,
+      sendSmsFn: call.sendOwnerSmsFn || call.sendSmsFn
+    })
+
+    if (insertedCallId && ownerAlert?.sent) {
+      try {
+        await supabase
+          .from('calls')
+          .update({ owner_alert_sent: true })
+          .eq('id', insertedCallId)
+      } catch {
+        // Non-blocking in case owner_alert_sent column is not yet migrated
+      }
+    }
+  } catch (ownerErr: any) {
+    console.error('[OWNER NOTIFICATION ERROR]', ownerErr)
+    ownerAlert = {
+      attempted: true,
+      sent: false,
+      error: ownerErr?.message || 'Failed to dispatch owner alert'
+    }
+  }
+
   return {
     success: true,
     action: 'auto_reply_sent',
     messageId: smsResult.messageId,
-    orgId: org.id
+    orgId: org.id,
+    callId: insertedCallId,
+    ownerAlert
   }
 }
 
