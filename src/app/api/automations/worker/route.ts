@@ -112,11 +112,20 @@ async function handleWorkerExecution(request: Request) {
   }
 }
 
-// Support both GET (standard for Vercel Cron) and POST
+// Support GET (standard for Vercel Cron), POST (standard for external schedulers), and OPTIONS
 export async function GET(request: Request) {
   return handleWorkerExecution(request)
 }
 
 export async function POST(request: Request) {
   return handleWorkerExecution(request)
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      Allow: 'GET, POST, OPTIONS',
+    },
+  })
 }

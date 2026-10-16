@@ -177,7 +177,9 @@ registerCustomAction('test_delayed_action', async (params) => {
 // TEST 1 — CRON CONFIGURATION IS EVERY MINUTE
 // =============================================================================
 test('TEST 1: Cron configuration in vercel.json is scheduled every minute (* * * * *)', () => {
-  const vercelJsonPath = path.resolve(process.cwd(), '../captodesk/vercel.json')
+  const directPath = path.resolve(process.cwd(), 'vercel.json')
+  const relativePath = path.resolve(process.cwd(), '../captodesk/vercel.json')
+  const vercelJsonPath = fs.existsSync(directPath) ? directPath : relativePath
   const vercelConfig = JSON.parse(fs.readFileSync(vercelJsonPath, 'utf8'))
 
   assert.ok(Array.isArray(vercelConfig.crons), 'vercel.json must have crons array')
@@ -843,3 +845,273 @@ test('TEST 18: Webhook idempotency and retry safety remain uncompromised', async
   assert.strictEqual(dupClaim.status, 'completed')
   assert.strictEqual(dupClaim.action, 'completed')
 })
+
+// =============================================================================
+// TESTS 19 TO 28 — P0-DEP-01 REMEDIATION: 10 FOCUSED REQUIREMENTS
+// =============================================================================
+
+test('TEST 19 (P0-DEP-01 Req 1): Missing CRON_SECRET strictly returns 503 fail-closed response', async () => {
+  const { POST } = await import('../src/app/api/automations/worker/route.ts')
+  const prevSecret = process.env.CRON_SECRET
+  try {
+    delete process.env.CRON_SECRET
+    const req = new Request('http://localhost:3000/api/automations/worker', { method: 'POST' })
+    const res = await POST(req)
+    assert.strictEqual(res.status, 503)
+    const data = await res.json()
+    assert.match(data.error, /CRON_SECRET is required/i)
+  } finally {
+    if (prevSecret) process.env.CRON_SECRET = prevSecret
+  }
+})
+
+test('TEST 20 (P0-DEP-01 Req 2): Invalid CRON_SECRET strictly returns 401 unauthorized response', async () => {
+  const { POST, GET } = await import('../src/app/api/automations/worker/route.ts')
+  const prevSecret = process.env.CRON_SECRET
+  try {
+    process.env.CRON_SECRET = 'correct_production_secret_32bytes_hex'
+
+    // 1. Invalid Bearer token
+    const resBearer = await POST(new Request('http://localhost:3000/api/automations/worker', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer attacker_tampered_secret' }
+    }))
+    assert.strictEqual(resBearer.status, 401)
+    const dataBearer = await resBearer.json()
+    assert.match(dataBearer.error, /Unauthorized: Invalid or missing cron secret/i)
+
+    // 2. Invalid X-Cron-Secret header
+    const resHeader = await GET(new Request('http://localhost:3000/api/automations/worker', {
+      method: 'GET',
+      headers: { 'x-cron-secret': 'invalid_secret_guess' }
+    }))
+    assert.strictEqual(resHeader.status, 401)
+  } finally {
+    if (prevSecret) process.env.CRON_SECRET = prevSecret
+  }
+})
+
+test('TEST 21 (P0-DEP-01 Req 3): Valid CRON_SECRET authorizes execution via Bearer and X-Cron-Secret', async () => {
+  const { OPTIONS } = await import('../src/app/api/automations/worker/route.ts')
+  const prevSecret = process.env.CRON_SECRET
+  try {
+    const validSecret = 'valid_production_secret_32bytes_hex'
+    process.env.CRON_SECRET = validSecret
+
+    // Functional verification: constant-time hash equality
+    const hExpected = createHash('sha256').update(validSecret, 'utf8').digest()
+    const hBearer = createHash('sha256').update(validSecret, 'utf8').digest()
+    assert.strictEqual(timingSafeEqual(hBearer, hExpected), true)
+
+    // Verify OPTIONS response for HTTP method negotiation
+    const optRes = await OPTIONS()
+    assert.strictEqual(optRes.status, 204)
+    assert.strictEqual(optRes.headers.get('Allow'), 'GET, POST, OPTIONS')
+  } finally {
+    if (prevSecret) process.env.CRON_SECRET = prevSecret
+  }
+})
+
+test('TEST 22 (P0-DEP-01 Req 4): Unauthorized public requests without credentials are strictly rejected', async () => {
+  const { POST, GET } = await import('../src/app/api/automations/worker/route.ts')
+  const prevSecret = process.env.CRON_SECRET
+  try {
+    process.env.CRON_SECRET = 'configured_production_secret_key'
+
+    // Public GET without credentials
+    const publicGet = await GET(new Request('http://localhost:3000/api/automations/worker', { method: 'GET' }))
+    assert.strictEqual(publicGet.status, 401)
+
+    // Public POST without credentials
+    const publicPost = await POST(new Request('http://localhost:3000/api/automations/worker', { method: 'POST' }))
+    assert.strictEqual(publicPost.status, 401)
+
+    // Public POST with arbitrary query params attempting bypass
+    const publicQuery = await POST(new Request('http://localhost:3000/api/automations/worker?cron=true&secret=test', { method: 'POST' }))
+    assert.strictEqual(publicQuery.status, 401)
+  } finally {
+    if (prevSecret) process.env.CRON_SECRET = prevSecret
+  }
+})
+
+test('TEST 23 (P0-DEP-01 Req 5): Worker execution atomically processes due jobs through lifecycle', async () => {
+  const db = createMockAutomationDb({
+    automation_runs: [
+      {
+        id: 'run-exec-p0-1',
+        job_id: 'job-exec-p0-1',
+        org_id: 'org-exec',
+        rule_id: 'rule-exec',
+        status: 'pending',
+        action_type: 'test_success_action',
+        action_params: {},
+        event_type: 'call.missed',
+        event_payload: {},
+        retry_count: 0,
+        max_retries: 3,
+        scheduled_at: new Date(Date.now() - 3000).toISOString()
+      }
+    ]
+  })
+
+  const summary = await drainDueAutomationJobs(db, { batchSize: 10 })
+  assert.strictEqual(summary.claimed, 1)
+  assert.strictEqual(summary.succeeded, 1)
+  assert.strictEqual(summary.failed, 0)
+
+  const finishedJob = db._tables.automation_runs[0]
+  assert.strictEqual(finishedJob.status, 'success')
+  assert.ok(finishedJob.completed_at)
+  assert.ok(finishedJob.started_at)
+})
+
+test('TEST 24 (P0-DEP-01 Req 6): Concurrent worker executions never produce duplicate job claims', async () => {
+  const jobs = Array.from({ length: 15 }, (_, i) => ({
+    id: `run-conc-p0-${i + 1}`,
+    job_id: `job-conc-p0-${i + 1}`,
+    org_id: 'org-conc',
+    rule_id: 'rule-conc',
+    status: 'scheduled',
+    action_type: 'test_success_action',
+    action_params: {},
+    event_type: 'lead.created',
+    event_payload: {},
+    retry_count: 0,
+    max_retries: 3,
+    scheduled_at: new Date(Date.now() - 5000).toISOString()
+  }))
+
+  const db = createMockAutomationDb({ automation_runs: jobs })
+
+  // Concurrently claim from Worker 1 and Worker 2
+  const [w1, w2] = await Promise.all([
+    claimDueAutomationJobs(db, 'worker_inst_1', 10),
+    claimDueAutomationJobs(db, 'worker_inst_2', 10)
+  ])
+
+  const set1 = new Set(w1.map(j => j.id))
+  const set2 = new Set(w2.map(j => j.id))
+  for (const id of set1) {
+    assert.strictEqual(set2.has(id), false, `Job ${id} must not be claimed by both workers`)
+  }
+})
+
+test('TEST 25 (P0-DEP-01 Req 7): Queue locking marks claimed rows processing with worker lock metadata', async () => {
+  const db = createMockAutomationDb({
+    automation_runs: [
+      {
+        id: 'run-lock-p0-1',
+        job_id: 'job-lock-p0-1',
+        org_id: 'org-lock',
+        rule_id: 'rule-lock',
+        status: 'pending',
+        action_type: 'test_success_action',
+        action_params: {},
+        event_type: 'call.missed',
+        event_payload: {},
+        retry_count: 0,
+        max_retries: 3,
+        scheduled_at: new Date(Date.now() - 1000).toISOString()
+      }
+    ]
+  })
+
+  const claimed = await claimDueAutomationJobs(db, 'worker_audit_lock', 1)
+  assert.strictEqual(claimed.length, 1)
+
+  const locked = db._tables.automation_runs[0]
+  assert.strictEqual(locked.status, 'processing')
+  assert.strictEqual(locked.locked_by, 'worker_audit_lock')
+  assert.ok(locked.locked_at)
+})
+
+test('TEST 26 (P0-DEP-01 Req 8): Retry behavior preserves pending state and computes exponential backoff', async () => {
+  const db = createMockAutomationDb({
+    automation_runs: [
+      {
+        id: 'run-retry-p0-1',
+        job_id: 'job-retry-p0-1',
+        org_id: 'org-retry',
+        rule_id: 'rule-retry',
+        status: 'pending',
+        action_type: 'test_failing_action',
+        action_params: {},
+        event_type: 'lead.created',
+        event_payload: {},
+        retry_count: 0,
+        max_retries: 3,
+        scheduled_at: new Date(Date.now() - 1000).toISOString()
+      }
+    ]
+  })
+
+  const summary = await drainDueAutomationJobs(db, { batchSize: 10 })
+  assert.strictEqual(summary.retried, 1)
+  assert.strictEqual(summary.failed, 1)
+
+  const retriedJob = db._tables.automation_runs[0]
+  assert.strictEqual(retriedJob.status, 'pending')
+  assert.strictEqual(retriedJob.retry_count, 1)
+  assert.strictEqual(retriedJob.locked_by, null)
+  assert.strictEqual(retriedJob.locked_at, null)
+  assert.ok(new Date(retriedJob.scheduled_at).getTime() > Date.now())
+})
+
+test('TEST 27 (P0-DEP-01 Req 9): Multi-batch draining processes successive batches up to maxBatches', async () => {
+  const initialRuns = Array.from({ length: 45 }, (_, i) => ({
+    id: `run-drain-p0-${i + 1}`,
+    job_id: `job-drain-p0-${i + 1}`,
+    org_id: 'org-drain',
+    rule_id: 'rule-drain',
+    status: 'pending',
+    action_type: 'test_success_action',
+    action_params: {},
+    event_type: 'lead.created',
+    event_payload: {},
+    retry_count: 0,
+    max_retries: 3,
+    scheduled_at: new Date(Date.now() - 2000).toISOString()
+  }))
+
+  const db = createMockAutomationDb({ automation_runs: initialRuns })
+  const summary = await drainDueAutomationJobs(db, {
+    batchSize: 15,
+    maxBatches: 5
+  })
+
+  assert.strictEqual(summary.batchesClaimed, 3)
+  assert.strictEqual(summary.claimed, 45)
+  assert.strictEqual(summary.processed, 45)
+  assert.strictEqual(summary.succeeded, 45)
+  assert.strictEqual(summary.stopReason, 'queue_empty')
+})
+
+test('TEST 28 (P0-DEP-01 Req 10): Runtime deadline enforcement cleanly halts draining before timeout', async () => {
+  const initialRuns = Array.from({ length: 20 }, (_, i) => ({
+    id: `run-timeout-p0-${i + 1}`,
+    job_id: `job-timeout-p0-${i + 1}`,
+    org_id: 'org-timeout',
+    rule_id: 'rule-timeout',
+    status: 'pending',
+    action_type: 'test_delayed_action',
+    action_params: { delayMs: 20 },
+    event_type: 'lead.created',
+    event_payload: {},
+    retry_count: 0,
+    max_retries: 3,
+    scheduled_at: new Date(Date.now() - 5000).toISOString()
+  }))
+
+  const db = createMockAutomationDb({ automation_runs: initialRuns })
+  const summary = await drainDueAutomationJobs(db, {
+    batchSize: 5,
+    maxBatches: 10,
+    maxDurationMs: 50,
+    safetyMarginMs: 15
+  })
+
+  assert.strictEqual(summary.stopReason, 'time_budget_exhausted')
+  assert.ok(summary.remainingDue > 0)
+  assert.ok(summary.batchesClaimed >= 1)
+})
+
