@@ -65,32 +65,32 @@ function getAppointmentBadge(status: AppointmentItem['status']) {
     case 'confirmed':
     case 'scheduled':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
           Confirmed
         </span>
       )
     case 'requested':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
           Pending Approval
         </span>
       )
     case 'completed':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
           Completed
         </span>
       )
     case 'cancelled':
     case 'no_show':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20">
           {status === 'no_show' ? 'No Show' : 'Cancelled'}
         </span>
       )
     default:
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
           {status}
         </span>
       )
@@ -476,18 +476,18 @@ function CalendarContent() {
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Schedule & Bookings
             </h1>
-            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700 tabular-nums">
               {appointments.length}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Real-time calendar agenda, customer booking requests, and availability rules • <span className="text-zinc-300">{orgTimezone}</span>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+            Real-time calendar agenda, customer booking requests, and availability rules • <span className="font-medium text-slate-700 dark:text-zinc-300">{orgTimezone}</span>
           </p>
         </div>
 
@@ -495,7 +495,7 @@ function CalendarContent() {
           <Button
             size="sm"
             onClick={() => setShowBookModal(true)}
-            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+            className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs"
           >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             <span>Book Appointment</span>
@@ -505,12 +505,12 @@ function CalendarContent() {
               variant="outline"
               size="sm"
               onClick={handleCopyBookingLink}
-              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+              className="h-8.5 text-xs border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 shadow-2xs"
             >
               {copiedLink ? (
-                <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-400" />
+                <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <Copy className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+                <Copy className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
               )}
               <span>Copy Booking Link</span>
             </Button>
@@ -521,9 +521,9 @@ function CalendarContent() {
               href={`/book/${orgSlug}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-md text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors shadow-2xs"
             >
-              <Globe className="h-3.5 w-3.5 text-blue-400" />
+              <Globe className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
               <span>Public Page</span>
             </a>
           )}
@@ -531,16 +531,16 @@ function CalendarContent() {
           <Button
             size="sm"
             onClick={() => setShowSettings(true)}
-            className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+            className="h-8.5 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-700 shadow-2xs"
           >
-            <Sliders className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+            <Sliders className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
             <span>Booking Rules</span>
           </Button>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+      <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1 overflow-x-auto max-w-full scrollbar-none">
         {[
           { key: 'all', label: 'All Bookings', count: appointments.length },
           { key: 'requested', label: 'Requests', count: requestedCount, isAlert: requestedCount > 0 },
@@ -553,18 +553,20 @@ function CalendarContent() {
             type="button"
             onClick={() => setStatusFilter(tab.key)}
             className={cn(
-              "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
+              "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5",
               statusFilter === tab.key
-                ? "bg-zinc-800 text-white"
+                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
                 : tab.isAlert
-                ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                ? "bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30 font-semibold"
+                : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
             )}
           >
             <span>{tab.label}</span>
             <span className={cn(
-              "text-[10px] px-1 py-0.2 rounded tabular-nums",
-              statusFilter === tab.key ? "bg-zinc-950 text-white" : "bg-zinc-900 text-zinc-500"
+              "text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-semibold",
+              statusFilter === tab.key
+                ? "bg-slate-100 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200"
+                : "bg-slate-200/80 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400"
             )}>
               {tab.count}
             </span>
@@ -581,16 +583,16 @@ function CalendarContent() {
           retryLabel="Retry Loading"
         />
       ) : loading ? (
-        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
           <div className="p-4 space-y-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
                 <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-40 bg-zinc-800" />
-                  <Skeleton className="h-3 w-56 bg-zinc-800/60" />
+                  <Skeleton className="h-4 w-40 bg-slate-100 dark:bg-zinc-800" />
+                  <Skeleton className="h-3 w-56 bg-slate-100/70 dark:bg-zinc-800/60" />
                 </div>
-                <Skeleton className="h-5 w-20 bg-zinc-800" />
-                <Skeleton className="h-8 w-24 bg-zinc-800" />
+                <Skeleton className="h-5 w-20 bg-slate-100 dark:bg-zinc-800" />
+                <Skeleton className="h-8 w-24 bg-slate-100 dark:bg-zinc-800" />
               </div>
             ))}
           </div>
@@ -606,62 +608,62 @@ function CalendarContent() {
           onSecondaryAction={() => setShowSettings(true)}
         />
       ) : (
-        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900 divide-y divide-zinc-800">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800/80 shadow-xs">
           {filteredAppointments.map(apt => {
             const startDate = new Date(apt.start_time)
 
             return (
               <div
                 key={apt.id}
-                className="p-4 hover:bg-zinc-800/30 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="p-4 hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 <div className="flex items-start gap-3.5 min-w-0">
                   {/* Date badge */}
-                  <div className="h-10 w-12 rounded border border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center shrink-0 text-zinc-300">
-                    <span className="text-xs font-bold tabular-nums">
+                  <div className="h-11 w-12 rounded-lg border border-slate-200 bg-slate-50 dark:border-zinc-800 dark:bg-zinc-950 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-xs font-bold tabular-nums text-slate-900 dark:text-zinc-100">
                       {startDate.toLocaleDateString('en-US', { timeZone: orgTimezone, day: 'numeric' })}
                     </span>
-                    <span className="text-[10px] uppercase text-zinc-500">
+                    <span className="text-[10px] font-semibold uppercase text-slate-500 dark:text-zinc-500">
                       {startDate.toLocaleDateString('en-US', { timeZone: orgTimezone, month: 'short' })}
                     </span>
                   </div>
 
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="font-semibold text-xs text-zinc-100 truncate">
+                      <h2 className="font-semibold text-sm text-slate-900 dark:text-zinc-100 truncate">
                         {apt.title}
                       </h2>
                       {getAppointmentBadge(apt.status)}
                       {apt.source && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-950 text-zinc-500 border border-zinc-800">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-800">
                           {apt.source}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
-                      <span className="flex items-center gap-1 text-zinc-300 font-medium tabular-nums">
-                        <Clock className="h-3 w-3 text-zinc-500" />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400">
+                      <span className="flex items-center gap-1 text-slate-800 dark:text-zinc-200 font-medium tabular-nums">
+                        <Clock className="h-3 w-3 text-slate-400 dark:text-zinc-500" />
                         {startDate.toLocaleTimeString('en-US', { timeZone: orgTimezone, hour: 'numeric', minute: '2-digit' })}
                       </span>
 
-                      <span>• {apt.contact?.name || apt.contact?.phone}</span>
+                      <span className="text-slate-600 dark:text-zinc-300 font-medium">• {apt.contact?.name || apt.contact?.phone}</span>
 
                       {apt.contact?.address && (
                         <a
                           href={`https://maps.google.com/?q=${encodeURIComponent(apt.contact.address)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200 truncate max-w-xs"
+                          className="flex items-center gap-1 text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-zinc-200 truncate max-w-xs transition-colors"
                         >
-                          <MapPin className="h-3 w-3 text-zinc-500 shrink-0" />
+                          <MapPin className="h-3 w-3 text-slate-400 dark:text-zinc-500 shrink-0" />
                           <span className="truncate">{apt.contact.address}</span>
                         </a>
                       )}
                     </div>
 
                     {apt.notes && (
-                      <p className="text-xs text-zinc-500 line-clamp-1 italic pt-0.5">
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1 italic pt-0.5">
                         {apt.notes}
                       </p>
                     )}
@@ -669,13 +671,12 @@ function CalendarContent() {
                 </div>
 
                 {/* Actions */}
-                {/* Actions */}
-                <div className="flex items-center gap-2 shrink-0 pt-2 border-t border-zinc-800/60 md:border-t-0 md:pt-0 w-full md:w-auto justify-end flex-wrap">
+                <div className="flex items-center gap-2 shrink-0 pt-2 border-t border-slate-100 dark:border-zinc-800/60 md:border-t-0 md:pt-0 w-full md:w-auto justify-end flex-wrap">
                   {apt.status === 'requested' && (
                     <Button
                       size="sm"
                       onClick={() => handleUpdateStatus(apt.id, 'confirmed')}
-                      className="h-8.5 sm:h-7.5 px-3 rounded-md text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                      className="h-8 px-3 rounded-md text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs"
                     >
                       <Check className="h-3.5 w-3.5 mr-1" />
                       Approve
@@ -687,7 +688,7 @@ function CalendarContent() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleUpdateStatus(apt.id, 'completed')}
-                      className="h-8.5 sm:h-7.5 px-3 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-md"
+                      className="h-8 px-3 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 rounded-md font-medium shadow-2xs"
                     >
                       Complete
                     </Button>
@@ -697,7 +698,7 @@ function CalendarContent() {
                     <button
                       type="button"
                       onClick={() => handleUpdateStatus(apt.id, 'cancelled')}
-                      className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 transition-colors"
+                      className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 dark:border-zinc-800/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-rose-400 transition-colors shadow-2xs"
                       title="Cancel Booking"
                     >
                       <XCircle className="h-4 w-4" />
@@ -707,7 +708,7 @@ function CalendarContent() {
                   {apt.contact?.phone && (
                     <a
                       href={`tel:${apt.contact.phone}`}
-                      className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
+                      className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-blue-50 text-slate-400 hover:text-blue-600 dark:border-zinc-800/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors shadow-2xs"
                       title="Call customer"
                     >
                       <PhoneCall className="h-3.5 w-3.5" />
@@ -719,7 +720,7 @@ function CalendarContent() {
                       href={`/book/manage/${apt.manage_token}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-800 dark:border-zinc-800/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors shadow-2xs"
                       title="Open customer portal"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -737,10 +738,10 @@ function CalendarContent() {
                     })}
                     target="_blank"
                     rel="noreferrer"
-                    className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
+                    className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-blue-50 text-slate-400 hover:text-blue-600 dark:border-zinc-800/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors shadow-2xs"
                     title="Add to Google Calendar"
                   >
-                    <CalendarDays className="h-3.5 w-3.5 text-blue-400" />
+                    <CalendarDays className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                   </a>
 
                   <button
@@ -754,10 +755,10 @@ function CalendarContent() {
                         endTime: apt.end_time || undefined,
                       }, `${apt.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.ics`)
                     }}
-                    className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer"
+                    className="h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 dark:border-zinc-800/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-400 dark:hover:text-emerald-400 transition-colors cursor-pointer shadow-2xs"
                     title="Export to Apple / Outlook Calendar (.ics)"
                   >
-                    <CalendarIcon className="h-3.5 w-3.5 text-emerald-400" />
+                    <CalendarIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   </button>
                 </div>
               </div>
@@ -777,19 +778,19 @@ function CalendarContent() {
         <div className="space-y-5">
           {/* Rules Form */}
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-zinc-300">
               Availability Settings
             </h3>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">
+              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">
                 Confirmation Mode
               </label>
               <select
                 aria-label="Confirmation Mode"
                 value={bookingConfig.booking_mode}
                 onChange={(e) => setBookingConfig({ ...bookingConfig, booking_mode: e.target.value as any })}
-                className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+                className="w-full p-2 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500"
               >
                 <option value="instant">Instant Confirmation (Auto-confirms slot & schedules SMS reminder)</option>
                 <option value="request">Booking Request (Requires approval from calendar)</option>
@@ -798,57 +799,57 @@ function CalendarContent() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Buffer Time (mins)</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Buffer Time (mins)</label>
                 <Input
                   type="number"
                   min="0"
                   step="5"
                   value={bookingConfig.buffer_minutes}
                   onChange={(e) => setBookingConfig({ ...bookingConfig, buffer_minutes: parseInt(e.target.value, 10) || 0 })}
-                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Minimum Notice (hours)</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Minimum Notice (hours)</label>
                 <Input
                   type="number"
                   min="0"
                   value={bookingConfig.minimum_notice_hours}
                   onChange={(e) => setBookingConfig({ ...bookingConfig, minimum_notice_hours: parseInt(e.target.value, 10) || 0 })}
-                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Max Advance Booking (days)</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Max Advance Booking (days)</label>
               <Input
                 type="number"
                 min="1"
                 max="90"
                 value={bookingConfig.max_booking_days_ahead}
                 onChange={(e) => setBookingConfig({ ...bookingConfig, max_booking_days_ahead: parseInt(e.target.value, 10) || 30 })}
-                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
               />
             </div>
 
             {/* Blackout Dates */}
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Blocked Blackout Dates</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Blocked Blackout Dates</label>
               <div className="flex gap-2">
                 <Input
                   type="date"
                   value={newBlockedDate}
                   onChange={(e) => setNewBlockedDate(e.target.value)}
-                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleAddBlockedDate}
-                  className="h-8.5 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                  className="h-8.5 text-xs border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 shadow-2xs"
                 >
                   Block Date
                 </Button>
@@ -857,10 +858,10 @@ function CalendarContent() {
               {bookingConfig.blocked_dates.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {bookingConfig.blocked_dates.map((d) => (
-                    <span key={d} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-xs text-zinc-300">
+                    <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-700 dark:text-zinc-300">
                       {d}
                       <button type="button" onClick={() => handleRemoveBlockedDate(d)}>
-                        <X className="h-3 w-3 text-zinc-500 hover:text-rose-400" />
+                        <X className="h-3 w-3 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400" />
                       </button>
                     </span>
                   ))}
@@ -873,26 +874,26 @@ function CalendarContent() {
               size="sm"
               disabled={savingConfig}
               onClick={handleSaveConfig}
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+              className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs"
             >
               {savingConfig ? 'Saving...' : 'Save Availability Rules'}
             </Button>
           </div>
 
           {/* Services Catalog */}
-          <div className="space-y-3 pt-3 border-t border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+          <div className="space-y-3 pt-4 border-t border-slate-200/80 dark:border-zinc-800">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-zinc-300">
               Service Catalog
             </h3>
 
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {services.map((svc) => (
-                <div key={svc.id} className="p-2.5 rounded bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs">
+                <div key={svc.id} className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-medium text-zinc-200 block">{svc.name}</span>
-                    <span className="text-[11px] text-zinc-500">{svc.duration_minutes} mins {svc.price ? `• $${svc.price}` : ''}</span>
+                    <span className="font-semibold text-slate-900 dark:text-zinc-200 block">{svc.name}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-zinc-500">{svc.duration_minutes} mins {svc.price ? `• $${svc.price}` : ''}</span>
                   </div>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
                     Active
                   </span>
                 </div>
@@ -900,15 +901,15 @@ function CalendarContent() {
             </div>
 
             {/* Add Service Sub-Form */}
-            <form onSubmit={handleAddService} className="p-3 rounded-md bg-zinc-950 border border-zinc-800 space-y-2">
-              <span className="text-xs font-medium text-zinc-300 block">Add New Service Offering</span>
+            <form onSubmit={handleAddService} className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 space-y-2.5">
+              <span className="text-xs font-semibold text-slate-800 dark:text-zinc-300 block">Add New Service Offering</span>
               <Input
                 type="text"
                 required
                 placeholder="Service Name (e.g. Diagnostic & Tune-Up)"
                 value={newServiceName}
                 onChange={(e) => setNewServiceName(e.target.value)}
-                className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                className="h-8 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
               />
               <div className="grid grid-cols-2 gap-2">
                 <Input
@@ -918,7 +919,7 @@ function CalendarContent() {
                   placeholder="Duration (mins)"
                   value={newServiceDuration}
                   onChange={(e) => setNewServiceDuration(e.target.value)}
-                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
                 <Input
                   type="number"
@@ -926,16 +927,16 @@ function CalendarContent() {
                   placeholder="Price ($ optional)"
                   value={newServicePrice}
                   onChange={(e) => setNewServicePrice(e.target.value)}
-                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
               </div>
-              <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
                 <input
                   type="checkbox"
                   id="reqAddr"
                   checked={newServiceRequiresAddress}
                   onChange={(e) => setNewServiceRequiresAddress(e.target.checked)}
-                  className="rounded bg-zinc-900 border-zinc-700"
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:bg-zinc-900 dark:border-zinc-700"
                 />
                 <label htmlFor="reqAddr">Requires service address</label>
               </div>
@@ -943,7 +944,7 @@ function CalendarContent() {
                 type="submit"
                 size="sm"
                 disabled={addingService}
-                className="h-7.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs"
               >
                 {addingService ? 'Adding...' : 'Add Service'}
               </Button>
@@ -968,12 +969,12 @@ function CalendarContent() {
       >
         <form onSubmit={handleCreateBooking} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Customer</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">Customer</label>
             <select
               aria-label="Select Customer"
               value={bookContactId}
               onChange={(e) => setBookContactId(e.target.value)}
-              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+              className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 shadow-2xs"
             >
               <option value="">-- Select Existing Customer or New Customer --</option>
               {contacts.map((c) => (
@@ -986,45 +987,45 @@ function CalendarContent() {
           </div>
 
           {(bookContactId === 'new' || (!bookContactId && contacts.length === 0)) && (
-            <div className="space-y-3 p-3 rounded-md bg-zinc-950/60 border border-zinc-800/80">
+            <div className="space-y-3 p-3.5 rounded-xl bg-slate-50/80 dark:bg-zinc-950/60 border border-slate-200/80 dark:border-zinc-800/80">
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Customer Name</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Customer Name</label>
                 <Input
                   placeholder="e.g. Sarah Connor"
                   value={bookCustomName}
                   onChange={(e) => setBookCustomName(e.target.value)}
-                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Phone Number *</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Phone Number *</label>
                 <Input
                   required
                   placeholder="e.g. +1 555-0199"
                   value={bookCustomPhone}
                   onChange={(e) => setBookCustomPhone(e.target.value)}
-                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Service Address</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1">Service Address</label>
                 <Input
                   placeholder="e.g. 742 Evergreen Terrace"
                   value={bookCustomAddress}
                   onChange={(e) => setBookCustomAddress(e.target.value)}
-                  className="h-8 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Service</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">Service</label>
             <select
               aria-label="Select Service"
               value={bookServiceId}
               onChange={(e) => setBookServiceId(e.target.value)}
-              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700"
+              className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 shadow-2xs"
             >
               <option value="">General Appointment</option>
               {services.map((svc) => (
@@ -1038,7 +1039,7 @@ function CalendarContent() {
           {/* Interactive Date & Time Slot Picker */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-zinc-200">
+              <label className="block text-xs font-semibold text-slate-900 dark:text-zinc-200">
                 Date & Time Selection *
               </label>
               <button
@@ -1047,7 +1048,7 @@ function CalendarContent() {
                   setIsManualTime(!isManualTime)
                   if (!isManualTime) setIsCalendarOpen(false)
                 }}
-                className="text-[11px] text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
+                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer"
               >
                 {isManualTime ? '← Use Available Slots' : 'Custom / Exact Time →'}
               </button>
@@ -1055,7 +1056,7 @@ function CalendarContent() {
 
             {/* Custom Manual Time Input */}
             {isManualTime ? (
-              <div className="space-y-2 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800">
+              <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800">
                 <Input
                   type="datetime-local"
                   required
@@ -1064,25 +1065,25 @@ function CalendarContent() {
                     setBookDateTime(e.target.value)
                     setSelectedSlotTime('')
                   }}
-                  className="h-8.5 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                  className="h-8.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                 />
-                <p className="text-[11px] text-zinc-500">
+                <p className="text-[11px] text-slate-500 dark:text-zinc-500">
                   Manual mode allows overriding operating hours and buffer times for special or emergency dispatches.
                 </p>
               </div>
             ) : !isCalendarOpen ? (
               /* Calendar Hidden State - Click to open calendar */
               selectedSlotTime ? (
-                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between">
+                <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center font-bold">
                       <Check className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-white">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">
                         {new Date(bookDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
-                      <p className="text-[11px] text-emerald-400 font-medium">
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
                         Selected Time: {new Date(selectedSlotTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                       </p>
                     </div>
@@ -1092,7 +1093,7 @@ function CalendarContent() {
                     variant="outline"
                     size="sm"
                     onClick={() => setIsCalendarOpen(true)}
-                    className="h-7 text-xs border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                    className="h-7.5 text-xs border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50 dark:border-emerald-500/30 dark:bg-transparent dark:text-emerald-300 dark:hover:bg-emerald-500/20 shadow-2xs"
                   >
                     Change Time
                   </Button>
@@ -1101,22 +1102,22 @@ function CalendarContent() {
                 <button
                   type="button"
                   onClick={() => setIsCalendarOpen(true)}
-                  className="w-full p-3.5 rounded-xl border border-dashed border-zinc-700 bg-zinc-950/70 hover:bg-zinc-900/90 hover:border-blue-500/80 transition-all text-left flex items-center justify-between group cursor-pointer"
+                  className="w-full p-3.5 rounded-xl border border-dashed border-slate-300 hover:border-blue-500/80 bg-slate-50/80 hover:bg-blue-50/40 dark:border-zinc-700 dark:bg-zinc-950/70 dark:hover:bg-zinc-900/90 dark:hover:border-blue-500/80 transition-all text-left flex items-center justify-between group cursor-pointer shadow-2xs"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 group-hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:group-hover:bg-blue-500/20 flex items-center justify-center transition-colors">
                       <CalendarIcon className="h-4 w-4" />
                     </div>
                     <div>
-                      <span className="text-xs font-semibold text-zinc-200 group-hover:text-white block">
+                      <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 group-hover:text-blue-600 dark:group-hover:text-white block">
                         Click to open calendar & select time
                       </span>
-                      <span className="text-[11px] text-zinc-500 block">
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-500 block">
                         Browse open slots and booked hours on your schedule
                       </span>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold text-blue-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
                     <span>Open Calendar</span>
                     <span>→</span>
                   </span>
@@ -1124,18 +1125,18 @@ function CalendarContent() {
               )
             ) : (
               /* Calendar Expanded State */
-              <div className="space-y-3 p-3.5 rounded-xl bg-zinc-950/90 border border-zinc-800 overflow-x-hidden">
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+              <div className="space-y-3 p-3.5 rounded-xl bg-slate-50/80 dark:bg-zinc-950/90 border border-slate-200 dark:border-zinc-800 overflow-x-hidden">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-400" />
-                    <span className="text-xs font-semibold text-zinc-200">
+                    <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
                       Live Schedule & Availability
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsCalendarOpen(false)}
-                    className="text-[11px] text-zinc-400 hover:text-white px-2 py-0.5 rounded hover:bg-zinc-800 transition-colors cursor-pointer"
+                    className="text-[11px] font-medium text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white px-2 py-0.5 rounded hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                   >
                     Hide Calendar ▲
                   </button>
@@ -1143,10 +1144,10 @@ function CalendarContent() {
 
                 {/* Day selector pills + Mini Calendar date input */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                    <span className="font-medium text-zinc-300">Choose Day</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
+                    <span className="font-semibold text-slate-700 dark:text-zinc-300">Choose Day</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-zinc-500">Pick specific date:</span>
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-500">Pick date:</span>
                       <input
                         type="date"
                         aria-label="Pick calendar date"
@@ -1156,7 +1157,7 @@ function CalendarContent() {
                           setSelectedSlotTime('')
                           setBookDateTime('')
                         }}
-                        className="bg-zinc-900 border border-zinc-700/80 rounded px-2 py-0.5 text-zinc-200 text-xs focus:outline-none cursor-pointer"
+                        className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded px-2 py-0.5 text-slate-900 dark:text-zinc-200 text-xs focus:outline-none cursor-pointer shadow-2xs"
                       />
                     </div>
                   </div>
@@ -1177,11 +1178,11 @@ function CalendarContent() {
                           className={cn(
                             "flex flex-col items-center justify-center min-w-[56px] py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer shrink-0",
                             isSelected
-                              ? "bg-blue-600 border-blue-500 text-white font-bold shadow-sm"
-                              : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                              ? "bg-blue-600 border-blue-600 text-white font-bold shadow-xs"
+                              : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:border-slate-300 dark:hover:border-zinc-700 shadow-2xs"
                           )}
                         >
-                          <span className="text-[10px] uppercase font-medium">{p.dayOfWeek}</span>
+                          <span className="text-[10px] uppercase font-semibold">{p.dayOfWeek}</span>
                           <span className="text-xs font-bold">{p.dayNum}</span>
                         </button>
                       )
@@ -1192,9 +1193,9 @@ function CalendarContent() {
                 {/* Available & Booked Time Slots Grid */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-zinc-400">Select Time Slot</span>
+                    <span className="font-semibold text-slate-700 dark:text-zinc-400">Select Time Slot</span>
                     {selectedSlotTime && (
-                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
                         <Check className="h-3 w-3" />
                         Selected: {new Date(selectedSlotTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                       </span>
@@ -1204,11 +1205,11 @@ function CalendarContent() {
                   {loadingBookingSlots ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2">
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="h-9 rounded-lg bg-zinc-900 animate-pulse border border-zinc-800/60" />
+                        <div key={i} className="h-9 rounded-lg bg-slate-100 dark:bg-zinc-900 animate-pulse border border-slate-200/60 dark:border-zinc-800/60" />
                       ))}
                     </div>
                   ) : bookingAllSlots.length === 0 ? (
-                    <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 text-center text-xs text-zinc-400 space-y-1">
+                    <div className="p-3 rounded-lg bg-slate-100/70 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-600 dark:text-zinc-400 space-y-1">
                       <p>No slots generated for this day.</p>
                       <button
                         type="button"
@@ -1216,7 +1217,7 @@ function CalendarContent() {
                           setIsManualTime(true)
                           setIsCalendarOpen(false)
                         }}
-                        className="text-blue-400 hover:underline font-medium inline-block text-[11px] cursor-pointer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold inline-block text-[11px] cursor-pointer"
                       >
                         Enter a custom dispatch time →
                       </button>
@@ -1237,14 +1238,14 @@ function CalendarContent() {
                               setBookDateTime(slot.startTime)
                             }}
                             className={cn(
-                              "py-2 px-2.5 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-between gap-1",
+                              "py-2 px-2.5 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-between gap-1 shadow-2xs",
                               isSelected
-                                ? "bg-emerald-600 border-emerald-500 text-white font-bold shadow-sm ring-1 ring-emerald-400"
+                                ? "bg-emerald-600 border-emerald-600 text-white font-bold shadow-xs ring-2 ring-emerald-400/30"
                                 : isBooked
-                                ? "bg-zinc-950 border-rose-500/30 text-rose-300/80 hover:border-rose-400 hover:bg-rose-950/20"
+                                ? "bg-rose-50/70 dark:bg-zinc-950 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300/80 hover:border-rose-300"
                                 : isPast
-                                ? "bg-zinc-950/80 border-amber-500/30 text-zinc-300 hover:border-amber-400 hover:bg-zinc-900"
-                                : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white hover:bg-zinc-850"
+                                ? "bg-amber-50/70 dark:bg-zinc-950/80 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-zinc-300 hover:border-amber-300"
+                                : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-300 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50/50 dark:hover:border-zinc-700 dark:hover:text-white dark:hover:bg-zinc-850"
                             )}
                             title={isBooked ? "Booked by another appointment (Click to select/override)" : isPast ? "Earlier today (Click to dispatch)" : "Available"}
                           >
@@ -1252,15 +1253,15 @@ function CalendarContent() {
                               {slot.displayTime}
                             </span>
                             {isBooked ? (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30">
                                 Booked
                               </span>
                             ) : isPast ? (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
                                 Past
                               </span>
                             ) : slot.isAvailable ? (
-                              <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400">
+                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-500/10 dark:text-emerald-400">
                                 Open
                               </span>
                             ) : null}
@@ -1275,23 +1276,23 @@ function CalendarContent() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Notes / Job Scope</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">Notes / Job Scope</label>
             <textarea
               rows={2}
               placeholder="Special instructions, gate codes, or issue details..."
               value={bookNotes}
               onChange={(e) => setBookNotes(e.target.value)}
-              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700 resize-none"
+              className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 resize-none shadow-2xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setShowBookModal(false)}
-              className="h-8 text-xs border-zinc-800 text-zinc-400 hover:text-white"
+              className="h-8.5 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-transparent dark:text-zinc-400 dark:hover:text-white shadow-2xs"
             >
               Cancel
             </Button>
@@ -1299,7 +1300,7 @@ function CalendarContent() {
               type="submit"
               size="sm"
               disabled={bookingLoading}
-              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+              className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs"
             >
               {bookingLoading ? 'Booking...' : 'Confirm Appointment'}
             </Button>
