@@ -122,22 +122,22 @@ export default function CustomerJobTrackerPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 text-white">
-        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mb-3" />
-        <p className="text-zinc-400 text-sm font-medium">Connecting to live job pulse...</p>
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4 text-slate-900 dark:text-white">
+        <Loader2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin mb-3" />
+        <p className="text-slate-500 dark:text-zinc-400 text-sm font-medium">Connecting to live job pulse...</p>
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 text-white">
-        <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center space-y-4 shadow-xl">
-          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4 text-slate-900 dark:text-white">
+        <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h1 className="text-lg font-bold text-zinc-100">Tracking Link Unavailable</h1>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+          <h1 className="text-lg font-bold text-slate-900 dark:text-zinc-100">Tracking Link Unavailable</h1>
+          <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
             {error || 'This service tracking link is inactive or has expired.'}
           </p>
         </div>
@@ -188,19 +188,19 @@ export default function CustomerJobTrackerPage({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex justify-center selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex justify-center selection:bg-indigo-500 selection:text-white">
       <div className="w-full max-w-lg min-h-screen flex flex-col justify-between p-4 sm:p-6 space-y-6">
 
         {/* Top Header Card */}
         <header className="space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-850">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-zinc-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-bold text-indigo-400 text-lg">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-lg">
                 {org.name.slice(0, 1).toUpperCase()}
               </div>
               <div>
-                <h1 className="text-base font-bold text-zinc-100 tracking-tight">{org.name}</h1>
-                <p className="text-xs text-zinc-400 flex items-center gap-1.5">
+                <h1 className="text-base font-bold text-slate-900 dark:text-zinc-100 tracking-tight">{org.name}</h1>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
                   Live Job Tracker &bull; Job #{job.jobNumber}
                 </p>
@@ -212,17 +212,17 @@ export default function CustomerJobTrackerPage({
               <div className="flex items-center gap-1.5">
                 <a
                   href={`sms:${org.phone}`}
-                  className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-zinc-200 transition-colors shadow-sm"
+                  className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-zinc-200 transition-colors shadow-xs"
                   title="Text Business"
                 >
-                  <MessageSquare className="w-4 h-4 text-indigo-400" />
+                  <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </a>
                 <a
                   href={`tel:${org.phone}`}
-                  className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-zinc-200 transition-colors shadow-sm"
+                  className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-zinc-200 transition-colors shadow-xs"
                   title="Call Business"
                 >
-                  <Phone className="w-4 h-4 text-emerald-400" />
+                  <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </a>
               </div>
             )}
@@ -231,22 +231,22 @@ export default function CustomerJobTrackerPage({
           {/* Dynamic Status Banner */}
           <div className={`p-4 rounded-2xl border transition-all ${
             isCompleted
-              ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+              ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200'
               : isEnRoute
-              ? 'bg-amber-950/30 border-amber-500/40 text-amber-200'
+              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-500/40 text-amber-800 dark:text-amber-200'
               : isInProgress
-              ? 'bg-sky-950/30 border-sky-500/40 text-sky-200'
-              : 'bg-zinc-900/90 border-zinc-800 text-zinc-200'
+              ? 'bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-500/40 text-sky-800 dark:text-sky-200'
+              : 'bg-white dark:bg-zinc-900/90 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 shadow-xs'
           }`}>
             <div className="flex items-start gap-3">
               <div className={`p-2 rounded-xl shrink-0 ${
                 isCompleted
-                  ? 'bg-emerald-500/20 text-emerald-400'
+                  ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                   : isEnRoute
-                  ? 'bg-amber-500/20 text-amber-400'
+                  ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'
                   : isInProgress
-                  ? 'bg-sky-500/20 text-sky-400'
-                  : 'bg-indigo-500/20 text-indigo-400'
+                  ? 'bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400'
+                  : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
               }`}>
                 {isCompleted ? (
                   <CheckCircle2 className="w-5 h-5" />
@@ -268,7 +268,7 @@ export default function CustomerJobTrackerPage({
                     ? 'Work Underway On-Site'
                     : 'Appointment Confirmed'}
                 </h2>
-                <p className="text-xs text-zinc-300 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
                   {isCompleted
                     ? 'All work has been finished. Thank you for your business!'
                     : isEnRoute
@@ -283,17 +283,17 @@ export default function CustomerJobTrackerPage({
         </header>
 
         {/* Visual Progress Stepper (Domino's / Uber style) */}
-        <section className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 pb-2 border-b border-zinc-800/60">
+        <section className="bg-white dark:bg-zinc-900/80 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl p-5 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-zinc-400 pb-2 border-b border-slate-100 dark:border-zinc-800/60">
             <span>Service Progress</span>
-            <span className="text-[11px] font-mono text-zinc-500">Auto-refreshing</span>
+            <span className="text-[11px] font-mono text-slate-400 dark:text-zinc-500">Auto-refreshing</span>
           </div>
 
           <div className="relative flex justify-between items-center px-1">
             {/* Connecting Track Line */}
-            <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-zinc-800 -z-0" />
+            <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-slate-200 dark:bg-zinc-800 -z-0" />
             <div
-              className="absolute left-6 top-1/2 -translate-y-1/2 h-0.5 bg-indigo-500 transition-all duration-700 -z-0"
+              className="absolute left-6 top-1/2 -translate-y-1/2 h-0.5 bg-indigo-600 dark:bg-indigo-500 transition-all duration-700 -z-0"
               style={{
                 width: `${(currentStageIndex / (STAGES.length - 1)) * 88}%`
               }}
@@ -312,9 +312,9 @@ export default function CustomerJobTrackerPage({
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                         : isCurrent
                         ? isCompleted
-                          ? 'bg-emerald-500 text-white ring-4 ring-emerald-500/20'
-                          : 'bg-indigo-500 text-white ring-4 ring-indigo-500/20 animate-pulse'
-                        : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                          ? 'bg-emerald-600 dark:bg-emerald-500 text-white ring-4 ring-emerald-500/20'
+                          : 'bg-indigo-600 dark:bg-indigo-500 text-white ring-4 ring-indigo-500/20 animate-pulse'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 border border-slate-200 dark:border-zinc-700'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -322,10 +322,10 @@ export default function CustomerJobTrackerPage({
                   <span
                     className={`text-[10px] font-bold mt-2 tracking-tight ${
                       isCurrent
-                        ? 'text-indigo-300'
+                        ? 'text-indigo-600 dark:text-indigo-300'
                         : isPast
-                        ? 'text-zinc-200'
-                        : 'text-zinc-500'
+                        ? 'text-slate-800 dark:text-zinc-200'
+                        : 'text-slate-400 dark:text-zinc-500'
                     }`}
                   >
                     {stage.label}
@@ -337,38 +337,38 @@ export default function CustomerJobTrackerPage({
         </section>
 
         {/* Service Details Card */}
-        <section className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-5 space-y-3.5 shadow-sm text-xs">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Appointment Details</h3>
+        <section className="bg-white dark:bg-zinc-900/80 border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl p-5 space-y-3.5 shadow-xs text-xs">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-400">Appointment Details</h3>
           
           <div className="space-y-2.5">
             <div className="flex items-start gap-2.5">
-              <Calendar className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
               <div>
-                <span className="text-zinc-400 text-[11px] block">Date &amp; Time</span>
-                <span className="text-zinc-100 font-semibold">{formattedDate} at {formattedTime}</span>
+                <span className="text-slate-400 dark:text-zinc-400 text-[11px] block">Date &amp; Time</span>
+                <span className="text-slate-900 dark:text-zinc-100 font-semibold">{formattedDate} at {formattedTime}</span>
               </div>
             </div>
 
             <div className="flex items-start gap-2.5">
-              <Wrench className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <Wrench className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
               <div>
-                <span className="text-zinc-400 text-[11px] block">Service</span>
-                <span className="text-zinc-100 font-semibold">
+                <span className="text-slate-400 dark:text-zinc-400 text-[11px] block">Service</span>
+                <span className="text-slate-900 dark:text-zinc-100 font-semibold">
                   {service?.name || job.title}
                   {service?.price ? ` • $${service.price}` : ''}
                 </span>
                 {job.description && (
-                  <p className="text-zinc-400 text-[11px] mt-0.5">{job.description}</p>
+                  <p className="text-slate-500 dark:text-zinc-400 text-[11px] mt-0.5">{job.description}</p>
                 )}
               </div>
             </div>
 
             {contact?.address && (
               <div className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="text-zinc-400 text-[11px] block">Service Location</span>
-                  <span className="text-zinc-100 font-medium">{contact.address}</span>
+                  <span className="text-slate-400 dark:text-zinc-400 text-[11px] block">Service Location</span>
+                  <span className="text-slate-900 dark:text-zinc-100 font-medium">{contact.address}</span>
                 </div>
               </div>
             )}
@@ -377,36 +377,36 @@ export default function CustomerJobTrackerPage({
 
         {/* Invoice & Payment Card (When Invoice is Ready) */}
         {invoice && (
-          <section className="bg-zinc-900/90 border border-indigo-500/30 rounded-2xl p-5 space-y-3.5 shadow-lg shadow-indigo-500/5">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+          <section className="bg-white dark:bg-zinc-900/90 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl p-5 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
               <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-indigo-400" />
-                <span className="text-xs font-bold text-zinc-100">Invoice #{invoice.invoiceNumber}</span>
+                <CreditCard className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Invoice #{invoice.invoiceNumber}</span>
               </div>
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                 invoice.status === 'paid'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30'
+                  : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30'
               }`}>
                 {invoice.status.replace('_', ' ')}
               </span>
             </div>
 
             <div className="flex items-center justify-between text-xs">
-              <span className="text-zinc-400">Total Amount:</span>
-              <span className="text-base font-bold text-zinc-100">${invoice.total.toFixed(2)}</span>
+              <span className="text-slate-500 dark:text-zinc-400">Total Amount:</span>
+              <span className="text-base font-bold text-slate-900 dark:text-zinc-100">${invoice.total.toFixed(2)}</span>
             </div>
 
             {invoice.status !== 'paid' && invoice.amountDue > 0 ? (
               <Link
                 href={`/invoice/${invoice.manageToken}`}
-                className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-md shadow-indigo-600/30 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-md shadow-indigo-600/20 cursor-pointer"
               >
                 <span>Pay Balance (${invoice.amountDue.toFixed(2)}) Online</span>
                 <ChevronRight className="w-4 h-4" />
               </Link>
             ) : (
-              <div className="text-xs text-emerald-400 flex items-center gap-1.5 pt-1">
+              <div className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 pt-1">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Invoice paid in full. Thank you!</span>
               </div>
@@ -416,14 +416,14 @@ export default function CustomerJobTrackerPage({
 
         {/* 5-Star Review Prompt (When Job is Completed) */}
         {isCompleted && (
-          <section className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-5 text-center space-y-3.5 shadow-md">
-            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+          <section className="bg-white dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 text-center space-y-3.5 shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-500 dark:text-amber-400 flex items-center justify-center mx-auto">
               <Star className="w-5 h-5 fill-amber-400" />
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-zinc-100">How was your experience today?</h3>
-              <p className="text-xs text-zinc-400">Tap below to rate your service with {org.name}:</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">How was your experience today?</h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">Tap below to rate your service with {org.name}:</p>
             </div>
 
             {/* Interactive 5-Star Selector */}
@@ -435,8 +435,8 @@ export default function CustomerJobTrackerPage({
                   onClick={() => handleRatingClick(star)}
                   className={`p-2 rounded-xl border transition-all cursor-pointer ${
                     selectedRating && selectedRating >= star
-                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 scale-105'
-                      : 'bg-zinc-800/60 border-zinc-700 text-zinc-500 hover:text-zinc-300'
+                      ? 'bg-amber-50 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/50 text-amber-500 dark:text-amber-400 scale-105'
+                      : 'bg-slate-50 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
                   }`}
                 >
                   <Star className={`w-5 h-5 ${selectedRating && selectedRating >= star ? 'fill-amber-400' : ''}`} />
@@ -446,33 +446,33 @@ export default function CustomerJobTrackerPage({
 
             {/* Smart Review Handling */}
             {selectedRating && selectedRating >= 4 && (
-              <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 space-y-2 animate-in fade-in">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 space-y-2 animate-in fade-in">
                 <p className="font-semibold">Thank you for the 5-star rating! 🎉</p>
                 {reviewUrl ? (
                   <a
                     href={reviewUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors cursor-pointer"
                   >
                     <span>Share on Google Maps</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 ) : (
-                  <p className="text-zinc-400 text-[11px]">We appreciate your business!</p>
+                  <p className="text-slate-500 dark:text-zinc-400 text-[11px]">We appreciate your business!</p>
                 )}
               </div>
             )}
 
             {selectedRating && selectedRating < 4 && !feedbackSent && (
-              <div className="p-3 bg-zinc-850 border border-zinc-700 rounded-xl text-xs space-y-2 text-left animate-in fade-in">
-                <p className="font-semibold text-zinc-200">We want to make this right. What could we have done better?</p>
+              <div className="p-3 bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs space-y-2 text-left animate-in fade-in">
+                <p className="font-semibold text-slate-800 dark:text-zinc-200">We want to make this right. What could we have done better?</p>
                 <textarea
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Tell us what happened so management can follow up..."
                   rows={2}
-                  className="w-full p-2 rounded-lg bg-zinc-900 border border-zinc-750 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-750 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-hidden focus:border-indigo-500"
                 />
                 <button
                   type="button"
@@ -485,7 +485,7 @@ export default function CustomerJobTrackerPage({
             )}
 
             {feedbackSent && (
-              <div className="p-3 bg-zinc-850 border border-zinc-700 rounded-xl text-xs text-zinc-300 animate-in fade-in">
+              <div className="p-3 bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-700 dark:text-zinc-300 animate-in fade-in">
                 Thank you for your feedback. Our team has received your message and will review it immediately.
               </div>
             )}
@@ -493,9 +493,9 @@ export default function CustomerJobTrackerPage({
         )}
 
         {/* Footer */}
-        <footer className="pt-4 text-center text-[11px] text-zinc-600 space-y-1">
-          <p>Live Job Pulse powered by <span className="font-semibold text-zinc-400">CaptoDesk</span></p>
-          <p className="font-mono text-[9px] text-zinc-700">Updated: {lastUpdated.toLocaleTimeString()}</p>
+        <footer className="pt-4 text-center text-[11px] text-slate-400 dark:text-zinc-600 space-y-1">
+          <p>Live Job Pulse powered by <span className="font-semibold text-slate-600 dark:text-zinc-400">CaptoDesk</span></p>
+          <p className="font-mono text-[9px] text-slate-400 dark:text-zinc-700">Updated: {lastUpdated.toLocaleTimeString()}</p>
         </footer>
 
       </div>

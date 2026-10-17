@@ -208,10 +208,10 @@ export default function CustomerManageAppointmentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060911] text-zinc-200 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-200 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <p className="text-xs text-zinc-400">Loading your appointment...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 dark:border-blue-500 border-t-transparent" />
+          <p className="text-xs text-slate-500 dark:text-zinc-400">Loading your appointment...</p>
         </div>
       </div>
     )
@@ -219,11 +219,11 @@ export default function CustomerManageAppointmentPage() {
 
   if (error || !apt) {
     return (
-      <div className="min-h-screen bg-[#060911] text-zinc-200 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0D1322] border border-zinc-800 rounded-2xl p-6 text-center space-y-4">
-          <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
-          <h1 className="text-xl font-bold text-white">Appointment Not Found</h1>
-          <p className="text-sm text-zinc-400">{error || 'This appointment link is invalid or has expired.'}</p>
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-200 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+          <AlertCircle className="h-10 w-10 text-red-500 dark:text-red-400 mx-auto" />
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Appointment Not Found</h1>
+          <p className="text-sm text-slate-500 dark:text-zinc-400">{error || 'This appointment link is invalid or has expired.'}</p>
         </div>
       </div>
     )
@@ -235,16 +235,16 @@ export default function CustomerManageAppointmentPage() {
   const isActionable = !isCancelled && !isCompleted
 
   return (
-    <div className="min-h-screen bg-[#060911] text-zinc-100 py-8 px-4 sm:px-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 py-8 px-4 sm:px-6">
       <div className="max-w-lg mx-auto space-y-6">
 
         {/* Business Branding */}
         <div className="text-center space-y-1">
-          <p className="text-xs uppercase tracking-wider text-zinc-500 font-semibold">Appointment Manager</p>
-          <h1 className="text-2xl font-black text-white">{apt.business.name}</h1>
+          <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-500 font-semibold">Appointment Manager</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white">{apt.business.name}</h1>
           {apt.business.phone && (
-            <p className="text-xs text-zinc-400 flex items-center justify-center gap-1">
-              <Phone className="h-3 w-3 text-blue-400" />
+            <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center justify-center gap-1">
+              <Phone className="h-3 w-3 text-blue-600 dark:text-blue-400" />
               <span>{apt.business.phone}</span>
             </p>
           )}
@@ -253,17 +253,17 @@ export default function CustomerManageAppointmentPage() {
         {/* Status Alert Banner */}
         <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
           apt.status === 'confirmed'
-            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
             : apt.status === 'requested'
-            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+            ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300'
             : apt.status === 'cancelled'
-            ? 'bg-red-500/10 border-red-500/30 text-red-300'
-            : 'bg-zinc-800/80 border-zinc-700 text-zinc-300'
+            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300'
+            : 'bg-slate-100 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300'
         }`}>
-          {apt.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
-          {apt.status === 'requested' && <Clock className="h-5 w-5 shrink-0 text-amber-400" />}
-          {apt.status === 'cancelled' && <XCircle className="h-5 w-5 shrink-0 text-red-400" />}
-          {apt.status === 'completed' && <CheckCircle2 className="h-5 w-5 shrink-0 text-blue-400" />}
+          {apt.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+          {apt.status === 'requested' && <Clock className="h-5 w-5 shrink-0 text-amber-500 dark:text-amber-400" />}
+          {apt.status === 'cancelled' && <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-red-400" />}
+          {apt.status === 'completed' && <CheckCircle2 className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />}
 
           <div>
             <span className="font-bold block capitalize text-sm">
@@ -279,42 +279,42 @@ export default function CustomerManageAppointmentPage() {
         </div>
 
         {/* Appointment Card */}
-        <div className="rounded-2xl bg-[#0D1322] border border-zinc-800 p-5 space-y-4 shadow-xl">
-          <div className="flex items-start justify-between gap-3 pb-3 border-b border-zinc-800">
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 space-y-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
             <div>
-              <h2 className="text-base font-bold text-white">{apt.serviceType || apt.title}</h2>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">{apt.serviceType || apt.title}</h2>
               {apt.service?.durationMinutes && (
-                <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
-                  <Clock className="h-3 w-3 text-blue-400" />
+                <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5">
+                  <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                   {apt.service.durationMinutes} minutes
                 </p>
               )}
             </div>
             {apt.service?.price !== null && apt.service?.price !== undefined && (
-              <span className="text-sm font-bold text-emerald-400 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
                 ${apt.service.price.toFixed(2)}
               </span>
             )}
           </div>
 
           <div className="space-y-2.5 text-xs">
-            <div className="flex items-center gap-3 text-zinc-300">
-              <CalendarIcon className="h-4 w-4 text-blue-400 shrink-0" />
+            <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
+              <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>
                 {startDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-zinc-300">
-              <Clock className="h-4 w-4 text-blue-400 shrink-0" />
+            <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
+              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>
                 {startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} ({apt.business.timezone})
               </span>
             </div>
 
             {apt.customer.address && (
-              <div className="flex items-center gap-3 text-zinc-300">
-                <MapPin className="h-4 w-4 text-blue-400 shrink-0" />
+              <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
+                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>{apt.customer.address}</span>
               </div>
             )}
@@ -323,8 +323,8 @@ export default function CustomerManageAppointmentPage() {
 
         {/* Add to Calendar Sync Buttons */}
         {apt.status !== 'cancelled' && (
-          <div className="rounded-2xl bg-[#0D1322] border border-zinc-800/90 p-4 space-y-2.5">
-            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
+          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/90 p-4 space-y-2.5 shadow-xs">
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block">
               Sync to Calendar
             </span>
             <div className="grid grid-cols-2 gap-2">
@@ -339,9 +339,9 @@ export default function CustomerManageAppointmentPage() {
                 })}
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
               >
-                <CalendarDays className="h-4 w-4 text-blue-400" />
+                <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span>Google Calendar</span>
               </a>
 
@@ -357,9 +357,9 @@ export default function CustomerManageAppointmentPage() {
                     url: window.location.href,
                   }, `appointment-${token.substring(0, 8)}.ics`)
                 }}
-                className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
               >
-                <CalendarIcon className="h-4 w-4 text-emerald-400" />
+                <CalendarIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Apple / Outlook</span>
               </button>
             </div>
@@ -372,7 +372,7 @@ export default function CustomerManageAppointmentPage() {
             <button
               type="button"
               onClick={() => setShowReschedule(true)}
-              className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+              className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Reschedule Time</span>
@@ -381,7 +381,7 @@ export default function CustomerManageAppointmentPage() {
             <button
               type="button"
               onClick={() => setShowCancel(true)}
-              className="py-3 px-4 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-xs flex items-center justify-center gap-2 transition-all"
+              className="py-3 px-4 rounded-xl border border-rose-200 dark:border-red-500/30 bg-rose-50 dark:bg-red-500/10 hover:bg-rose-100 dark:hover:bg-red-500/20 text-rose-700 dark:text-red-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <XCircle className="h-4 w-4" />
               <span>Cancel Appointment</span>
@@ -391,30 +391,30 @@ export default function CustomerManageAppointmentPage() {
 
         {/* RESCHEDULE FLOW MODAL / INLINE VIEW */}
         {showReschedule && (
-          <div className="rounded-2xl bg-[#0D1322] border border-blue-500/40 p-5 space-y-4 shadow-xl">
+          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-500/40 p-5 space-y-4 shadow-md">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 text-blue-400" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 Choose a New Date & Time
               </h3>
               <button
                 type="button"
                 onClick={() => setShowReschedule(false)}
-                className="text-xs text-zinc-400 hover:text-white"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
                 Close
               </button>
             </div>
 
             {rescheduleError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-rose-600 dark:text-red-400 text-xs">
                 {rescheduleError}
               </div>
             )}
 
             {/* Date Picker */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">Select Date</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Select Date</label>
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {selectableDates.map((item) => {
                   const isSelected = selectedDate === item.dateStr
@@ -423,10 +423,10 @@ export default function CustomerManageAppointmentPage() {
                       key={item.dateStr}
                       type="button"
                       onClick={() => setSelectedDate(item.dateStr)}
-                      className={`flex flex-col items-center justify-center min-w-[65px] py-2.5 px-2 rounded-xl border transition-all shrink-0 ${
+                      className={`flex flex-col items-center justify-center min-w-[65px] py-2.5 px-2 rounded-xl border transition-all shrink-0 cursor-pointer ${
                         isSelected
                           ? 'bg-blue-600 border-blue-500 text-white font-bold'
-                          : 'bg-[#0B0F19] border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700'
                       }`}
                     >
                       <span className="text-[10px] uppercase">{item.dayOfWeek}</span>
@@ -439,15 +439,15 @@ export default function CustomerManageAppointmentPage() {
 
             {/* Time Slot Grid */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">Select Available Time</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Select Available Time</label>
               {loadingSlots ? (
                 <div className="grid grid-cols-3 gap-2 py-4">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-9 rounded-xl bg-zinc-800/40 animate-pulse" />
+                    <div key={i} className="h-9 rounded-xl bg-slate-200 dark:bg-zinc-800/40 animate-pulse" />
                   ))}
                 </div>
               ) : availableSlots.length === 0 ? (
-                <p className="text-xs text-zinc-500 py-4 text-center">No available slots for this date.</p>
+                <p className="text-xs text-slate-400 dark:text-zinc-500 py-4 text-center">No available slots for this date.</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
                   {availableSlots.map((slot) => {
@@ -457,10 +457,10 @@ export default function CustomerManageAppointmentPage() {
                         key={slot.startTime}
                         type="button"
                         onClick={() => setSelectedSlot(slot)}
-                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
+                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer ${
                           isSelected
                             ? 'bg-blue-600 border-blue-500 text-white'
-                            : 'bg-[#0B0F19] border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                            : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
                         }`}
                       >
                         {slot.displayTime}
@@ -475,7 +475,7 @@ export default function CustomerManageAppointmentPage() {
               <button
                 type="button"
                 onClick={() => setShowReschedule(false)}
-                className="py-2.5 px-3.5 rounded-xl border border-zinc-800 text-xs font-semibold text-zinc-400"
+                className="py-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
               >
                 Back
               </button>
@@ -483,7 +483,7 @@ export default function CustomerManageAppointmentPage() {
                 type="button"
                 disabled={!selectedSlot || rescheduling}
                 onClick={handleRescheduleSubmit}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/20"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 {rescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
               </button>
@@ -493,31 +493,31 @@ export default function CustomerManageAppointmentPage() {
 
         {/* CANCEL FLOW CONFIRMATION */}
         {showCancel && (
-          <div className="rounded-2xl bg-[#0D1322] border border-red-500/40 p-5 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-400" />
+          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-rose-200 dark:border-red-500/40 p-5 space-y-4 shadow-md">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-rose-600 dark:text-red-400" />
               Cancel Appointment
             </h3>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-slate-600 dark:text-zinc-400">
               Are you sure you want to cancel this appointment? This action cannot be undone.
             </p>
 
             {cancelError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-rose-600 dark:text-red-400 text-xs">
                 {cancelError}
               </div>
             )}
 
             <div>
-              <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                Reason for cancellation <span className="text-zinc-500">(Optional)</span>
+              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
+                Reason for cancellation <span className="text-slate-400 dark:text-zinc-500">(Optional)</span>
               </label>
               <textarea
                 rows={2}
                 placeholder="Schedule conflict, service no longer needed, etc."
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-[#0B0F19] border border-zinc-800 text-white text-xs focus:outline-none focus:border-red-500 resize-none"
+                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-xs focus:outline-hidden focus:border-red-500 resize-none"
               />
             </div>
 
@@ -525,7 +525,7 @@ export default function CustomerManageAppointmentPage() {
               <button
                 type="button"
                 onClick={() => setShowCancel(false)}
-                className="py-2.5 px-3.5 rounded-xl border border-zinc-800 text-xs font-semibold text-zinc-400"
+                className="py-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
               >
                 Keep Appointment
               </button>
@@ -533,7 +533,7 @@ export default function CustomerManageAppointmentPage() {
                 type="button"
                 disabled={cancelling}
                 onClick={handleCancelSubmit}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-500/20"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-red-500/20 cursor-pointer"
               >
                 {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
               </button>
@@ -546,7 +546,7 @@ export default function CustomerManageAppointmentPage() {
           <div className="text-center pt-2">
             <a
               href={`/book/${apt.business.slug}`}
-              className="inline-flex items-center gap-2 py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20 transition-all"
+              className="inline-flex items-center gap-2 py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer"
             >
               <span>Book a New Appointment</span>
               <ChevronRight className="h-4 w-4" />
@@ -554,8 +554,8 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        <div className="text-center text-[11px] text-zinc-500 flex items-center justify-center gap-1.5 pt-4">
-          <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+        <div className="text-center text-[11px] text-slate-400 dark:text-zinc-500 flex items-center justify-center gap-1.5 pt-4">
+          <ShieldCheck className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
           <span>Secure direct link powered by CaptoDesk</span>
         </div>
 

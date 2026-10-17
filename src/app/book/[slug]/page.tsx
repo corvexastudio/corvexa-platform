@@ -237,8 +237,8 @@ export default function PublicBookingPage() {
     return (
       <div className="min-h-screen bg-[#060911] text-zinc-200 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <p className="text-xs text-zinc-400">Loading schedule...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 dark:border-blue-500 border-t-transparent" />
+          <p className="text-xs text-slate-500 dark:text-zinc-400">Loading schedule...</p>
         </div>
       </div>
     )
@@ -246,63 +246,63 @@ export default function PublicBookingPage() {
 
   if (error || !org) {
     return (
-      <div className="min-h-screen bg-[#060911] text-zinc-200 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0D1322] border border-zinc-800 rounded-2xl p-6 text-center space-y-4">
-          <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
-          <h1 className="text-xl font-bold text-white">Booking Unavailable</h1>
-          <p className="text-sm text-zinc-400">{error || 'This business page could not be found.'}</p>
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-200 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+          <AlertCircle className="h-10 w-10 text-red-500 dark:text-red-400 mx-auto" />
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Booking Unavailable</h1>
+          <p className="text-sm text-slate-500 dark:text-zinc-400">{error || 'This business page could not be found.'}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#060911] text-zinc-100 py-6 px-4 sm:px-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 py-6 px-4 sm:px-6">
       <div className="max-w-xl mx-auto space-y-6">
 
         {/* Business Header */}
         <div className="text-center space-y-2 pb-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold">
             <CalendarDays className="h-3.5 w-3.5" />
             <span>Instant Online Booking</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             {org.name}
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-400">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
             {org.booking_mode === 'instant' ? 'Select a time for instant confirmation' : 'Submit a booking request for quick owner review'}
           </p>
         </div>
 
         {/* Stepper Progress Bar */}
         {step < 4 && (
-          <div className="flex items-center justify-between px-2 text-xs font-medium text-zinc-400">
+          <div className="flex items-center justify-between px-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <button 
               type="button" 
               onClick={() => setStep(1)}
-              className={`flex items-center gap-1.5 ${step === 1 ? 'text-blue-400 font-bold' : ''}`}
+              className={`flex items-center gap-1.5 cursor-pointer ${step === 1 ? 'text-blue-600 dark:text-blue-400 font-bold' : ''}`}
             >
-              <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step === 1 ? 'bg-blue-500 text-white font-bold' : 'bg-zinc-800 text-zinc-400'}`}>1</span>
+              <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step === 1 ? 'bg-blue-600 dark:bg-blue-500 text-white font-bold' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>1</span>
               Service
             </button>
-            <div className="h-0.5 flex-1 mx-3 bg-zinc-800" />
+            <div className="h-0.5 flex-1 mx-3 bg-slate-200 dark:bg-zinc-800" />
             <button 
               type="button" 
               onClick={() => selectedService && setStep(2)}
               disabled={!selectedService}
-              className={`flex items-center gap-1.5 ${step === 2 ? 'text-blue-400 font-bold' : ''}`}
+              className={`flex items-center gap-1.5 cursor-pointer ${step === 2 ? 'text-blue-600 dark:text-blue-400 font-bold' : ''}`}
             >
-              <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step === 2 ? 'bg-blue-500 text-white font-bold' : 'bg-zinc-800 text-zinc-400'}`}>2</span>
+              <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step === 2 ? 'bg-blue-600 dark:bg-blue-500 text-white font-bold' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>2</span>
               Date & Time
             </button>
-            <div className="h-0.5 flex-1 mx-3 bg-zinc-800" />
+            <div className="h-0.5 flex-1 mx-3 bg-slate-200 dark:bg-zinc-800" />
             <button 
               type="button" 
               onClick={() => selectedSlot && setStep(3)}
               disabled={!selectedSlot}
-              className={`flex items-center gap-1.5 ${step === 3 ? 'text-blue-400 font-bold' : ''}`}
+              className={`flex items-center gap-1.5 cursor-pointer ${step === 3 ? 'text-blue-600 dark:text-blue-400 font-bold' : ''}`}
             >
-              <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step === 3 ? 'bg-blue-500 text-white font-bold' : 'bg-zinc-800 text-zinc-400'}`}>3</span>
+              <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step === 3 ? 'bg-blue-600 dark:bg-blue-500 text-white font-bold' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>3</span>
               Details
             </button>
           </div>
@@ -311,21 +311,21 @@ export default function PublicBookingPage() {
         {/* STEP 1: CHOOSE SERVICE */}
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-400" />
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               1. Choose a Service
             </h2>
 
             {services.length === 0 ? (
-              <div className="text-center py-10 px-6 rounded-2xl bg-[#0D1322] border border-zinc-800/80 space-y-4">
-                <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <div className="text-center py-10 px-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/80 space-y-4 shadow-sm">
+                <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400">
                   <AlertCircle className="h-6 w-6" />
                 </div>
                 <div className="space-y-1.5">
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     No Services Available
                   </h3>
-                  <p className="text-xs sm:text-sm text-zinc-400 max-w-sm mx-auto">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
                     No services are currently available for online booking. Please contact the business directly to schedule an appointment.
                   </p>
                 </div>
@@ -333,9 +333,9 @@ export default function PublicBookingPage() {
                   <div className="pt-2">
                     <a
                       href={`tel:${org.phone}`}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-900 dark:text-white text-xs font-semibold transition-colors"
                     >
-                      <Phone className="h-3.5 w-3.5 text-blue-400" />
+                      <Phone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                       <span>Call {org.phone}</span>
                     </a>
                   </div>
@@ -351,29 +351,29 @@ export default function PublicBookingPage() {
                         key={svc.id}
                         type="button"
                         onClick={() => setSelectedService(svc)}
-                        className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                        className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-500/10 border-blue-500 ring-1 ring-blue-500'
-                            : 'bg-[#0D1322] border-zinc-800/80 hover:border-zinc-700'
+                            ? 'bg-blue-50/70 dark:bg-blue-500/10 border-blue-500 ring-1 ring-blue-500'
+                            : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800/80 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="font-bold text-white text-sm sm:text-base">
+                            <div className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
                               {svc.name}
                             </div>
                             {svc.description && (
-                              <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+                              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 line-clamp-2">
                                 {svc.description}
                               </p>
                             )}
-                            <div className="flex items-center gap-3 text-xs text-zinc-400 mt-2.5">
-                              <span className="flex items-center gap-1 text-zinc-300">
-                                <Clock className="h-3 w-3 text-blue-400" />
+                            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 mt-2.5">
+                              <span className="flex items-center gap-1 text-slate-700 dark:text-zinc-300">
+                                <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                                 {svc.duration_minutes} mins
                               </span>
                               {svc.price !== null && svc.price !== undefined && (
-                                <span className="text-emerald-400 font-semibold">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                                   ${svc.price.toFixed(2)}
                                 </span>
                               )}
@@ -381,7 +381,7 @@ export default function PublicBookingPage() {
                           </div>
 
                           <div className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                            isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-zinc-700'
+                            isSelected ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 dark:border-zinc-700'
                           }`}>
                             {isSelected && <CheckCircle2 className="h-3.5 w-3.5" />}
                           </div>
@@ -395,7 +395,7 @@ export default function PublicBookingPage() {
                   type="button"
                   disabled={!selectedService}
                   onClick={() => setStep(2)}
-                  className="w-full mt-4 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                  className="w-full mt-4 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
                 >
                   <span>Continue to Date & Time</span>
                   <ChevronRight className="h-4 w-4" />
@@ -416,7 +416,7 @@ export default function PublicBookingPage() {
               <button 
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs text-zinc-400 hover:text-white flex items-center gap-1"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Change Service
@@ -424,14 +424,14 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Selected Service Badge */}
-            <div className="px-3.5 py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 flex items-center justify-between text-xs">
-              <span className="text-zinc-400">Service: <strong className="text-white">{selectedService?.name}</strong></span>
-              <span className="text-blue-400 font-medium">{selectedService?.duration_minutes} mins</span>
+            <div className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs shadow-xs">
+              <span className="text-slate-500 dark:text-zinc-400">Service: <strong className="text-slate-900 dark:text-white">{selectedService?.name}</strong></span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedService?.duration_minutes} mins</span>
             </div>
 
             {/* Date Pill Scroller */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-zinc-300">Choose Date</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Choose Date</label>
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {selectableDates.map((item) => {
                   const isSelected = selectedDate === item.dateStr
@@ -441,10 +441,10 @@ export default function PublicBookingPage() {
                       key={item.dateStr}
                       type="button"
                       onClick={() => setSelectedDate(item.dateStr)}
-                      className={`flex flex-col items-center justify-center min-w-[72px] py-2.5 px-2 rounded-xl border transition-all shrink-0 ${
+                      className={`flex flex-col items-center justify-center min-w-[72px] py-2.5 px-2 rounded-xl border transition-all shrink-0 cursor-pointer ${
                         isSelected
-                          ? 'bg-blue-600 border-blue-500 text-white font-bold shadow-md shadow-blue-600/30'
-                          : 'bg-[#0D1322] border-zinc-800/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
+                          ? 'bg-blue-600 border-blue-500 text-white font-bold shadow-md shadow-blue-600/20'
+                          : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800/80 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700 hover:text-slate-900 dark:hover:text-zinc-200 shadow-xs'
                       }`}
                     >
                       <span className="text-[10px] uppercase tracking-wider">{item.dayOfWeek}</span>
@@ -453,25 +453,25 @@ export default function PublicBookingPage() {
                         <span className="mt-1">
                           {meta.dayStatus === 'fully_booked' ? (
                             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-red-950/80 text-red-200 border border-red-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              isSelected ? 'bg-red-950/80 text-red-200 border border-red-500/30' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'
                             }`}>
                               Full
                             </span>
                           ) : meta.dayStatus === 'closed' ? (
                             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-800/40 text-zinc-500'
+                              isSelected ? 'bg-slate-800 text-zinc-300' : 'bg-slate-100 dark:bg-zinc-800/40 text-slate-400 dark:text-zinc-500'
                             }`}>
                               Closed
                             </span>
                           ) : meta.dayStatus === 'past' ? (
                             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-800/40 text-zinc-500'
+                              isSelected ? 'bg-slate-800 text-zinc-300' : 'bg-slate-100 dark:bg-zinc-800/40 text-slate-400 dark:text-zinc-500'
                             }`}>
                               Past
                             </span>
                           ) : meta.slotsCount > 0 ? (
                             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              isSelected ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/30' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
                             }`}>
                               {meta.slotsCount} open
                             </span>
@@ -487,41 +487,41 @@ export default function PublicBookingPage() {
             {/* Available Time Slots Grid */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-blue-400" />
+                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                   <span>Available Times ({org.timezone})</span>
                 </label>
                 {/* Live Slot Counts & Legend */}
                 {!loadingSlots && allSlots.length > 0 && (
                   <div className="flex items-center gap-3 text-[11px]">
-                    <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
                       {availableSlots.length} Open
                     </span>
                     {bookedSlotsCount > 0 && (
-                      <span className="flex items-center gap-1 text-zinc-400">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
-                        {bookedSlotsCount} Booked
-                      </span>
+                  <span className="flex items-center gap-1 text-slate-500 dark:text-zinc-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+                    {bookedSlotsCount} Booked
+                  </span>
                     )}
                   </div>
                 )}
-                {loadingSlots && <span className="text-[11px] text-blue-400 animate-pulse">Checking calendar...</span>}
+                {loadingSlots && <span className="text-[11px] text-blue-600 dark:text-blue-400 animate-pulse">Checking calendar...</span>}
               </div>
 
               {loadingSlots ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-4">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-11 rounded-xl bg-zinc-800/50 animate-pulse" />
+                    <div key={i} className="h-11 rounded-xl bg-slate-200 dark:bg-zinc-800/50 animate-pulse" />
                   ))}
                 </div>
               ) : dayStatus === 'fully_booked' || (bookedSlotsCount > 0 && availableSlots.length === 0) ? (
                 <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs flex items-start gap-3">
-                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-3">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-500 dark:text-amber-400 mt-0.5" />
                     <div>
-                      <p className="font-bold text-amber-200">This date is fully booked</p>
-                      <p className="text-[11px] text-amber-300/80 mt-0.5 leading-relaxed">
+                      <p className="font-bold text-amber-900 dark:text-amber-200">This date is fully booked</p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-0.5 leading-relaxed">
                         All appointment slots for this date have already been reserved. Please pick another date from the calendar above to see open times.
                       </p>
                     </div>
@@ -530,16 +530,16 @@ export default function PublicBookingPage() {
                   {/* Render the booked slots so the customer sees they are taken */}
                   {allSlots.length > 0 && (
                     <div className="space-y-1.5">
-                      <span className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold">Reserved Times</span>
+                      <span className="text-[11px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-semibold">Reserved Times</span>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 opacity-75">
                         {allSlots.map((slot) => (
                           <div
                             key={slot.startTime}
-                            className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-800/60 bg-zinc-900/40 text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
+                            className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/60 dark:border-zinc-800/60 bg-slate-100/50 dark:bg-zinc-900/40 text-slate-400 dark:text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
                             title="This slot is already booked"
                           >
-                            <span className="line-through decoration-zinc-600 text-zinc-500">{slot.displayTime}</span>
-                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400/90 border border-rose-500/20">
+                            <span className="line-through decoration-slate-400 dark:decoration-zinc-600 text-slate-400 dark:text-zinc-500">{slot.displayTime}</span>
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400/90 border border-rose-200 dark:border-rose-500/20">
                               Booked
                             </span>
                           </div>
@@ -550,23 +550,23 @@ export default function PublicBookingPage() {
                 </div>
               ) : dayStatus === 'past' || (availableSlots.length === 0 && allSlots.length > 0) ? (
                 <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-200 text-xs flex items-start gap-3">
-                    <Clock className="h-4 w-4 shrink-0 text-blue-400 mt-0.5" />
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-200 text-xs flex items-start gap-3">
+                    <Clock className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
                     <div>
-                      <p className="font-bold text-blue-200">Operating hours for this date have passed</p>
-                      <p className="text-[11px] text-blue-300/80 mt-0.5 leading-relaxed">
+                      <p className="font-bold text-blue-900 dark:text-blue-200">Operating hours for this date have passed</p>
+                      <p className="text-[11px] text-blue-700 dark:text-blue-300/80 mt-0.5 leading-relaxed">
                         Booking hours for this date in {org.timezone} have concluded. Please choose tomorrow or an upcoming date to find available times.
                       </p>
                     </div>
                   </div>
                 </div>
               ) : allSlots.length === 0 ? (
-                <div className="py-8 px-4 text-center rounded-2xl bg-[#0D1322] border border-zinc-800 space-y-2">
-                  <CalendarDays className="h-8 w-8 text-zinc-600 mx-auto" />
-                  <p className="text-xs font-medium text-zinc-300">
+                <div className="py-8 px-4 text-center rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-2 shadow-xs">
+                  <CalendarDays className="h-8 w-8 text-slate-400 dark:text-zinc-600 mx-auto" />
+                  <p className="text-xs font-medium text-slate-700 dark:text-zinc-300">
                     {dayStatus === 'closed' ? 'Closed on this date' : 'No available slots for this date'}
                   </p>
-                  <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-xs mx-auto">
                     {dayStatus === 'closed'
                       ? 'Our business is closed on this day according to standard business hours. Please select another date.'
                       : 'All times are either booked, outside business hours, or within the minimum notice period. Please choose another date.'}
@@ -583,11 +583,11 @@ export default function PublicBookingPage() {
                       return (
                         <div
                           key={slot.startTime}
-                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-800/50 bg-zinc-950/40 text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
+                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/50 dark:border-zinc-800/50 bg-slate-100/40 dark:bg-zinc-950/40 text-slate-400 dark:text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
                           title="This slot is already booked"
                         >
-                          <span className="line-through decoration-zinc-600 text-zinc-500">{slot.displayTime}</span>
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400/80 border border-rose-500/20">
+                          <span className="line-through decoration-slate-400 dark:decoration-zinc-600 text-slate-400 dark:text-zinc-500">{slot.displayTime}</span>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400/80 border border-rose-200 dark:border-rose-500/20">
                             Booked
                           </span>
                         </div>
@@ -598,11 +598,11 @@ export default function PublicBookingPage() {
                       return (
                         <div
                           key={slot.startTime}
-                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-900 bg-zinc-950/20 text-zinc-600 flex items-center justify-between gap-1.5 cursor-not-allowed select-none opacity-40"
+                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/40 dark:border-zinc-900 bg-slate-100/20 dark:bg-zinc-950/20 text-slate-400 dark:text-zinc-600 flex items-center justify-between gap-1.5 cursor-not-allowed select-none opacity-40"
                           title="This time has passed"
                         >
                           <span>{slot.displayTime}</span>
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-800/40 text-zinc-600 border border-zinc-800/40">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-200/40 dark:bg-zinc-800/40 text-slate-500 dark:text-zinc-600 border border-slate-200/40 dark:border-zinc-800/40">
                             Past
                           </span>
                         </div>
@@ -614,17 +614,17 @@ export default function PublicBookingPage() {
                         key={slot.startTime}
                         type="button"
                         onClick={() => setSelectedSlot(slot)}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all text-center flex items-center justify-between gap-1.5 ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all text-center flex items-center justify-between gap-1.5 cursor-pointer ${
                           isSelected
                             ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-500/20'
-                            : 'bg-[#0D1322] border-zinc-800/80 text-zinc-300 hover:border-zinc-700 hover:text-white'
+                            : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
                         }`}
                       >
                         <span>{slot.displayTime}</span>
                         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
                           isSelected
                             ? 'bg-white/20 text-white'
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
                         }`}>
                           Available
                         </span>
@@ -640,7 +640,7 @@ export default function PublicBookingPage() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="py-3 px-4 rounded-xl border border-zinc-800 bg-[#0D1322] hover:bg-zinc-800 text-zinc-300 font-semibold text-xs"
+                className="py-3 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs cursor-pointer shadow-xs"
               >
                 Back
               </button>
@@ -648,7 +648,7 @@ export default function PublicBookingPage() {
                 type="button"
                 disabled={!selectedSlot}
                 onClick={() => setStep(3)}
-                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-blue-500/20"
+                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 <span>Continue to Your Details</span>
                 <ChevronRight className="h-4 w-4" />
@@ -661,14 +661,14 @@ export default function PublicBookingPage() {
         {step === 3 && (
           <form onSubmit={handleBookingSubmit} className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <User className="h-4 w-4 text-blue-400" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 3. Your Information
               </h2>
               <button 
                 type="button"
                 onClick={() => setStep(2)}
-                className="text-xs text-zinc-400 hover:text-white flex items-center gap-1"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Change Time
@@ -676,18 +676,18 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Booking Summary Pill */}
-            <div className="p-3.5 rounded-xl bg-[#0D1322] border border-blue-500/30 flex items-center justify-between text-xs">
+            <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-500/30 flex items-center justify-between text-xs shadow-xs">
               <div>
-                <span className="font-bold text-white block">{selectedService?.name}</span>
-                <span className="text-zinc-400">{selectedSlot?.date} at {selectedSlot?.displayTime}</span>
+                <span className="font-bold text-slate-900 dark:text-white block">{selectedService?.name}</span>
+                <span className="text-slate-500 dark:text-zinc-400">{selectedSlot?.date} at {selectedSlot?.displayTime}</span>
               </div>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-semibold">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold">
                 {org.booking_mode === 'instant' ? 'Instant Confirmation' : 'Request Mode'}
               </span>
             </div>
 
             {submitError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{submitError}</span>
               </div>
@@ -695,93 +695,93 @@ export default function PublicBookingPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Full Name <span className="text-red-400">*</span>
+                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Full Name <span className="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
+                  <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                   <input
                     type="text"
                     required
                     placeholder="John Doe"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Mobile Phone Number <span className="text-red-400">*</span>
+                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Mobile Phone Number <span className="text-red-500 dark:text-red-400">*</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-zinc-500" />
+                  <Phone className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                   <input
                     type="tel"
                     required
                     placeholder="(555) 000-0000"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                   />
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">
+                <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
                   We'll send you an instant SMS confirmation and reminder links.
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Email Address <span className="text-zinc-500">(Optional)</span>
+                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Email Address <span className="text-slate-400 dark:text-zinc-500">(Optional)</span>
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-zinc-500" />
+                  <Mail className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                   <input
                     type="email"
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                   />
                 </div>
               </div>
 
               {selectedService?.requires_address && (
                 <div>
-                  <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                    Service Address <span className="text-red-400">*</span>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
+                    Service Address <span className="text-red-500 dark:text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-zinc-500" />
+                    <MapPin className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
                     <input
                       type="text"
                       required
                       placeholder="123 Main St, City, ST 12345"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500"
+                      className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                  Notes / Job Details <span className="text-zinc-500">(Optional)</span>
+                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Notes / Job Details <span className="text-slate-400 dark:text-zinc-500">(Optional)</span>
                 </label>
                 <textarea
                   rows={2}
                   placeholder="Gate code, issue details, or special requests..."
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-[#0D1322] border border-zinc-800 text-white text-base sm:text-xs focus:outline-none focus:border-blue-500 resize-none"
+                  className="w-full p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 resize-none shadow-xs"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1 text-[11px] text-zinc-400">
-              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+            <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>No account required. You will receive a direct link to reschedule or cancel anytime.</span>
             </div>
 
@@ -789,14 +789,14 @@ export default function PublicBookingPage() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="py-3 px-4 rounded-xl border border-zinc-800 bg-[#0D1322] hover:bg-zinc-800 text-zinc-300 font-semibold text-xs"
+                className="py-3 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs cursor-pointer shadow-xs"
               >
                 Back
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
+                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
               >
                 {submitting ? (
                   <>
@@ -817,15 +817,15 @@ export default function PublicBookingPage() {
         {/* STEP 4: CONFIRMATION VIEW */}
         {step === 4 && confirmedBooking && (
           <div className="space-y-6 pt-4 text-center">
-            <div className="h-16 w-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+            <div className="h-16 w-16 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
               <CheckCircle2 className="h-8 w-8" />
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-xl sm:text-2xl font-black text-white">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                 {confirmedBooking.status === 'confirmed' ? 'Appointment Confirmed!' : 'Booking Request Received!'}
               </h2>
-              <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+              <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
                 {confirmedBooking.status === 'confirmed' 
                   ? `You're all set! We've dispatched a confirmation SMS with appointment management links.`
                   : `We have received your request and will notify you as soon as it's confirmed.`
@@ -834,28 +834,28 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Appointment Summary Card */}
-            <div className="rounded-2xl bg-[#0D1322] border border-zinc-800 p-5 text-left space-y-3 shadow-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800 text-xs">
-                <span className="text-zinc-400">Business</span>
-                <span className="font-bold text-white">{org.name}</span>
+            <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 text-left space-y-3 shadow-sm">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
+                <span className="text-slate-500 dark:text-zinc-400">Business</span>
+                <span className="font-bold text-slate-900 dark:text-white">{org.name}</span>
               </div>
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800 text-xs">
-                <span className="text-zinc-400">Service</span>
-                <span className="font-bold text-white">{selectedService?.name}</span>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
+                <span className="text-slate-500 dark:text-zinc-400">Service</span>
+                <span className="font-bold text-slate-900 dark:text-white">{selectedService?.name}</span>
               </div>
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800 text-xs">
-                <span className="text-zinc-400">Date & Time</span>
-                <span className="font-bold text-blue-400">{selectedSlot?.date} at {selectedSlot?.displayTime}</span>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
+                <span className="text-slate-500 dark:text-zinc-400">Date & Time</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{selectedSlot?.date} at {selectedSlot?.displayTime}</span>
               </div>
               {formData.address && (
-                <div className="flex items-center justify-between pb-3 border-b border-zinc-800 text-xs">
-                  <span className="text-zinc-400">Location</span>
-                  <span className="font-medium text-zinc-300 text-right">{formData.address}</span>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
+                  <span className="text-slate-500 dark:text-zinc-400">Location</span>
+                  <span className="font-medium text-slate-700 dark:text-zinc-300 text-right">{formData.address}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-400">Status</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wide">
+                <span className="text-slate-500 dark:text-zinc-400">Status</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 uppercase tracking-wide">
                   {confirmedBooking.status}
                 </span>
               </div>
@@ -864,7 +864,7 @@ export default function PublicBookingPage() {
             {/* Add to Calendar Sync Buttons */}
             {selectedSlot && (
               <div className="space-y-2 pt-1">
-                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block">
                   Add to Your Calendar
                 </span>
                 <div className="grid grid-cols-2 gap-2">
@@ -879,9 +879,9 @@ export default function PublicBookingPage() {
                     })}
                     target="_blank"
                     rel="noreferrer"
-                    className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
                   >
-                    <CalendarDays className="h-4 w-4 text-blue-400" />
+                    <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <span>Google Calendar</span>
                   </a>
 
@@ -897,9 +897,9 @@ export default function PublicBookingPage() {
                         url: `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`,
                       }, `appointment-${confirmedBooking.manageToken.substring(0, 8)}.ics`)
                     }}
-                    className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
                   >
-                    <CalendarIcon className="h-4 w-4 text-emerald-400" />
+                    <CalendarIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Apple / Outlook</span>
                   </button>
                 </div>
@@ -910,13 +910,13 @@ export default function PublicBookingPage() {
             <div className="space-y-3 pt-2">
               <a
                 href={`/book/manage/${confirmedBooking.manageToken}`}
-                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20"
               >
                 <span>View / Manage Appointment</span>
                 <ChevronRight className="h-4 w-4" />
               </a>
 
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-slate-400 dark:text-zinc-500">
                 A copy of this link was sent to {formData.phone}
               </p>
             </div>
