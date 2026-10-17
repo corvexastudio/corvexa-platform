@@ -24,7 +24,9 @@ import {
   Check,
   CreditCard,
   ExternalLink,
-  Palette
+  Palette,
+  Building2,
+  Bell
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
@@ -32,6 +34,7 @@ import { ThemeSettingsSelector } from '@/components/theme-toggle'
 
 export default function SettingsPage() {
   const supabase = createClient()
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'display' | 'telephony' | 'retention' | 'payments' | 'notifications'>('profile')
   const [orgId, setOrgId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -170,8 +173,10 @@ export default function SettingsPage() {
       if (params.get('connect') === 'success' || params.get('connect') === 'simulated_success') {
         toast.success('Stripe Connect onboarding completed! Payments and direct deposits are active.')
         loadStripeStatus()
+        setSettingsTab('payments')
       } else if (params.get('connect') === 'refresh') {
         toast.info('Stripe verification was interrupted. Click Connect to resume.')
+        setSettingsTab('payments')
       }
     }
   }, [loadStripeStatus])
@@ -337,555 +342,634 @@ export default function SettingsPage() {
       ) : (
         <div className="space-y-6">
 
-          {/* ── Section: Appearance & Display Theme ── */}
-          <div className="border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-2xs">
-            <div className="pb-3 border-b border-slate-200 dark:border-zinc-800">
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-                <Palette className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                Display Theme & Appearance
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                Choose your preferred interface theme. Light Theme is default and recommended for outdoor daylight and clarity.
-              </p>
-            </div>
-
-            <ThemeSettingsSelector />
-          </div>
-
-          {/* ── Section 1: Carrier Call Forwarding ── */}
-          <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-blue-400" />
-                  Carrier Conditional Call Forwarding
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Forward unanswered calls to CaptoDesk to fire the instant text-back. Your phone still rings normally.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-xs font-medium text-emerald-400 bg-zinc-950 px-3 py-1.5 rounded border border-zinc-800">
-                  {formData.telnyx_phone_number || 'Provisioning...'}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyNumber}
-                  className="h-7.5 px-2.5 text-xs border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
-                >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </div>
-
-            {/* Carrier Dial Codes */}
-            <div className="space-y-2">
-              <span className="text-xs font-medium text-zinc-300 block">Dial Code by Carrier:</span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Verizon */}
-                <div className="rounded bg-zinc-950 border border-zinc-800 p-3 space-y-1.5">
-                  <span className="text-xs font-semibold text-zinc-300 block">Verizon</span>
-                  <div className="font-mono text-xs font-medium text-white bg-zinc-900 p-1.5 rounded border border-zinc-800 text-center">
-                    *71{cleanForwardingDigits || 'XXXXXXXXXX'}
-                  </div>
-                  <p className="text-[11px] text-zinc-500">Dial code, listen for 2 beeps, hang up.</p>
-                  <p className="text-[10px] text-zinc-600">To disable: dial *73</p>
-                </div>
-
-                {/* AT&T */}
-                <div className="rounded bg-zinc-950 border border-zinc-800 p-3 space-y-1.5">
-                  <span className="text-xs font-semibold text-zinc-300 block">AT&amp;T</span>
-                  <div className="font-mono text-xs font-medium text-white bg-zinc-900 p-1.5 rounded border border-zinc-800 text-center">
-                    *71{cleanForwardingDigits || 'XXXXXXXXXX'}
-                  </div>
-                  <p className="text-[11px] text-zinc-500">Dial code, wait for tone, hang up.</p>
-                  <p className="text-[10px] text-zinc-600">To disable: dial *73</p>
-                </div>
-
-                {/* T-Mobile */}
-                <div className="rounded bg-zinc-950 border border-zinc-800 p-3 space-y-1.5">
-                  <span className="text-xs font-semibold text-zinc-300 block">T-Mobile</span>
-                  <div className="font-mono text-xs font-medium text-white bg-zinc-900 p-1.5 rounded border border-zinc-800 text-center">
-                    **62*{cleanForwardingDigits || 'XXXXXXXXXX'}#
-                  </div>
-                  <p className="text-[11px] text-zinc-500">Dial code with # at end, tap call.</p>
-                  <p className="text-[10px] text-zinc-600">To disable: dial ##62#</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Test SMS Trigger */}
-            <div className="pt-3 border-t border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <span className="text-xs text-zinc-400">
-                Verify SMS dispatch to your mobile number.
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleSendTestSms}
-                disabled={testingSms || !formData.owner_phone}
-                className="h-7.5 text-xs border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-800"
-              >
-                {testingSms ? (
-                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                ) : (
-                  <Send className="h-3 w-3 mr-1.5 text-blue-400" />
-                )}
-                <span>Send Test SMS</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* ── Section: Notification Platform (Web Push & Owner Alerts) ── */}
-          <PushNotificationSettings />
-
-          {/* ── Section 2: Business Profile & Settings Form ── */}
-          <form onSubmit={handleSave} className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-5">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-100">
-                Business Details
-              </h2>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Primary contact details and default business timezone.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-zinc-300 mb-1 block">Business Name</Label>
-                <Input
-                  value={formData.name}
-                  onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
-                  placeholder="e.g. Reyes Plumbing"
-                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs text-zinc-300 mb-1 block">Owner Cell Phone (Notifications)</Label>
-                <Input
-                  value={formData.owner_phone}
-                  onChange={e => setFormData(d => ({ ...d, owner_phone: e.target.value }))}
-                  placeholder="(555) 123-4567"
-                  className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs text-zinc-300 mb-1 block">Primary Carrier</Label>
-                <select
-                  aria-label="Primary Carrier"
-                  value={formData.carrier}
-                  onChange={e => setFormData(d => ({ ...d, carrier: e.target.value }))}
-                  className="w-full h-8.5 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-zinc-700"
-                >
-                  <option value="Verizon">Verizon Wireless</option>
-                  <option value="AT&T">AT&amp;T</option>
-                  <option value="T-Mobile">T-Mobile / Sprint</option>
-                  <option value="Other">Other / Landline</option>
-                </select>
-              </div>
-
-              <div>
-                <Label className="text-xs text-zinc-300 mb-1 block">Timezone</Label>
-                <select
-                  aria-label="Timezone"
-                  value={formData.timezone}
-                  onChange={e => setFormData(d => ({ ...d, timezone: e.target.value }))}
-                  className="w-full h-8.5 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-zinc-700"
-                >
-                  <option value="America/New_York">Eastern Time (ET)</option>
-                  <option value="America/Chicago">Central Time (CT)</option>
-                  <option value="America/Denver">Mountain Time (MT)</option>
-                  <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                </select>
-              </div>
-
-              <div className="sm:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs text-zinc-300">Industry / Trade Category</Label>
-                  <span className="text-[11px] text-zinc-400">
-                    Manage catalog in <Link href="/client/services" className="text-blue-400 hover:underline">Services</Link>
-                  </span>
-                </div>
-                <select
-                  aria-label="Industry / Trade Category"
-                  value={formData.industry}
-                  onChange={e => setFormData(d => ({ ...d, industry: e.target.value }))}
-                  className="w-full h-8.5 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-zinc-700"
-                >
-                  {INDUSTRY_LIST.map(preset => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name} — {preset.badge}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-zinc-400 mt-1">
-                  Your primary business trade. All starter services seeded during onboarding can be freely renamed, repriced, or deleted anytime in Services.
-                </p>
-              </div>
-            </div>
-
-            {/* Customer Reactivation Settings */}
-            <div className="pt-4 border-t border-zinc-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
-                    Customer Retention & Reactivation
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Remind past clients when they are due for recurring maintenance.
-                  </p>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-300">
-                  <input
-                    type="checkbox"
-                    checked={formData.reactivation_enabled}
-                    onChange={e => setFormData(d => ({ ...d, reactivation_enabled: e.target.checked }))}
-                    className="rounded bg-zinc-950 border-zinc-800 text-blue-600 h-4 w-4"
-                  />
-                  <span>Enabled</span>
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">Interval (Days)</Label>
-                  <Input
-                    type="number"
-                    min={14}
-                    max={730}
-                    value={formData.default_reactivation_interval_days}
-                    onChange={e => setFormData(d => ({ ...d, default_reactivation_interval_days: parseInt(e.target.value, 10) || 90 }))}
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                  />
-                  <span className="text-[10px] text-zinc-500">Days since last service</span>
-                </div>
-
-                <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">Cooldown (Days)</Label>
-                  <Input
-                    type="number"
-                    min={7}
-                    max={365}
-                    value={formData.reactivation_cooldown_days}
-                    onChange={e => setFormData(d => ({ ...d, reactivation_cooldown_days: parseInt(e.target.value, 10) || 30 }))}
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                  />
-                  <span className="text-[10px] text-zinc-500">Min days between messages</span>
-                </div>
-
-                <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">Daily Dispatch Limit</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={formData.reactivation_max_daily}
-                    onChange={e => setFormData(d => ({ ...d, reactivation_max_daily: parseInt(e.target.value, 10) || 50 }))}
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                  />
-                  <span className="text-[10px] text-zinc-500">Max sent per day</span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-zinc-400">Reactivation Message Template</Label>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-zinc-400">
-                    <input
-                      type="checkbox"
-                      checked={formData.reactivation_quiet_hours}
-                      onChange={e => setFormData(d => ({ ...d, reactivation_quiet_hours: e.target.checked }))}
-                      className="rounded bg-zinc-950 border-zinc-800 text-blue-600 h-3.5 w-3.5"
-                    />
-                    <span>Quiet Hours (8am-8pm local)</span>
-                  </label>
-                </div>
-                <textarea
-                  rows={2}
-                  value={formData.reactivation_template}
-                  onChange={e => setFormData(d => ({ ...d, reactivation_template: e.target.value }))}
-                  className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-700 resize-none"
-                />
-              </div>
-            </div>
-
-            {/* 10DLC Brand & Carrier Verification */}
-            <div className="pt-4 border-t border-zinc-800 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                    US Carrier &amp; 10DLC Brand Verification
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Official business registration details filed with The Campaign Registry (TCR) for US SMS deliverability.
-                  </p>
-                </div>
-
-                <div>
-                  {formData.carrier_registration_status === 'verified' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-950/80 border border-emerald-800 text-emerald-300">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                      Verified Brand
-                    </span>
-                  ) : formData.carrier_registration_status === 'pending' || formData.carrier_registration_status === 'in_review' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-amber-950/80 border border-amber-800 text-amber-300">
-                      <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
-                      Carrier Review Pending
-                    </span>
-                  ) : formData.carrier_registration_status === 'rejected' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-rose-950/80 border border-rose-800 text-rose-300">
-                      Verification Action Required
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-zinc-800 text-zinc-400">
-                      Not Registered
-                    </span>
+          {/* Settings Navigation Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none bg-slate-100 dark:bg-zinc-900/60 p-1.5 rounded-xl border border-slate-200/60 dark:border-zinc-800">
+            {[
+              { id: 'profile', label: 'Business Profile', icon: Building2 },
+              { id: 'display', label: 'Theme & Display', icon: Palette },
+              { id: 'telephony', label: 'Telephony & Routing', icon: Smartphone },
+              { id: 'retention', label: 'Retention & 10DLC', icon: ShieldCheck },
+              { id: 'payments', label: 'Payments & Payouts', icon: CreditCard },
+              { id: 'notifications', label: 'Alerts & Push', icon: Bell }
+            ].map(t => {
+              const Icon = t.icon
+              const isActive = settingsTab === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setSettingsTab(t.id as any)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
+                    isActive
+                      ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
+                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
                   )}
-                </div>
+                >
+                  <Icon className={cn("h-3.5 w-3.5", isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-zinc-500")} />
+                  <span>{t.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* ── Tab 1: Business Profile ── */}
+          {settingsTab === 'profile' && (
+            <form onSubmit={handleSave} className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-5 shadow-xs">
+              <div className="pb-3 border-b border-slate-100 dark:border-zinc-800">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Business Details & Operating Region
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Primary trade category, contact phone for owner notifications, and default dispatch timezone.
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">Legal Business Entity Name</Label>
+                  <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Business Name</Label>
                   <Input
-                    value={formData.legal_business_name}
-                    onChange={e => setFormData(d => ({ ...d, legal_business_name: e.target.value }))}
-                    placeholder="e.g. Acme Plumbing LLC"
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                    value={formData.name}
+                    onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
+                    placeholder="e.g. Reyes Plumbing"
+                    className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">Business Structure</Label>
+                  <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Owner Cell Phone (Notifications)</Label>
+                  <Input
+                    value={formData.owner_phone}
+                    onChange={e => setFormData(d => ({ ...d, owner_phone: e.target.value }))}
+                    placeholder="(555) 123-4567"
+                    className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Primary Carrier</Label>
                   <select
-                    aria-label="Business Structure"
-                    value={formData.business_type}
-                    onChange={e => setFormData(d => ({ ...d, business_type: e.target.value }))}
-                    className="w-full h-8.5 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-zinc-700"
+                    aria-label="Primary Carrier"
+                    value={formData.carrier}
+                    onChange={e => setFormData(d => ({ ...d, carrier: e.target.value }))}
+                    className="w-full h-8.5 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 px-2.5 focus:outline-none focus:border-blue-500 cursor-pointer"
                   >
-                    <option value="llc">LLC (Limited Liability Co)</option>
-                    <option value="corporation">Corporation (C-Corp / S-Corp)</option>
-                    <option value="sole_proprietorship">Sole Proprietorship</option>
-                    <option value="partnership">Partnership</option>
-                    <option value="non_profit">Non-Profit (501c3)</option>
-                    <option value="other">Other</option>
+                    <option value="Verizon">Verizon Wireless</option>
+                    <option value="AT&T">AT&amp;T</option>
+                    <option value="T-Mobile">T-Mobile / Sprint</option>
+                    <option value="Other">Other / Landline</option>
                   </select>
                 </div>
 
                 <div>
+                  <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Timezone</Label>
+                  <select
+                    aria-label="Timezone"
+                    value={formData.timezone}
+                    onChange={e => setFormData(d => ({ ...d, timezone: e.target.value }))}
+                    className="w-full h-8.5 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 px-2.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
                   <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs text-zinc-400">Federal EIN / Tax ID</Label>
-                    <label className="flex items-center gap-1 text-[10px] text-zinc-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.is_sole_proprietor}
-                        onChange={e => setFormData(d => ({ ...d, is_sole_proprietor: e.target.checked }))}
-                        className="rounded bg-zinc-950 border-zinc-800 text-blue-600 h-3 w-3"
-                      />
-                      <span>Sole Prop (No EIN)</span>
-                    </label>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-300 font-medium">Industry / Trade Category</Label>
+                    <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      Manage catalog in <Link href="/client/services" className="text-blue-600 dark:text-blue-400 hover:underline">Services</Link>
+                    </span>
                   </div>
-                  <Input
-                    value={formData.is_sole_proprietor ? '' : formData.ein}
-                    disabled={formData.is_sole_proprietor}
-                    onChange={e => setFormData(d => ({ ...d, ein: e.target.value }))}
-                    placeholder="12-3456789"
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md font-mono disabled:opacity-50"
-                  />
+                  <select
+                    aria-label="Industry / Trade Category"
+                    value={formData.industry}
+                    onChange={e => setFormData(d => ({ ...d, industry: e.target.value }))}
+                    className="w-full h-8.5 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 px-2.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    {INDUSTRY_LIST.map(preset => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name} — {preset.badge}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                    Your primary business trade. All starter services seeded during onboarding can be freely renamed, repriced, or deleted anytime in Services.
+                  </p>
                 </div>
 
-                <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">Website / Social Profile</Label>
+                <div className="sm:col-span-2">
+                  <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Google Review URL</Label>
                   <Input
-                    value={formData.website_url}
-                    onChange={e => setFormData(d => ({ ...d, website_url: e.target.value }))}
-                    placeholder="https://acmeplumbing.com"
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                    value={formData.google_review_url}
+                    onChange={e => setFormData(d => ({ ...d, google_review_url: e.target.value }))}
+                    placeholder="https://g.page/r/..."
+                    className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
                   />
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                    Included in post-service review request text messages sent to satisfied homeowners.
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-1">
-                  <Label className="text-xs text-zinc-400 mb-1 block">Street Address</Label>
-                  <Input
-                    value={formData.address_street}
-                    onChange={e => setFormData(d => ({ ...d, address_street: e.target.value }))}
-                    placeholder="123 Main St, Suite 100"
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-zinc-400 mb-1 block">City</Label>
-                  <Input
-                    value={formData.address_city}
-                    onChange={e => setFormData(d => ({ ...d, address_city: e.target.value }))}
-                    placeholder="Austin"
-                    className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs text-zinc-400 mb-1 block">State</Label>
-                    <Input
-                      maxLength={2}
-                      value={formData.address_state}
-                      onChange={e => setFormData(d => ({ ...d, address_state: e.target.value.toUpperCase() }))}
-                      placeholder="TX"
-                      className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-zinc-400 mb-1 block">ZIP</Label>
-                    <Input
-                      maxLength={10}
-                      value={formData.address_postal_code}
-                      onChange={e => setFormData(d => ({ ...d, address_postal_code: e.target.value }))}
-                      placeholder="78701"
-                      className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md font-mono"
-                    />
-                  </div>
+              <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+                {!canEditSettings && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    Read-only: Only organization owners and administrators can modify settings.
+                  </p>
+                )}
+                <div className="ml-auto">
+                  <Button
+                    type="submit"
+                    disabled={saving || !canEditSettings}
+                    size="sm"
+                    className="h-8 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-medium shadow-xs"
+                  >
+                    {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                    <span>Save Business Profile</span>
+                  </Button>
                 </div>
               </div>
-            </div>
+            </form>
+          )}
 
-            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
-              {!canEditSettings && (
-                <p className="text-[11px] text-amber-400/90 font-medium">
-                  Read-only: Only organization owners and administrators can modify settings.
+          {/* ── Tab 2: Theme & Display ── */}
+          {settingsTab === 'display' && (
+            <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+              <div className="pb-3 border-b border-slate-100 dark:border-zinc-800">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                  <Palette className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Display Theme & Appearance
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Choose your preferred interface theme. Light Theme is default and recommended for outdoor daylight and clarity.
                 </p>
-              )}
-              <div className="ml-auto">
+              </div>
+
+              <ThemeSettingsSelector />
+            </div>
+          )}
+
+          {/* ── Tab 3: Telephony & Call Forwarding ── */}
+          {settingsTab === 'telephony' && (
+            <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    Carrier Conditional Call Forwarding
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Forward unanswered calls to your CaptoDesk dedicated number to trigger the instant text-back. Your phone still rings normally.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                    {formData.telnyx_phone_number || 'Provisioning...'}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyNumber}
+                    className="h-7.5 px-2.5 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
+                  >
+                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Carrier Dial Codes */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block">Dial Code by Carrier:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Verizon */}
+                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-1.5">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-300 block">Verizon Wireless</span>
+                    <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center">
+                      *71{cleanForwardingDigits || 'XXXXXXXXXX'}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code, listen for 2 beeps, hang up.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-600">To disable: dial *73</p>
+                  </div>
+
+                  {/* AT&T */}
+                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-1.5">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-300 block">AT&amp;T</span>
+                    <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center">
+                      *71{cleanForwardingDigits || 'XXXXXXXXXX'}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code, wait for tone, hang up.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-600">To disable: dial *73</p>
+                  </div>
+
+                  {/* T-Mobile */}
+                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-1.5">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-300 block">T-Mobile / Sprint</span>
+                    <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center">
+                      **62*{cleanForwardingDigits || 'XXXXXXXXXX'}#
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code with # at end, tap call.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-600">To disable: dial ##62#</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Test SMS Trigger */}
+              <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <span className="text-xs text-slate-500 dark:text-zinc-400">
+                  Verify SMS dispatch pipeline to your cell phone ({formData.owner_phone || 'No phone set'}).
+                </span>
                 <Button
-                  type="submit"
-                  disabled={saving || !canEditSettings}
+                  type="button"
+                  variant="outline"
                   size="sm"
-                  className="h-8 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-medium"
+                  onClick={handleSendTestSms}
+                  disabled={testingSms || !formData.owner_phone}
+                  className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
                 >
-                  {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
-                  <span>Save Settings</span>
+                  {testingSms ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1.5 text-blue-600 dark:text-blue-400" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5 mr-1.5 text-blue-600 dark:text-blue-400" />
+                  )}
+                  <span>Send Test SMS</span>
                 </Button>
               </div>
             </div>
-          </form>
+          )}
 
-          {/* ── Section 3: Online Payments & Payouts (Stripe Connect) ── */}
-          <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-emerald-400" />
-                  Online Payments &amp; Direct Bank Deposits
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Accept credit card, debit card, and Apple Pay payments on invoices and live customer tracking links.
-                </p>
+          {/* ── Tab 4: Retention & 10DLC ── */}
+          {settingsTab === 'retention' && (
+            <form onSubmit={handleSave} className="space-y-5">
+              {/* Customer Reactivation Settings */}
+              <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                      Customer Retention & Reactivation
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Automatically remind past clients when they are due for recurring seasonal maintenance.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-zinc-300 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={formData.reactivation_enabled}
+                      onChange={e => setFormData(d => ({ ...d, reactivation_enabled: e.target.checked }))}
+                      className="rounded bg-white dark:bg-zinc-950 border-slate-300 dark:border-zinc-800 text-blue-600 h-4 w-4"
+                    />
+                    <span>Reactivations Active</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Interval (Days)</Label>
+                    <Input
+                      type="number"
+                      min={14}
+                      max={730}
+                      value={formData.default_reactivation_interval_days}
+                      onChange={e => setFormData(d => ({ ...d, default_reactivation_interval_days: parseInt(e.target.value, 10) || 90 }))}
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-500">Days since last service</span>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Cooldown (Days)</Label>
+                    <Input
+                      type="number"
+                      min={7}
+                      max={365}
+                      value={formData.reactivation_cooldown_days}
+                      onChange={e => setFormData(d => ({ ...d, reactivation_cooldown_days: parseInt(e.target.value, 10) || 30 }))}
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-500">Min days between messages</span>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Daily Dispatch Limit</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={formData.reactivation_max_daily}
+                      onChange={e => setFormData(d => ({ ...d, reactivation_max_daily: parseInt(e.target.value, 10) || 50 }))}
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                    <span className="text-[10px] text-slate-500 dark:text-zinc-500">Max sent per day</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 font-medium">Reactivation Message Template</Label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-500 dark:text-zinc-400">
+                      <input
+                        type="checkbox"
+                        checked={formData.reactivation_quiet_hours}
+                        onChange={e => setFormData(d => ({ ...d, reactivation_quiet_hours: e.target.checked }))}
+                        className="rounded bg-white dark:bg-zinc-950 border-slate-300 dark:border-zinc-800 text-blue-600 h-3.5 w-3.5"
+                      />
+                      <span>Quiet Hours (8am-8pm local)</span>
+                    </label>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={formData.reactivation_template}
+                    onChange={e => setFormData(d => ({ ...d, reactivation_template: e.target.value }))}
+                    className="w-full rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-blue-500 resize-none"
+                  />
+                </div>
               </div>
 
-              {stripeStatus?.connected ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Stripe Express Active</span>
-                </div>
-              ) : stripeStatus?.status === 'pending' ? (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span>Verification Pending</span>
-                </div>
-              ) : (
-                <span className="text-xs text-zinc-500 font-medium">
-                  Not Configured
-                </span>
-              )}
-            </div>
+              {/* 10DLC Brand & Carrier Verification */}
+              <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      US Carrier &amp; 10DLC Brand Verification
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Official business registration details filed with The Campaign Registry (TCR) for US SMS deliverability.
+                    </p>
+                  </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 text-xs">
-              <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-850 space-y-2">
-                <span className="font-semibold text-zinc-200 block">How Payouts Work</span>
-                <p className="text-zinc-400 text-[11.5px] leading-relaxed">
-                  When customers pay through their live job tracker or invoice link, payments process securely through Stripe. Funds deposit automatically to your linked bank account on a rolling 2-day schedule.
-                </p>
-                <div className="pt-1 text-[11px] text-zinc-500 flex items-center gap-1">
-                  <span>Platform fee: 0.5% facilitation per successful invoice.</span>
-                </div>
-              </div>
-
-              <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-850 flex flex-col justify-between space-y-3">
-                <div>
-                  <span className="font-semibold text-zinc-200 block">Account Status</span>
-                  <div className="mt-1 space-y-1 text-[11.5px] text-zinc-400">
-                    <div className="flex items-center justify-between">
-                      <span>Card Payments:</span>
-                      <span className={stripeStatus?.chargesEnabled ? 'text-emerald-400 font-medium' : 'text-zinc-500'}>
-                        {stripeStatus?.chargesEnabled ? 'Enabled' : 'Disabled'}
+                  <div>
+                    {formData.carrier_registration_status === 'verified' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                        Verified Brand
                       </span>
+                    ) : formData.carrier_registration_status === 'pending' || formData.carrier_registration_status === 'in_review' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300">
+                        <Loader2 className="h-3 w-3 animate-spin text-amber-600 dark:text-amber-400" />
+                        Carrier Review Pending
+                      </span>
+                    ) : formData.carrier_registration_status === 'rejected' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300">
+                        Verification Action Required
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400">
+                        Not Registered
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Legal Business Entity Name</Label>
+                    <Input
+                      value={formData.legal_business_name}
+                      onChange={e => setFormData(d => ({ ...d, legal_business_name: e.target.value }))}
+                      placeholder="e.g. Acme Plumbing LLC"
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Business Structure</Label>
+                    <select
+                      aria-label="Business Structure"
+                      value={formData.business_type}
+                      onChange={e => setFormData(d => ({ ...d, business_type: e.target.value }))}
+                      className="w-full h-8.5 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 px-2.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      <option value="llc">LLC (Limited Liability Co)</option>
+                      <option value="corporation">Corporation (C-Corp / S-Corp)</option>
+                      <option value="sole_proprietorship">Sole Proprietorship</option>
+                      <option value="partnership">Partnership</option>
+                      <option value="non_profit">Non-Profit (501c3)</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-xs text-slate-700 dark:text-zinc-400 font-medium">Federal EIN / Tax ID</Label>
+                      <label className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-zinc-400 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_sole_proprietor}
+                          onChange={e => setFormData(d => ({ ...d, is_sole_proprietor: e.target.checked }))}
+                          className="rounded bg-white dark:bg-zinc-950 border-slate-300 dark:border-zinc-800 text-blue-600 h-3 w-3"
+                        />
+                        <span>Sole Prop (No EIN)</span>
+                      </label>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Bank Payouts:</span>
-                      <span className={stripeStatus?.payoutsEnabled ? 'text-emerald-400 font-medium' : 'text-zinc-500'}>
-                        {stripeStatus?.payoutsEnabled ? 'Enabled' : 'Disabled'}
-                      </span>
+                    <Input
+                      value={formData.is_sole_proprietor ? '' : formData.ein}
+                      disabled={formData.is_sole_proprietor}
+                      onChange={e => setFormData(d => ({ ...d, ein: e.target.value }))}
+                      placeholder="12-3456789"
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md font-mono disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Website / Social Profile</Label>
+                    <Input
+                      value={formData.website_url}
+                      onChange={e => setFormData(d => ({ ...d, website_url: e.target.value }))}
+                      placeholder="https://acmeplumbing.com"
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-1">
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">Street Address</Label>
+                    <Input
+                      value={formData.address_street}
+                      onChange={e => setFormData(d => ({ ...d, address_street: e.target.value }))}
+                      placeholder="123 Main St, Suite 100"
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">City</Label>
+                    <Input
+                      value={formData.address_city}
+                      onChange={e => setFormData(d => ({ ...d, address_city: e.target.value }))}
+                      placeholder="Austin"
+                      className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">State</Label>
+                      <Input
+                        maxLength={2}
+                        value={formData.address_state}
+                        onChange={e => setFormData(d => ({ ...d, address_state: e.target.value.toUpperCase() }))}
+                        placeholder="TX"
+                        className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md font-mono"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-700 dark:text-zinc-400 mb-1 block font-medium">ZIP</Label>
+                      <Input
+                        maxLength={10}
+                        value={formData.address_postal_code}
+                        onChange={e => setFormData(d => ({ ...d, address_postal_code: e.target.value }))}
+                        placeholder="78701"
+                        className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md font-mono"
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-zinc-800/80">
-                  {stripeStatus?.connected ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleOpenStripeDashboard}
-                      disabled={openingDashboard}
-                      className="w-full h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-white font-medium flex items-center justify-center gap-1.5"
-                    >
-                      {openingDashboard ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
-                      )}
-                      <span>Open Stripe Express Dashboard</span>
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleConnectStripe}
-                      disabled={connectingStripe || !canEditSettings}
-                      className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20"
-                    >
-                      {connectingStripe ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <CreditCard className="h-3.5 w-3.5" />
-                      )}
-                      <span>
-                        {stripeStatus?.status === 'pending'
-                          ? 'Complete Stripe Verification'
-                          : 'Connect Bank with Stripe'}
-                      </span>
-                    </Button>
+                <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+                  {!canEditSettings && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                      Read-only: Only organization owners and administrators can modify settings.
+                    </p>
                   )}
+                  <div className="ml-auto">
+                    <Button
+                      type="submit"
+                      disabled={saving || !canEditSettings}
+                      size="sm"
+                      className="h-8 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-medium shadow-xs"
+                    >
+                      {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                      <span>Save Retention & 10DLC</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* TCPA & Carrier Compliance */}
+              <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-slate-50 dark:bg-zinc-900 p-4 text-xs text-slate-600 dark:text-zinc-400 space-y-1.5 shadow-xs">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-zinc-200 font-semibold">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>A2P 10DLC & TCPA Carrier Compliance Built-In</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                  When customers reply <code className="text-slate-800 dark:text-zinc-300 font-semibold bg-white dark:bg-zinc-950 px-1 py-0.5 rounded border border-slate-200 dark:border-zinc-800">STOP</code>, <code className="text-slate-800 dark:text-zinc-300 font-semibold bg-white dark:bg-zinc-950 px-1 py-0.5 rounded border border-slate-200 dark:border-zinc-800">UNSUBSCRIBE</code>, or <code className="text-slate-800 dark:text-zinc-300 font-semibold bg-white dark:bg-zinc-950 px-1 py-0.5 rounded border border-slate-200 dark:border-zinc-800">CANCEL</code>, automated SMS messages are immediately suppressed.
+                </p>
+              </div>
+            </form>
+          )}
+
+          {/* ── Tab 5: Online Payments & Payouts (Stripe Connect) ── */}
+          {settingsTab === 'payments' && (
+            <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    Online Payments &amp; Direct Bank Deposits
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Accept credit card, debit card, and Apple Pay payments on invoices and live customer tracking links.
+                  </p>
+                </div>
+
+                {stripeStatus?.connected ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Stripe Express Active</span>
+                  </div>
+                ) : stripeStatus?.status === 'pending' ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span>Verification Pending</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-500 dark:text-zinc-500 font-medium">
+                    Not Configured
+                  </span>
+                )}
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4 text-xs">
+                <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2">
+                  <span className="font-semibold text-slate-900 dark:text-zinc-200 block">How Payouts Work</span>
+                  <p className="text-slate-600 dark:text-zinc-400 text-[11.5px] leading-relaxed">
+                    When customers pay through their live job tracker or invoice link, payments process securely through Stripe. Funds deposit automatically to your linked bank account on a rolling 2-day schedule.
+                  </p>
+                  <div className="pt-1 text-[11px] text-slate-500 dark:text-zinc-500 flex items-center gap-1">
+                    <span>Platform fee: 0.5% facilitation per successful invoice.</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-col justify-between space-y-3">
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-zinc-200 block">Account Status</span>
+                    <div className="mt-1 space-y-1 text-[11.5px] text-slate-600 dark:text-zinc-400">
+                      <div className="flex items-center justify-between">
+                        <span>Card Payments:</span>
+                        <span className={stripeStatus?.chargesEnabled ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-slate-400 dark:text-zinc-500'}>
+                          {stripeStatus?.chargesEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Bank Payouts:</span>
+                        <span className={stripeStatus?.payoutsEnabled ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-slate-400 dark:text-zinc-500'}>
+                          {stripeStatus?.payoutsEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-zinc-800/80">
+                    {stripeStatus?.connected ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleOpenStripeDashboard}
+                        disabled={openingDashboard}
+                        className="w-full h-8 text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white font-medium flex items-center justify-center gap-1.5 border border-slate-200 dark:border-zinc-700 shadow-xs"
+                      >
+                        {openingDashboard ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <ExternalLink className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                        )}
+                        <span>Open Stripe Express Dashboard</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleConnectStripe}
+                        disabled={connectingStripe || !canEditSettings}
+                        className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center justify-center gap-1.5 shadow-xs"
+                      >
+                        {connectingStripe ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <CreditCard className="h-3.5 w-3.5" />
+                        )}
+                        <span>
+                          {stripeStatus?.status === 'pending'
+                            ? 'Complete Stripe Verification'
+                            : 'Connect Bank with Stripe'}
+                        </span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* ── Section 4: TCPA & Carrier Compliance ── */}
-          <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-4 text-xs text-zinc-400 space-y-1.5">
-            <div className="flex items-center gap-2 text-zinc-200 font-medium">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>A2P 10DLC & TCPA Carrier Compliance Built-In</span>
-            </div>
-            <p className="text-[11px] text-zinc-500 leading-relaxed">
-              When customers reply <code className="text-zinc-300">STOP</code>, <code className="text-zinc-300">UNSUBSCRIBE</code>, or <code className="text-zinc-300">CANCEL</code>, automated SMS messages are immediately suppressed.
-            </p>
-          </div>
+          {/* ── Tab 6: Alerts & Push Notifications ── */}
+          {settingsTab === 'notifications' && (
+            <PushNotificationSettings />
+          )}
 
         </div>
       )}
