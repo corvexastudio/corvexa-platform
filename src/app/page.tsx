@@ -39,7 +39,7 @@ export default function LandingPage() {
   useEffect(() => {
     try {
       const supabase = createClient()
-      supabase.auth.getUser().then(({ data }) => {
+      supabase.auth.getUser().then(({ data }: { data: any }) => {
         if (data?.user) setIsAuthenticated(true)
       })
     } catch {

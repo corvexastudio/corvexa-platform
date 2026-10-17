@@ -148,7 +148,7 @@ export default function DashboardPage() {
             <h1 className="text-lg sm:text-xl font-semibold text-zinc-100 tracking-tight">
               Today
             </h1>
-            <span className="text-xs text-zinc-400 font-medium">
+            <span className="text-xs text-zinc-400 font-medium" suppressHydrationWarning>
               &bull; {todayFormatted}
             </span>
           </div>

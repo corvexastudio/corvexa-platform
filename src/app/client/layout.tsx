@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationCenter } from '@/components/notifications/notification-center'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 
 // Workflow-centric information architecture for field service businesses
 export const navSections = [
@@ -109,6 +110,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [orgName, setOrgName] = useState<string>('')
   const [orgPhone, setOrgPhone] = useState<string>('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [orgId, setOrgId] = useState<string | null>(null)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   const [authState, setAuthState] = useState<'checking' | 'authorized' | 'redirecting'>('checking')
@@ -191,6 +193,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         }
 
         setIsSuperAdmin(profile.role === 'super_admin')
+        setOrgId(profile.org_id)
 
         // Fetch organization details safely
         const { data: org } = await supabase
@@ -228,7 +231,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return () => {
       isMounted = false
     }
-  }, [supabase, isAuthPage, pathname, router])
+  }, [supabase, isAuthPage, router])
 
   // Close drawer on path change
   useEffect(() => {
@@ -357,7 +360,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
 
           <div className="flex items-center gap-2">
-            <NotificationCenter />
+            <ErrorBoundary fallback={<div className="h-8 w-8" />}>
+              <NotificationCenter orgId={orgId} />
+            </ErrorBoundary>
             {unreadTotal > 0 && (
               <Link
                 href="/client/inbox"
@@ -385,7 +390,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               Forwarding status
             </Link>
             <div className="h-4 w-px bg-zinc-800" />
-            <NotificationCenter />
+            <ErrorBoundary fallback={<div className="h-8 w-8" />}>
+              <NotificationCenter orgId={orgId} />
+            </ErrorBoundary>
           </div>
         </header>
 
@@ -396,7 +403,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             ? "p-0 pb-14 md:p-6 md:pb-6 max-w-7xl"
             : "p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl"
         )}>
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
 

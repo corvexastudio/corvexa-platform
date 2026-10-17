@@ -90,14 +90,14 @@ export default function PlatformAnalytics() {
       const callsData = callsRes.data || []
       const leadsData = leadsRes.data || []
 
-      callsData.forEach((call) => {
+      callsData.forEach((call: any) => {
         const key = call.created_at?.slice(0, 10)
         if (key && days[key]) {
           if (call.status === 'missed') days[key].missed_calls++
         }
       })
 
-      leadsData.forEach((lead) => {
+      leadsData.forEach((lead: any) => {
         const key = lead.created_at?.slice(0, 10)
         if (key && days[key]) {
           days[key].leads++
@@ -106,7 +106,7 @@ export default function PlatformAnalytics() {
 
       // Top clients by call volume this month
       const orgCounts: Record<string, number> = {}
-      callsData.forEach((call) => { 
+      callsData.forEach((call: any) => { 
         if (call.org_id) orgCounts[call.org_id] = (orgCounts[call.org_id] ?? 0) + 1 
       })
       const orgIds = Object.keys(orgCounts)
@@ -114,8 +114,8 @@ export default function PlatformAnalytics() {
         const { data: orgs } = await supabase.from('organizations').select('id,name').in('id', orgIds)
         if (orgs) {
           const top = orgs
-            .map((o) => ({ name: o.name, count: orgCounts[o.id] ?? 0 }))
-            .sort((a, b) => b.count - a.count)
+            .map((o: any) => ({ name: o.name, count: orgCounts[o.id] ?? 0 }))
+            .sort((a: any, b: any) => b.count - a.count)
             .slice(0, 5)
           setTopClients(top)
         }

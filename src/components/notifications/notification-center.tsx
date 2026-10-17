@@ -37,9 +37,11 @@ export interface InAppNotification {
   created_at: string
 }
 
-function formatRelativeTime(dateString: string): string {
+function formatRelativeTime(dateString?: string | null): string {
+  if (!dateString) return 'Recently'
   try {
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Recently'
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffSec = Math.floor(diffMs / 1000)
@@ -52,7 +54,7 @@ function formatRelativeTime(dateString: string): string {
     if (diffHour < 24) return `${diffHour}h ago`
     if (diffDays === 1) return 'Yesterday'
     if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   } catch {
     return 'Recently'
   }
@@ -104,20 +106,41 @@ function getEventIcon(eventType?: string | null) {
   }
 }
 
-export function NotificationCenter({ className }: { className?: string }) {
+export interface NotificationCenterProps {
+  className?: string
+  orgId?: string | null
+}
+
+export function NotificationCenter({ className, orgId: initialOrgId }: NotificationCenterProps) {
   const supabase = createClient()
   const router = useRouter()
+  const routerRef = useRef(router)
+  routerRef.current = router
+
+  const [mounted, setMounted] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
   const [notifications, setNotifications] = useState<InAppNotification[]>([])
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(true)
   const [markingAll, setMarkingAll] = useState<boolean>(false)
-  const [orgId, setOrgId] = useState<string | null>(null)
+  const [orgId, setOrgId] = useState<string | null>(initialOrgId || null)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fetch notifications
+  // Track client hydration mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Sync prop changes
+  useEffect(() => {
+    if (initialOrgId && initialOrgId !== orgId) {
+      setOrgId(initialOrgId)
+    }
+  }, [initialOrgId, orgId])
+
+  // Stable notification fetcher
   const fetchNotifications = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
@@ -134,29 +157,34 @@ export function NotificationCenter({ className }: { className?: string }) {
     }
   }, [])
 
-  // Initial load & organization ID detection for Realtime subscription
+  const fetchNotificationsRef = useRef(fetchNotifications)
+  fetchNotificationsRef.current = fetchNotifications
+
+  // Initial load & organization ID detection
   useEffect(() => {
     let isMounted = true
 
     async function init() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user && isMounted) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('org_id')
-            .eq('id', user.id)
-            .maybeSingle()
+        if (!initialOrgId) {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user && isMounted) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('org_id')
+              .eq('id', user.id)
+              .maybeSingle()
 
-          if (profile?.org_id && isMounted) {
-            setOrgId(profile.org_id)
+            if (profile?.org_id && isMounted) {
+              setOrgId(profile.org_id)
+            }
           }
         }
       } catch {
         // non-blocking
       }
       if (isMounted) {
-        fetchNotifications()
+        fetchNotificationsRef.current()
       }
     }
 
@@ -164,11 +192,11 @@ export function NotificationCenter({ className }: { className?: string }) {
 
     // Polling interval every 25 seconds
     const interval = setInterval(() => {
-      fetchNotifications(true)
+      fetchNotificationsRef.current(true)
     }, 25000)
 
     // Window focus refresh
-    const onFocus = () => fetchNotifications(true)
+    const onFocus = () => fetchNotificationsRef.current(true)
     window.addEventListener('focus', onFocus)
 
     return () => {
@@ -176,45 +204,64 @@ export function NotificationCenter({ className }: { className?: string }) {
       clearInterval(interval)
       window.removeEventListener('focus', onFocus)
     }
-  }, [fetchNotifications, supabase])
+  }, [supabase, initialOrgId])
 
-  // Realtime subscription on notifications table
+  // Realtime subscription on notifications table with robust error handling
   useEffect(() => {
     if (!orgId) return
 
-    const channel = supabase
-      .channel(`inapp_notifications:${orgId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `org_id=eq.${orgId}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newRow = payload.new as InAppNotification
-            setNotifications(prev => [newRow, ...prev.filter(n => n.id !== newRow.id)])
-            setUnreadCount(prev => prev + 1)
-            toast.info(newRow.title, {
-              description: newRow.message,
-              action: newRow.link ? {
-                label: 'View',
-                onClick: () => router.push(newRow.link!)
-              } : undefined
-            })
-          } else {
-            fetchNotifications(true)
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel(`inapp_notifications:${orgId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `org_id=eq.${orgId}`
+          },
+          (payload: any) => {
+            try {
+              if (payload.eventType === 'INSERT') {
+                const newRow = payload.new as InAppNotification
+                setNotifications(prev => [newRow, ...prev.filter(n => n.id !== newRow.id)])
+                setUnreadCount(prev => prev + 1)
+                toast.info(newRow.title || 'New Notification', {
+                  description: newRow.message,
+                  action: newRow.link ? {
+                    label: 'View',
+                    onClick: () => routerRef.current.push(newRow.link!)
+                  } : undefined
+                })
+              } else {
+                fetchNotificationsRef.current(true)
+              }
+            } catch (err) {
+              console.warn('[NOTIF_REALTIME_EVENT_ERROR]', err)
+            }
           }
-        }
-      )
-      .subscribe()
+        )
+        .subscribe((status: string, err?: any) => {
+          if (status === 'CHANNEL_ERROR') {
+            console.warn('[NOTIF_REALTIME_CHANNEL_ERROR]', err)
+          }
+        })
+    } catch (err) {
+      console.warn('[NOTIF_REALTIME_SETUP_ERROR]', err)
+    }
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) {
+        try {
+          supabase.removeChannel(channel)
+        } catch {
+          // non-blocking cleanup
+        }
+      }
     }
-  }, [orgId, supabase, fetchNotifications, router])
+  }, [orgId, supabase])
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -336,6 +383,20 @@ export function NotificationCenter({ className }: { className?: string }) {
   const filteredNotifications = notifications.filter(n =>
     activeTab === 'unread' ? !n.is_read : true
   )
+  if (!mounted) {
+    return (
+      <div className={cn('relative inline-flex items-center', className)}>
+        <button
+          type="button"
+          disabled
+          className="relative flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-950 text-zinc-500 opacity-60"
+          aria-label="View notifications"
+        >
+          <Bell className="h-4 w-4" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className={cn('relative inline-flex items-center', className)} ref={dropdownRef}>
