@@ -54,6 +54,7 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       blocked_dates,
       subscription_status,
       monthly_rate,
+      industry,
       legal_business_name,
       business_type,
       ein,
@@ -288,6 +289,10 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       allowedUpdates.website_url = body.website_url.trim().slice(0, 300) || null
     }
 
+    if (typeof body.industry === 'string') {
+      allowedUpdates.industry = body.industry.trim().slice(0, 50) || 'general'
+    }
+
     // If client submits updated carrier verification fields, update status to pending review
     if (
       body.submit_carrier_verification === true ||
@@ -301,12 +306,31 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
     }
 
     // 3. Persist mutation with row-level tenant bounding
-    const { data: updatedOrg, error: updateError } = await supabase
+    let { data: updatedOrg, error: updateError } = await supabase
       .from('organizations')
       .update(allowedUpdates)
       .eq('id', orgId)
       .select()
       .single()
+
+    // Fallback: If column "industry" does not exist in schema (error 42703), retry without it
+    if (
+      updateError &&
+      (updateError.code === '42703' ||
+        (updateError.message?.toLowerCase().includes('industry') &&
+          updateError.message?.toLowerCase().includes('does not exist')))
+    ) {
+      const updatesWithoutIndustry = { ...allowedUpdates }
+      delete updatesWithoutIndustry.industry
+      const retryRes = await supabase
+        .from('organizations')
+        .update(updatesWithoutIndustry)
+        .eq('id', orgId)
+        .select()
+        .single()
+      updatedOrg = retryRes.data
+      updateError = retryRes.error
+    }
 
     if (updateError) {
       console.error('[ORG_UPDATE_ERROR]', updateError)

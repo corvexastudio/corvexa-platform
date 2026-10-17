@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '../../../lib/security/rate-limiter.ts'
 import { logAuditEvent } from '../../../lib/security/audit-logger.ts'
 import { normalizePhoneToE164 } from '../../../lib/telephony/phone-normalizer.ts'
+import { getIndustryPreset } from '../../../lib/constants/industries.ts'
 
 export interface OnboardingRouteContext {
   params?: Promise<Record<string, string | string[] | undefined>>
@@ -169,6 +170,10 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       carrier_registration_status: carrierRegistrationStatus,
     }
 
+    // Industry Category & Starter Presets
+    const rawIndustry = typeof body.industry === 'string' ? body.industry.trim().toLowerCase() : 'general'
+    const industryPreset = getIndustryPreset(rawIndustry)
+
     const baseOrgPayload: Record<string, any> = {
       id: orgId,
       name: businessName,
@@ -179,6 +184,10 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       phone_provisioning_status: 'pending_number',
       is_missed_call_active: true,
       is_review_engine_active: true,
+      industry: industryPreset.id,
+      auto_reply_template: industryPreset.templates.auto_reply,
+      after_hours_template: industryPreset.templates.after_hours,
+      busy_template: industryPreset.templates.busy,
       ...tenDlcFields,
     }
 
@@ -187,7 +196,20 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       .from('organizations')
       .insert(baseOrgPayload)
 
-    // Fallback A: If column "phone_number" does not exist in schema (error 42703), retry without it
+    // Fallback A: If column "industry" does not exist in schema (error 42703), retry without it
+    if (
+      orgError &&
+      (orgError.code === '42703' ||
+        (orgError.message?.toLowerCase().includes('industry') &&
+          orgError.message?.toLowerCase().includes('does not exist')))
+    ) {
+      const payloadWithoutIndustry = { ...baseOrgPayload }
+      delete payloadWithoutIndustry.industry
+      const retryRes = await dbClient.from('organizations').insert(payloadWithoutIndustry)
+      orgError = retryRes.error
+    }
+
+    // Fallback B: If column "phone_number" does not exist in schema (error 42703), retry without it
     if (
       orgError &&
       (orgError.code === '42703' ||
@@ -196,11 +218,12 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
     ) {
       const payloadWithoutPhone = { ...baseOrgPayload }
       delete payloadWithoutPhone.phone_number
+      delete payloadWithoutPhone.industry
       const retryRes = await dbClient.from('organizations').insert(payloadWithoutPhone)
       orgError = retryRes.error
     }
 
-    // Fallback B: If 10DLC columns do not exist in older database schema (error 42703), retry without them
+    // Fallback C: If 10DLC columns do not exist in older database schema (error 42703), retry without them
     if (orgError && orgError.code === '42703') {
       const strippedPayload: Record<string, any> = {
         id: orgId,
@@ -212,6 +235,9 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
         phone_provisioning_status: 'pending_number',
         is_missed_call_active: true,
         is_review_engine_active: true,
+        auto_reply_template: industryPreset.templates.auto_reply,
+        after_hours_template: industryPreset.templates.after_hours,
+        busy_template: industryPreset.templates.busy,
       }
       const retryWithout10Dlc = await dbClient.from('organizations').insert(strippedPayload)
       orgError = retryWithout10Dlc.error
@@ -278,11 +304,8 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       // Automation settings default init failure is non-fatal for tenant creation
     }
 
-    // 4. Seed Default Service for Organization (P1-01 Idempotent & Concurrency Safe)
+    // 4. Seed Starter Services for Organization (P1-01 Idempotent & Concurrency Safe)
     try {
-      const defaultServiceName = 'General Service'
-      const defaultServiceDuration = 60
-
       const { data: existingServices } = await dbClient
         .from('services')
         .select('id')
@@ -290,34 +313,36 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
         .limit(1)
 
       if (!existingServices || existingServices.length === 0) {
-        const defaultServicePayload = {
-          org_id: orgId,
-          name: defaultServiceName,
-          description: 'Standard consultation and service appointment.',
-          duration_minutes: defaultServiceDuration,
-          price: null,
-          requires_address: true,
-          is_active: true,
-          sort_order: 0
-        }
+        for (const svc of industryPreset.services) {
+          const servicePayload = {
+            org_id: orgId,
+            name: svc.name,
+            description: svc.description,
+            duration_minutes: svc.duration_minutes,
+            price: svc.price,
+            requires_address: svc.requires_address,
+            is_active: svc.is_active,
+            sort_order: svc.sort_order
+          }
 
-        const { error: serviceInsertError } = await dbClient
-          .from('services')
-          .upsert(defaultServicePayload, { onConflict: 'org_id,name', ignoreDuplicates: true })
+          const { error: serviceInsertError } = await dbClient
+            .from('services')
+            .upsert(servicePayload, { onConflict: 'org_id,name', ignoreDuplicates: true })
 
-        if (serviceInsertError) {
-          if (
-            serviceInsertError.code === '42703' ||
-            serviceInsertError.code === '42P01' ||
-            serviceInsertError.message?.toLowerCase().includes('conflict')
-          ) {
-            try {
-              await dbClient.from('services').insert(defaultServicePayload)
-            } catch {
-              // fallback insert failure is non-fatal
+          if (serviceInsertError) {
+            if (
+              serviceInsertError.code === '42703' ||
+              serviceInsertError.code === '42P01' ||
+              serviceInsertError.message?.toLowerCase().includes('conflict')
+            ) {
+              try {
+                await dbClient.from('services').insert(servicePayload)
+              } catch {
+                // fallback insert failure is non-fatal
+              }
+            } else if (serviceInsertError.code !== '23505') {
+              console.warn('[ONBOARDING] Starter service seeding warning:', serviceInsertError.message)
             }
-          } else if (serviceInsertError.code !== '23505') {
-            console.warn('[ONBOARDING] Default service seeding warning:', serviceInsertError.message)
           }
         }
       }
@@ -334,7 +359,8 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
         actor_id: user.id,
         org_id: orgId,
         action: 'tenant_onboarded',
-        slug: uniqueSlug
+        slug: uniqueSlug,
+        industry: industryPreset.id
       }
     }).catch(() => null)
 

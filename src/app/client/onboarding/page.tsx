@@ -8,7 +8,39 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Loader2, ShieldCheck, ArrowRight, ArrowLeft, Building2, CheckCircle2 } from 'lucide-react'
+import { 
+  Loader2, 
+  ShieldCheck, 
+  ArrowRight, 
+  ArrowLeft, 
+  Building2, 
+  CheckCircle2,
+  Thermometer, 
+  Droplets, 
+  Zap, 
+  Home, 
+  Trees, 
+  Sparkles, 
+  Bug, 
+  Car, 
+  Hammer, 
+  Briefcase,
+  Check
+} from 'lucide-react'
+import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
+
+const INDUSTRY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Thermometer,
+  Droplets,
+  Zap,
+  Home,
+  Trees,
+  Sparkles,
+  Bug,
+  Car,
+  Hammer,
+  Briefcase
+}
 
 export default function OnboardingPage() {
   const supabase = createClient()
@@ -22,6 +54,7 @@ export default function OnboardingPage() {
   // Step 1: Workspace Profile
   const [businessName, setBusinessName] = useState('')
   const [phone, setPhone] = useState('')
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('hvac')
 
   // Step 2: 10DLC Carrier & Legal Verification
   const [legalBusinessName, setLegalBusinessName] = useState('')
@@ -144,7 +177,8 @@ export default function OnboardingPage() {
 
       const payload: Record<string, any> = {
         businessName: nameToSubmit,
-        phone: phone.trim() || null
+        phone: phone.trim() || null,
+        industry: selectedIndustry
       }
 
       if (include10Dlc) {
@@ -196,7 +230,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100 px-4 py-8">
-      <div className={`w-full ${step === 2 ? 'max-w-lg' : 'max-w-md'} transition-all duration-300`}>
+      <div className={`w-full ${step === 2 ? 'max-w-lg' : 'max-w-xl'} transition-all duration-300`}>
         {/* Brand Header */}
         <div className="flex items-center justify-center gap-2.5 mb-6">
           <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center">
@@ -221,8 +255,8 @@ export default function OnboardingPage() {
             /* ──────────────── STEP 1: WORKSPACE PROFILE ──────────────── */
             <div>
               <h1 className="text-lg font-semibold text-zinc-100 mb-1 tracking-tight">Workspace Setup</h1>
-              <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
-                Enter your business details to configure your dispatcher dashboard and client portal. Your business phone connection will be configured during setup.
+              <p className="text-xs text-zinc-400 mb-5 leading-relaxed">
+                Choose your industry trade and enter your business details. CaptoDesk automatically configures realistic starter services and missed-call recovery templates tailored to your work.
               </p>
 
               <form onSubmit={handleStep1Next} className="space-y-4">
@@ -232,12 +266,90 @@ export default function OnboardingPage() {
                   </Label>
                   <Input
                     id="biz"
-                    placeholder="e.g. Acme Plumbing & HVAC"
+                    placeholder="e.g. Acme Heating & Air"
                     value={businessName}
                     onChange={e => setBusinessName(e.target.value)}
                     className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
                     required
                   />
+                </div>
+
+                {/* Industry Category Selector */}
+                <div className="grid gap-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-zinc-300">
+                      Business Industry / Trade <span className="text-red-400">*</span>
+                    </Label>
+                    <span className="text-[10px] text-zinc-500">
+                      Customizable anytime
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                    {INDUSTRY_LIST.map((preset) => {
+                      const IconComponent = INDUSTRY_ICON_MAP[preset.icon] || Briefcase
+                      const isSelected = selectedIndustry === preset.id
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setSelectedIndustry(preset.id)}
+                          className={`flex items-start gap-2.5 p-2 rounded-lg border text-left transition-all ${
+                            isSelected
+                              ? 'bg-blue-950/60 border-blue-500 text-blue-100 ring-1 ring-blue-500/50'
+                              : 'bg-zinc-950/60 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/60'
+                          }`}
+                        >
+                          <div
+                            className={`p-1.5 rounded-md shrink-0 mt-0.5 ${
+                              isSelected
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-zinc-800 text-zinc-400'
+                            }`}
+                          >
+                            <IconComponent className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-medium truncate">
+                                {preset.name.split('&')[0].trim()}
+                              </span>
+                              {isSelected && (
+                                <Check className="h-3 w-3 text-blue-400 shrink-0" />
+                              )}
+                            </div>
+                            <span className="text-[10px] text-zinc-500 block truncate">
+                              {preset.badge}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Starter Services Callout */}
+                  {(() => {
+                    const preset = getIndustryPreset(selectedIndustry)
+                    return (
+                      <div className="p-2.5 rounded-md bg-zinc-950/80 border border-zinc-800/80 text-xs">
+                        <div className="flex items-center gap-1.5 text-blue-400 font-medium text-[11px] mb-1">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Pre-configures 3 starter services for {preset.name.split('&')[0].trim()}:</span>
+                        </div>
+                        <ul className="text-[11px] text-zinc-400 space-y-0.5 pl-4 list-disc">
+                          {preset.services.map((svc, i) => (
+                            <li key={i}>
+                              <span className="text-zinc-200 font-medium">{svc.name}</span>
+                              <span className="text-zinc-500"> — {svc.price === 0 || svc.price === null ? 'Free estimate' : `$${svc.price}`} ({svc.duration_minutes}m)</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-[10px] text-zinc-500 mt-1.5">
+                          Note: You can freely edit prices, change names, or delete these services later in Services.
+                        </p>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 <div className="grid gap-1.5">

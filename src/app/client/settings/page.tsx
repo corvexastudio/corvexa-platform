@@ -2,7 +2,9 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { INDUSTRY_LIST } from '@/lib/constants/industries'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -69,6 +71,7 @@ export default function SettingsPage() {
     address_state: '',
     address_postal_code: '',
     website_url: '',
+    industry: 'general',
     carrier_registration_status: 'unregistered',
     tcr_brand_id: '',
     tcr_campaign_id: ''
@@ -129,6 +132,7 @@ export default function SettingsPage() {
           address_state: org.address_state || '',
           address_postal_code: org.address_postal_code || '',
           website_url: org.website_url || '',
+          industry: org.industry || 'general',
           carrier_registration_status: org.carrier_registration_status || 'unregistered',
           tcr_brand_id: org.tcr_brand_id || '',
           tcr_campaign_id: org.tcr_campaign_id || ''
@@ -250,6 +254,7 @@ export default function SettingsPage() {
           address_state: formData.address_state,
           address_postal_code: formData.address_postal_code,
           website_url: formData.website_url,
+          industry: formData.industry,
           submit_carrier_verification: true
         })
       })
@@ -480,6 +485,30 @@ export default function SettingsPage() {
                   <option value="America/Denver">Mountain Time (MT)</option>
                   <option value="America/Los_Angeles">Pacific Time (PT)</option>
                 </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs text-zinc-300">Industry / Trade Category</Label>
+                  <span className="text-[11px] text-zinc-400">
+                    Manage catalog in <Link href="/client/services" className="text-blue-400 hover:underline">Services</Link>
+                  </span>
+                </div>
+                <select
+                  aria-label="Industry / Trade Category"
+                  value={formData.industry}
+                  onChange={e => setFormData(d => ({ ...d, industry: e.target.value }))}
+                  className="w-full h-8.5 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 px-2.5 focus:outline-none focus:border-zinc-700"
+                >
+                  {INDUSTRY_LIST.map(preset => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name} — {preset.badge}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  Your primary business trade. All starter services seeded during onboarding can be freely renamed, repriced, or deleted anytime in Services.
+                </p>
               </div>
             </div>
 

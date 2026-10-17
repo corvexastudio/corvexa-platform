@@ -58,6 +58,7 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS buffer_minutes INT DEFAULT 15
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS minimum_notice_hours INT DEFAULT 2;
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS max_booking_days_ahead INT DEFAULT 30;
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS blocked_dates TEXT[] DEFAULT '{}';
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS industry TEXT DEFAULT 'general';
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
 -- 10DLC Carrier & Brand Registration Fields (Migration 29)

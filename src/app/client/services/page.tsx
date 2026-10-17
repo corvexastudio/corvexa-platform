@@ -318,7 +318,7 @@ export default function ServicesPage() {
                 Service Catalog
               </h1>
               <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
-                Configure bookable services, durations, and pricing displayed on your public booking page.
+                Configure bookable services, durations, and pricing displayed on your public booking page. You can freely edit names, update pricing, add new offerings, or delete any starter service anytime.
               </p>
             </div>
           </div>
