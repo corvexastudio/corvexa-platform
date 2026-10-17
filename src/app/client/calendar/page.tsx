@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,7 @@ import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
+import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 
 interface AppointmentItem {
   id: string
@@ -119,6 +120,64 @@ function CalendarContent() {
   const [bookDateTime, setBookDateTime] = useState('')
   const [bookNotes, setBookNotes] = useState('')
   const [bookingLoading, setBookingLoading] = useState(false)
+
+  // Interactive slot booking state
+  const [bookDate, setBookDate] = useState(() => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  })
+  const [bookingSlots, setBookingSlots] = useState<Array<{ startTime: string; endTime: string; displayTime: string }>>([])
+  const [loadingBookingSlots, setLoadingBookingSlots] = useState(false)
+  const [selectedSlotTime, setSelectedSlotTime] = useState<string>('')
+  const [isManualTime, setIsManualTime] = useState(false)
+
+  // 7-day quick date pills
+  const quickDatePills = useMemo<Array<{ dateStr: string; dayOfWeek: string; dayNum: string }>>(() => {
+    const pills: Array<{ dateStr: string; dayOfWeek: string; dayNum: string }> = []
+    const today = new Date()
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000)
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
+      pills.push({
+        dateStr,
+        dayOfWeek: i === 0 ? 'Today' : (i === 1 ? 'Tmrw' : d.toLocaleDateString('en-US', { weekday: 'short' })),
+        dayNum: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+      })
+    }
+    return pills
+  }, [])
+
+  // Load available slots dynamically when modal opens, or bookDate or bookServiceId changes
+  useEffect(() => {
+    if (!showBookModal || !bookDate) return
+
+    let isMounted = true
+    async function loadSlots() {
+      setLoadingBookingSlots(true)
+      try {
+        const query = `/api/book/${orgSlug || 'default'}/slots?date=${bookDate}${bookServiceId ? `&serviceId=${bookServiceId}` : ''}`
+        const res = await fetch(query)
+        if (res.ok) {
+          const data = await res.json()
+          if (isMounted) {
+            setBookingSlots(data.slots || [])
+          }
+        } else {
+          if (isMounted) setBookingSlots([])
+        }
+      } catch {
+        if (isMounted) setBookingSlots([])
+      } finally {
+        if (isMounted) setLoadingBookingSlots(false)
+      }
+    }
+
+    loadSlots()
+    return () => { isMounted = false }
+  }, [showBookModal, bookDate, bookServiceId, orgSlug])
 
   // Listen to contact_id query param
   useEffect(() => {
@@ -663,6 +722,40 @@ function CalendarContent() {
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}
+
+                  {/* Calendar Sync Shortcuts */}
+                  <a
+                    href={generateGoogleCalendarUrl({
+                      title: apt.title,
+                      description: `Customer: ${apt.contact?.name || ''} (${apt.contact?.phone || ''})\nService: ${apt.service_type || ''}\nNotes: ${apt.notes || ''}`,
+                      location: apt.contact?.address || undefined,
+                      startTime: apt.start_time,
+                      endTime: apt.end_time || undefined,
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
+                    title="Add to Google Calendar"
+                  >
+                    <CalendarDays className="h-3.5 w-3.5 text-blue-400" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadIcsFile({
+                        title: apt.title,
+                        description: `Customer: ${apt.contact?.name || ''} (${apt.contact?.phone || ''})\nService: ${apt.service_type || ''}\nNotes: ${apt.notes || ''}`,
+                        location: apt.contact?.address || undefined,
+                        startTime: apt.start_time,
+                        endTime: apt.end_time || undefined,
+                      }, `${apt.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.ics`)
+                    }}
+                    className="h-8.5 w-8.5 sm:h-7.5 sm:w-7.5 flex items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer"
+                    title="Export to Apple / Outlook Calendar (.ics)"
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5 text-emerald-400" />
+                  </button>
                 </div>
               </div>
             )
@@ -933,15 +1026,145 @@ function CalendarContent() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Date & Time *</label>
-            <Input
-              type="datetime-local"
-              required
-              value={bookDateTime}
-              onChange={(e) => setBookDateTime(e.target.value)}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
-            />
+          {/* Interactive Date & Time Slot Picker */}
+          <div className="space-y-3 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-zinc-200">
+                Date & Time Selection *
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsManualTime(!isManualTime)}
+                className="text-[11px] text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
+              >
+                {isManualTime ? '← Use Available Slots' : 'Custom / Exact Time →'}
+              </button>
+            </div>
+
+            {!isManualTime ? (
+              <div className="space-y-3">
+                {/* Day selector pills + Mini Calendar date input */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span>Select Day</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-zinc-500">Pick date:</span>
+                      <input
+                        type="date"
+                        aria-label="Pick calendar date"
+                        value={bookDate}
+                        onChange={(e) => {
+                          setBookDate(e.target.value)
+                          setSelectedSlotTime('')
+                          setBookDateTime('')
+                        }}
+                        className="bg-zinc-900 border border-zinc-700/80 rounded px-2 py-0.5 text-zinc-200 text-xs focus:outline-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 7-Day quick selector buttons */}
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {quickDatePills.map((p) => {
+                      const isSelected = bookDate === p.dateStr
+                      return (
+                        <button
+                          key={p.dateStr}
+                          type="button"
+                          onClick={() => {
+                            setBookDate(p.dateStr)
+                            setSelectedSlotTime('')
+                            setBookDateTime('')
+                          }}
+                          className={cn(
+                            "flex flex-col items-center justify-center min-w-[56px] py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer shrink-0",
+                            isSelected
+                              ? "bg-blue-600 border-blue-500 text-white font-bold shadow-sm"
+                              : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                          )}
+                        >
+                          <span className="text-[10px] uppercase font-medium">{p.dayOfWeek}</span>
+                          <span className="text-xs font-bold">{p.dayNum}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Available Time Slots Grid */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-400">Select Start Time</span>
+                    {selectedSlotTime && (
+                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        Selected: {new Date(selectedSlotTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {loadingBookingSlots ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 py-2">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="h-8 rounded-lg bg-zinc-900 animate-pulse border border-zinc-800/60" />
+                      ))}
+                    </div>
+                  ) : bookingSlots.length === 0 ? (
+                    <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 text-center text-xs text-zinc-400 space-y-1">
+                      <p>No open online slots on this day.</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsManualTime(true)}
+                        className="text-blue-400 hover:underline font-medium inline-block text-[11px] cursor-pointer"
+                      >
+                        Enter a custom dispatch time →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                      {bookingSlots.map((slot) => {
+                        const isSelected = selectedSlotTime === slot.startTime
+                        return (
+                          <button
+                            key={slot.startTime}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSlotTime(slot.startTime)
+                              setBookDateTime(slot.startTime)
+                            }}
+                            className={cn(
+                              "py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer",
+                              isSelected
+                                ? "bg-emerald-600 border-emerald-500 text-white font-bold shadow-sm ring-1 ring-emerald-400"
+                                : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white hover:bg-zinc-850"
+                            )}
+                          >
+                            {slot.displayTime}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Custom / Exact Time Manual Input */
+              <div className="space-y-2">
+                <Input
+                  type="datetime-local"
+                  required
+                  value={bookDateTime ? (bookDateTime.length === 16 ? bookDateTime : new Date(bookDateTime).toISOString().slice(0, 16)) : ''}
+                  onChange={(e) => {
+                    setBookDateTime(e.target.value)
+                    setSelectedSlotTime('')
+                  }}
+                  className="h-8.5 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+                <p className="text-[11px] text-zinc-500">
+                  Manual mode allows overriding operating hours and buffer times for special or emergency dispatches.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

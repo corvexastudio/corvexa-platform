@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ArrowLeft
 } from 'lucide-react'
+import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 
 interface AppointmentDetail {
   id: string
@@ -319,6 +320,51 @@ export default function CustomerManageAppointmentPage() {
             )}
           </div>
         </div>
+
+        {/* Add to Calendar Sync Buttons */}
+        {apt.status !== 'cancelled' && (
+          <div className="rounded-2xl bg-[#0D1322] border border-zinc-800/90 p-4 space-y-2.5">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
+              Sync to Calendar
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={generateGoogleCalendarUrl({
+                  title: `${apt.title || 'Service'} with ${apt.business.name}`,
+                  description: `Appointment with ${apt.business.name}.\nManage appointment: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+                  location: apt.customer.address || undefined,
+                  startTime: apt.startTime,
+                  endTime: apt.endTime || undefined,
+                  url: typeof window !== 'undefined' ? window.location.href : undefined,
+                })}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <CalendarDays className="h-4 w-4 text-blue-400" />
+                <span>Google Calendar</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  downloadIcsFile({
+                    title: `${apt.title || 'Service'} with ${apt.business.name}`,
+                    description: `Appointment with ${apt.business.name}.\nManage appointment: ${window.location.href}`,
+                    location: apt.customer.address || undefined,
+                    startTime: apt.startTime,
+                    endTime: apt.endTime || undefined,
+                    url: window.location.href,
+                  }, `appointment-${token.substring(0, 8)}.ics`)
+                }}
+                className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <CalendarIcon className="h-4 w-4 text-emerald-400" />
+                <span>Apple / Outlook</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Customer Action Buttons */}
         {isActionable && !showReschedule && !showCancel && (

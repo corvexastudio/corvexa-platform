@@ -17,6 +17,7 @@ import {
   CalendarDays,
   FileText
 } from 'lucide-react'
+import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 
 interface ServiceItem {
   id: string
@@ -709,6 +710,51 @@ export default function PublicBookingPage() {
                 </span>
               </div>
             </div>
+
+            {/* Add to Calendar Sync Buttons */}
+            {selectedSlot && (
+              <div className="space-y-2 pt-1">
+                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block">
+                  Add to Your Calendar
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={generateGoogleCalendarUrl({
+                      title: `${selectedService?.name || 'Service'} with ${org.name}`,
+                      description: `Scheduled appointment with ${org.name}.\nManage booking: ${typeof window !== 'undefined' ? window.location.origin : ''}/book/manage/${confirmedBooking.manageToken}`,
+                      location: formData.address || undefined,
+                      startTime: selectedSlot.startTime,
+                      endTime: selectedSlot.endTime,
+                      url: typeof window !== 'undefined' ? `${window.location.origin}/book/manage/${confirmedBooking.manageToken}` : undefined,
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <CalendarDays className="h-4 w-4 text-blue-400" />
+                    <span>Google Calendar</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadIcsFile({
+                        title: `${selectedService?.name || 'Service'} with ${org.name}`,
+                        description: `Scheduled appointment with ${org.name}.\nManage booking: ${window.location.origin}/book/manage/${confirmedBooking.manageToken}`,
+                        location: formData.address || undefined,
+                        startTime: selectedSlot.startTime,
+                        endTime: selectedSlot.endTime,
+                        url: `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`,
+                      }, `appointment-${confirmedBooking.manageToken.substring(0, 8)}.ics`)
+                    }}
+                    className="py-2.5 px-3 rounded-xl border border-zinc-700 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <CalendarIcon className="h-4 w-4 text-emerald-400" />
+                    <span>Apple / Outlook</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Manage Link Button */}
             <div className="space-y-3 pt-2">
