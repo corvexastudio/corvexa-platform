@@ -51,3 +51,4 @@ New folder.zip
 # disposable postgres data directories
 .tmp_pg_*
 
+.env*

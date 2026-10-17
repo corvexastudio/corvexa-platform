@@ -90,6 +90,8 @@ export async function GET(
       .lte('start_time', windowEnd)
       .in('status', ['requested', 'confirmed', 'scheduled'])
 
+    const isInternal = searchParams.get('internal') === 'true' || searchParams.get('isOwner') === 'true'
+
     // 4. Calculate available & booked slots using availability engine
     const detailed = calculateDetailedSlots({
       orgConfig: {
@@ -107,7 +109,8 @@ export async function GET(
       },
       dateStr,
       existingAppointments: appts || [],
-      referenceTime: new Date()
+      referenceTime: new Date(),
+      isInternal
     })
 
     return NextResponse.json({

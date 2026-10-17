@@ -57,6 +57,89 @@ export interface CalculateSlotsParams {
   existingAppointments: ExistingAppointment[]
   referenceTime?: Date
   stepMinutes?: number // Default: 30 minutes
+  isInternal?: boolean // When true (owner dispatch), allows booking all slots for today without advance notice restriction
+}
+
+/**
+ * Resolves the current "YYYY-MM-DD" date strictly within the target timezone (e.g. US timezones).
+ */
+export function getTodayInTimezone(timezone: string = 'America/Chicago'): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    return formatter.format(new Date())
+  } catch {
+    return new Date().toISOString().slice(0, 10)
+  }
+}
+
+/**
+ * Generates selectable date pills strictly calculated within the target timezone (e.g. US timezones).
+ */
+export function getSelectableDatesInTimezone(
+  timezone: string = 'America/Chicago',
+  daysCount: number = 7
+): Array<{ dateStr: string; dayOfWeek: string; dayNum: string; label: string; isToday: boolean }> {
+  const result: Array<{ dateStr: string; dayOfWeek: string; dayNum: string; label: string; isToday: boolean }> = []
+  const now = new Date()
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    }).formatToParts(now)
+
+    const partMap: Record<string, number> = {}
+    for (const p of parts) {
+      if (p.type !== 'literal') partMap[p.type] = parseInt(p.value, 10)
+    }
+
+    const baseDate = new Date(Date.UTC(partMap.year, partMap.month - 1, partMap.day, 12, 0, 0))
+
+    for (let i = 0; i < daysCount; i++) {
+      const current = new Date(baseDate.getTime() + i * 24 * 60 * 60 * 1000)
+
+      const dateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(current)
+
+      const dayOfWeek = i === 0 ? 'Today' : (i === 1 ? 'Tmrw' : new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(current))
+      const dayNum = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'numeric', day: 'numeric' }).format(current)
+      const label = new Intl.DateTimeFormat('en-US', { timeZone: timezone, month: 'short', day: 'numeric' }).format(current)
+
+      result.push({
+        dateStr,
+        dayOfWeek,
+        dayNum,
+        label,
+        isToday: i === 0
+      })
+    }
+  } catch {
+    const today = new Date()
+    for (let i = 0; i < daysCount; i++) {
+      const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000)
+      const dateStr = d.toISOString().slice(0, 10)
+      result.push({
+        dateStr,
+        dayOfWeek: i === 0 ? 'Today' : (i === 1 ? 'Tmrw' : d.toLocaleDateString('en-US', { weekday: 'short' })),
+        dayNum: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        isToday: i === 0
+      })
+    }
+  }
+
+  return result
 }
 
 /**
@@ -170,7 +253,7 @@ export interface DetailedSlot {
 
 export interface DetailedDaySchedule {
   date: string
-  dayStatus: 'available' | 'fully_booked' | 'closed' | 'blocked' | 'outside_window'
+  dayStatus: 'available' | 'fully_booked' | 'past' | 'closed' | 'blocked' | 'outside_window'
   availableSlots: AvailableSlot[]
   allSlots: DetailedSlot[]
   totalSlots: number
@@ -188,7 +271,8 @@ export function calculateDetailedSlots(params: CalculateSlotsParams): DetailedDa
     dateStr,
     existingAppointments,
     referenceTime = new Date(),
-    stepMinutes = 30
+    stepMinutes = 30,
+    isInternal = false
   } = params
 
   const timezone = orgConfig.timezone || 'America/Chicago'
@@ -196,7 +280,7 @@ export function calculateDetailedSlots(params: CalculateSlotsParams): DetailedDa
   const bufferMs = bufferMinutes * 60 * 1000
   const durationMinutes = service.duration_minutes || 60
   const durationMs = durationMinutes * 60 * 1000
-  const minNoticeHours = orgConfig.minimum_notice_hours ?? 2
+  const minNoticeHours = isInternal ? 0 : (orgConfig.minimum_notice_hours ?? 2)
   const minNoticeMs = minNoticeHours * 60 * 60 * 1000
   const maxDaysAhead = orgConfig.max_booking_days_ahead ?? 30
 
@@ -284,18 +368,35 @@ export function calculateDetailedSlots(params: CalculateSlotsParams): DetailedDa
         endTime: slotEndDate.toISOString(),
         displayTime,
         date: dateStr,
-        isAvailable: false,
+        isAvailable: isInternal, // Owner can still override
         status: 'booked'
       })
     } else if (candidateStart < earliestAllowedTime) {
-      allSlots.push({
-        startTime: slotStartDate.toISOString(),
-        endTime: slotEndDate.toISOString(),
-        displayTime,
-        date: dateStr,
-        isAvailable: false,
-        status: 'past'
-      })
+      const isPast = candidateStart < referenceTime.getTime()
+      if (isInternal) {
+        // Business owner inside dashboard can select any slot today
+        const slotObj: AvailableSlot = {
+          startTime: slotStartDate.toISOString(),
+          endTime: slotEndDate.toISOString(),
+          displayTime,
+          date: dateStr
+        }
+        availableSlots.push(slotObj)
+        allSlots.push({
+          ...slotObj,
+          isAvailable: true,
+          status: isPast ? 'past' : 'available'
+        })
+      } else {
+        allSlots.push({
+          startTime: slotStartDate.toISOString(),
+          endTime: slotEndDate.toISOString(),
+          displayTime,
+          date: dateStr,
+          isAvailable: false,
+          status: 'past'
+        })
+      }
     } else {
       const slotObj: AvailableSlot = {
         startTime: slotStartDate.toISOString(),
@@ -315,8 +416,21 @@ export function calculateDetailedSlots(params: CalculateSlotsParams): DetailedDa
   }
 
   const bookedCount = allSlots.filter(s => s.status === 'booked').length
-  const dayStatus: DetailedDaySchedule['dayStatus'] =
-    availableSlots.length > 0 ? 'available' : (allSlots.length > 0 ? 'fully_booked' : 'closed')
+  const pastCount = allSlots.filter(s => s.status === 'past').length
+  const availableCount = availableSlots.length
+
+  let dayStatus: DetailedDaySchedule['dayStatus'] = 'closed'
+  if (availableCount > 0) {
+    dayStatus = 'available'
+  } else if (bookedCount > 0) {
+    dayStatus = 'fully_booked'
+  } else if (pastCount > 0) {
+    dayStatus = 'past'
+  } else if (allSlots.length > 0) {
+    dayStatus = 'fully_booked'
+  } else {
+    dayStatus = 'closed'
+  }
 
   return {
     date: dateStr,

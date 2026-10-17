@@ -18,6 +18,7 @@ import {
   FileText
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
+import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 
 interface ServiceItem {
   id: string
@@ -120,29 +121,13 @@ export default function PublicBookingPage() {
     loadOrg()
   }, [slug])
 
-  // Generate selectable dates (next 14 days)
+  // Generate selectable dates strictly within organization US timezone
   const selectableDates = useMemo(() => {
-    const dates: Array<{ dateStr: string; label: string; dayOfWeek: string; isToday: boolean }> = []
-    const today = new Date()
+    const tz = org?.timezone || 'America/Chicago'
     const maxDays = org?.max_booking_days_ahead || 14
     const limit = Math.min(maxDays, 14)
-
-    for (let i = 0; i < limit; i++) {
-      const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000)
-      const year = d.getFullYear()
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      const dateStr = `${year}-${month}-${day}`
-      
-      dates.push({
-        dateStr,
-        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dayOfWeek: d.toLocaleDateString('en-US', { weekday: 'short' }),
-        isToday: i === 0
-      })
-    }
-    return dates
-  }, [org])
+    return getSelectableDatesInTimezone(tz, limit)
+  }, [org?.timezone, org?.max_booking_days_ahead])
 
   // Select initial date once selectable dates are available
   useEffect(() => {
@@ -478,6 +463,12 @@ export default function PublicBookingPage() {
                             }`}>
                               Closed
                             </span>
+                          ) : meta.dayStatus === 'past' ? (
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                              isSelected ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-800/40 text-zinc-500'
+                            }`}>
+                              Past
+                            </span>
                           ) : meta.slotsCount > 0 ? (
                             <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
                               isSelected ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -524,7 +515,7 @@ export default function PublicBookingPage() {
                     <div key={i} className="h-11 rounded-xl bg-zinc-800/50 animate-pulse" />
                   ))}
                 </div>
-              ) : dayStatus === 'fully_booked' || (allSlots.length > 0 && availableSlots.length === 0) ? (
+              ) : dayStatus === 'fully_booked' || (bookedSlotsCount > 0 && availableSlots.length === 0) ? (
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs flex items-start gap-3">
                     <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
@@ -556,6 +547,18 @@ export default function PublicBookingPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              ) : dayStatus === 'past' || (availableSlots.length === 0 && allSlots.length > 0) ? (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-200 text-xs flex items-start gap-3">
+                    <Clock className="h-4 w-4 shrink-0 text-blue-400 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-blue-200">Operating hours for this date have passed</p>
+                      <p className="text-[11px] text-blue-300/80 mt-0.5 leading-relaxed">
+                        Booking hours for this date in {org.timezone} have concluded. Please choose tomorrow or an upcoming date to find available times.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               ) : allSlots.length === 0 ? (
                 <div className="py-8 px-4 text-center rounded-2xl bg-[#0D1322] border border-zinc-800 space-y-2">

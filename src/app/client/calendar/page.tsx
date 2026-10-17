@@ -30,6 +30,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
+import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
 
 interface AppointmentItem {
   id: string
@@ -122,10 +123,7 @@ function CalendarContent() {
   const [bookingLoading, setBookingLoading] = useState(false)
 
   // Interactive slot booking state
-  const [bookDate, setBookDate] = useState(() => {
-    const today = new Date()
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  })
+  const [bookDate, setBookDate] = useState(() => getTodayInTimezone(orgTimezone || 'America/Chicago'))
   const [bookingSlots, setBookingSlots] = useState<Array<{ startTime: string; endTime: string; displayTime: string }>>([])
   const [bookingAllSlots, setBookingAllSlots] = useState<Array<{ startTime: string; endTime: string; displayTime: string; isAvailable?: boolean; status?: string }>>([])
   const [bookingDayStatus, setBookingDayStatus] = useState<string>('available')
@@ -134,24 +132,10 @@ function CalendarContent() {
   const [isManualTime, setIsManualTime] = useState(false)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
-  // 7-day quick date pills
+  // 7-day quick date pills strictly calculated within US business timezone
   const quickDatePills = useMemo<Array<{ dateStr: string; dayOfWeek: string; dayNum: string }>>(() => {
-    const pills: Array<{ dateStr: string; dayOfWeek: string; dayNum: string }> = []
-    const today = new Date()
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000)
-      const year = d.getFullYear()
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      const dateStr = `${year}-${month}-${day}`
-      pills.push({
-        dateStr,
-        dayOfWeek: i === 0 ? 'Today' : (i === 1 ? 'Tmrw' : d.toLocaleDateString('en-US', { weekday: 'short' })),
-        dayNum: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
-      })
-    }
-    return pills
-  }, [])
+    return getSelectableDatesInTimezone(orgTimezone || 'America/Chicago', 7)
+  }, [orgTimezone])
 
   // Load available slots dynamically when modal opens, or bookDate or bookServiceId changes
   useEffect(() => {
@@ -161,7 +145,7 @@ function CalendarContent() {
     async function loadSlots() {
       setLoadingBookingSlots(true)
       try {
-        const query = `/api/book/${orgSlug || 'default'}/slots?date=${bookDate}${bookServiceId ? `&serviceId=${bookServiceId}` : ''}`
+        const query = `/api/book/${orgSlug || 'default'}/slots?date=${bookDate}&internal=true${bookServiceId ? `&serviceId=${bookServiceId}` : ''}`
         const res = await fetch(query)
         if (res.ok) {
           const data = await res.json()
@@ -262,7 +246,10 @@ function CalendarContent() {
 
       if (org) {
         setOrgSlug(org.slug || '')
-        if (org.timezone) setOrgTimezone(org.timezone)
+        if (org.timezone) {
+          setOrgTimezone(org.timezone)
+          setBookDate(getTodayInTimezone(org.timezone))
+        }
         setBookingConfig({
           booking_mode: org.booking_mode || 'instant',
           default_duration_minutes: org.default_duration_minutes || 60,
@@ -1239,7 +1226,7 @@ function CalendarContent() {
                       {bookingAllSlots.map((slot) => {
                         const isSelected = selectedSlotTime === slot.startTime
                         const isBooked = !slot.isAvailable && slot.status === 'booked'
-                        const isPast = !slot.isAvailable && slot.status === 'past'
+                        const isPast = slot.status === 'past'
 
                         return (
                           <button
@@ -1256,10 +1243,10 @@ function CalendarContent() {
                                 : isBooked
                                 ? "bg-zinc-950 border-rose-500/30 text-rose-300/80 hover:border-rose-400 hover:bg-rose-950/20"
                                 : isPast
-                                ? "bg-zinc-950/60 border-zinc-800 text-zinc-600 opacity-60"
+                                ? "bg-zinc-950/80 border-amber-500/30 text-zinc-300 hover:border-amber-400 hover:bg-zinc-900"
                                 : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white hover:bg-zinc-850"
                             )}
-                            title={isBooked ? "Booked by another appointment (Click to select/override)" : isPast ? "Past time" : "Available"}
+                            title={isBooked ? "Booked by another appointment (Click to select/override)" : isPast ? "Earlier today (Click to dispatch)" : "Available"}
                           >
                             <span className={cn(isBooked && "line-through decoration-rose-500/50")}>
                               {slot.displayTime}
@@ -1267,6 +1254,10 @@ function CalendarContent() {
                             {isBooked ? (
                               <span className="text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
                                 Booked
+                              </span>
+                            ) : isPast ? (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                Past
                               </span>
                             ) : slot.isAvailable ? (
                               <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400">
