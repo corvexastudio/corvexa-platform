@@ -165,25 +165,25 @@ export default function CustomersPage() {
     switch (status) {
       case 'active':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
             Active
           </span>
         )
       case 'due':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
             Service Due
           </span>
         )
       case 'overdue':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
             Overdue
           </span>
         )
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
             Inactive
           </span>
         )
@@ -194,17 +194,17 @@ export default function CustomersPage() {
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Customers
             </h1>
-            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200/80 dark:border-zinc-700 tabular-nums">
               {counts.total}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Complete customer directory, service history, and lifetime revenue.
           </p>
         </div>
@@ -213,7 +213,7 @@ export default function CustomersPage() {
           <Button
             size="sm"
             onClick={() => setShowAddModal(true)}
-            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
           >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             <span>Add Customer</span>
@@ -222,13 +222,14 @@ export default function CustomersPage() {
           <Button
             onClick={handleRunReactivation}
             disabled={runningReactivation}
+            variant="outline"
             size="sm"
-            className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+            className="h-8 text-xs bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 shadow-xs"
           >
             {runningReactivation ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5 text-blue-600 dark:text-blue-400" />
             ) : (
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
             )}
             <span>Run Reactivations</span>
           </Button>
@@ -237,45 +238,45 @@ export default function CustomersPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Total Customers</p>
-          <p className="text-xl font-bold text-white tabular-nums mt-1">{loading ? '-' : counts.total}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Verified contacts</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Customers</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '-' : counts.total}</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Verified contacts</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Active Customers</p>
-          <p className="text-xl font-bold text-emerald-400 tabular-nums mt-1">{loading ? '-' : counts.active}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Recent service completed</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Active Customers</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '-' : counts.active}</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Recent service completed</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Service Due / Overdue</p>
-          <p className="text-xl font-bold text-amber-400 tabular-nums mt-1">{loading ? '-' : counts.due + counts.overdue}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Eligible for reactivation</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Service Due / Overdue</p>
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums mt-1">{loading ? '-' : counts.due + counts.overdue}</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Eligible for reactivation</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Total Lifetime Value</p>
-          <p className="text-xl font-bold text-white tabular-nums mt-1">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Lifetime Value</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
             {loading ? '-' : `$${counts.totalLtv.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Collected revenue</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Collected revenue</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800">
           {(['all', 'active', 'due', 'overdue', 'inactive'] as const).map(st => (
             <button
               key={st}
               onClick={() => setFilterStatus(st)}
               className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium capitalize whitespace-nowrap transition-colors",
+                "px-3 py-1.5 rounded-lg text-xs font-medium capitalize whitespace-nowrap transition-colors",
                 filterStatus === st
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
+                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
               )}
             >
               {st}
@@ -285,27 +286,27 @@ export default function CustomersPage() {
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
             <Input
               placeholder="Search name, phone, email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-400 rounded-md"
+              className="h-8 pl-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-lg"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1 text-xs text-zinc-400">
-            <ArrowUpDown className="h-3 w-3 text-zinc-500 shrink-0" />
+          <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-slate-700 dark:text-zinc-300 shadow-xs">
+            <ArrowUpDown className="h-3 w-3 text-slate-400 dark:text-zinc-500 shrink-0" />
             <select
               aria-label="Sort customers"
               value={sortBy}
               onChange={e => setSortBy(e.target.value as any)}
-              className="bg-transparent text-xs text-zinc-200 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs text-slate-700 dark:text-zinc-200 focus:outline-none cursor-pointer"
             >
-              <option value="last_activity" className="bg-zinc-950 text-white">Recent Activity</option>
-              <option value="ltv" className="bg-zinc-950 text-white">Lifetime Value</option>
-              <option value="last_service" className="bg-zinc-950 text-white">Last Service</option>
-              <option value="name" className="bg-zinc-950 text-white">Name</option>
+              <option value="last_activity" className="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white">Recent Activity</option>
+              <option value="ltv" className="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white">Lifetime Value</option>
+              <option value="last_service" className="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white">Last Service</option>
+              <option value="name" className="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white">Name</option>
             </select>
           </div>
         </div>
@@ -320,18 +321,18 @@ export default function CustomersPage() {
           retryLabel="Retry Loading"
         />
       ) : (
-        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
           {loading ? (
             <div className="p-4 space-y-3">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-zinc-800/60 last:border-0">
+                <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
                   <div className="space-y-1.5">
-                    <Skeleton className="h-4 w-36 bg-zinc-800" />
-                    <Skeleton className="h-3 w-24 bg-zinc-800/60" />
+                    <Skeleton className="h-4 w-36 bg-slate-100 dark:bg-zinc-800" />
+                    <Skeleton className="h-3 w-24 bg-slate-100 dark:bg-zinc-800/60" />
                   </div>
-                  <Skeleton className="h-5 w-20 bg-zinc-800" />
-                  <Skeleton className="h-4 w-24 bg-zinc-800" />
-                  <Skeleton className="h-4 w-16 bg-zinc-800" />
+                  <Skeleton className="h-5 w-20 bg-slate-100 dark:bg-zinc-800" />
+                  <Skeleton className="h-4 w-24 bg-slate-100 dark:bg-zinc-800" />
+                  <Skeleton className="h-4 w-16 bg-slate-100 dark:bg-zinc-800" />
                 </div>
               ))}
             </div>
@@ -354,39 +355,39 @@ export default function CustomersPage() {
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
-                    <TableRow className="border-b border-zinc-800 hover:bg-transparent">
-                      <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
-                      <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Lifecycle Status</TableHead>
-                      <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Last Service</TableHead>
-                      <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Lifetime Value</TableHead>
-                      <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Last Activity</TableHead>
-                      <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Action</TableHead>
+                  <TableHeader className="bg-slate-50/80 dark:bg-zinc-900/90 border-b border-slate-200 dark:border-zinc-800">
+                    <TableRow className="border-b border-slate-200 dark:border-zinc-800 hover:bg-transparent">
+                      <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
+                      <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Lifecycle Status</TableHead>
+                      <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Last Service</TableHead>
+                      <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Lifetime Value</TableHead>
+                      <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Last Activity</TableHead>
+                      <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody className="divide-y divide-zinc-800">
+                  <TableBody className="divide-y divide-slate-100 dark:divide-zinc-800">
                     {customers.map(contact => (
                       <TableRow
                         key={contact.id}
                         onClick={() => router.push(`/client/customers/${contact.id}`)}
-                        className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors cursor-pointer group"
+                        className="border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer group"
                       >
                         <TableCell className="py-3 px-4">
-                          <div className="font-medium text-xs text-zinc-100 group-hover:text-blue-400 transition-colors">
+                          <div className="font-semibold text-xs text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {contact.name || 'Customer'}
                           </div>
-                          <div className="text-[11px] text-zinc-400 tabular-nums">
+                          <div className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
                             {contact.phone}
                           </div>
                           {contact.tags && contact.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {contact.tags.slice(0, 3).map((t: string) => (
-                                <span key={t} className="text-[10px] bg-zinc-950 text-zinc-400 px-1.5 py-0.2 rounded border border-zinc-800">
+                                <span key={t} className="text-[10px] bg-slate-100 text-slate-600 dark:bg-zinc-950 dark:text-zinc-400 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-800">
                                   {t}
                                 </span>
                               ))}
                               {contact.tags.length > 3 && (
-                                <span className="text-[10px] text-zinc-500">+{contact.tags.length - 3}</span>
+                                <span className="text-[10px] text-slate-400 dark:text-zinc-500">+{contact.tags.length - 3}</span>
                               )}
                             </div>
                           )}
@@ -396,27 +397,27 @@ export default function CustomersPage() {
                           {getStatusBadge(contact.lifecycle_status || 'active')}
                         </TableCell>
 
-                        <TableCell className="py-3 px-4 text-xs text-zinc-300">
+                        <TableCell className="py-3 px-4 text-xs text-slate-700 dark:text-zinc-300">
                           {contact.last_service_date ? (
                             <div>
-                              <div className="tabular-nums">{new Date(contact.last_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                              <div className="text-[11px] text-zinc-500">Every {contact.service_frequency_days || 90}d</div>
+                              <div className="tabular-nums font-medium">{new Date(contact.last_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                              <div className="text-[11px] text-slate-500 dark:text-zinc-500">Every {contact.service_frequency_days || 90}d</div>
                             </div>
                           ) : (
-                            <span className="text-zinc-500">No jobs completed</span>
+                            <span className="text-slate-400 dark:text-zinc-500">No jobs completed</span>
                           )}
                         </TableCell>
 
-                        <TableCell className="py-3 px-4 font-semibold text-xs text-emerald-400 tabular-nums">
+                        <TableCell className="py-3 px-4 font-semibold text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
                           ${Number(contact.lifetime_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
 
-                        <TableCell className="py-3 px-4 text-xs text-zinc-400 tabular-nums">
+                        <TableCell className="py-3 px-4 text-xs text-slate-500 dark:text-zinc-400 tabular-nums">
                           {contact.last_activity ? new Date(contact.last_activity).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—'}
                         </TableCell>
 
                         <TableCell className="py-3 px-4 text-right">
-                          <span className="text-xs text-zinc-400 group-hover:text-white transition-colors inline-flex items-center gap-0.5">
+                          <span className="text-xs text-slate-500 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors inline-flex items-center gap-0.5 font-medium">
                             View <ChevronRight className="h-3 w-3" />
                           </span>
                         </TableCell>
@@ -427,26 +428,26 @@ export default function CustomersPage() {
               </div>
 
               {/* Mobile Card List View */}
-              <div className="md:hidden divide-y divide-zinc-800">
+              <div className="md:hidden divide-y divide-slate-100 dark:divide-zinc-800">
                 {customers.map(contact => (
                   <div
                     key={contact.id}
                     onClick={() => router.push(`/client/customers/${contact.id}`)}
-                    className="p-4 space-y-2 cursor-pointer active:bg-zinc-800/40"
+                    className="p-4 space-y-2 cursor-pointer active:bg-slate-50 dark:active:bg-zinc-800/40"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h3 className="font-medium text-xs text-zinc-100">{contact.name || 'Customer'}</h3>
-                        <p className="text-[11px] text-zinc-400 tabular-nums">{contact.phone}</p>
+                        <h3 className="font-semibold text-xs text-slate-900 dark:text-zinc-100">{contact.name || 'Customer'}</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">{contact.phone}</p>
                       </div>
                       {getStatusBadge(contact.lifecycle_status || 'active')}
                     </div>
 
                     <div className="flex items-center justify-between text-xs pt-1">
-                      <span className="text-zinc-500">
+                      <span className="text-slate-500 dark:text-zinc-500">
                         {contact.last_service_date ? `Last: ${new Date(contact.last_service_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : 'No prior jobs'}
                       </span>
-                      <span className="font-semibold text-emerald-400 tabular-nums">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
                         ${Number(contact.lifetime_value || 0).toFixed(2)}
                       </span>
                     </div>
@@ -468,77 +469,77 @@ export default function CustomersPage() {
       >
         <form onSubmit={handleAddCustomer} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Full Name</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Full Name</label>
             <Input
               placeholder="e.g. Sarah Connor"
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Phone Number *</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Phone Number *</label>
             <Input
               required
               placeholder="e.g. +1 555-0199"
               value={addPhone}
               onChange={(e) => setAddPhone(e.target.value)}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Email Address</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Email Address</label>
             <Input
               type="email"
               placeholder="e.g. sarah@example.com"
               value={addEmail}
               onChange={(e) => setAddEmail(e.target.value)}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Service Address</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Service Address</label>
             <Input
               placeholder="e.g. 742 Evergreen Terrace, Springfield"
               value={addAddress}
               onChange={(e) => setAddAddress(e.target.value)}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Service Frequency (Days)</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Service Frequency (Days)</label>
             <Input
               type="number"
               min="7"
               value={addFrequency}
               onChange={(e) => setAddFrequency(e.target.value)}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
             />
-            <span className="text-[11px] text-zinc-500 mt-0.5 block">How often this customer typically requires maintenance (default: 90 days)</span>
+            <span className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5 block">How often this customer typically requires maintenance (default: 90 days)</span>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Notes / Preferences</label>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">Notes / Preferences</label>
             <textarea
               rows={2}
               placeholder="Customer notes, gate codes, equipment details..."
               value={addNotes}
               onChange={(e) => setAddNotes(e.target.value)}
-              className="w-full p-2 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700 resize-none"
+              className="w-full p-2 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 resize-none"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-zinc-800">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setShowAddModal(false)}
-              className="h-8 text-xs border-zinc-800 text-zinc-400 hover:text-white"
+              className="h-8 text-xs border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
             >
               Cancel
             </Button>
@@ -546,7 +547,7 @@ export default function CustomersPage() {
               type="submit"
               size="sm"
               disabled={addingCustomer}
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
             >
               {addingCustomer ? 'Adding...' : 'Save Customer'}
             </Button>

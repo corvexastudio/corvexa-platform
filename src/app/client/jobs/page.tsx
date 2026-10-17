@@ -61,32 +61,32 @@ function getJobStatusBadge(status: JobItem['status']) {
   switch (status) {
     case 'en_route':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
           En Route
         </span>
       )
     case 'in_progress':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
           In Progress
         </span>
       )
     case 'completed':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
           Completed
         </span>
       )
     case 'cancelled':
     case 'no_show':
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
           {status === 'no_show' ? 'No Show' : 'Cancelled'}
         </span>
       )
     default:
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
           Scheduled
         </span>
       )
@@ -287,24 +287,24 @@ function JobsContent() {
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Jobs & Dispatch
             </h1>
-            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200/80 dark:border-zinc-700 tabular-nums">
               {jobs.length}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Dispatch, execution lifecycle, and service completion for field technicians.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Link href="/client/calendar">
-            <Button variant="outline" size="sm" className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800">
+            <Button variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs">
               <Calendar className="h-3.5 w-3.5 mr-1.5" />
               Calendar
             </Button>
@@ -312,7 +312,7 @@ function JobsContent() {
           <Button
             size="sm"
             onClick={() => setShowCreateModal(true)}
-            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
             Dispatch Job
@@ -323,7 +323,7 @@ function JobsContent() {
       {/* Filter Bar & Tabs */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/60 dark:border-zinc-800">
           {[
             { key: 'today', label: "Today's Schedule" },
             { key: 'active', label: 'Active Pipeline' },
@@ -335,10 +335,10 @@ function JobsContent() {
               type="button"
               onClick={() => setTab(t.key as any)}
               className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
+                "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors",
                 tab === t.key
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
+                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
               )}
             >
               {t.label}
@@ -348,12 +348,12 @@ function JobsContent() {
 
         {/* Search */}
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
           <Input
             placeholder="Search jobs, customers, address..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="h-8 pl-8 text-xs bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-400 rounded-md"
+            className="h-8 pl-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-lg"
           />
         </div>
       </div>
@@ -367,16 +367,16 @@ function JobsContent() {
           retryLabel="Retry Loading"
         />
       ) : loading ? (
-        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
           <div className="p-4 space-y-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
                 <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-40 bg-zinc-800" />
-                  <Skeleton className="h-3 w-56 bg-zinc-800/60" />
+                  <Skeleton className="h-4 w-40 bg-slate-100 dark:bg-zinc-800" />
+                  <Skeleton className="h-3 w-56 bg-slate-100 dark:bg-zinc-800/60" />
                 </div>
-                <Skeleton className="h-5 w-20 bg-zinc-800" />
-                <Skeleton className="h-8 w-28 bg-zinc-800" />
+                <Skeleton className="h-5 w-20 bg-slate-100 dark:bg-zinc-800" />
+                <Skeleton className="h-8 w-28 bg-slate-100 dark:bg-zinc-800" />
               </div>
             ))}
           </div>
@@ -396,7 +396,7 @@ function JobsContent() {
           onSecondaryAction={() => router.push('/client/calendar')}
         />
       ) : (
-        <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900 divide-y divide-zinc-800">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800 shadow-xs">
           {filteredJobs.map((job) => {
             const startDate = new Date(job.scheduled_start)
             const isEnRoute = job.status === 'en_route'
@@ -406,46 +406,46 @@ function JobsContent() {
             return (
               <div
                 key={job.id}
-                className="p-4 sm:p-4.5 hover:bg-zinc-800/30 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="p-4 sm:p-4.5 hover:bg-slate-50/70 dark:hover:bg-zinc-800/30 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 {/* Left details */}
                 <div className="flex items-start gap-3.5 min-w-0">
                   {/* Time box */}
-                  <div className="h-10 w-12 rounded border border-zinc-800 bg-zinc-950 flex flex-col items-center justify-center shrink-0 text-zinc-300">
-                    <span className="text-xs font-bold tabular-nums">
+                  <div className="h-11 w-12 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center shrink-0 text-slate-700 dark:text-zinc-300">
+                    <span className="text-xs font-bold tabular-nums text-slate-900 dark:text-white">
                       {startDate.toLocaleDateString([], { day: 'numeric' })}
                     </span>
-                    <span className="text-[10px] uppercase text-zinc-500">
+                    <span className="text-[10px] uppercase font-semibold text-slate-500 dark:text-zinc-500">
                       {startDate.toLocaleDateString([], { month: 'short' })}
                     </span>
                   </div>
 
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono font-medium text-zinc-400">
+                      <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400">
                         {job.job_number}
                       </span>
-                      <h2 className="font-semibold text-xs text-zinc-100 truncate">
+                      <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-100 truncate">
                         {job.title}
                       </h2>
                       {getJobStatusBadge(job.status)}
 
                       {job.quote?.total && (
-                        <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 tabular-nums">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 tabular-nums">
                           ${Number(job.quote.total).toFixed(2)}
                         </span>
                       )}
                     </div>
 
                     {/* Metadata line */}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
-                      <span className="flex items-center gap-1 text-zinc-300 font-medium tabular-nums">
-                        <Clock className="h-3 w-3 text-zinc-500" />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400">
+                      <span className="flex items-center gap-1 text-slate-700 dark:text-zinc-300 font-medium tabular-nums">
+                        <Clock className="h-3 w-3 text-slate-400 dark:text-zinc-500" />
                         {startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                       </span>
 
                       {job.contact?.name && (
-                        <span>• {job.contact.name}</span>
+                        <span className="text-slate-700 dark:text-zinc-300 font-medium">• {job.contact.name}</span>
                       )}
 
                       {job.contact?.address && (
@@ -453,16 +453,16 @@ function JobsContent() {
                           href={`https://maps.google.com/?q=${encodeURIComponent(job.contact.address)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200 truncate max-w-xs"
+                          className="flex items-center gap-1 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 truncate max-w-xs transition-colors"
                         >
-                          <MapPin className="h-3 w-3 text-zinc-500 shrink-0" />
+                          <MapPin className="h-3 w-3 text-slate-400 dark:text-zinc-500 shrink-0" />
                           <span className="truncate">{job.contact.address}</span>
                         </a>
                       )}
                     </div>
 
                     {job.notes && (
-                      <p className="text-xs text-zinc-400 line-clamp-1 italic pt-0.5">
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1 italic pt-0.5">
                         {job.notes}
                       </p>
                     )}
@@ -470,14 +470,14 @@ function JobsContent() {
                 </div>
 
                 {/* Right / Bottom Action Controls */}
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap pt-2 md:pt-0 border-t md:border-t-0 border-zinc-800/80 w-full md:w-auto justify-between md:justify-end">
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-zinc-800/80 w-full md:w-auto justify-between md:justify-end">
                   {/* Status Progression Workflow */}
                   <div className="flex items-center gap-1.5">
                     {(job.status === 'scheduled' || job.status === 'confirmed') && (
                       <Button
                         size="sm"
                         onClick={() => handleUpdateStatus(job.id, 'en_route', true)}
-                        className="h-7.5 px-3 rounded text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium"
+                        className="h-7.5 px-3 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium shadow-xs"
                       >
                         <Navigation className="h-3 w-3 mr-1" />
                         En Route
@@ -488,7 +488,7 @@ function JobsContent() {
                       <Button
                         size="sm"
                         onClick={() => handleUpdateStatus(job.id, 'in_progress')}
-                        className="h-7.5 px-3 rounded text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+                        className="h-7.5 px-3 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
                       >
                         <Play className="h-3 w-3 mr-1" />
                         Start Job
@@ -499,7 +499,7 @@ function JobsContent() {
                       <Button
                         size="sm"
                         onClick={() => handleUpdateStatus(job.id, 'completed')}
-                        className="h-7.5 px-3 rounded text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+                        className="h-7.5 px-3 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-xs"
                       >
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Complete Job
@@ -512,7 +512,7 @@ function JobsContent() {
                     <button
                       type="button"
                       onClick={() => setActiveJobForNote(activeJobForNote === job.id ? null : job.id)}
-                      className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
                       title="Add note"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
@@ -521,7 +521,7 @@ function JobsContent() {
                     {job.contact?.phone && (
                       <a
                         href={`tel:${job.contact.phone}`}
-                        className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors"
                         title="Call customer"
                       >
                         <PhoneCall className="h-3.5 w-3.5" />
@@ -530,7 +530,7 @@ function JobsContent() {
 
                     <Link
                       href="/client/invoices"
-                      className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
                       title="Invoice this job"
                     >
                       <DollarSign className="h-3.5 w-3.5" />
@@ -538,7 +538,7 @@ function JobsContent() {
 
                     {/* Customer Live Tracker Link */}
                     {job.tracking_token && (
-                      <div className="flex items-center gap-0.5 border-l border-zinc-800 pl-1">
+                      <div className="flex items-center gap-0.5 border-l border-slate-200 dark:border-zinc-800 pl-1">
                         <button
                           type="button"
                           onClick={() => {
@@ -546,16 +546,16 @@ function JobsContent() {
                             navigator.clipboard.writeText(url)
                             toast.success('Customer live tracking link copied to clipboard!')
                           }}
-                          className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-indigo-400 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
                           title="Copy Customer Tracking Link"
                         >
-                          <Navigation className="h-3.5 w-3.5 text-indigo-400" />
+                          <Navigation className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                         </button>
                         <a
                           href={`/t/${job.tracking_token}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 hover:text-indigo-400 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
                           title="Open Customer Live Tracker"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -582,7 +582,7 @@ function JobsContent() {
               variant="outline"
               size="sm"
               onClick={() => setActiveJobForNote(null)}
-              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+              className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
             >
               Cancel
             </Button>
@@ -590,7 +590,7 @@ function JobsContent() {
               size="sm"
               disabled={savingNote || !noteText.trim()}
               onClick={() => activeJobForNote && handleSaveNote(activeJobForNote)}
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
             >
               {savingNote ? 'Saving...' : 'Save Note'}
             </Button>
@@ -602,7 +602,7 @@ function JobsContent() {
           placeholder="e.g. Unit capacitor replaced, customer signed work order..."
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
-          className="w-full p-2.5 rounded-md bg-zinc-950 border border-zinc-800 text-white text-xs focus:outline-none focus:border-zinc-700 resize-none"
+          className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-blue-500 resize-none"
         />
       </Modal>
 
@@ -616,7 +616,7 @@ function JobsContent() {
       >
         <form onSubmit={handleCreateJob} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
               Customer
             </label>
             <select
@@ -624,11 +624,11 @@ function JobsContent() {
               value={selectedContactId}
               onChange={e => setSelectedContactId(e.target.value)}
               required
-              className="w-full p-2 text-xs bg-zinc-950 border border-zinc-800 rounded-md text-zinc-200 focus:outline-none focus:border-zinc-700 cursor-pointer"
+              className="w-full p-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               <option value="">-- Choose Customer --</option>
               {contacts.map(c => (
-                <option key={c.id} value={c.id}>
+                <option key={c.id} value={c.id} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
                   {c.name || 'Valued Customer'} ({c.phone})
                 </option>
               ))}
@@ -636,7 +636,7 @@ function JobsContent() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
               Job Title
             </label>
             <Input
@@ -644,12 +644,12 @@ function JobsContent() {
               onChange={e => setJobTitle(e.target.value)}
               placeholder="e.g. AC Condenser Diagnostic & Coil Clean"
               required
-              className="h-9 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
               Scheduled Start
             </label>
             <Input
@@ -657,12 +657,12 @@ function JobsContent() {
               value={jobScheduledStart}
               onChange={e => setJobScheduledStart(e.target.value)}
               required
-              className="h-9 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
               Job Notes
             </label>
             <textarea
@@ -670,17 +670,17 @@ function JobsContent() {
               value={jobNotes}
               onChange={e => setJobNotes(e.target.value)}
               placeholder="e.g. Homeowner reported system blowing warm air. Gate code #4492."
-              className="w-full p-2.5 rounded-md bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700 resize-none"
+              className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-200 text-xs focus:outline-none focus:border-blue-500 resize-none"
             />
           </div>
 
-          <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setShowCreateModal(false)}
-              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+              className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
             >
               Cancel
             </Button>
@@ -688,7 +688,7 @@ function JobsContent() {
               type="submit"
               size="sm"
               disabled={creatingJob}
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
             >
               {creatingJob ? (
                 <>
