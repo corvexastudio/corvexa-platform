@@ -24,6 +24,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
 
 export default function SettingsPage() {
   const supabase = createClient()
@@ -415,6 +416,9 @@ export default function SettingsPage() {
               </Button>
             </div>
           </div>
+
+          {/* ── Section: Notification Platform (Web Push & Owner Alerts) ── */}
+          <PushNotificationSettings />
 
           {/* ── Section 2: Business Profile & Settings Form ── */}
           <form onSubmit={handleSave} className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-5">

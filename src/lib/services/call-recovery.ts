@@ -6,7 +6,8 @@ import { evaluateSuppression } from '../telephony/suppression-rules.ts'
 import { resolveMissedCallTemplate } from '../telephony/template-engine.ts'
 import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
 import { formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
-import { notifyOwnerOfMissedCall, type OwnerNotificationResult } from '../telephony/owner-notifier.ts'
+import type { OwnerNotificationResult } from '../telephony/owner-notifier.ts'
+import { notifyOwner } from '../notifications/notification-service.ts'
 
 export interface InboundCallContext {
   callerNumber: string
@@ -17,6 +18,7 @@ export interface InboundCallContext {
   callSessionId?: string
   sendSmsFn?: typeof sendTelnyxSms
   sendOwnerSmsFn?: typeof sendTelnyxSms
+  webPushSendFn?: any
 }
 
 export interface ProcessCallResult {
@@ -282,17 +284,33 @@ export async function processMissedCall(
     })
   }
 
-  // 10. Dispatch Owner Missed-Call Alert (P1-NOTIF-01)
+  // 10. Dispatch Owner Missed-Call Alert (Push + SMS via Notification Platform)
   let ownerAlert: OwnerNotificationResult | undefined
   try {
-    ownerAlert = await notifyOwnerOfMissedCall(supabase, {
-      org,
-      callerPhone: formattedCaller,
-      calledPhone: formattedCalled,
-      customerSmsSuccess: smsResult.success,
-      callId: insertedCallId,
-      sendSmsFn: call.sendOwnerSmsFn || call.sendSmsFn
+    const notifOutcome = await notifyOwner(supabase, {
+      event: 'missed_call_recovered',
+      organizationId: org.id,
+      idempotencyKey: insertedCallId ? `missed_call_recovered:${insertedCallId}` : undefined,
+      data: {
+        callerPhone: formattedCaller,
+        calledPhone: formattedCalled,
+        callId: insertedCallId,
+        customerSmsSuccess: smsResult.success
+      },
+      sendSmsFn: call.sendOwnerSmsFn || call.sendSmsFn,
+      webPushSendFn: call.webPushSendFn
     })
+
+    const smsDelivery = notifOutcome.deliveries.find(d => d.channel === 'sms')
+    ownerAlert = {
+      attempted: notifOutcome.attempted,
+      sent: smsDelivery?.success ?? false,
+      ownerPhone: smsDelivery?.destination,
+      messageId: smsDelivery?.providerMessageId,
+      error: smsDelivery?.error || notifOutcome.error,
+      skippedReason: smsDelivery?.skippedReason as any,
+      text: smsDelivery?.text
+    }
 
     if (insertedCallId && ownerAlert?.sent) {
       try {

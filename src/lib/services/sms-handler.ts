@@ -4,12 +4,15 @@ import { isStopKeyword, isResumeKeyword } from './safety-rules.ts'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { resolveOrganizationByPhoneNumber } from '../telephony/telnyx-numbers.ts'
 import { handleInboundComplianceKeyword } from '../compliance/compliance-engine.ts'
+import { notifyOwner } from '../notifications/notification-service.ts'
 
-interface InboundSmsPayload {
+export interface InboundSmsPayload {
   fromPhone: string
   toPhone: string
   text: string
   telnyxMessageId?: string
+  sendSmsFn?: typeof sendTelnyxSms
+  webPushSendFn?: any
 }
 
 export async function processInboundSms(
@@ -37,7 +40,7 @@ export async function processInboundSms(
   // 2. Locate or create contact
   let { data: contact } = await supabase
     .from('contacts')
-    .select('id, opt_out')
+    .select('id, name, opt_out')
     .eq('org_id', org.id)
     .eq('phone', fromNumber)
     .maybeSingle()
@@ -46,7 +49,7 @@ export async function processInboundSms(
     const { data: newContact } = await supabase
       .from('contacts')
       .insert({ org_id: org.id, phone: fromNumber, name: 'Caller' })
-      .select('id, opt_out')
+      .select('id, name, opt_out')
       .single()
     contact = newContact
   }
@@ -145,6 +148,27 @@ export async function processInboundSms(
       .eq('org_id', org.id)
       .eq('contact_id', contact.id)
       .eq('status', 'new')
+  }
+
+  // 7. Dispatch Owner Notification for Inbound Customer Reply (Push + SMS)
+  try {
+    const contactName = contact?.name && contact.name !== 'Caller' ? contact.name : 'Customer'
+    await notifyOwner(supabase, {
+      event: 'customer_reply',
+      organizationId: org.id,
+      idempotencyKey: sms.telnyxMessageId ? `customer_reply:${sms.telnyxMessageId}` : undefined,
+      data: {
+        customerName: contactName,
+        customerPhone: fromNumber,
+        replyPreview: sms.text,
+        conversationId: conversation?.id,
+        targetUrl: conversation?.id ? `/client/inbox?conversation=${encodeURIComponent(conversation.id)}` : '/client/inbox'
+      },
+      sendSmsFn: sms.sendSmsFn,
+      webPushSendFn: sms.webPushSendFn
+    })
+  } catch (notifErr) {
+    console.warn('[CUSTOMER REPLY NOTIFICATION ERROR]', notifErr)
   }
 
   return { success: true, action: 'message_stored' }

@@ -22,6 +22,7 @@ export interface NotifyOwnerParams {
   customerSmsSuccess: boolean
   callId?: string
   sendSmsFn?: typeof sendTelnyxSms
+  skipInApp?: boolean
 }
 
 export interface OwnerNotificationResult {
@@ -224,7 +225,7 @@ export async function notifyOwnerOfMissedCall(
 
     // In-app notification
     try {
-      if (typeof supabase?.from === 'function') {
+      if (!params.skipInApp && typeof supabase?.from === 'function') {
         await supabase.from('notifications').insert({
           org_id: org.id,
           title: 'Missed Call Recovered',

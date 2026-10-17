@@ -15,6 +15,7 @@ import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
 import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../compliance/compliance-engine.ts'
+import { notifyOwner } from '../notifications/notification-service.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -364,13 +365,35 @@ export async function createBooking(
     })
   }
 
-  // 12. Create in-app notification for business owner
-  await supabase.from('notifications').insert({
-    org_id: orgId,
-    title: isInstant ? 'New Appointment Booked' : 'New Booking Request',
-    message: `${customerName} booked ${activeService.name} for ${displayTime}`,
-    link: '/client/calendar'
-  })
+  // 12. Dispatch Owner Notification (Push + SMS via Notification Platform)
+  try {
+    await notifyOwner(supabase, {
+      event: 'new_booking',
+      organizationId: orgId,
+      idempotencyKey: `new_booking:${appointment.id}`,
+      data: {
+        customerName,
+        customerPhone,
+        serviceName: activeService.name,
+        bookingTime: displayTime,
+        isInstant,
+        appointmentId: appointment.id,
+        targetUrl: '/client/calendar'
+      }
+    })
+  } catch (notifErr) {
+    console.warn('[BOOKING NOTIFICATION ERROR]', notifErr)
+    try {
+      await supabase.from('notifications').insert({
+        org_id: orgId,
+        title: isInstant ? 'New Appointment Booked' : 'New Booking Request',
+        message: `${customerName} booked ${activeService.name} for ${displayTime}`,
+        link: '/client/calendar'
+      })
+    } catch {
+      // Non-blocking
+    }
+  }
 
   return {
     success: true,
