@@ -42,20 +42,20 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          "rounded-lg px-3.5 py-2 text-xs leading-relaxed",
+          "rounded-2xl px-4 py-2.5 text-xs sm:text-[13px] leading-relaxed shadow-2xs",
           isInbound 
-            ? "bg-zinc-800 text-zinc-100 border border-zinc-700/60" 
+            ? "bg-white text-slate-900 border border-slate-200/80 rounded-bl-xs dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700/60" 
             : isAutoReply
-              ? "bg-blue-950/60 text-blue-100 border border-blue-800/60"
-              : "bg-blue-600 text-white"
+              ? "bg-blue-50 text-blue-950 border border-blue-200/80 rounded-br-xs dark:bg-blue-950/40 dark:text-blue-100 dark:border-blue-900/60"
+              : "bg-blue-600 text-white rounded-br-xs shadow-xs"
         )}
       >
         {text}
       </div>
 
-      <div className="flex items-center gap-1.5 mt-1 px-1 text-[10px] text-zinc-400">
+      <div className="flex items-center gap-1.5 mt-1 px-1 text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
         {isAutoReply && (
-          <span className="font-semibold text-blue-400 uppercase tracking-wider text-[9px] mr-0.5">
+          <span className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[9px] mr-0.5">
             Auto-Reply •
           </span>
         )}
@@ -63,13 +63,13 @@ export function MessageBubble({
           {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
         {!isInbound && (
-          <span className="inline-flex items-center text-zinc-400" title={deliveryStatus || 'Sent'}>
+          <span className="inline-flex items-center text-slate-400 dark:text-zinc-500" title={deliveryStatus || 'Sent'}>
             {deliveryStatus === 'delivered' ? (
-              <CheckCheck className="h-3 w-3 text-emerald-400" />
+              <CheckCheck className="h-3 w-3 text-emerald-500 dark:text-emerald-400" />
             ) : deliveryStatus === 'failed' ? (
-              <span className="text-red-400 text-[10px]">Failed</span>
+              <span className="text-red-500 dark:text-red-400 text-[10px] font-bold">Failed</span>
             ) : (
-              <Check className="h-3 w-3 text-zinc-400" />
+              <Check className="h-3 w-3" />
             )}
           </span>
         )}

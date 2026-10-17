@@ -23,7 +23,9 @@ import {
   MapPin,
   ExternalLink,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Inbox as InboxIcon,
+  Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConversationRow } from '@/components/inbox/conversation-row'
@@ -63,6 +65,7 @@ export default function InboxPage() {
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
   const [search, setSearch] = useState('')
+  const [filterTab, setFilterTab] = useState<'all' | 'unread'>('all')
   const [sending, setSending] = useState(false)
   const [loadingConvs, setLoadingConvs] = useState(true)
   const [convError, setConvError] = useState<string | null>(null)
@@ -103,7 +106,7 @@ export default function InboxPage() {
         setConvError(err.error || 'Failed to load conversations.')
       }
     } catch {
-      setConvError('Unable to connect to inbox service. Check your connection.')
+      setConvError('Unable to load conversations. Check your connection.')
     } finally {
       setLoadingConvs(false)
     }
@@ -192,6 +195,36 @@ export default function InboxPage() {
     }
   }, [activeConvId, loadMessages])
 
+  // Realtime subscription for incoming messages
+  useEffect(() => {
+    if (!activeConvId) return
+
+    const channel = supabase
+      .channel(`inbox_messages_${activeConvId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConvId}`
+        },
+        (payload: any) => {
+          const newMsg = payload.new as MessageItem
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev
+            return [...prev, newMsg]
+          })
+          setTimeout(() => scrollToBottom('smooth'), 100)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [activeConvId, supabase])
+
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!replyText.trim() || !activeConv || !activeConv.contact?.phone || sending) return
@@ -235,57 +268,105 @@ export default function InboxPage() {
     }
   }
 
+  const totalUnread = conversations.reduce((acc, c) => acc + (c.unread_count > 0 ? 1 : 0), 0)
+
   const filtered = conversations.filter(c => {
+    if (filterTab === 'unread' && c.unread_count === 0) return false
     const q = search.toLowerCase()
     return c.contact?.name?.toLowerCase().includes(q) || c.contact?.phone?.includes(q) || c.last_message_preview?.toLowerCase().includes(q)
   })
 
   return (
-    <div className="h-[calc(100dvh-3.25rem-3.5rem)] md:h-[calc(100vh-7.5rem)] flex md:rounded-md md:border md:border-zinc-800 bg-zinc-950 overflow-hidden">
+    <div className="h-[calc(100dvh-3.5rem-3.5rem)] md:h-[calc(100vh-8.5rem)] flex md:rounded-2xl md:border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
       
       {/* ── Left Pane: Conversation Directory (Hidden on mobile when viewing thread) ── */}
       <div className={cn(
-        "w-full md:w-80 border-r border-zinc-800 flex flex-col bg-zinc-950 shrink-0",
+        "w-full md:w-80 border-r border-slate-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 shrink-0",
         mobileViewThread ? "hidden md:flex" : "flex"
       )}>
-        {/* Header & Search */}
-        <div className="p-3 border-b border-zinc-800 space-y-2">
+        {/* Header, Filter Pills & Search */}
+        <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 space-y-2.5 bg-slate-50/50 dark:bg-zinc-900/40">
           <div className="flex items-center justify-between">
-            <h1 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            <h1 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
               Conversations
             </h1>
-            <span className="text-xs text-zinc-400 tabular-nums">
-              {conversations.length} total
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold tabular-nums">
+                {conversations.length} total
+              </span>
+              <button
+                type="button"
+                onClick={loadConversations}
+                disabled={loadingConvs}
+                className="h-6 w-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
+                title="Refresh conversations"
+              >
+                <RefreshCw className={cn("h-3 w-3", loadingConvs && "animate-spin")} />
+              </button>
+            </div>
           </div>
+
+          {/* Quick Filter Segment */}
+          <div className="flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-zinc-900 p-0.5 border border-slate-200 dark:border-zinc-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterTab('all')}
+              className={cn(
+                "flex-1 py-1 rounded-md text-center text-xs font-semibold transition-all cursor-pointer",
+                filterTab === 'all'
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-2xs"
+                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+              )}
+            >
+              All ({conversations.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('unread')}
+              className={cn(
+                "flex-1 py-1 rounded-md text-center text-xs font-semibold transition-all cursor-pointer",
+                filterTab === 'unread'
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-2xs"
+                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+              )}
+            >
+              Unread {totalUnread > 0 ? `(${totalUnread})` : ''}
+            </button>
+          </div>
+
+          {/* Search bar */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
             <Input
-              placeholder="Search by name, phone, message..."
+              placeholder="Search customer, phone, text..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-8 h-8 text-xs bg-zinc-900 border-zinc-800 rounded-md"
+              className="pl-8 h-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100"
             />
           </div>
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60">
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800/60">
           {loadingConvs ? (
-            <div className="p-3 space-y-3">
+            <div className="p-3.5 space-y-3">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="space-y-1.5 animate-pulse">
                   <div className="flex justify-between">
-                    <div className="h-3 w-28 bg-zinc-800 rounded" />
-                    <div className="h-3 w-10 bg-zinc-800/60 rounded" />
+                    <div className="h-3 w-28 bg-slate-200 dark:bg-zinc-800 rounded" />
+                    <div className="h-3 w-10 bg-slate-100 dark:bg-zinc-800/60 rounded" />
                   </div>
-                  <div className="h-3 w-44 bg-zinc-800/40 rounded" />
+                  <div className="h-3 w-44 bg-slate-100/70 dark:bg-zinc-800/40 rounded" />
                 </div>
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-6 text-center text-xs text-zinc-400">
-              No conversations found.
+            <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
+              <InboxIcon className="h-8 w-8 text-slate-300 dark:text-zinc-600 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700 dark:text-zinc-300">No conversations found</p>
+              <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
+                {filterTab === 'unread' ? "You're caught up with all messages." : "Incoming customer messages will show up here."}
+              </p>
             </div>
           ) : (
             filtered.map(conv => (
@@ -305,53 +386,55 @@ export default function InboxPage() {
 
       {/* ── Center Pane: Active Message Thread ── */}
       <div className={cn(
-        "flex-1 flex flex-col bg-zinc-950 min-w-0",
+        "flex-1 flex flex-col bg-slate-50/50 dark:bg-zinc-950 min-w-0",
         !mobileViewThread ? "hidden md:flex" : "flex"
       )}>
         {activeConv ? (
           <>
             {/* Thread Header */}
-            <div className="h-13 border-b border-zinc-800 px-3 sm:px-4 flex items-center justify-between shrink-0 bg-zinc-950">
+            <div className="h-14 border-b border-slate-200 dark:border-zinc-800 px-4 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
+                  type="button"
                   onClick={() => setMobileViewThread(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 text-zinc-300 hover:text-white bg-zinc-900 active:bg-zinc-800 md:hidden shrink-0"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0"
                   aria-label="Back to conversations"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-xs text-zinc-100 truncate">
+                    <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-zinc-100 truncate">
                       {activeConv.contact?.name || activeConv.contact?.phone}
                     </span>
                     {activeConv.contact?.name && (
-                      <span className="text-[11px] text-zinc-400 truncate">
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">
                         {activeConv.contact.phone}
                       </span>
                     )}
                   </div>
                   {activeConv.contact?.address && (
-                    <p className="text-[11px] text-zinc-400 truncate">
-                      {activeConv.contact.address}
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
+                      <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span>{activeConv.contact.address}</span>
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="flex items-center gap-1.5 shrink-0">
+              {/* Quick Actions in Thread Header */}
+              <div className="flex items-center gap-2 shrink-0">
                 <a
                   href={`tel:${activeConv.contact?.phone}`}
-                  className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-zinc-800 bg-zinc-900 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-                  title="Call customer"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 transition-colors shadow-2xs"
+                  title="Call customer directly"
                 >
-                  <PhoneCall className="h-3.5 w-3.5 text-emerald-400" />
+                  <PhoneCall className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Call</span>
                 </a>
                 <Link
                   href={`/client/customers/${activeConv.contact_id}`}
-                  className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-zinc-800 bg-zinc-900 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
                   title="View customer record"
                 >
                   <User className="h-3.5 w-3.5" />
@@ -363,14 +446,15 @@ export default function InboxPage() {
             {/* Messages Scroll View */}
             <div 
               ref={scrollContainerRef}
-              className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-950"
+              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/40 dark:bg-zinc-950"
             >
               {hasMoreOlder && (
                 <div className="text-center py-1">
                   <button
+                    type="button"
                     onClick={handleLoadOlderMessages}
                     disabled={loadingOlder}
-                    className="text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors disabled:opacity-50"
                   >
                     {loadingOlder ? 'Loading older messages...' : 'Load older messages'}
                   </button>
@@ -381,13 +465,15 @@ export default function InboxPage() {
                 <div className="space-y-3">
                   {[1, 2, 3].map(i => (
                     <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-                      <div className="h-10 w-48 rounded-md bg-zinc-900 animate-pulse" />
+                      <div className="h-10 w-48 rounded-xl bg-slate-200 dark:bg-zinc-900 animate-pulse" />
                     </div>
                   ))}
                 </div>
               ) : messages.length === 0 ? (
-                <div className="py-12 text-center text-xs text-zinc-400">
-                  No messages yet. Send a text below to initiate communication.
+                <div className="py-16 text-center text-xs text-slate-500 dark:text-zinc-400 space-y-2">
+                  <MessageSquare className="h-8 w-8 text-slate-300 dark:text-zinc-600 mx-auto" />
+                  <p className="font-semibold text-slate-700 dark:text-zinc-300">No messages in this conversation yet</p>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500">Send an SMS below to start the conversation.</p>
                 </div>
               ) : (
                 messages.map(msg => (
@@ -398,7 +484,7 @@ export default function InboxPage() {
             </div>
 
             {/* Canned Snippets & Composer */}
-            <div className="border-t border-zinc-800 p-2.5 sm:p-3 bg-zinc-950 space-y-2 shrink-0">
+            <div className="border-t border-slate-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-950 space-y-2.5 shrink-0 shadow-xs">
               <CannedSnippetsBar onSelect={text => setReplyText(text)} />
 
               <form onSubmit={handleSendReply} className="flex gap-2">
@@ -406,14 +492,14 @@ export default function InboxPage() {
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
                   placeholder="Type an SMS reply (or select template)..."
-                  className="flex-1 h-10 sm:h-9 text-base sm:text-xs bg-zinc-900 border-zinc-800 rounded-md"
+                  className="flex-1 h-10 text-xs sm:text-sm bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-900"
                   disabled={sending}
                 />
                 <Button 
                   type="submit" 
                   disabled={!replyText.trim() || sending}
                   size="sm"
-                  className="h-10 sm:h-9 px-3.5 gap-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shrink-0"
+                  className="h-10 px-4 gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 shadow-xs transition-colors cursor-pointer"
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -428,71 +514,82 @@ export default function InboxPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-xs text-zinc-400">
-            Select a conversation on the left to read messages and reply.
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-zinc-400 space-y-2">
+            <InboxIcon className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
+            <p className="text-sm font-semibold text-slate-700 dark:text-zinc-300">Select a conversation</p>
+            <p className="text-xs text-slate-400 dark:text-zinc-500 max-w-xs">
+              Choose a customer on the left to review incoming missed calls, SMS history, or dispatch a quick reply.
+            </p>
           </div>
         )}
       </div>
 
       {/* ── Right Pane: Contextual Customer Details (Desktop >= 1024px) ── */}
       {activeConv && (
-        <div className="hidden lg:flex w-72 border-l border-zinc-800 flex-col bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
+        <div className="hidden lg:flex w-76 border-l border-slate-200 dark:border-zinc-800 flex-col bg-white dark:bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Customer Details
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+              Customer Dossier
             </div>
-            <h3 className="text-sm font-semibold text-zinc-100 mt-1 truncate">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-1 truncate">
               {activeConv.contact?.name || 'Unsaved Caller'}
             </h3>
-            <p className="text-xs text-zinc-400">{activeConv.contact?.phone}</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 font-mono mt-0.5">{activeConv.contact?.phone}</p>
           </div>
 
           {/* Quick Workflow Actions */}
-          <div className="space-y-1.5 pt-2 border-t border-zinc-800">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Quick Actions
+          <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+              1-Click Actions
             </div>
 
             <Link
               href={`/client/calendar?contact_id=${activeConv.contact_id}`}
-              className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-800 transition-all shadow-2xs"
             >
-              <Calendar className="h-3.5 w-3.5 text-blue-400" />
+              <div className="h-6 w-6 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <Calendar className="h-3.5 w-3.5" />
+              </div>
               <span>Book Appointment</span>
             </Link>
 
             <Link
               href={`/client/quotes?contact_id=${activeConv.contact_id}`}
-              className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-300 dark:hover:border-emerald-800 transition-all shadow-2xs"
             >
-              <FileText className="h-3.5 w-3.5 text-emerald-400" />
+              <div className="h-6 w-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <FileText className="h-3.5 w-3.5" />
+              </div>
               <span>Create Estimate</span>
             </Link>
 
             <Link
               href={`/client/invoices?contact_id=${activeConv.contact_id}`}
-              className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-800 transition-all shadow-2xs"
             >
-              <CreditCard className="h-3.5 w-3.5 text-amber-400" />
+              <div className="h-6 w-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <CreditCard className="h-3.5 w-3.5" />
+              </div>
               <span>Create Invoice</span>
             </Link>
           </div>
 
           {/* Lead Lifecycle Status */}
-          <div className="space-y-2 pt-2 border-t border-zinc-800">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
               Lead Stage
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {(['new', 'contacted', 'booked', 'lost'] as const).map(st => (
                 <button
                   key={st}
+                  type="button"
                   onClick={() => handleStatusChange(st)}
                   className={cn(
-                    'px-2 py-1 text-xs font-medium rounded-md border transition-colors capitalize text-center',
+                    'px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all capitalize text-center shadow-2xs cursor-pointer',
                     leadStatus === st
-                      ? 'bg-zinc-800 border-zinc-600 text-white'
-                      : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                      : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                   )}
                 >
                   {st}
@@ -503,22 +600,24 @@ export default function InboxPage() {
 
           {/* Customer Address */}
           {activeConv.contact?.address && (
-            <div className="space-y-1 pt-2 border-t border-zinc-800">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+            <div className="space-y-1.5 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
                 <MapPin className="h-3 w-3" /> Service Address
               </div>
-              <p className="text-xs text-zinc-300">{activeConv.contact.address}</p>
+              <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed bg-slate-50 dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">
+                {activeConv.contact.address}
+              </p>
             </div>
           )}
 
           {/* Full History Link */}
-          <div className="pt-2 border-t border-zinc-800">
+          <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 mt-auto">
             <Link
               href={`/client/customers/${activeConv.contact_id}`}
-              className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-900"
             >
-              <span>View full customer history</span>
-              <ExternalLink className="h-3 w-3" />
+              <span>Full customer profile</span>
+              <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
