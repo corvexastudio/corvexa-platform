@@ -250,6 +250,63 @@ test('Template Engine: Resolves business hours vs after-hours vs busy templates'
   assert.strictEqual(busyRes.renderedText, 'Line busy: Pro Air Solutions is on the other line!')
 })
 
+test('Template Engine: Interpolates booking_url when organization slug is provided', () => {
+  const org = {
+    name: 'CaptoDesk Demo Services',
+    slug: 'captodesk-demo-services-rdhr6',
+    after_hours_template: "Thanks for calling {business_name}! We are closed, but book here: {booking_url}",
+    business_hours: {
+      monday: { open: '00:00', close: '00:00', closed: true },
+      tuesday: { open: '00:00', close: '00:00', closed: true },
+      wednesday: { open: '00:00', close: '00:00', closed: true },
+      thursday: { open: '00:00', close: '00:00', closed: true },
+      friday: { open: '00:00', close: '00:00', closed: true },
+      saturday: { open: '00:00', close: '00:00', closed: true },
+      sunday: { open: '00:00', close: '00:00', closed: true }
+    }
+  }
+
+  const outcome = { state: 'no_answer', wasAnswered: false, isEligibleForRecovery: true, durationSeconds: 0, description: '' }
+  const result = resolveMissedCallTemplate(org, outcome, 'Customer')
+  assert.strictEqual(result.templateType, 'after_hours')
+  assert.match(result.renderedText, /https:\/\/app\.corvexastudio\.com\/book\/captodesk-demo-services-rdhr6/)
+})
+
+test('Template Engine: Office closed detection routes to after-hours template with booking URL', () => {
+  const org = {
+    name: 'CaptoDesk Demo Services',
+    slug: 'captodesk-demo-services-rdhr6',
+    business_hours: {
+      monday: { open: '09:00', close: '17:00', closed: true },
+      tuesday: { open: '09:00', close: '17:00', closed: true },
+      wednesday: { open: '09:00', close: '17:00', closed: true },
+      thursday: { open: '09:00', close: '17:00', closed: true },
+      friday: { open: '09:00', close: '17:00', closed: true },
+      saturday: { open: '09:00', close: '17:00', closed: true },
+      sunday: { open: '09:00', close: '17:00', closed: true }
+    }
+  }
+
+  const outcome = { state: 'no_answer', wasAnswered: false, isEligibleForRecovery: true, durationSeconds: 0, description: '' }
+  const result = resolveMissedCallTemplate(org, outcome)
+  assert.strictEqual(result.templateType, 'after_hours')
+  assert.match(result.renderedText, /Our office is currently closed/)
+  assert.match(result.renderedText, /https:\/\/app\.corvexastudio\.com\/book\/captodesk-demo-services-rdhr6/)
+})
+
+test('Template Engine: Gracefully cleans up booking prompt when organization lacks booking URL', () => {
+  const org = {
+    name: 'Simple Contractor'
+  }
+
+  const outcome = { state: 'no_answer', wasAnswered: false, isEligibleForRecovery: true, durationSeconds: 0, description: '' }
+  const result = resolveMissedCallTemplate(org, outcome)
+  // Should NOT have unresolved {booking_url} or broken "here:  — or"
+  assert.strictEqual(result.renderedText.includes('{booking_url}'), false)
+  assert.strictEqual(result.renderedText.includes('here:  —'), false)
+  assert.match(result.renderedText, /Simple Contractor/)
+})
+
 /**
  * -----------------------------------------------------------------------------
  * 4. END-TO-END TELEPHONY ENGINE SPECIFICATION TESTS (11 MANDATORY SCENARIOS)

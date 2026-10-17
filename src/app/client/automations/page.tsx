@@ -32,11 +32,12 @@ export default function AutomationsPage() {
   // Active Settings for Missed Call & Reviews
   const [settings, setSettings] = useState({
     name: '',
+    slug: '',
     telnyx_phone_number: '',
     is_missed_call_active: true,
     is_review_engine_active: true,
-    auto_reply_template: 'Hey, this is {business_name}! We are mid-job and missed your call. How can we help you?',
-    after_hours_template: 'Thanks for calling {business_name}. We are currently closed for the evening, but received your message and will call you first thing tomorrow morning.',
+    auto_reply_template: 'Hi, this is {business_name}! Sorry we missed your call — our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} — or reply directly to this text with what you need!',
+    after_hours_template: "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} — or text us what you need and we'll reply first thing in the morning!",
     cooldown_hours: 24,
     google_review_url: ''
   })
@@ -64,13 +65,21 @@ export default function AutomationsPage() {
       .single()
 
     if (org) {
+      const isLegacyOpen = !org.auto_reply_template || org.auto_reply_template.includes('We are mid-job and missed your call')
+      const isLegacyClosed = !org.after_hours_template || org.after_hours_template.includes('will call you first thing tomorrow morning')
+
       setSettings({
         name: org.name || '',
+        slug: org.slug || '',
         telnyx_phone_number: org.telnyx_phone_number || '',
         is_missed_call_active: org.is_missed_call_active ?? true,
         is_review_engine_active: org.is_review_engine_active ?? true,
-        auto_reply_template: org.auto_reply_template || 'Hey, this is {business_name}! We are mid-job and missed your call. How can we help you?',
-        after_hours_template: org.after_hours_template || 'Thanks for calling {business_name}. We are currently closed for the evening, but received your message and will call you first thing tomorrow morning.',
+        auto_reply_template: isLegacyOpen
+          ? 'Hi, this is {business_name}! Sorry we missed your call — our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} — or reply directly to this text with what you need!'
+          : org.auto_reply_template,
+        after_hours_template: isLegacyClosed
+          ? "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} — or text us what you need and we'll reply first thing in the morning!"
+          : org.after_hours_template,
         cooldown_hours: org.cooldown_hours ?? 24,
         google_review_url: org.google_review_url || ''
       })
@@ -103,11 +112,17 @@ export default function AutomationsPage() {
     }
   }
 
-  const openPreview = settings.auto_reply_template
-    .replace('{business_name}', settings.name || 'Your Company')
+  const bookingUrlPreview = settings.slug 
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://app.corvexastudio.com'}/book/${settings.slug}`
+    : 'https://app.corvexastudio.com/book/your-link'
 
-  const afterHoursPreview = settings.after_hours_template
-    .replace('{business_name}', settings.name || 'Your Company')
+  const openPreview = (settings.auto_reply_template || '')
+    .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Your Company')
+    .replace(/\{booking_url\}|\{\{booking_url\}\}|\{booking_link\}|\{\{booking_link\}\}/g, bookingUrlPreview)
+
+  const afterHoursPreview = (settings.after_hours_template || '')
+    .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Your Company')
+    .replace(/\{booking_url\}|\{\{booking_url\}\}|\{booking_link\}|\{\{booking_link\}\}/g, bookingUrlPreview)
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -190,32 +205,84 @@ export default function AutomationsPage() {
           </div>
 
           {/* Configuration Form */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300 font-medium">Business Hours Response</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+                  Business Hours Response
+                </Label>
+                <span className="text-[10px] text-zinc-500 font-medium">While Open</span>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                Sent when a call is missed during regular operating hours (e.g. while mid-job).
+              </p>
               <textarea
-                rows={3}
+                rows={4}
                 value={settings.auto_reply_template}
                 onChange={e => setSettings(s => ({ ...s, auto_reply_template: e.target.value }))}
-                className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700 resize-none"
+                className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed"
               />
-              <div className="rounded bg-zinc-950 p-2 border border-zinc-800/80 text-[11px] text-zinc-400">
-                <span className="text-[10px] uppercase font-semibold text-zinc-500 block">Preview:</span>
-                <span className="text-zinc-300">&ldquo;{openPreview}&rdquo;</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] text-zinc-500">Insert tag:</span>
+                <button
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {business_name}' }))}
+                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 font-mono transition-colors"
+                >
+                  {'{business_name}'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {booking_url}' }))}
+                  className="px-1.5 py-0.5 rounded bg-blue-950/60 hover:bg-blue-900/80 text-[10px] text-blue-300 border border-blue-800/40 font-mono transition-colors"
+                >
+                  {'{booking_url}'}
+                </button>
+              </div>
+              <div className="rounded bg-zinc-950 p-2.5 border border-zinc-800/80 text-[11px] text-zinc-400 space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-zinc-500 block tracking-wider">Live Preview:</span>
+                <span className="text-zinc-300 leading-relaxed block">&ldquo;{openPreview}&rdquo;</span>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-zinc-300 font-medium">After-Hours Response</Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
+                  After-Hours / Closed Response
+                </Label>
+                <span className="text-[10px] text-zinc-500 font-medium">While Closed</span>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                Automatically detected when office is closed or on weekends. Keeps callers from calling competitors.
+              </p>
               <textarea
-                rows={3}
+                rows={4}
                 value={settings.after_hours_template}
                 onChange={e => setSettings(s => ({ ...s, after_hours_template: e.target.value }))}
-                className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white focus:outline-none focus:border-zinc-700 resize-none"
+                className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed"
               />
-              <div className="rounded bg-zinc-950 p-2 border border-zinc-800/80 text-[11px] text-zinc-400">
-                <span className="text-[10px] uppercase font-semibold text-zinc-500 block">Preview:</span>
-                <span className="text-zinc-300">&ldquo;{afterHoursPreview}&rdquo;</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] text-zinc-500">Insert tag:</span>
+                <button
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {business_name}' }))}
+                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 font-mono transition-colors"
+                >
+                  {'{business_name}'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {booking_url}' }))}
+                  className="px-1.5 py-0.5 rounded bg-blue-950/60 hover:bg-blue-900/80 text-[10px] text-blue-300 border border-blue-800/40 font-mono transition-colors"
+                >
+                  {'{booking_url}'}
+                </button>
+              </div>
+              <div className="rounded bg-zinc-950 p-2.5 border border-zinc-800/80 text-[11px] text-zinc-400 space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-zinc-500 block tracking-wider">Live Preview:</span>
+                <span className="text-zinc-300 leading-relaxed block">&ldquo;{afterHoursPreview}&rdquo;</span>
               </div>
             </div>
           </div>
