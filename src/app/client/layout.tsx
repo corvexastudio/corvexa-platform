@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { NotificationCenter } from '@/components/notifications/notification-center'
 
 // Workflow-centric information architecture for field service businesses
 export const navSections = [
@@ -356,6 +357,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
 
           <div className="flex items-center gap-2">
+            <NotificationCenter />
             {unreadTotal > 0 && (
               <Link
                 href="/client/inbox"
@@ -375,13 +377,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
             <span className="text-zinc-300">Front desk answering calls & messages</span>
           </div>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-3 text-xs">
             <Link 
               href="/client/settings" 
               className="text-zinc-400 hover:text-zinc-200 transition-colors"
             >
               Forwarding status
             </Link>
+            <div className="h-4 w-px bg-zinc-800" />
+            <NotificationCenter />
           </div>
         </header>
 
