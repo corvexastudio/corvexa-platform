@@ -132,6 +132,7 @@ function CalendarContent() {
   const [loadingBookingSlots, setLoadingBookingSlots] = useState(false)
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>('')
   const [isManualTime, setIsManualTime] = useState(false)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
   // 7-day quick date pills
   const quickDatePills = useMemo<Array<{ dateStr: string; dayOfWeek: string; dayNum: string }>>(() => {
@@ -451,6 +452,9 @@ function CalendarContent() {
         setBookCustomAddress('')
         setBookServiceId('')
         setBookDateTime('')
+        setSelectedSlotTime('')
+        setIsCalendarOpen(false)
+        setIsManualTime(false)
         setBookNotes('')
         await loadAppointments()
       } else {
@@ -964,10 +968,16 @@ function CalendarContent() {
       {/* Book Appointment Modal */}
       <Modal
         open={showBookModal}
-        onOpenChange={setShowBookModal}
+        onOpenChange={(open) => {
+          setShowBookModal(open)
+          if (!open) {
+            setIsCalendarOpen(false)
+          }
+        }}
         title="Book Appointment"
         description="Schedule a confirmed appointment or dispatch on your calendar."
-        size="md"
+        size="xl"
+        className="sm:max-w-xl max-w-full overflow-x-hidden"
       >
         <form onSubmit={handleCreateBooking} className="space-y-4">
           <div>
@@ -1039,28 +1049,117 @@ function CalendarContent() {
           </div>
 
           {/* Interactive Date & Time Slot Picker */}
-          <div className="space-y-3 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800">
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-semibold text-zinc-200">
                 Date & Time Selection *
               </label>
               <button
                 type="button"
-                onClick={() => setIsManualTime(!isManualTime)}
+                onClick={() => {
+                  setIsManualTime(!isManualTime)
+                  if (!isManualTime) setIsCalendarOpen(false)
+                }}
                 className="text-[11px] text-blue-400 hover:text-blue-300 font-medium cursor-pointer"
               >
                 {isManualTime ? '← Use Available Slots' : 'Custom / Exact Time →'}
               </button>
             </div>
 
-            {!isManualTime ? (
-              <div className="space-y-3">
+            {/* Custom Manual Time Input */}
+            {isManualTime ? (
+              <div className="space-y-2 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                <Input
+                  type="datetime-local"
+                  required
+                  value={bookDateTime ? (bookDateTime.length === 16 ? bookDateTime : new Date(bookDateTime).toISOString().slice(0, 16)) : ''}
+                  onChange={(e) => {
+                    setBookDateTime(e.target.value)
+                    setSelectedSlotTime('')
+                  }}
+                  className="h-8.5 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                />
+                <p className="text-[11px] text-zinc-500">
+                  Manual mode allows overriding operating hours and buffer times for special or emergency dispatches.
+                </p>
+              </div>
+            ) : !isCalendarOpen ? (
+              /* Calendar Hidden State - Click to open calendar */
+              selectedSlotTime ? (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white">
+                        {new Date(bookDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      <p className="text-[11px] text-emerald-400 font-medium">
+                        Selected Time: {new Date(selectedSlotTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCalendarOpen(true)}
+                    className="h-7 text-xs border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                  >
+                    Change Time
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsCalendarOpen(true)}
+                  className="w-full p-3.5 rounded-xl border border-dashed border-zinc-700 bg-zinc-950/70 hover:bg-zinc-900/90 hover:border-blue-500/80 transition-all text-left flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                      <CalendarIcon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-zinc-200 group-hover:text-white block">
+                        Click to open calendar & select time
+                      </span>
+                      <span className="text-[11px] text-zinc-500 block">
+                        Browse open slots and booked hours on your schedule
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-blue-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                    <span>Open Calendar</span>
+                    <span>→</span>
+                  </span>
+                </button>
+              )
+            ) : (
+              /* Calendar Expanded State */
+              <div className="space-y-3 p-3.5 rounded-xl bg-zinc-950/90 border border-zinc-800 overflow-x-hidden">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-blue-400" />
+                    <span className="text-xs font-semibold text-zinc-200">
+                      Live Schedule & Availability
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCalendarOpen(false)}
+                    className="text-[11px] text-zinc-400 hover:text-white px-2 py-0.5 rounded hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    Hide Calendar ▲
+                  </button>
+                </div>
+
                 {/* Day selector pills + Mini Calendar date input */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                    <span>Select Day</span>
+                    <span className="font-medium text-zinc-300">Choose Day</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-zinc-500">Pick date:</span>
+                      <span className="text-[10px] text-zinc-500">Pick specific date:</span>
                       <input
                         type="date"
                         aria-label="Pick calendar date"
@@ -1103,10 +1202,10 @@ function CalendarContent() {
                   </div>
                 </div>
 
-                {/* Available Time Slots Grid */}
+                {/* Available & Booked Time Slots Grid */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-zinc-400">Select Start Time</span>
+                    <span className="text-zinc-400">Select Time Slot</span>
                     {selectedSlotTime && (
                       <span className="text-emerald-400 font-semibold flex items-center gap-1">
                         <Check className="h-3 w-3" />
@@ -1116,9 +1215,9 @@ function CalendarContent() {
                   </div>
 
                   {loadingBookingSlots ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 py-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2">
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="h-8 rounded-lg bg-zinc-900 animate-pulse border border-zinc-800/60" />
+                        <div key={i} className="h-9 rounded-lg bg-zinc-900 animate-pulse border border-zinc-800/60" />
                       ))}
                     </div>
                   ) : bookingAllSlots.length === 0 ? (
@@ -1126,14 +1225,17 @@ function CalendarContent() {
                       <p>No slots generated for this day.</p>
                       <button
                         type="button"
-                        onClick={() => setIsManualTime(true)}
+                        onClick={() => {
+                          setIsManualTime(true)
+                          setIsCalendarOpen(false)
+                        }}
                         className="text-blue-400 hover:underline font-medium inline-block text-[11px] cursor-pointer"
                       >
                         Enter a custom dispatch time →
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
                       {bookingAllSlots.map((slot) => {
                         const isSelected = selectedSlotTime === slot.startTime
                         const isBooked = !slot.isAvailable && slot.status === 'booked'
@@ -1148,7 +1250,7 @@ function CalendarContent() {
                               setBookDateTime(slot.startTime)
                             }}
                             className={cn(
-                              "py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-between gap-1",
+                              "py-2 px-2.5 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-between gap-1",
                               isSelected
                                 ? "bg-emerald-600 border-emerald-500 text-white font-bold shadow-sm ring-1 ring-emerald-400"
                                 : isBooked
@@ -1177,23 +1279,6 @@ function CalendarContent() {
                     </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              /* Custom / Exact Time Manual Input */
-              <div className="space-y-2">
-                <Input
-                  type="datetime-local"
-                  required
-                  value={bookDateTime ? (bookDateTime.length === 16 ? bookDateTime : new Date(bookDateTime).toISOString().slice(0, 16)) : ''}
-                  onChange={(e) => {
-                    setBookDateTime(e.target.value)
-                    setSelectedSlotTime('')
-                  }}
-                  className="h-8.5 bg-zinc-900 border-zinc-800 text-xs text-zinc-100 rounded-md"
-                />
-                <p className="text-[11px] text-zinc-500">
-                  Manual mode allows overriding operating hours and buffer times for special or emergency dispatches.
-                </p>
               </div>
             )}
           </div>
