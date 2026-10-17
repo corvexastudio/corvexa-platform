@@ -389,7 +389,7 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
         <button
           type="button"
           disabled
-          className="relative flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-950 text-zinc-500 opacity-60"
+          className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-400 dark:text-zinc-500 opacity-60"
           aria-label="View notifications"
         >
           <Bell className="h-4 w-4" />
@@ -405,10 +405,10 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
         className={cn(
-          'relative flex h-8 w-8 items-center justify-center rounded-md border text-zinc-400 transition-colors cursor-pointer',
+          'relative flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer shadow-2xs',
           isOpen
-            ? 'bg-zinc-800 border-zinc-700 text-zinc-100'
-            : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:text-zinc-100 hover:bg-zinc-900'
+            ? 'bg-slate-100 border-slate-300 text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100'
+            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900 hover:bg-slate-100 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:text-zinc-100 dark:hover:bg-zinc-900'
         )}
         aria-label="View notifications"
         aria-expanded={isOpen}
@@ -417,7 +417,7 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
 
         {/* Unread Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-zinc-950 tabular-nums animate-in zoom-in-50">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white shadow-xs ring-2 ring-white dark:ring-zinc-950 tabular-nums animate-in zoom-in-50">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -425,13 +425,13 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
 
       {/* Flyout Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 z-50 w-80 sm:w-96 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-150 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 z-50 w-80 sm:w-96 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-3 bg-zinc-900/90 backdrop-blur-xs">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800/80 px-4 py-3 bg-slate-50/90 dark:bg-zinc-900/90 backdrop-blur-xs">
             <div className="flex items-center gap-2">
-              <h3 className="text-xs font-semibold text-zinc-100">Notifications</h3>
+              <h3 className="text-xs font-semibold text-slate-900 dark:text-zinc-100">Notifications</h3>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-400 border border-blue-500/20">
+                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
                   {unreadCount} unread
                 </span>
               )}
@@ -466,15 +466,15 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex items-center gap-1 border-b border-zinc-800/60 px-3 py-1.5 bg-zinc-950/40 text-xs">
+          <div className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800/60 px-3 py-1.5 bg-slate-100/60 dark:bg-zinc-950/40 text-xs">
             <button
               type="button"
               onClick={() => setActiveTab('all')}
               className={cn(
-                'rounded px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer',
+                'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer',
                 activeTab === 'all'
-                  ? 'bg-zinc-800 text-zinc-100 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-semibold shadow-2xs'
+                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               All ({notifications.length})
@@ -483,10 +483,10 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
               type="button"
               onClick={() => setActiveTab('unread')}
               className={cn(
-                'rounded px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer',
+                'rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer',
                 activeTab === 'unread'
-                  ? 'bg-zinc-800 text-zinc-100 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-semibold shadow-2xs'
+                  : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               Unread ({unreadCount})
@@ -494,21 +494,21 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-80 sm:max-h-96 overflow-y-auto divide-y divide-zinc-800/40">
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800/40">
             {loading && notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-zinc-500 text-xs gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+              <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-zinc-500 text-xs gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-zinc-400" />
                 <span>Loading notifications...</span>
               </div>
             ) : filteredNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-                <div className="p-3 rounded-full bg-zinc-800/50 text-zinc-500 mb-2.5 border border-zinc-800">
+                <div className="p-3 rounded-full bg-slate-100 dark:bg-zinc-800/50 text-slate-400 dark:text-zinc-500 mb-2.5 border border-slate-200 dark:border-zinc-800">
                   <BellOff className="h-5 w-5" />
                 </div>
-                <p className="text-xs font-medium text-zinc-300">
+                <p className="text-xs font-medium text-slate-800 dark:text-zinc-300">
                   {activeTab === 'unread' ? 'No unread notifications' : 'No notifications yet'}
                 </p>
-                <p className="text-[11px] text-zinc-500 mt-1 max-w-[220px]">
+                <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-1 max-w-[220px]">
                   {activeTab === 'unread'
                     ? "You're all caught up! Check back when new calls or bookings arrive."
                     : 'Missed-call alerts, customer replies, and bookings will appear here.'}
@@ -526,13 +526,13 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
                     className={cn(
                       'group relative flex items-start gap-3 p-3 transition-colors cursor-pointer',
                       item.is_read
-                        ? 'bg-transparent hover:bg-zinc-800/40 opacity-75 hover:opacity-100'
-                        : 'bg-blue-950/20 hover:bg-blue-950/30'
+                        ? 'bg-transparent hover:bg-slate-50 dark:hover:bg-zinc-800/40 opacity-80 hover:opacity-100'
+                        : 'bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:hover:bg-blue-950/30'
                     )}
                   >
                     {/* Unread indicator dot */}
                     {!item.is_read && (
-                      <span className="absolute left-1.5 top-4 h-1.5 w-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
+                      <span className="absolute left-1.5 top-4 h-1.5 w-1.5 rounded-full bg-blue-600 shadow-sm shadow-blue-500/50" />
                     )}
 
                     {/* Event Icon */}
@@ -551,22 +551,22 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
                         <span
                           className={cn(
                             'text-xs font-medium truncate',
-                            item.is_read ? 'text-zinc-300' : 'text-zinc-100 font-semibold'
+                            item.is_read ? 'text-slate-600 dark:text-zinc-300' : 'text-slate-900 dark:text-zinc-100 font-semibold'
                           )}
                         >
                           {item.title}
                         </span>
-                        <span className="text-[10px] text-zinc-400 shrink-0 font-mono">
+                        <span className="text-[10px] text-slate-400 dark:text-zinc-500 shrink-0 font-mono">
                           {formatRelativeTime(item.created_at)}
                         </span>
                       </div>
 
-                      <p className="text-[11px] text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed">
+                      <p className="text-[11px] text-slate-600 dark:text-zinc-400 line-clamp-2 mt-0.5 leading-relaxed">
                         {item.message}
                       </p>
 
                       {item.link && (
-                        <div className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 mt-1.5 font-medium">
+                        <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline mt-1.5 font-medium">
                           <span>Open details</span>
                           <ExternalLink className="h-2.5 w-2.5" />
                         </div>
@@ -578,7 +578,7 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
                       <button
                         type="button"
                         onClick={(e) => handleToggleRead(e, item)}
-                        className="p-1 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                        className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:text-zinc-500 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 transition-colors"
                         title={item.is_read ? 'Mark as unread' : 'Mark as read'}
                       >
                         <Check className="h-3 w-3" />
@@ -586,7 +586,7 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
                       <button
                         type="button"
                         onClick={(e) => handleDelete(e, item.id)}
-                        className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                        className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-slate-200 dark:text-zinc-500 dark:hover:text-red-400 dark:hover:bg-zinc-800 transition-colors"
                         title="Dismiss notification"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -599,11 +599,11 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between border-t border-zinc-800/80 px-3 py-2 bg-zinc-950/60 text-[11px] text-zinc-400">
+          <div className="flex items-center justify-between border-t border-slate-200 dark:border-zinc-800/80 px-3 py-2 bg-slate-50 dark:bg-zinc-950/60 text-[11px] text-slate-500 dark:text-zinc-400">
             <Link
               href="/client/settings"
               onClick={() => setIsOpen(false)}
-              className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="inline-flex items-center gap-1 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition-colors"
             >
               <Settings className="h-3 w-3" />
               <span>Notification settings</span>
@@ -613,7 +613,7 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
               <button
                 type="button"
                 onClick={handleClearRead}
-                className="text-zinc-400 hover:text-zinc-300 transition-colors cursor-pointer"
+                className="text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-300 transition-colors cursor-pointer"
               >
                 Clear read
               </button>

@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Plus_Jakarta_Sans } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
+import { ThemeProvider } from "@/components/theme-provider"
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -19,11 +20,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${jakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-[var(--font-sans)]">
-        {children}
-        <Toaster richColors position="top-right" />
+      <body className="min-h-full flex flex-col font-[var(--font-sans)] bg-background text-foreground">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   )

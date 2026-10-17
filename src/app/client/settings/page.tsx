@@ -23,10 +23,12 @@ import {
   Loader2,
   Check,
   CreditCard,
-  ExternalLink
+  ExternalLink,
+  Palette
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
+import { ThemeSettingsSelector } from '@/components/theme-toggle'
 
 export default function SettingsPage() {
   const supabase = createClient()
@@ -305,12 +307,12 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-4xl">
 
       {/* Page Header */}
-      <div className="border-b border-zinc-800 pb-5">
-        <h1 className="text-xl font-bold tracking-tight text-white">
-          Settings & Carrier Routing
+      <div className="border-b border-slate-200 dark:border-zinc-800 pb-5">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Settings & Preferences
         </h1>
-        <p className="text-xs text-zinc-400 mt-1">
-          Phone routing, conditional call forwarding, and business details.
+        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+          Interface display theme, phone routing, conditional call forwarding, and business details.
         </p>
       </div>
 
@@ -323,17 +325,32 @@ export default function SettingsPage() {
         />
       ) : loading ? (
         <div className="space-y-4">
-          <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-3">
-            <Skeleton className="h-5 w-40 bg-zinc-800" />
-            <Skeleton className="h-3 w-64 bg-zinc-800/60" />
+          <div className="border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3">
+            <Skeleton className="h-5 w-40 bg-slate-200 dark:bg-zinc-800" />
+            <Skeleton className="h-3 w-64 bg-slate-100 dark:bg-zinc-800/60" />
             <div className="grid grid-cols-2 gap-3 pt-2">
-              <Skeleton className="h-9 w-full bg-zinc-800" />
-              <Skeleton className="h-9 w-full bg-zinc-800" />
+              <Skeleton className="h-9 w-full bg-slate-200 dark:bg-zinc-800" />
+              <Skeleton className="h-9 w-full bg-slate-200 dark:bg-zinc-800" />
             </div>
           </div>
         </div>
       ) : (
         <div className="space-y-6">
+
+          {/* ── Section: Appearance & Display Theme ── */}
+          <div className="border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-2xs">
+            <div className="pb-3 border-b border-slate-200 dark:border-zinc-800">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                <Palette className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Display Theme & Appearance
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                Choose your preferred interface theme. Light Theme is default and recommended for outdoor daylight and clarity.
+              </p>
+            </div>
+
+            <ThemeSettingsSelector />
+          </div>
 
           {/* ── Section 1: Carrier Call Forwarding ── */}
           <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
