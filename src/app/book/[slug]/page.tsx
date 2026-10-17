@@ -45,6 +45,8 @@ interface AvailableSlot {
   endTime: string
   displayTime: string
   date: string
+  isAvailable?: boolean
+  status?: 'available' | 'booked' | 'past'
 }
 
 export default function PublicBookingPage() {
@@ -64,6 +66,10 @@ export default function PublicBookingPage() {
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
+  const [allSlots, setAllSlots] = useState<AvailableSlot[]>([])
+  const [dayStatus, setDayStatus] = useState<string>('available')
+  const [bookedSlotsCount, setBookedSlotsCount] = useState<number>(0)
+  const [datesMeta, setDatesMeta] = useState<Record<string, { dayStatus: string; slotsCount: number; bookedCount: number }>>({})
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null)
 
@@ -156,12 +162,34 @@ export default function PublicBookingPage() {
         const res = await fetch(`/api/book/${slug}/slots?date=${selectedDate}&serviceId=${selectedService?.id || ''}`)
         if (res.ok) {
           const data = await res.json()
-          setAvailableSlots(data.slots || [])
+          const slots = data.slots || []
+          const detailed = data.allSlots || slots
+          const status = data.dayStatus || (slots.length > 0 ? 'available' : 'fully_booked')
+          const bookedCount = data.bookedSlotsCount ?? (detailed.filter((s: any) => s.status === 'booked').length)
+
+          setAvailableSlots(slots)
+          setAllSlots(detailed)
+          setDayStatus(status)
+          setBookedSlotsCount(bookedCount)
+          setDatesMeta(prev => ({
+            ...prev,
+            [selectedDate]: {
+              dayStatus: status,
+              slotsCount: slots.length,
+              bookedCount
+            }
+          }))
         } else {
           setAvailableSlots([])
+          setAllSlots([])
+          setDayStatus('closed')
+          setBookedSlotsCount(0)
         }
       } catch {
         setAvailableSlots([])
+        setAllSlots([])
+        setDayStatus('closed')
+        setBookedSlotsCount(0)
       } finally {
         setLoadingSlots(false)
       }
@@ -422,12 +450,13 @@ export default function PublicBookingPage() {
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {selectableDates.map((item) => {
                   const isSelected = selectedDate === item.dateStr
+                  const meta = datesMeta[item.dateStr]
                   return (
                     <button
                       key={item.dateStr}
                       type="button"
                       onClick={() => setSelectedDate(item.dateStr)}
-                      className={`flex flex-col items-center justify-center min-w-[70px] py-3 px-2 rounded-xl border transition-all shrink-0 ${
+                      className={`flex flex-col items-center justify-center min-w-[72px] py-2.5 px-2 rounded-xl border transition-all shrink-0 ${
                         isSelected
                           ? 'bg-blue-600 border-blue-500 text-white font-bold shadow-md shadow-blue-600/30'
                           : 'bg-[#0D1322] border-zinc-800/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
@@ -435,6 +464,29 @@ export default function PublicBookingPage() {
                     >
                       <span className="text-[10px] uppercase tracking-wider">{item.dayOfWeek}</span>
                       <span className="text-sm font-extrabold mt-0.5">{item.label}</span>
+                      {meta && (
+                        <span className="mt-1">
+                          {meta.dayStatus === 'fully_booked' ? (
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                              isSelected ? 'bg-red-950/80 text-red-200 border border-red-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}>
+                              Full
+                            </span>
+                          ) : meta.dayStatus === 'closed' ? (
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                              isSelected ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-800/40 text-zinc-500'
+                            }`}>
+                              Closed
+                            </span>
+                          ) : meta.slotsCount > 0 ? (
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                              isSelected ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/30' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            }`}>
+                              {meta.slotsCount} open
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
@@ -442,42 +494,137 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Available Time Slots Grid */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
-                <span>Available Times ({org.timezone})</span>
-                {loadingSlots && <span className="text-[11px] text-blue-400 animate-pulse">Calculating available slots...</span>}
-              </label>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-blue-400" />
+                  <span>Available Times ({org.timezone})</span>
+                </label>
+                {/* Live Slot Counts & Legend */}
+                {!loadingSlots && allSlots.length > 0 && (
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+                      {availableSlots.length} Open
+                    </span>
+                    {bookedSlotsCount > 0 && (
+                      <span className="flex items-center gap-1 text-zinc-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+                        {bookedSlotsCount} Booked
+                      </span>
+                    )}
+                  </div>
+                )}
+                {loadingSlots && <span className="text-[11px] text-blue-400 animate-pulse">Checking calendar...</span>}
+              </div>
 
               {loadingSlots ? (
-                <div className="grid grid-cols-3 gap-2.5 py-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-4">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-10 rounded-xl bg-zinc-800/50 animate-pulse" />
+                    <div key={i} className="h-11 rounded-xl bg-zinc-800/50 animate-pulse" />
                   ))}
                 </div>
-              ) : availableSlots.length === 0 ? (
-                <div className="py-10 px-4 text-center rounded-2xl bg-[#0D1322] border border-zinc-800 space-y-2">
+              ) : dayStatus === 'fully_booked' || (allSlots.length > 0 && availableSlots.length === 0) ? (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs flex items-start gap-3">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-200">This date is fully booked</p>
+                      <p className="text-[11px] text-amber-300/80 mt-0.5 leading-relaxed">
+                        All appointment slots for this date have already been reserved. Please pick another date from the calendar above to see open times.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Render the booked slots so the customer sees they are taken */}
+                  {allSlots.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold">Reserved Times</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 opacity-75">
+                        {allSlots.map((slot) => (
+                          <div
+                            key={slot.startTime}
+                            className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-800/60 bg-zinc-900/40 text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
+                            title="This slot is already booked"
+                          >
+                            <span className="line-through decoration-zinc-600 text-zinc-500">{slot.displayTime}</span>
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400/90 border border-rose-500/20">
+                              Booked
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : allSlots.length === 0 ? (
+                <div className="py-8 px-4 text-center rounded-2xl bg-[#0D1322] border border-zinc-800 space-y-2">
                   <CalendarDays className="h-8 w-8 text-zinc-600 mx-auto" />
-                  <p className="text-xs font-medium text-zinc-300">No available slots for this date</p>
+                  <p className="text-xs font-medium text-zinc-300">
+                    {dayStatus === 'closed' ? 'Closed on this date' : 'No available slots for this date'}
+                  </p>
                   <p className="text-[11px] text-zinc-500 max-w-xs mx-auto">
-                    All times are either booked, outside business hours, or within the minimum notice period. Please choose another date.
+                    {dayStatus === 'closed'
+                      ? 'Our business is closed on this day according to standard business hours. Please select another date.'
+                      : 'All times are either booked, outside business hours, or within the minimum notice period. Please choose another date.'}
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-                  {availableSlots.map((slot) => {
+                  {allSlots.map((slot) => {
                     const isSelected = selectedSlot?.startTime === slot.startTime
+                    const isBooked = !slot.isAvailable && slot.status === 'booked'
+                    const isPast = !slot.isAvailable && slot.status === 'past'
+
+                    if (isBooked) {
+                      return (
+                        <div
+                          key={slot.startTime}
+                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-800/50 bg-zinc-950/40 text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
+                          title="This slot is already booked"
+                        >
+                          <span className="line-through decoration-zinc-600 text-zinc-500">{slot.displayTime}</span>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400/80 border border-rose-500/20">
+                            Booked
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    if (isPast) {
+                      return (
+                        <div
+                          key={slot.startTime}
+                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-zinc-900 bg-zinc-950/20 text-zinc-600 flex items-center justify-between gap-1.5 cursor-not-allowed select-none opacity-40"
+                          title="This time has passed"
+                        >
+                          <span>{slot.displayTime}</span>
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-800/40 text-zinc-600 border border-zinc-800/40">
+                            Past
+                          </span>
+                        </div>
+                      )
+                    }
+
                     return (
                       <button
                         key={slot.startTime}
                         type="button"
                         onClick={() => setSelectedSlot(slot)}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all text-center ${
+                        className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all text-center flex items-center justify-between gap-1.5 ${
                           isSelected
                             ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-500/20'
                             : 'bg-[#0D1322] border-zinc-800/80 text-zinc-300 hover:border-zinc-700 hover:text-white'
                         }`}
                       >
-                        {slot.displayTime}
+                        <span>{slot.displayTime}</span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                          isSelected
+                            ? 'bg-white/20 text-white'
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          Available
+                        </span>
                       </button>
                     )
                   })}

@@ -159,11 +159,29 @@ export function doesIntervalOverlap(
   return startA < (endB + bufferMs) && startB < (endA + bufferMs)
 }
 
+export interface DetailedSlot {
+  startTime: string
+  endTime: string
+  displayTime: string
+  date: string
+  isAvailable: boolean
+  status: 'available' | 'booked' | 'past'
+}
+
+export interface DetailedDaySchedule {
+  date: string
+  dayStatus: 'available' | 'fully_booked' | 'closed' | 'blocked' | 'outside_window'
+  availableSlots: AvailableSlot[]
+  allSlots: DetailedSlot[]
+  totalSlots: number
+  bookedSlotsCount: number
+  availableSlotsCount: number
+}
+
 /**
- * Core availability engine.
- * Computes all non-overlapping available slots for a given service and date.
+ * Calculates detailed slot availability, distinguishing between open, booked, and past slots.
  */
-export function calculateAvailableSlots(params: CalculateSlotsParams): AvailableSlot[] {
+export function calculateDetailedSlots(params: CalculateSlotsParams): DetailedDaySchedule {
   const {
     orgConfig,
     service,
@@ -184,14 +202,30 @@ export function calculateAvailableSlots(params: CalculateSlotsParams): Available
 
   // 1. Check blocked dates
   if (orgConfig.blocked_dates && orgConfig.blocked_dates.includes(dateStr)) {
-    return []
+    return {
+      date: dateStr,
+      dayStatus: 'blocked',
+      availableSlots: [],
+      allSlots: [],
+      totalSlots: 0,
+      bookedSlotsCount: 0,
+      availableSlotsCount: 0
+    }
   }
 
   // 2. Check maximum booking window
   const startOfDayUtc = localDateTimeToUtc(dateStr, '00:00', timezone)
   const maxFutureDate = new Date(referenceTime.getTime() + maxDaysAhead * 24 * 60 * 60 * 1000)
   if (startOfDayUtc > maxFutureDate) {
-    return []
+    return {
+      date: dateStr,
+      dayStatus: 'outside_window',
+      availableSlots: [],
+      allSlots: [],
+      totalSlots: 0,
+      bookedSlotsCount: 0,
+      availableSlotsCount: 0
+    }
   }
 
   // 3. Resolve business hours for this day of week
@@ -199,14 +233,21 @@ export function calculateAvailableSlots(params: CalculateSlotsParams): Available
   const daySchedule = orgConfig.business_hours?.[dayName]
 
   if (!daySchedule || daySchedule.closed || !daySchedule.open || !daySchedule.close) {
-    return []
+    return {
+      date: dateStr,
+      dayStatus: 'closed',
+      availableSlots: [],
+      allSlots: [],
+      totalSlots: 0,
+      bookedSlotsCount: 0,
+      availableSlotsCount: 0
+    }
   }
 
   const openTimeUtc = localDateTimeToUtc(dateStr, daySchedule.open, timezone)
   const closeTimeUtc = localDateTimeToUtc(dateStr, daySchedule.close, timezone)
 
   // 4. Filter active existing appointments that reserve time slots
-  // Cancelled and no_show appointments DO NOT block time
   const activeAppointments = existingAppointments.filter((apt) =>
     ['requested', 'confirmed', 'scheduled'].includes(apt.status)
   )
@@ -221,35 +262,78 @@ export function calculateAvailableSlots(params: CalculateSlotsParams): Available
 
   // 5. Generate candidate slots stepped by stepMinutes
   const availableSlots: AvailableSlot[] = []
+  const allSlots: DetailedSlot[] = []
   let candidateStart = openTimeUtc.getTime()
   const latestPossibleStart = closeTimeUtc.getTime() - durationMs
   const earliestAllowedTime = referenceTime.getTime() + minNoticeMs
 
   while (candidateStart <= latestPossibleStart) {
     const candidateEnd = candidateStart + durationMs
+    const slotStartDate = new Date(candidateStart)
+    const slotEndDate = new Date(candidateEnd)
+    const displayTime = formatSlotDisplayTime(slotStartDate, timezone)
 
-    // Minimum notice check
-    if (candidateStart >= earliestAllowedTime) {
-      // Overlap check against all active appointments
-      const overlaps = activeIntervals.some((interval) =>
-        doesIntervalOverlap(candidateStart, candidateEnd, interval.start, interval.end, bufferMs)
-      )
+    // Check overlap against existing appointments
+    const overlaps = activeIntervals.some((interval) =>
+      doesIntervalOverlap(candidateStart, candidateEnd, interval.start, interval.end, bufferMs)
+    )
 
-      if (!overlaps) {
-        const slotStartDate = new Date(candidateStart)
-        const slotEndDate = new Date(candidateEnd)
-
-        availableSlots.push({
-          startTime: slotStartDate.toISOString(),
-          endTime: slotEndDate.toISOString(),
-          displayTime: formatSlotDisplayTime(slotStartDate, timezone),
-          date: dateStr
-        })
+    if (overlaps) {
+      allSlots.push({
+        startTime: slotStartDate.toISOString(),
+        endTime: slotEndDate.toISOString(),
+        displayTime,
+        date: dateStr,
+        isAvailable: false,
+        status: 'booked'
+      })
+    } else if (candidateStart < earliestAllowedTime) {
+      allSlots.push({
+        startTime: slotStartDate.toISOString(),
+        endTime: slotEndDate.toISOString(),
+        displayTime,
+        date: dateStr,
+        isAvailable: false,
+        status: 'past'
+      })
+    } else {
+      const slotObj: AvailableSlot = {
+        startTime: slotStartDate.toISOString(),
+        endTime: slotEndDate.toISOString(),
+        displayTime,
+        date: dateStr
       }
+      availableSlots.push(slotObj)
+      allSlots.push({
+        ...slotObj,
+        isAvailable: true,
+        status: 'available'
+      })
     }
 
     candidateStart += stepMinutes * 60 * 1000
   }
 
-  return availableSlots
+  const bookedCount = allSlots.filter(s => s.status === 'booked').length
+  const dayStatus: DetailedDaySchedule['dayStatus'] =
+    availableSlots.length > 0 ? 'available' : (allSlots.length > 0 ? 'fully_booked' : 'closed')
+
+  return {
+    date: dateStr,
+    dayStatus,
+    availableSlots,
+    allSlots,
+    totalSlots: allSlots.length,
+    bookedSlotsCount: bookedCount,
+    availableSlotsCount: availableSlots.length
+  }
 }
+
+/**
+ * Core availability engine.
+ * Computes all non-overlapping available slots for a given service and date.
+ */
+export function calculateAvailableSlots(params: CalculateSlotsParams): AvailableSlot[] {
+  return calculateDetailedSlots(params).availableSlots
+}
+

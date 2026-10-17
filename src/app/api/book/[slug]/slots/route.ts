@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { calculateAvailableSlots } from '@/lib/booking/availability'
+import { calculateAvailableSlots, calculateDetailedSlots } from '@/lib/booking/availability'
 
 export async function GET(
   request: Request,
@@ -90,8 +90,8 @@ export async function GET(
       .lte('start_time', windowEnd)
       .in('status', ['requested', 'confirmed', 'scheduled'])
 
-    // 4. Calculate available slots using availability engine
-    const availableSlots = calculateAvailableSlots({
+    // 4. Calculate available & booked slots using availability engine
+    const detailed = calculateDetailedSlots({
       orgConfig: {
         timezone: org.timezone || 'America/Chicago',
         business_hours: org.business_hours || {},
@@ -113,8 +113,12 @@ export async function GET(
     return NextResponse.json({
       date: dateStr,
       timezone: org.timezone || 'America/Chicago',
-      slotsCount: availableSlots.length,
-      slots: availableSlots
+      slotsCount: detailed.availableSlots.length,
+      slots: detailed.availableSlots,
+      allSlots: detailed.allSlots,
+      dayStatus: detailed.dayStatus,
+      totalSlots: detailed.totalSlots,
+      bookedSlotsCount: detailed.bookedSlotsCount
     })
   } catch (err: any) {
     console.error('[BOOKING_GET_SLOTS_ERROR]', err)

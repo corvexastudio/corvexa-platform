@@ -127,6 +127,8 @@ function CalendarContent() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   })
   const [bookingSlots, setBookingSlots] = useState<Array<{ startTime: string; endTime: string; displayTime: string }>>([])
+  const [bookingAllSlots, setBookingAllSlots] = useState<Array<{ startTime: string; endTime: string; displayTime: string; isAvailable?: boolean; status?: string }>>([])
+  const [bookingDayStatus, setBookingDayStatus] = useState<string>('available')
   const [loadingBookingSlots, setLoadingBookingSlots] = useState(false)
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>('')
   const [isManualTime, setIsManualTime] = useState(false)
@@ -164,12 +166,22 @@ function CalendarContent() {
           const data = await res.json()
           if (isMounted) {
             setBookingSlots(data.slots || [])
+            setBookingAllSlots(data.allSlots || data.slots || [])
+            setBookingDayStatus(data.dayStatus || (data.slots?.length > 0 ? 'available' : 'fully_booked'))
           }
         } else {
-          if (isMounted) setBookingSlots([])
+          if (isMounted) {
+            setBookingSlots([])
+            setBookingAllSlots([])
+            setBookingDayStatus('closed')
+          }
         }
       } catch {
-        if (isMounted) setBookingSlots([])
+        if (isMounted) {
+          setBookingSlots([])
+          setBookingAllSlots([])
+          setBookingDayStatus('closed')
+        }
       } finally {
         if (isMounted) setLoadingBookingSlots(false)
       }
@@ -1109,9 +1121,9 @@ function CalendarContent() {
                         <div key={i} className="h-8 rounded-lg bg-zinc-900 animate-pulse border border-zinc-800/60" />
                       ))}
                     </div>
-                  ) : bookingSlots.length === 0 ? (
+                  ) : bookingAllSlots.length === 0 ? (
                     <div className="p-3 rounded-lg bg-zinc-900/60 border border-zinc-800 text-center text-xs text-zinc-400 space-y-1">
-                      <p>No open online slots on this day.</p>
+                      <p>No slots generated for this day.</p>
                       <button
                         type="button"
                         onClick={() => setIsManualTime(true)}
@@ -1121,9 +1133,12 @@ function CalendarContent() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto pr-1">
-                      {bookingSlots.map((slot) => {
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {bookingAllSlots.map((slot) => {
                         const isSelected = selectedSlotTime === slot.startTime
+                        const isBooked = !slot.isAvailable && slot.status === 'booked'
+                        const isPast = !slot.isAvailable && slot.status === 'past'
+
                         return (
                           <button
                             key={slot.startTime}
@@ -1133,13 +1148,29 @@ function CalendarContent() {
                               setBookDateTime(slot.startTime)
                             }}
                             className={cn(
-                              "py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer",
+                              "py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition-all cursor-pointer flex items-center justify-between gap-1",
                               isSelected
                                 ? "bg-emerald-600 border-emerald-500 text-white font-bold shadow-sm ring-1 ring-emerald-400"
+                                : isBooked
+                                ? "bg-zinc-950 border-rose-500/30 text-rose-300/80 hover:border-rose-400 hover:bg-rose-950/20"
+                                : isPast
+                                ? "bg-zinc-950/60 border-zinc-800 text-zinc-600 opacity-60"
                                 : "bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white hover:bg-zinc-850"
                             )}
+                            title={isBooked ? "Booked by another appointment (Click to select/override)" : isPast ? "Past time" : "Available"}
                           >
-                            {slot.displayTime}
+                            <span className={cn(isBooked && "line-through decoration-rose-500/50")}>
+                              {slot.displayTime}
+                            </span>
+                            {isBooked ? (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                Booked
+                              </span>
+                            ) : slot.isAvailable ? (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400">
+                                Open
+                              </span>
+                            ) : null}
                           </button>
                         )
                       })}
