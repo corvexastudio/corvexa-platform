@@ -84,6 +84,34 @@ export default function CustomerJobTrackerPage({
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
+  const [submittingFeedback, setSubmittingFeedback] = useState(false)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackText.trim() || !selectedRating || !token) return
+    setSubmittingFeedback(true)
+    setFeedbackError(null)
+    try {
+      const res = await fetch(`/api/track/${token}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rating: selectedRating,
+          feedbackText: feedbackText.trim()
+        })
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setFeedbackSent(true)
+      } else {
+        setFeedbackError(json.error || 'Failed to submit feedback.')
+      }
+    } catch {
+      setFeedbackError('Network error submitting feedback. Please try again.')
+    } finally {
+      setSubmittingFeedback(false)
+    }
+  }
 
   const fetchTracking = async (isPoll = false) => {
     if (!token) return
@@ -465,28 +493,45 @@ export default function CustomerJobTrackerPage({
             )}
 
             {selectedRating && selectedRating < 4 && !feedbackSent && (
-              <div className="p-3 bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs space-y-2 text-left animate-in fade-in">
+              <div className="p-3.5 bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs space-y-2.5 text-left animate-in fade-in">
                 <p className="font-semibold text-slate-800 dark:text-zinc-200">We want to make this right. What could we have done better?</p>
                 <textarea
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Tell us what happened so management can follow up..."
-                  rows={2}
-                  className="w-full p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-750 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-hidden focus:border-indigo-500"
+                  rows={3}
+                  className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-750 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-hidden focus:border-indigo-500 resize-none"
                 />
+                {feedbackError && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{feedbackError}</p>
+                )}
                 <button
                   type="button"
-                  onClick={() => setFeedbackSent(true)}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors cursor-pointer"
+                  disabled={submittingFeedback || !feedbackText.trim()}
+                  onClick={handleFeedbackSubmit}
+                  className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Submit Private Feedback
+                  {submittingFeedback ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending to Owner...</span>
+                    </>
+                  ) : (
+                    <span>Submit Private Feedback</span>
+                  )}
                 </button>
               </div>
             )}
 
             {feedbackSent && (
-              <div className="p-3 bg-slate-50 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-700 dark:text-zinc-300 animate-in fade-in">
-                Thank you for your feedback. Our team has received your message and will review it immediately.
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 animate-in fade-in space-y-1 text-left">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Thank you for letting us know</span>
+                </p>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400/90 leading-relaxed">
+                  Your feedback has been delivered directly to the business owner. Management will review your experience and follow up with you promptly.
+                </p>
               </div>
             )}
           </section>

@@ -26,7 +26,9 @@ import {
   ExternalLink,
   Palette,
   Building2,
-  Bell
+  Bell,
+  BarChart3,
+  Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
@@ -39,6 +41,7 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testingSms, setTestingSms] = useState(false)
+  const [testingDigest, setTestingDigest] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string>('member')
@@ -79,7 +82,10 @@ export default function SettingsPage() {
     industry: 'general',
     carrier_registration_status: 'unregistered',
     tcr_brand_id: '',
-    tcr_campaign_id: ''
+    tcr_campaign_id: '',
+    weekly_digest_enabled: true,
+    weekly_digest_day_of_week: 1,
+    weekly_digest_hour: 8
   })
 
   const loadSettings = useCallback(async () => {
@@ -140,7 +146,10 @@ export default function SettingsPage() {
           industry: org.industry || 'general',
           carrier_registration_status: org.carrier_registration_status || 'unregistered',
           tcr_brand_id: org.tcr_brand_id || '',
-          tcr_campaign_id: org.tcr_campaign_id || ''
+          tcr_campaign_id: org.tcr_campaign_id || '',
+          weekly_digest_enabled: org.weekly_digest_enabled ?? true,
+          weekly_digest_day_of_week: org.weekly_digest_day_of_week ?? 1,
+          weekly_digest_hour: org.weekly_digest_hour ?? 8
         })
       }
     } catch {
@@ -262,6 +271,9 @@ export default function SettingsPage() {
           address_postal_code: formData.address_postal_code,
           website_url: formData.website_url,
           industry: formData.industry,
+          weekly_digest_enabled: formData.weekly_digest_enabled,
+          weekly_digest_day_of_week: formData.weekly_digest_day_of_week,
+          weekly_digest_hour: formData.weekly_digest_hour,
           submit_carrier_verification: true
         })
       })
@@ -303,6 +315,29 @@ export default function SettingsPage() {
       toast.error('Network error while dispatching test SMS.')
     } finally {
       setTestingSms(false)
+    }
+  }
+
+  const handleSendTestDigest = async () => {
+    if (!formData.owner_phone) {
+      toast.error('Add your mobile number first in Business Profile to receive the digest.')
+      return
+    }
+    setTestingDigest(true)
+    try {
+      const res = await fetch('/api/client/weekly-digest/test', {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(data.message || 'Weekly ROI digest dispatched to your phone!')
+      } else {
+        toast.error(data.error || 'Failed to dispatch test digest.')
+      }
+    } catch {
+      toast.error('Network error dispatching test digest.')
+    } finally {
+      setTestingDigest(false)
     }
   }
 
@@ -968,7 +1003,94 @@ export default function SettingsPage() {
 
           {/* ── Tab 6: Alerts & Push Notifications ── */}
           {settingsTab === 'notifications' && (
-            <PushNotificationSettings />
+            <div className="space-y-6">
+              <PushNotificationSettings />
+
+              {/* Weekly Owner ROI Digest */}
+              <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      Weekly Owner ROI Digest
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Automated performance recap reporting recovered missed calls, jobs booked, Stripe revenue collected, and 5-star Google reviews.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
+                      formData.weekly_digest_enabled
+                        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                        : "bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400"
+                    )}>
+                      <span className={cn("w-2 h-2 rounded-full", formData.weekly_digest_enabled ? "bg-emerald-500 animate-pulse" : "bg-slate-400")} />
+                      <span>{formData.weekly_digest_enabled ? 'Active (Mondays 8:00 AM)' : 'Disabled'}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="weeklyDigestToggle" className="text-xs font-semibold text-slate-900 dark:text-zinc-100 cursor-pointer">
+                        Automated SMS & Dashboard Digest
+                      </Label>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                        Dispatches every Monday at 8:00 AM local time directly to {formData.owner_phone || 'your owner phone number'}.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="weeklyDigestToggle"
+                      checked={formData.weekly_digest_enabled}
+                      onChange={e => setFormData(d => ({ ...d, weekly_digest_enabled: e.target.checked }))}
+                      className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-blue-600 h-4 w-4"
+                    />
+                  </div>
+
+                  <div className="p-3.5 rounded-lg border border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/60 dark:bg-zinc-950/40 text-xs space-y-2">
+                    <div className="font-semibold text-slate-900 dark:text-zinc-200 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>What's inside your weekly recap?</span>
+                    </div>
+                    <ul className="text-[11px] text-slate-600 dark:text-zinc-400 space-y-1 list-disc list-inside">
+                      <li>Total missed calls recovered in under 15 seconds</li>
+                      <li>Number of service jobs booked &amp; estimated ticket value</li>
+                      <li>Exact revenue collected via Stripe invoice &amp; deposit links</li>
+                      <li>New 5-star Google review completions</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 dark:border-zinc-800">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendTestDigest}
+                      disabled={testingDigest || !formData.owner_phone}
+                      className="h-8 text-xs border border-slate-200 dark:border-zinc-800 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300"
+                    >
+                      {testingDigest ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Send className="h-3.5 w-3.5 mr-1.5 text-blue-600 dark:text-blue-400" />}
+                      <span>Send Preview to {formData.owner_phone || 'Mobile'}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={saving || !canEditSettings}
+                      className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
+                    >
+                      {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                      <span>Save Digest Preferences</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
         </div>

@@ -19,7 +19,8 @@ import {
   DollarSign,
   Loader2,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -31,6 +32,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 
 interface JobItem {
   id: string
@@ -283,6 +285,27 @@ function JobsContent() {
     )
   })
 
+  const handleExportCsv = () => {
+    if (!jobs.length) {
+      toast.error('No jobs to export.')
+      return
+    }
+    exportToCsv('captodesk_jobs', [
+      { header: 'Job #', accessor: j => j.job_number },
+      { header: 'Job Title', accessor: j => j.title },
+      { header: 'Customer Name', accessor: j => j.contact?.name || 'Unnamed' },
+      { header: 'Customer Phone', accessor: j => j.contact?.phone || '' },
+      { header: 'Service Address', accessor: j => j.contact?.address || '' },
+      { header: 'Status', accessor: j => CsvFormatters.status(j.status) },
+      { header: 'Scheduled Start', accessor: j => CsvFormatters.dateTime(j.scheduled_start) },
+      { header: 'Started At', accessor: j => CsvFormatters.dateTime(j.started_at) },
+      { header: 'Completed At', accessor: j => CsvFormatters.dateTime(j.completed_at) },
+      { header: 'Job Total', accessor: j => CsvFormatters.currency(j.quote?.total) },
+      { header: 'Notes', accessor: j => j.notes || '' }
+    ], jobs)
+    toast.success(`Exported ${jobs.length} jobs to CSV`)
+  }
+
   return (
     <div className="space-y-6">
 
@@ -303,6 +326,16 @@ function JobsContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            onClick={handleExportCsv}
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
+            title="Download full job history as CSV"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span>Export CSV</span>
+          </Button>
           <Link href="/client/calendar">
             <Button variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs">
               <Calendar className="h-3.5 w-3.5 mr-1.5" />

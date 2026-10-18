@@ -30,9 +30,11 @@ import {
   Loader2, 
   ChevronRight, 
   ArrowUpDown,
-  Plus
+  Plus,
+  Download
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 
 export default function CustomersPage() {
   const router = useRouter()
@@ -161,6 +163,25 @@ export default function CustomersPage() {
     }
   }
 
+  const handleExportCsv = () => {
+    if (!customers.length) {
+      toast.error('No customer records to export.')
+      return
+    }
+    exportToCsv('captodesk_customers', [
+      { header: 'Customer Name', accessor: c => c.name || 'Unnamed' },
+      { header: 'Phone', accessor: c => c.phone || '' },
+      { header: 'Email', accessor: c => c.email || '' },
+      { header: 'Address', accessor: c => c.address || '' },
+      { header: 'Lifecycle Status', accessor: c => CsvFormatters.status(c.lifecycle_status) },
+      { header: 'Service Frequency (Days)', accessor: c => c.service_frequency_days || 90 },
+      { header: 'Last Service Date', accessor: c => CsvFormatters.date(c.last_service_date) },
+      { header: 'Total Revenue', accessor: c => CsvFormatters.currency(c.total_revenue) },
+      { header: 'Created At', accessor: c => CsvFormatters.date(c.created_at) }
+    ], customers)
+    toast.success(`Exported ${customers.length} customer records to CSV`)
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -217,6 +238,17 @@ export default function CustomersPage() {
           >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             <span>Add Customer</span>
+          </Button>
+
+          <Button
+            onClick={handleExportCsv}
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 shadow-xs"
+            title="Download full customer directory as CSV"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span>Export CSV</span>
           </Button>
 
           <Button

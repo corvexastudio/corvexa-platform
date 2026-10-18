@@ -21,10 +21,12 @@ import {
   MapPin,
   ChevronRight,
   Filter,
-  Plus
+  Plus,
+  Download
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import {
@@ -50,6 +52,7 @@ interface LeadItem {
     id: string
     name?: string | null
     phone: string
+    email?: string | null
     address?: string | null
   }
 }
@@ -301,6 +304,25 @@ export default function LeadsPage() {
     lost: leads.filter(l => l.status === 'lost').length,
   }
 
+  const handleExportCsv = () => {
+    if (!leads.length) {
+      toast.error('No leads to export.')
+      return
+    }
+    exportToCsv('captodesk_leads', [
+      { header: 'Contact Name', accessor: l => l.contact?.name || 'Unnamed' },
+      { header: 'Phone', accessor: l => l.contact?.phone || '' },
+      { header: 'Email', accessor: l => l.contact?.email || '' },
+      { header: 'Status', accessor: l => CsvFormatters.status(l.status) },
+      { header: 'Urgency', accessor: l => CsvFormatters.status(l.urgency) },
+      { header: 'Lead Source', accessor: l => CsvFormatters.status(l.source) },
+      { header: 'Service Needed', accessor: l => l.service_needed || '' },
+      { header: 'Notes', accessor: l => l.notes || '' },
+      { header: 'Created At', accessor: l => CsvFormatters.dateTime(l.created_at) }
+    ], leads)
+    toast.success(`Exported ${leads.length} leads to CSV`)
+  }
+
   return (
     <div className="space-y-6">
 
@@ -322,6 +344,17 @@ export default function LeadsPage() {
 
         {/* View Switcher & Actions */}
         <div className="flex items-center gap-2">
+          <Button
+            onClick={handleExportCsv}
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
+            title="Download full leads pipeline as CSV"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span>Export CSV</span>
+          </Button>
+
           <Button
             size="sm"
             onClick={() => setShowCreateModal(true)}

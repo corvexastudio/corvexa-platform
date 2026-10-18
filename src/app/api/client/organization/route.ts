@@ -67,6 +67,11 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       carrier_registration_status,
       tcr_brand_id,
       tcr_campaign_id,
+      weekly_digest_enabled,
+      weekly_digest_channels,
+      weekly_digest_day_of_week,
+      weekly_digest_hour,
+      last_weekly_digest_sent_at,
       created_at
     `)
     .eq('id', orgId)
@@ -291,6 +296,28 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
 
     if (typeof body.industry === 'string') {
       allowedUpdates.industry = body.industry.trim().slice(0, 50) || 'general'
+    }
+
+    if (typeof body.weekly_digest_enabled === 'boolean') {
+      allowedUpdates.weekly_digest_enabled = body.weekly_digest_enabled
+    }
+
+    if (Array.isArray(body.weekly_digest_channels)) {
+      allowedUpdates.weekly_digest_channels = body.weekly_digest_channels.filter((c: any) => typeof c === 'string')
+    }
+
+    if (typeof body.weekly_digest_day_of_week !== 'undefined') {
+      const val = parseInt(String(body.weekly_digest_day_of_week), 10)
+      if (!isNaN(val) && val >= 0 && val <= 6) {
+        allowedUpdates.weekly_digest_day_of_week = val
+      }
+    }
+
+    if (typeof body.weekly_digest_hour !== 'undefined') {
+      const val = parseInt(String(body.weekly_digest_hour), 10)
+      if (!isNaN(val) && val >= 0 && val <= 23) {
+        allowedUpdates.weekly_digest_hour = val
+      }
     }
 
     // If client submits updated carrier verification fields, update status to pending review

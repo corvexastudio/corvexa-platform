@@ -23,7 +23,8 @@ import {
   Loader2,
   Trash2,
   Banknote,
-  Ban
+  Ban,
+  Download
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -33,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 import {
   Table,
   TableBody,
@@ -66,6 +68,7 @@ interface Invoice {
   status: 'draft' | 'sent' | 'viewed' | 'partially_paid' | 'paid' | 'overdue' | 'void'
   due_date: string
   manage_token: string
+  payment_method?: string
   sent_at?: string
   paid_at?: string
   created_at: string
@@ -381,6 +384,30 @@ function ClientInvoicesContent() {
     return true
   })
 
+  const handleExportCsv = () => {
+    if (!invoices.length) {
+      toast.error('No invoices to export.')
+      return
+    }
+    exportToCsv('captodesk_invoices', [
+      { header: 'Invoice #', accessor: i => i.invoice_number },
+      { header: 'Customer Name', accessor: i => i.contact?.name || 'Unnamed' },
+      { header: 'Customer Phone', accessor: i => i.contact?.phone || '' },
+      { header: 'Status', accessor: i => CsvFormatters.status(i.status) },
+      { header: 'Subtotal', accessor: i => CsvFormatters.currency(i.subtotal) },
+      { header: 'Tax', accessor: i => CsvFormatters.currency(i.tax) },
+      { header: 'Discount', accessor: i => CsvFormatters.currency(i.discount) },
+      { header: 'Total Amount', accessor: i => CsvFormatters.currency(i.total) },
+      { header: 'Amount Paid', accessor: i => CsvFormatters.currency(i.amount_paid) },
+      { header: 'Balance Due', accessor: i => CsvFormatters.currency(i.amount_due) },
+      { header: 'Payment Method', accessor: i => i.payment_method || '' },
+      { header: 'Due Date', accessor: i => CsvFormatters.date(i.due_date) },
+      { header: 'Paid At', accessor: i => CsvFormatters.dateTime(i.paid_at) },
+      { header: 'Created At', accessor: i => CsvFormatters.date(i.created_at) }
+    ], invoices)
+    toast.success(`Exported ${invoices.length} invoices to CSV`)
+  }
+
   return (
     <div className="space-y-6">
 
@@ -400,14 +427,27 @@ function ClientInvoicesContent() {
           </p>
         </div>
 
-        <Button
-          onClick={() => setShowCreateModal(true)}
-          size="sm"
-          className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          <span>New Invoice</span>
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            onClick={handleExportCsv}
+            variant="outline"
+            size="sm"
+            className="h-8.5 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
+            title="Download full invoices report as CSV"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span>Export CSV</span>
+          </Button>
+
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            size="sm"
+            className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            <span>New Invoice</span>
+          </Button>
+        </div>
       </div>
 
       {/* Financial Summary */}
