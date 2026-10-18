@@ -17,57 +17,57 @@ export function DashboardMetricsGrid({
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {/* Missed Calls */}
-      <div className="rounded-2xl bg-[#0D1322] border border-blue-500/20 p-4 sm:p-5 relative overflow-hidden group hover:border-blue-500/40 transition-all shadow-lg">
-        <div className="flex items-center justify-between text-blue-400 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Missed Calls Today</span>
+      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-blue-200/60 dark:border-blue-500/20 p-4 sm:p-5 relative overflow-hidden group hover:border-blue-300 dark:hover:border-blue-500/40 transition-all shadow-xs">
+        <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Missed Calls Today</span>
           <PhoneMissed className="h-5 w-5" />
         </div>
-        <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
           {missedCallsToday}
         </div>
-        <p className="text-[11px] text-emerald-400 font-medium mt-1 flex items-center gap-1">
+        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1 flex items-center gap-1">
           <Zap className="h-3 w-3" /> Auto-text sent in &lt;15s
         </p>
       </div>
 
       {/* Active Leads */}
-      <div className="rounded-2xl bg-[#0D1322] border border-zinc-800/80 p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700 transition-all shadow-lg">
-        <div className="flex items-center justify-between text-emerald-400 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Active Leads</span>
+      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800/80 p-4 sm:p-5 relative overflow-hidden group hover:border-slate-300 dark:hover:border-zinc-700 transition-all shadow-xs">
+        <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Active Leads</span>
           <TrendingUp className="h-5 w-5" />
         </div>
-        <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
           {activeLeads}
         </div>
-        <Link href="/client/leads" className="text-[11px] text-zinc-400 hover:text-white font-medium mt-1 flex items-center gap-1 transition-colors">
+        <Link href="/client/leads" className="text-[11px] text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white font-medium mt-1 flex items-center gap-1 transition-colors">
           View pipeline &rarr;
         </Link>
       </div>
 
       {/* Unread Texts */}
-      <div className="rounded-2xl bg-[#0D1322] border border-zinc-800/80 p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700 transition-all shadow-lg">
-        <div className="flex items-center justify-between text-indigo-400 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Unread Texts</span>
+      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800/80 p-4 sm:p-5 relative overflow-hidden group hover:border-slate-300 dark:hover:border-zinc-700 transition-all shadow-xs">
+        <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Unread Texts</span>
           <MessageSquare className="h-5 w-5" />
         </div>
-        <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
           {unreadMessages}
         </div>
-        <Link href="/client/inbox" className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium mt-1 flex items-center gap-1 transition-colors">
+        <Link href="/client/inbox" className="text-[11px] text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium mt-1 flex items-center gap-1 transition-colors">
           Open 2-way inbox &rarr;
         </Link>
       </div>
 
       {/* Reviews Sent */}
-      <div className="rounded-2xl bg-[#0D1322] border border-zinc-800/80 p-4 sm:p-5 relative overflow-hidden group hover:border-zinc-700 transition-all shadow-lg">
-        <div className="flex items-center justify-between text-amber-400 mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">5★ Reviews Sent</span>
+      <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800/80 p-4 sm:p-5 relative overflow-hidden group hover:border-slate-300 dark:hover:border-zinc-700 transition-all shadow-xs">
+        <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">5★ Reviews Sent</span>
           <Star className="h-5 w-5" />
         </div>
-        <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
           {reviewsSentMonth}
         </div>
-        <p className="text-[11px] text-zinc-400 font-medium mt-1">This month</p>
+        <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-1">This month</p>
       </div>
     </div>
   )

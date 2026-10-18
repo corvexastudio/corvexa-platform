@@ -33,20 +33,20 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-zinc-800/80 bg-zinc-950/40 text-center transition-all',
+        'rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 text-center transition-all shadow-xs',
         compact ? 'p-6 sm:p-8' : 'p-8 sm:p-12',
         className
       )}
     >
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 shadow-inner mb-4">
-        <Icon className="h-7 w-7 text-zinc-300" />
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 shadow-inner mb-4">
+        <Icon className="h-7 w-7 text-slate-600 dark:text-zinc-300" />
       </div>
 
-      <h3 className="text-base sm:text-lg font-bold text-white tracking-tight mb-2">
+      <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight mb-2">
         {title}
       </h3>
 
-      <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed mb-6">
+      <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 max-w-md mx-auto leading-relaxed mb-6">
         {description}
       </p>
 
@@ -64,7 +64,7 @@ export function EmptyState({
             <Button
               variant="outline"
               onClick={onSecondaryAction}
-              className="h-10 px-4 rounded-xl border-zinc-700 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs sm:text-sm font-semibold cursor-pointer"
+              className="h-10 px-4 rounded-xl border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900/60 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white text-xs sm:text-sm font-semibold cursor-pointer"
             >
               {secondaryActionLabel}
             </Button>
@@ -73,8 +73,8 @@ export function EmptyState({
       )}
 
       {tip && (
-        <div className="inline-flex items-center gap-2 rounded-xl bg-zinc-900/80 border border-zinc-800/90 px-3.5 py-1.5 text-[11px] text-zinc-400">
-          <span className="font-bold text-zinc-300">Tip:</span>
+        <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border border-slate-200/90 dark:border-zinc-800/90 px-3.5 py-1.5 text-[11px] text-slate-600 dark:text-zinc-400">
+          <span className="font-bold text-slate-800 dark:text-zinc-300">Tip:</span>
           <span>{tip}</span>
         </div>
       )}

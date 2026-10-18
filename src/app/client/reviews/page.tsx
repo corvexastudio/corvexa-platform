@@ -208,17 +208,17 @@ export default function ReviewsPage() {
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Reviews & Reputation
             </h1>
-            <span className="text-xs font-medium px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 tabular-nums">
               {requests.length}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Automated Google Business review requests dispatched post-job with strict policy compliance.
           </p>
         </div>
@@ -229,9 +229,9 @@ export default function ReviewsPage() {
               href={settings.googleReviewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium border border-slate-200 dark:border-zinc-800 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white transition-colors shadow-xs"
             >
-              <Globe className="h-3.5 w-3.5 text-blue-400" />
+              <Globe className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
               <span>Google Profile</span>
             </a>
           )}
@@ -239,9 +239,9 @@ export default function ReviewsPage() {
           <Button
             size="sm"
             onClick={() => setShowSettings(true)}
-            className="h-8 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700"
+            className="h-8 text-xs border border-slate-200 dark:border-zinc-700 bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 shadow-xs"
           >
-            <Settings className="h-3.5 w-3.5 mr-1.5 text-zinc-400" />
+            <Settings className="h-3.5 w-3.5 mr-1.5 text-slate-500 dark:text-zinc-400" />
             <span>Settings</span>
           </Button>
         </div>
@@ -249,38 +249,38 @@ export default function ReviewsPage() {
 
       {/* Honest Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Requests Sent</p>
-          <p className="text-xl font-bold text-white tabular-nums mt-1">{loading ? '-' : metrics.totalSent}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Outbound SMS invites</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Requests Sent</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '-' : metrics.totalSent}</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Outbound SMS invites</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Delivered</p>
-          <p className="text-xl font-bold text-emerald-400 tabular-nums mt-1">{loading ? '-' : metrics.totalDelivered}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Confirmed network delivery</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Delivered</p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '-' : metrics.totalDelivered}</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Confirmed network delivery</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Link Clicks</p>
-          <p className="text-xl font-bold text-blue-400 tabular-nums mt-1">{loading ? '-' : metrics.totalClicked}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Verified redirect clicks</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Link Clicks</p>
+          <p className="text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums mt-1">{loading ? '-' : metrics.totalClicked}</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Verified redirect clicks</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3.5">
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Click Rate</p>
-          <p className="text-xl font-bold text-amber-400 tabular-nums mt-1">{loading ? '-' : `${metrics.clickRate}%`}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Customer follow-through</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Click Rate</p>
+          <p className="text-xl font-bold text-amber-600 dark:text-amber-400 tabular-nums mt-1">{loading ? '-' : `${metrics.clickRate}%`}</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Customer follow-through</p>
         </div>
       </div>
 
       {/* Manual Dispatch Bar */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
         <div className="mb-3">
-          <h2 className="font-semibold text-xs text-zinc-200">
+          <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200">
             Dispatch One-Off Review Invite
           </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">
             Send an instant review invitation. Respects customer opt-outs and cooldown windows automatically.
           </p>
         </div>
@@ -290,13 +290,13 @@ export default function ReviewsPage() {
             placeholder="Customer Name"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            className="h-8.5 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-md"
           />
           <Input
             placeholder="(555) 000-0000"
             value={phone}
             onChange={handlePhone}
-            className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+            className="h-8.5 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-md"
           />
           <Button
             type="submit"
@@ -311,19 +311,19 @@ export default function ReviewsPage() {
       </div>
 
       {/* Recent Requests Table */}
-      <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900">
-        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-          <h2 className="font-semibold text-xs text-zinc-200">Review Requests Log</h2>
-          <span className="text-[11px] text-zinc-500 tabular-nums">{requests.length} records</span>
+      <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
+        <div className="px-4 py-3 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+          <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200">Review Requests Log</h2>
+          <span className="text-[11px] text-slate-500 dark:text-zinc-500 tabular-nums">{requests.length} records</span>
         </div>
 
         {loading ? (
           <div className="p-4 space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-zinc-800/60 last:border-0">
-                <Skeleton className="h-4 w-36 bg-zinc-800" />
-                <Skeleton className="h-4 w-28 bg-zinc-800" />
-                <Skeleton className="h-4 w-16 bg-zinc-800" />
+              <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
+                <Skeleton className="h-4 w-36 bg-slate-200 dark:bg-zinc-800" />
+                <Skeleton className="h-4 w-28 bg-slate-200 dark:bg-zinc-800" />
+                <Skeleton className="h-4 w-16 bg-slate-200 dark:bg-zinc-800" />
               </div>
             ))}
           </div>
@@ -342,47 +342,47 @@ export default function ReviewsPage() {
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
               <Table>
-                <TableHeader className="bg-zinc-900/90 border-b border-zinc-800">
-                  <TableRow className="border-b border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
-                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Job Reference</TableHead>
-                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
-                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4">Date</TableHead>
-                    <TableHead className="text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Clicks</TableHead>
+                <TableHeader className="bg-slate-50/80 dark:bg-zinc-900/90 border-b border-slate-200/80 dark:border-zinc-800">
+                  <TableRow className="border-b border-slate-200/80 dark:border-zinc-800 hover:bg-transparent">
+                    <TableHead className="text-slate-500 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Customer</TableHead>
+                    <TableHead className="text-slate-500 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Job Reference</TableHead>
+                    <TableHead className="text-slate-500 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Status</TableHead>
+                    <TableHead className="text-slate-500 dark:text-zinc-400 font-semibold text-xs py-3 px-4">Date</TableHead>
+                    <TableHead className="text-slate-500 dark:text-zinc-400 font-semibold text-xs py-3 px-4 text-right">Clicks</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className="divide-y divide-zinc-800">
+                <TableBody className="divide-y divide-slate-100 dark:divide-zinc-800">
                   {requests.map(req => (
-                    <TableRow key={req.id} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
+                    <TableRow key={req.id} className="border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-colors">
                       <TableCell className="py-3 px-4">
-                        <div className="font-medium text-xs text-zinc-100">{req.contacts?.name || 'Customer'}</div>
-                        <div className="text-[11px] text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</div>
+                        <div className="font-medium text-xs text-slate-900 dark:text-zinc-100">{req.contacts?.name || 'Customer'}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</div>
                       </TableCell>
 
-                      <TableCell className="py-3 px-4 text-xs text-zinc-300">
+                      <TableCell className="py-3 px-4 text-xs text-slate-700 dark:text-zinc-300">
                         {req.jobs ? (
                           <span>{req.jobs.job_number} • {req.jobs.title}</span>
                         ) : (
-                          <span className="text-zinc-500">Manual Dispatch</span>
+                          <span className="text-slate-400 dark:text-zinc-500">Manual Dispatch</span>
                         )}
                       </TableCell>
 
                       <TableCell className="py-3 px-4">
                         {getReviewStatusBadge(req.status)}
                         {req.suppression_reason && (
-                          <div className="text-[10px] text-zinc-500 mt-0.5">{req.suppression_reason}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-zinc-500 mt-0.5">{req.suppression_reason}</div>
                         )}
                       </TableCell>
 
-                      <TableCell className="py-3 px-4 text-xs text-zinc-400 whitespace-nowrap tabular-nums">
+                      <TableCell className="py-3 px-4 text-xs text-slate-500 dark:text-zinc-400 whitespace-nowrap tabular-nums">
                         {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                       </TableCell>
 
-                      <TableCell className="py-3 px-4 text-right font-medium text-xs text-zinc-300 tabular-nums">
+                      <TableCell className="py-3 px-4 text-right font-medium text-xs text-slate-700 dark:text-zinc-300 tabular-nums">
                         {req.click_count > 0 ? (
-                          <span className="text-blue-400 font-semibold">{req.click_count}</span>
+                          <span className="text-blue-600 dark:text-blue-400 font-semibold">{req.click_count}</span>
                         ) : (
-                          <span className="text-zinc-600">0</span>
+                          <span className="text-slate-400 dark:text-zinc-600">0</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -392,37 +392,37 @@ export default function ReviewsPage() {
             </div>
 
             {/* Mobile Card List View */}
-            <div className="md:hidden divide-y divide-zinc-800">
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-zinc-800">
               {requests.map(req => (
                 <div key={req.id} className="p-4 space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="font-medium text-xs text-zinc-100">{req.contacts?.name || 'Customer'}</h3>
-                      <p className="text-[11px] text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</p>
+                      <h3 className="font-medium text-xs text-slate-900 dark:text-zinc-100">{req.contacts?.name || 'Customer'}</h3>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">{req.contacts?.phone || '—'}</p>
                     </div>
                     {getReviewStatusBadge(req.status)}
                   </div>
 
-                  <div className="text-xs text-zinc-400">
+                  <div className="text-xs text-slate-500 dark:text-zinc-400">
                     {req.jobs ? (
-                      <span className="text-zinc-300">{req.jobs.job_number} • {req.jobs.title}</span>
+                      <span className="text-slate-700 dark:text-zinc-300">{req.jobs.job_number} • {req.jobs.title}</span>
                     ) : (
-                      <span className="text-zinc-500">Manual Dispatch</span>
+                      <span className="text-slate-400 dark:text-zinc-500">Manual Dispatch</span>
                     )}
                   </div>
 
                   {req.suppression_reason && (
-                    <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">
+                    <div className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-1 rounded">
                       {req.suppression_reason}
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-zinc-800/60">
-                    <span className="text-[11px] text-zinc-500">
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 dark:border-zinc-800/60">
+                    <span className="text-[11px] text-slate-500 dark:text-zinc-500">
                       {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                     </span>
-                    <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                      <MousePointerClick className="h-3 w-3 text-zinc-500" />
+                    <span className="text-[11px] text-slate-600 dark:text-zinc-400 flex items-center gap-1">
+                      <MousePointerClick className="h-3 w-3 text-slate-400 dark:text-zinc-500" />
                       <span>{req.click_count > 0 ? `${req.click_count} clicks` : '0 clicks'}</span>
                     </span>
                   </div>
@@ -443,38 +443,38 @@ export default function ReviewsPage() {
       >
         <form onSubmit={handleSaveSettings} className="space-y-4">
           <div>
-            <Label className="text-xs text-zinc-300 mb-1 block">Google Review URL</Label>
+            <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block">Google Review URL</Label>
             <Input
               placeholder="https://g.page/r/your-google-review-link/review"
               value={settings.googleReviewUrl}
               onChange={e => setSettings({ ...settings, googleReviewUrl: e.target.value })}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
             />
-            <p className="text-[11px] text-zinc-500 mt-1">Direct link to your Google Business Profile review dialog.</p>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-1">Direct link to your Google Business Profile review dialog.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs text-zinc-300 mb-1 block">Delay After Job (Hours)</Label>
+              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block">Delay After Job (Hours)</Label>
               <Input
                 type="number"
                 min={1}
                 max={168}
                 value={settings.delayHours}
                 onChange={e => setSettings({ ...settings, delayHours: parseInt(e.target.value) || 24 })}
-                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
               />
             </div>
 
             <div>
-              <Label className="text-xs text-zinc-300 mb-1 block">Customer Cooldown (Days)</Label>
+              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block">Customer Cooldown (Days)</Label>
               <Input
                 type="number"
                 min={7}
                 max={365}
                 value={settings.cooldownDays}
                 onChange={e => setSettings({ ...settings, cooldownDays: parseInt(e.target.value) || 60 })}
-                className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+                className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
               />
             </div>
           </div>
@@ -485,20 +485,20 @@ export default function ReviewsPage() {
               id="reviewEnabled"
               checked={settings.reviewRequestsEnabled}
               onChange={e => setSettings({ ...settings, reviewRequestsEnabled: e.target.checked })}
-              className="rounded border-zinc-800 bg-zinc-950 text-blue-600 h-4 w-4"
+              className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
             />
-            <Label htmlFor="reviewEnabled" className="text-xs text-zinc-200 cursor-pointer">
+            <Label htmlFor="reviewEnabled" className="text-xs text-slate-700 dark:text-zinc-200 cursor-pointer">
               Automatically trigger review request when job is marked completed
             </Label>
           </div>
 
-          <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setShowSettings(false)}
-              className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+              className="h-8 text-xs border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
             >
               Cancel
             </Button>

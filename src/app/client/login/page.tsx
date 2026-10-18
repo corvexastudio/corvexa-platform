@@ -109,30 +109,30 @@ function LoginContent() {
       </div>
 
       {/* ── Right panel — form ── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 bg-zinc-50 min-h-screen">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 bg-slate-50 dark:bg-zinc-950 min-h-screen">
 
         {/* Mobile brand mark */}
         <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-          <div className="h-10 w-10 rounded-xl bg-zinc-950 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
+          <div className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center">
+            <span className="text-blue-600 dark:text-white font-bold text-sm">C</span>
           </div>
-          <span className="text-zinc-950 text-xl font-semibold tracking-tight">CaptoDesk</span>
+          <span className="text-slate-900 dark:text-zinc-100 text-xl font-semibold tracking-tight">CaptoDesk</span>
         </div>
 
         <div className="w-full max-w-sm">
           {!sent ? (
             <>
               {linkError && (
-                <div className="flex items-start gap-3 bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3 mb-6">
+                <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-sm rounded-xl px-4 py-3 mb-6">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold">That link has expired</p>
-                    <p className="text-red-600 mt-0.5">Sign-in links only work once and expire after 1 hour. Enter your email below to get a new one.</p>
+                    <p className="text-red-600 dark:text-red-400 mt-0.5">Sign-in links only work once and expire after 1 hour. Enter your email below to get a new one.</p>
                   </div>
                 </div>
               )}
-              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-950 mb-1.5 tracking-tight">Sign in to CaptoDesk</h1>
-              <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-zinc-100 mb-1.5 tracking-tight">Sign in to CaptoDesk</h1>
+              <p className="text-sm text-slate-500 dark:text-zinc-400 mb-6 leading-relaxed">
                 Access your front desk, message inbox, and dispatch board.
               </p>
 
@@ -141,11 +141,11 @@ function LoginContent() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={googleLoading || loading}
-                className="w-full h-11 bg-white hover:bg-zinc-50 active:bg-zinc-100 text-zinc-800 text-sm font-semibold rounded-lg border border-zinc-200 shadow-sm flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
+                className="w-full h-11 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm font-semibold rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
               >
                 {googleLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-zinc-500" />
                     <span>Connecting to Google...</span>
                   </>
                 ) : (
@@ -158,10 +158,10 @@ function LoginContent() {
 
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-zinc-200" />
+                  <div className="w-full border-t border-slate-200 dark:border-zinc-800" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-zinc-50 px-3 text-zinc-400 font-medium tracking-wider">
+                  <span className="bg-slate-50 dark:bg-zinc-950 px-3 text-slate-400 dark:text-zinc-500 font-medium tracking-wider">
                     Or continue with email
                   </span>
                 </div>
@@ -169,7 +169,7 @@ function LoginContent() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1.5" htmlFor="email">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5" htmlFor="email">
                     Email address
                   </label>
                   <input
@@ -181,13 +181,13 @@ function LoginContent() {
                     autoCapitalize="none"
                     autoComplete="email"
                     required
-                    className="w-full h-11 rounded-lg border border-zinc-200 bg-white px-3.5 text-base sm:text-sm text-zinc-950 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:border-transparent transition-all"
+                    className="w-full h-11 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-base sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 bg-zinc-950 hover:bg-zinc-800 text-white text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-60 shadow-sm"
                 >
                   {loading ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Sending sign-in link...</>
@@ -199,20 +199,20 @@ function LoginContent() {
             </>
           ) : (
             <div className="flex flex-col items-center text-center gap-4">
-              <div className="h-16 w-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+              <div className="h-16 w-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-zinc-950 mb-2 tracking-tight">Check your inbox</h2>
-                <p className="text-zinc-500 leading-relaxed">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mb-2 tracking-tight">Check your inbox</h2>
+                <p className="text-slate-500 dark:text-zinc-400 leading-relaxed">
                   We sent a sign-in link to<br />
-                  <strong className="text-zinc-950">{email}</strong>
+                  <strong className="text-slate-900 dark:text-zinc-100">{email}</strong>
                 </p>
               </div>
-              <p className="text-sm text-zinc-400">Tap the link in the email to sign in.</p>
+              <p className="text-sm text-slate-400 dark:text-zinc-500">Tap the link in the email to sign in.</p>
               <button
                 onClick={() => setSent(false)}
-                className="text-sm text-zinc-400 hover:text-zinc-600 underline underline-offset-4 transition-colors mt-2"
+                className="text-sm text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 underline underline-offset-4 transition-colors mt-2"
               >
                 Use a different email
               </button>
@@ -226,7 +226,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-zinc-50"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950"><Loader2 className="h-6 w-6 animate-spin text-slate-400 dark:text-zinc-500" /></div>}>
       <LoginContent />
     </Suspense>
   )

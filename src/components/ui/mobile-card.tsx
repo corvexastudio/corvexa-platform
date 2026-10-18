@@ -54,8 +54,8 @@ export function MobileCard({
           : undefined
       }
       className={cn(
-        'rounded-2xl bg-[#0D1322] border border-zinc-800/80 p-4 space-y-3 transition-all',
-        isClickable && 'hover:border-zinc-700/80 hover:bg-[#111827] cursor-pointer active:scale-[0.99]',
+        'rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800/80 p-4 space-y-3 transition-all shadow-xs',
+        isClickable && 'hover:border-slate-300 dark:hover:border-zinc-700/80 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer active:scale-[0.99]',
         className
       )}
     >
@@ -63,16 +63,16 @@ export function MobileCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {icon && (
-            <div className="h-10 w-10 rounded-xl bg-zinc-800/80 border border-zinc-750 flex items-center justify-center shrink-0 text-zinc-300">
+            <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-750 flex items-center justify-center shrink-0 text-slate-600 dark:text-zinc-300">
               {icon}
             </div>
           )}
           <div className="min-w-0 space-y-0.5">
-            <div className="font-semibold text-sm text-white truncate">
+            <div className="font-semibold text-sm text-slate-900 dark:text-white truncate">
               {title}
             </div>
             {subtitle && (
-              <div className="text-xs text-zinc-400 truncate">
+              <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
                 {subtitle}
               </div>
             )}
@@ -87,13 +87,13 @@ export function MobileCard({
 
       {/* Metrics Grid */}
       {metrics.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800/60 text-xs">
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800/60 text-xs">
           {metrics.map((m, idx) => (
             <div key={idx} className="space-y-0.5">
-              <span className="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-zinc-500 tracking-wider">
                 {m.label}
               </span>
-              <div className="font-medium text-zinc-200 truncate">
+              <div className="font-medium text-slate-800 dark:text-zinc-200 truncate">
                 {m.value}
               </div>
             </div>
@@ -103,7 +103,7 @@ export function MobileCard({
 
       {/* Actions Row */}
       {actions && (
-        <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-end gap-2">
+        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800/60 flex items-center justify-end gap-2">
           {actions}
         </div>
       )}

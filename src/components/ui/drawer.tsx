@@ -44,20 +44,20 @@ export function Drawer({
         side={side}
         showCloseButton={showCloseButton}
         className={cn(
-          'bg-[#0D1322] border-zinc-800 text-white p-5 sm:p-6 shadow-2xl flex flex-col justify-between overflow-y-auto',
+          'bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 p-5 sm:p-6 shadow-2xl flex flex-col justify-between overflow-y-auto',
           className
         )}
       >
         <div className="space-y-4">
           {(title || description) && (
-            <SheetHeader className="space-y-1.5 pb-3 border-b border-zinc-800/70">
+            <SheetHeader className="space-y-1.5 pb-3 border-b border-slate-200/80 dark:border-zinc-800/70">
               {title && (
-                <SheetTitle className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <SheetTitle className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                   {title}
                 </SheetTitle>
               )}
               {description && (
-                <SheetDescription className="text-xs text-zinc-400 leading-relaxed">
+                <SheetDescription className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
                   {description}
                 </SheetDescription>
               )}
@@ -68,7 +68,7 @@ export function Drawer({
         </div>
 
         {footer && (
-          <SheetFooter className="pt-4 border-t border-zinc-800/70 flex items-center justify-end gap-2">
+          <SheetFooter className="pt-4 border-t border-slate-200/80 dark:border-zinc-800/70 flex items-center justify-end gap-2">
             {footer}
           </SheetFooter>
         )}

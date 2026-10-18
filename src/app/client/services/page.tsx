@@ -307,17 +307,17 @@ export default function ServicesPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">
+            <div className="p-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-500/20">
               <Wrench className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
                 Service Catalog
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5">
                 Configure bookable services, durations, and pricing displayed on your public booking page. You can freely edit names, update pricing, add new offerings, or delete any starter service anytime.
               </p>
             </div>
@@ -330,7 +330,7 @@ export default function ServicesPage() {
               href={`/book/${orgSlug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 rounded-lg transition-colors shadow-xs"
             >
               <span>Booking Page</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -339,7 +339,7 @@ export default function ServicesPage() {
 
           <Button
             onClick={handleOpenCreate}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-medium gap-1.5 shadow-sm"
+            className="bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-medium gap-1.5 shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>Add Service</span>
@@ -349,20 +349,20 @@ export default function ServicesPage() {
 
       {/* General Service Helper Banner (if General Service is present) */}
       {generalService && (
-        <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-950/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400 shrink-0 mt-0.5">
+            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold text-zinc-100">Default Onboarding Service</h4>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Default Onboarding Service</h4>
                 <Badge variant={generalService.is_active ? 'default' : 'secondary'} className="text-[10px]">
                   {generalService.is_active ? 'Active' : 'Inactive'}
                 </Badge>
               </div>
-              <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                The standard <span className="text-zinc-200 font-medium">"General Service"</span> was created during onboarding so your booking page would function out-of-the-box. Once you configure your custom services, you can customize its duration/pricing or deactivate it so clients only book your real services.
+              <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                The standard <span className="text-slate-800 dark:text-zinc-200 font-medium">"General Service"</span> was created during onboarding so your booking page would function out-of-the-box. Once you configure your custom services, you can customize its duration/pricing or deactivate it so clients only book your real services.
               </p>
             </div>
           </div>
@@ -372,7 +372,7 @@ export default function ServicesPage() {
               variant="outline"
               size="sm"
               onClick={() => handleOpenEdit(generalService)}
-              className="text-xs border-zinc-700 hover:bg-zinc-800 text-zinc-200"
+              className="text-xs border-slate-300 dark:border-zinc-700 bg-white dark:bg-transparent hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200"
             >
               <Edit2 className="w-3.5 h-3.5 mr-1" />
               Customize
@@ -382,7 +382,7 @@ export default function ServicesPage() {
                 variant="secondary"
                 size="sm"
                 onClick={() => handleToggleActive(generalService)}
-                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                className="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300"
               >
                 Deactivate
               </Button>
@@ -394,14 +394,14 @@ export default function ServicesPage() {
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-zinc-900 border border-zinc-800 rounded-lg self-start">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-900/60 border border-slate-200/80 dark:border-zinc-800/80 rounded-xl self-start">
           <button
             onClick={() => setStatusFilter('all')}
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               statusFilter === 'all'
-                ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
             )}
           >
             All ({counts.total})
@@ -409,10 +409,10 @@ export default function ServicesPage() {
           <button
             onClick={() => setStatusFilter('active')}
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               statusFilter === 'active'
-                ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
             )}
           >
             Active ({counts.active})
@@ -420,10 +420,10 @@ export default function ServicesPage() {
           <button
             onClick={() => setStatusFilter('inactive')}
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               statusFilter === 'inactive'
-                ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-xs'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
             )}
           >
             Inactive ({counts.inactive})
@@ -432,12 +432,12 @@ export default function ServicesPage() {
 
         {/* Search Input */}
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <Input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search services..."
-            className="pl-9 bg-zinc-950 border-zinc-800 text-xs h-9 text-zinc-200 focus:border-zinc-700"
+            className="pl-9 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs h-9 text-slate-900 dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:border-blue-500 shadow-2xs"
           />
         </div>
       </div>
@@ -462,20 +462,20 @@ export default function ServicesPage() {
           <p className="text-xs">Loading services catalog...</p>
         </div>
       ) : filteredServices.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-800 p-12 text-center bg-zinc-950/40">
-          <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-3 text-zinc-400">
+        <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 p-12 text-center bg-white/60 dark:bg-zinc-950/40 shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center mx-auto mb-3 text-slate-500 dark:text-zinc-400">
             <Wrench className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold text-zinc-200">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-200">
             {searchQuery.trim() || statusFilter !== 'all' ? 'No matching services found' : 'No services configured yet'}
           </h3>
-          <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
             {searchQuery.trim() || statusFilter !== 'all'
               ? 'Try adjusting your search query or status filter to see other catalog entries.'
               : 'Add your primary business offerings like "AC Maintenance", "Service Call", or "Lawn Mowing" so clients can book them online.'}
           </p>
           <div className="mt-5">
-            <Button onClick={handleOpenCreate} size="sm" className="bg-blue-600 hover:bg-blue-500 text-xs">
+            <Button onClick={handleOpenCreate} size="sm" className="bg-blue-600 hover:bg-blue-500 text-xs text-white">
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Add Your First Service
             </Button>
@@ -487,15 +487,15 @@ export default function ServicesPage() {
             <div
               key={svc.id}
               className={cn(
-                'rounded-xl border bg-zinc-900/70 p-4 sm:p-5 flex flex-col justify-between transition-all hover:border-zinc-700',
-                svc.is_active ? 'border-zinc-800' : 'border-zinc-800/60 opacity-75 bg-zinc-950/40'
+                'rounded-xl border bg-white dark:bg-zinc-900/70 p-4 sm:p-5 flex flex-col justify-between transition-all hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs',
+                svc.is_active ? 'border-slate-200/80 dark:border-zinc-800' : 'border-slate-200/60 dark:border-zinc-800/60 opacity-75 bg-slate-50/50 dark:bg-zinc-950/40'
               )}
             >
               <div>
                 {/* Header: Title & Badges */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-zinc-100 truncate" title={svc.name}>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 truncate" title={svc.name}>
                       {svc.name}
                     </h3>
                   </div>
@@ -507,14 +507,14 @@ export default function ServicesPage() {
                       title={svc.is_active ? 'Click to deactivate' : 'Click to activate'}
                     >
                       {togglingId === svc.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-zinc-500" />
                       ) : svc.is_active ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                           <CheckCircle2 className="w-3 h-3" />
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
                           <Power className="w-3 h-3" />
                           Inactive
                         </span>
@@ -524,19 +524,19 @@ export default function ServicesPage() {
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-zinc-400 mt-2 line-clamp-2 min-h-[32px] leading-relaxed">
-                  {svc.description || <span className="text-zinc-600 italic">No description provided</span>}
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 line-clamp-2 min-h-[32px] leading-relaxed">
+                  {svc.description || <span className="text-slate-400 dark:text-zinc-600 italic">No description provided</span>}
                 </p>
 
                 {/* Attributes: Duration, Price, Address */}
-                <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-zinc-800/80 text-xs">
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-950 border border-zinc-800 text-zinc-300">
-                    <Clock className="w-3 h-3 text-zinc-500" />
+                <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-xs">
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300">
+                    <Clock className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
                     <span>{svc.duration_minutes} min</span>
                   </div>
 
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-950 border border-zinc-800 font-medium text-zinc-200">
-                    <DollarSign className="w-3 h-3 text-zinc-500" />
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 font-medium text-slate-900 dark:text-zinc-200">
+                    <DollarSign className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
                     <span>
                       {svc.price !== null && svc.price !== undefined
                         ? `$${Number(svc.price).toFixed(2)}`
@@ -544,20 +544,20 @@ export default function ServicesPage() {
                     </span>
                   </div>
 
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-950 border border-zinc-800 text-zinc-400">
-                    <MapPin className="w-3 h-3 text-zinc-500" />
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400">
+                    <MapPin className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
                     <span>{svc.requires_address ? 'Address required' : 'Remote / No address'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-zinc-800/60">
+              <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-slate-100 dark:border-zinc-800/60">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleOpenEdit(svc)}
-                  className="h-8 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800"
+                  className="h-8 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
                 >
                   <Edit2 className="w-3.5 h-3.5 mr-1" />
                   Edit
@@ -567,7 +567,7 @@ export default function ServicesPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setDeletingService(svc)}
-                  className="h-8 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                  className="h-8 text-xs text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/20"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
                   Remove
@@ -600,15 +600,15 @@ export default function ServicesPage() {
 
           {/* Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="svc-name" className="text-xs text-zinc-200">
-              Service Name <span className="text-red-400">*</span>
+            <Label htmlFor="svc-name" className="text-xs text-slate-700 dark:text-zinc-200">
+              Service Name <span className="text-red-500 dark:text-red-400">*</span>
             </Label>
             <Input
               id="svc-name"
               value={formName}
               onChange={e => setFormName(e.target.value)}
               placeholder="e.g., AC Maintenance, Drain Cleaning"
-              className="bg-zinc-950 border-zinc-800 text-xs text-zinc-100"
+              className="bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
               required
               maxLength={100}
             />
@@ -618,8 +618,8 @@ export default function ServicesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Duration */}
             <div className="space-y-1.5">
-              <Label htmlFor="svc-duration" className="text-xs text-zinc-200">
-                Duration (minutes) <span className="text-red-400">*</span>
+              <Label htmlFor="svc-duration" className="text-xs text-slate-700 dark:text-zinc-200">
+                Duration (minutes) <span className="text-red-500 dark:text-red-400">*</span>
               </Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -630,7 +630,7 @@ export default function ServicesPage() {
                   step="5"
                   value={formDuration}
                   onChange={e => setFormDuration(Number(e.target.value))}
-                  className="bg-zinc-950 border-zinc-800 text-xs text-zinc-100"
+                  className="bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100"
                   required
                 />
               </div>
@@ -644,8 +644,8 @@ export default function ServicesPage() {
                     className={cn(
                       'text-[10px] px-2 py-0.5 rounded border transition-colors',
                       formDuration === mins
-                        ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                        ? 'bg-blue-600/10 border-blue-500/40 text-blue-600 dark:text-blue-300'
+                        : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                     )}
                   >
                     {mins}m
@@ -656,11 +656,11 @@ export default function ServicesPage() {
 
             {/* Price */}
             <div className="space-y-1.5">
-              <Label htmlFor="svc-price" className="text-xs text-zinc-200">
+              <Label htmlFor="svc-price" className="text-xs text-slate-700 dark:text-zinc-200">
                 Price ($)
               </Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 text-xs">$</span>
                 <Input
                   id="svc-price"
                   type="number"
@@ -669,16 +669,16 @@ export default function ServicesPage() {
                   value={formPrice}
                   onChange={e => setFormPrice(e.target.value)}
                   placeholder="89.00 (optional)"
-                  className="pl-7 bg-zinc-950 border-zinc-800 text-xs text-zinc-100"
+                  className="pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
                 />
               </div>
-              <p className="text-[10px] text-zinc-500">Leave blank for custom quotes / free</p>
+              <p className="text-[10px] text-slate-500 dark:text-zinc-500">Leave blank for custom quotes / free</p>
             </div>
           </div>
 
           {/* Description */}
           <div className="space-y-1.5">
-            <Label htmlFor="svc-desc" className="text-xs text-zinc-200">
+            <Label htmlFor="svc-desc" className="text-xs text-slate-700 dark:text-zinc-200">
               Description
             </Label>
             <textarea
@@ -687,20 +687,20 @@ export default function ServicesPage() {
               value={formDescription}
               onChange={e => setFormDescription(e.target.value)}
               placeholder="Describe what's included in this service..."
-              className="w-full rounded-md border border-zinc-800 bg-zinc-950 p-2.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-700"
+              className="w-full rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-blue-500"
             />
           </div>
 
           {/* Settings / Toggles */}
-          <div className="space-y-2.5 pt-2 border-t border-zinc-800/80">
+          <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800/80">
             <label className="flex items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formRequiresAddress}
                 onChange={e => setFormRequiresAddress(e.target.checked)}
-                className="rounded border-zinc-800 bg-zinc-950 text-blue-600 focus:ring-0 focus:ring-offset-0 h-4 w-4"
+                className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 focus:ring-0 focus:ring-offset-0 h-4 w-4"
               />
-              <span className="text-xs text-zinc-300">
+              <span className="text-xs text-slate-700 dark:text-zinc-300">
                 Requires customer address during booking (on-site service)
               </span>
             </label>
@@ -710,22 +710,22 @@ export default function ServicesPage() {
                 type="checkbox"
                 checked={formIsActive}
                 onChange={e => setFormIsActive(e.target.checked)}
-                className="rounded border-zinc-800 bg-zinc-950 text-blue-600 focus:ring-0 focus:ring-offset-0 h-4 w-4"
+                className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 focus:ring-0 focus:ring-offset-0 h-4 w-4"
               />
-              <span className="text-xs text-zinc-300">
+              <span className="text-xs text-slate-700 dark:text-zinc-300">
                 Active and visible on public booking page
               </span>
             </label>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-zinc-800/80">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-zinc-800/80">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsModalOpen(false)}
-              className="text-xs border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+              className="text-xs border-slate-300 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300"
               disabled={submitting}
             >
               Cancel
@@ -760,13 +760,13 @@ export default function ServicesPage() {
         size="sm"
       >
         <div className="space-y-4 pt-1">
-          <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800 text-xs text-zinc-400 space-y-1.5">
-            <div className="flex items-center gap-1.5 text-zinc-200 font-medium">
-              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+          <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-lg border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-400 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-slate-900 dark:text-zinc-200 font-medium">
+              <Info className="w-4 h-4 text-blue-500 dark:text-blue-400 shrink-0" />
               <span>Historical Data Protection</span>
             </div>
             <p className="leading-relaxed">
-              If this service is linked to existing appointments or jobs, it will be safely <strong className="text-zinc-200">deactivated</strong> rather than deleted so all past customer history and reporting remain intact.
+              If this service is linked to existing appointments or jobs, it will be safely <strong className="text-slate-900 dark:text-zinc-200">deactivated</strong> rather than deleted so all past customer history and reporting remain intact.
             </p>
           </div>
 
@@ -776,7 +776,7 @@ export default function ServicesPage() {
               variant="outline"
               size="sm"
               onClick={() => setDeletingService(null)}
-              className="text-xs border-zinc-800 text-zinc-300"
+              className="text-xs border-slate-300 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300"
               disabled={submitting}
             >
               Cancel

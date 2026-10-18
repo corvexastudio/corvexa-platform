@@ -128,12 +128,12 @@ export default function AutomationsPage() {
     <div className="space-y-6 max-w-4xl">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
             Automations
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Rules and automated responses for missed calls, booking reminders, and customer reviews.
           </p>
         </div>
@@ -162,27 +162,27 @@ export default function AutomationsPage() {
       <div className="space-y-4">
 
         {/* Rule 1: Missed Call Text-Back */}
-        <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-800">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+          <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-zinc-800">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0 text-blue-400">
+              <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-zinc-950 border border-blue-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
                 <PhoneMissed className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-100">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
                     Missed-Call Instant Text-Back
                   </h2>
                   <span className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-medium border",
                     settings.is_missed_call_active
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-750"
                   )}>
                     {settings.is_missed_call_active ? 'Active' : 'Disabled'}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Sends an immediate SMS response to callers when a business call is missed or rings out.
                 </p>
               </div>
@@ -194,11 +194,11 @@ export default function AutomationsPage() {
               onClick={() => setSettings(s => ({ ...s, is_missed_call_active: !s.is_missed_call_active }))}
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer",
-                settings.is_missed_call_active ? "bg-blue-600" : "bg-zinc-800"
+                settings.is_missed_call_active ? "bg-blue-600" : "bg-slate-200 dark:bg-zinc-800"
               )}
             >
               <span className={cn(
-                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-xs",
                 settings.is_missed_call_active ? "translate-x-4.5" : "translate-x-0.5"
               )} />
             </button>
@@ -208,113 +208,113 @@ export default function AutomationsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
+                <Label className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
                   Business Hours Response
                 </Label>
-                <span className="text-[10px] text-zinc-500 font-medium">While Open</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">While Open</span>
               </div>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                 Sent when a call is missed during regular operating hours (e.g. while mid-job).
               </p>
               <textarea
                 rows={4}
                 value={settings.auto_reply_template}
                 onChange={e => setSettings(s => ({ ...s, auto_reply_template: e.target.value }))}
-                className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed"
+                className="w-full rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed shadow-2xs"
               />
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-zinc-500">Insert tag:</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500">Insert tag:</span>
                 <button
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {business_name}' }))}
-                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 font-mono transition-colors"
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[10px] text-slate-700 dark:text-zinc-300 font-mono transition-colors"
                 >
                   {'{business_name}'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {booking_url}' }))}
-                  className="px-1.5 py-0.5 rounded bg-blue-950/60 hover:bg-blue-900/80 text-[10px] text-blue-300 border border-blue-800/40 font-mono transition-colors"
+                  className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 text-[10px] text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 font-mono transition-colors"
                 >
                   {'{booking_url}'}
                 </button>
               </div>
-              <div className="rounded bg-zinc-950 p-2.5 border border-zinc-800/80 text-[11px] text-zinc-400 space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-zinc-500 block tracking-wider">Live Preview:</span>
-                <span className="text-zinc-300 leading-relaxed block">&ldquo;{openPreview}&rdquo;</span>
+              <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-2.5 border border-slate-200/80 dark:border-zinc-800/80 text-[11px] text-slate-600 dark:text-zinc-400 space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-zinc-500 block tracking-wider">Live Preview:</span>
+                <span className="text-slate-800 dark:text-zinc-300 leading-relaxed block">&ldquo;{openPreview}&rdquo;</span>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
+                <Label className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
                   After-Hours / Closed Response
                 </Label>
-                <span className="text-[10px] text-zinc-500 font-medium">While Closed</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">While Closed</span>
               </div>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                 Automatically detected when office is closed or on weekends. Keeps callers from calling competitors.
               </p>
               <textarea
                 rows={4}
                 value={settings.after_hours_template}
                 onChange={e => setSettings(s => ({ ...s, after_hours_template: e.target.value }))}
-                className="w-full rounded-md bg-zinc-950 border border-zinc-800 p-2.5 text-xs text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed"
+                className="w-full rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed shadow-2xs"
               />
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-zinc-500">Insert tag:</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500">Insert tag:</span>
                 <button
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {business_name}' }))}
-                  className="px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 font-mono transition-colors"
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[10px] text-slate-700 dark:text-zinc-300 font-mono transition-colors"
                 >
                   {'{business_name}'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {booking_url}' }))}
-                  className="px-1.5 py-0.5 rounded bg-blue-950/60 hover:bg-blue-900/80 text-[10px] text-blue-300 border border-blue-800/40 font-mono transition-colors"
+                  className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 text-[10px] text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 font-mono transition-colors"
                 >
                   {'{booking_url}'}
                 </button>
               </div>
-              <div className="rounded bg-zinc-950 p-2.5 border border-zinc-800/80 text-[11px] text-zinc-400 space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-zinc-500 block tracking-wider">Live Preview:</span>
-                <span className="text-zinc-300 leading-relaxed block">&ldquo;{afterHoursPreview}&rdquo;</span>
+              <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-2.5 border border-slate-200/80 dark:border-zinc-800/80 text-[11px] text-slate-600 dark:text-zinc-400 space-y-1">
+                <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-zinc-500 block tracking-wider">Live Preview:</span>
+                <span className="text-slate-800 dark:text-zinc-300 leading-relaxed block">&ldquo;{afterHoursPreview}&rdquo;</span>
               </div>
             </div>
           </div>
 
-          <div className="pt-2 flex items-center gap-2 text-xs text-zinc-400 border-t border-zinc-800/80">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <div className="pt-2 flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 border-t border-slate-100 dark:border-zinc-800/80">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
             <span>Cooldown safeguard: Repeat calls within {settings.cooldown_hours} hours will not trigger duplicate texts.</span>
           </div>
         </div>
 
         {/* Rule 2: Google Review Request */}
-        <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-4">
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-800">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+          <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-zinc-800">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0 text-amber-400">
+              <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-zinc-950 border border-amber-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
                 <Star className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-100">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
                     Post-Job Google Review Invite
                   </h2>
                   <span className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-medium border",
                     settings.is_review_engine_active
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-750"
                   )}>
                     {settings.is_review_engine_active ? 'Active' : 'Disabled'}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Sends an SMS asking homeowners to share honest feedback on Google after their job is marked completed.
                 </p>
               </div>
@@ -325,55 +325,55 @@ export default function AutomationsPage() {
               onClick={() => setSettings(s => ({ ...s, is_review_engine_active: !s.is_review_engine_active }))}
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer",
-                settings.is_review_engine_active ? "bg-blue-600" : "bg-zinc-800"
+                settings.is_review_engine_active ? "bg-blue-600" : "bg-slate-200 dark:bg-zinc-800"
               )}
             >
               <span className={cn(
-                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-xs",
                 settings.is_review_engine_active ? "translate-x-4.5" : "translate-x-0.5"
               )} />
             </button>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-zinc-300 font-medium">Google Business Review URL</Label>
+            <Label className="text-xs text-slate-700 dark:text-zinc-300 font-medium">Google Business Review URL</Label>
             <Input
               placeholder="https://g.page/r/your-review-link"
               value={settings.google_review_url}
               onChange={e => setSettings(s => ({ ...s, google_review_url: e.target.value }))}
-              className="h-8.5 bg-zinc-950 border-zinc-800 text-xs text-zinc-100 rounded-md"
+              className="h-8.5 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-md"
             />
-            <p className="text-[11px] text-zinc-500">
+            <p className="text-[11px] text-slate-500 dark:text-zinc-500">
               Customers receive a direct link to your Google Business Profile review dialog.
             </p>
           </div>
         </div>
 
         {/* Rule 3: Appointment Reminders */}
-        <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-3">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-zinc-400">
                 <Calendar className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-100">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
                     Appointment Confirmations & Reminders
                   </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     Active
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Sends booking confirmation immediately, followed by 24-hour and 2-hour appointment reminders.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded bg-zinc-950 p-3 border border-zinc-800/80 text-xs text-zinc-400 space-y-1">
-            <div className="font-medium text-zinc-300">Default cadence:</div>
+          <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-3 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400 space-y-1">
+            <div className="font-medium text-slate-900 dark:text-zinc-300">Default cadence:</div>
             <div>• Booking confirmed: Instant SMS with service details and reschedule link</div>
             <div>• 24 hours prior: Reminder SMS confirming technician arrival window</div>
             <div>• Technician en route: Live dispatch notification</div>
@@ -381,64 +381,64 @@ export default function AutomationsPage() {
         </div>
 
         {/* Rule 4: Quote Follow-Up */}
-        <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-3">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-zinc-400">
                 <FileText className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-100">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
                     Estimate Follow-Up
                   </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     Active
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Automatically checks in with homeowners if an estimate has not been approved after 48 hours.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded bg-zinc-950 p-3 border border-zinc-800/80 text-xs text-zinc-400">
+          <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-3 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400">
             Follow-up SMS triggers 2 days and 5 days after quote dispatch unless accepted or declined.
           </div>
         </div>
 
         {/* Rule 5: Customer Reactivation */}
-        <div className="border border-zinc-800 rounded-lg bg-zinc-900 p-5 space-y-3">
+        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-zinc-400">
                 <Repeat className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-zinc-100">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
                     Seasonal Maintenance Reactivation
                   </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     Active
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Reminds past clients who are due or overdue for recurring service to schedule their next visit.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded bg-zinc-950 p-3 border border-zinc-800/80 text-xs text-zinc-400">
+          <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-3 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400">
             Cadence and template configured under Settings &gt; Customer Retention.
           </div>
         </div>
 
         {/* Bottom Save Action Bar for Mobile Thumb Reach */}
-        <div className="pt-4 border-t border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <p className="text-xs text-zinc-400">Changes deploy immediately to your front desk and SMS routing.</p>
+        <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <p className="text-xs text-slate-500 dark:text-zinc-400">Changes deploy immediately to your front desk and SMS routing.</p>
           <Button
             onClick={handleSave}
             disabled={saving}

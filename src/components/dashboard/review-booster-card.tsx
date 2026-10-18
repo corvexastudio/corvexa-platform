@@ -59,37 +59,37 @@ export function ReviewBoosterCard({ businessName, reviewUrl, onSent }: ReviewBoo
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-[#0D1322] p-5 shadow-xl relative overflow-hidden">
-      <div className="absolute top-0 right-0 h-32 w-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+    <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-5 shadow-xs relative overflow-hidden">
+      <div className="absolute top-0 right-0 h-32 w-32 bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
 
-      <p className="text-xs text-zinc-400 leading-relaxed">
+      <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
         Finished a job? Type the customer&apos;s name and phone number. CaptoDesk texts them a direct link to share their feedback on Google.
       </p>
 
       <form onSubmit={handleSend} className="mt-4 space-y-3.5">
         <div>
-          <Label className="text-xs text-zinc-300 font-medium">Customer Name</Label>
+          <Label className="text-xs text-slate-700 dark:text-zinc-300 font-medium">Customer Name</Label>
           <Input
             placeholder="e.g. Dana Miller"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="mt-1 bg-zinc-900/90 border-zinc-800 text-white text-xs h-10 rounded-xl focus:border-blue-500"
+            className="mt-1 bg-slate-50 dark:bg-zinc-900/90 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-xs h-10 rounded-xl focus:border-blue-500"
           />
         </div>
 
         <div>
-          <Label className="text-xs text-zinc-300 font-medium">Cell Phone Number</Label>
+          <Label className="text-xs text-slate-700 dark:text-zinc-300 font-medium">Cell Phone Number</Label>
           <Input
             placeholder="(555) 000-0000"
             value={phone}
             onChange={handlePhoneFormat}
-            className="mt-1 bg-zinc-900/90 border-zinc-800 text-white text-xs h-10 rounded-xl focus:border-blue-500"
+            className="mt-1 bg-slate-50 dark:bg-zinc-900/90 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-xs h-10 rounded-xl focus:border-blue-500"
           />
         </div>
 
-        <div className="rounded-xl bg-zinc-950/70 border border-zinc-800/70 p-3 text-[11px] text-zinc-400 space-y-1">
-          <span className="font-semibold text-zinc-400 block text-[10px] uppercase tracking-wider">SMS Preview:</span>
-          <p className="italic text-zinc-300">
+        <div className="rounded-xl bg-slate-50 dark:bg-zinc-950/70 border border-slate-200/80 dark:border-zinc-800/70 p-3 text-[11px] text-slate-600 dark:text-zinc-400 space-y-1">
+          <span className="font-semibold text-slate-500 dark:text-zinc-400 block text-[10px] uppercase tracking-wider">SMS Preview:</span>
+          <p className="italic text-slate-700 dark:text-zinc-300">
             &ldquo;Hey {name || 'there'}, thank you for choosing {businessName || 'our team'}! We would appreciate your feedback. Could you take a moment to share your review on Google: {reviewUrl || '[Your Google Link]'}&rdquo;
           </p>
         </div>

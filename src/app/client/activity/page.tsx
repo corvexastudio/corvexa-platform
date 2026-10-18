@@ -117,8 +117,8 @@ export default function ActivityPage() {
   return (
     <div className="flex flex-col gap-4 max-w-4xl mx-auto relative">
       <div>
-        <h1 className="text-lg sm:text-xl font-semibold text-zinc-100 tracking-tight">Activity Log</h1>
-        <p className="text-zinc-400 text-xs mt-0.5">Audit log of inbound calls, outbound texts, and automation triggers.</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-zinc-100 tracking-tight">Activity Log</h1>
+        <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">Audit log of inbound calls, outbound texts, and automation triggers.</p>
       </div>
 
       {/* Filter pills */}
@@ -129,8 +129,8 @@ export default function ActivityPage() {
             onClick={() => setFilter(f.key)}
             className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
               filter === f.key 
-                ? 'bg-zinc-800 text-zinc-100 border-zinc-700' 
-                : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 border-slate-200/80 dark:border-zinc-700 shadow-xs' 
+                : 'border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900/60 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-900'
             }`}
           >
             {f.label}
@@ -139,16 +139,16 @@ export default function ActivityPage() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs">
         {loading ? (
-          [1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-zinc-800/40 animate-pulse mx-4 my-2 rounded-md" />)
+          [1, 2, 3, 4].map(i => <div key={i} className="h-14 bg-slate-100 dark:bg-zinc-800/40 animate-pulse mx-4 my-2 rounded-md" />)
         ) : logs.length === 0 ? (
           <div className="py-12 text-center px-4">
-            <p className="text-xs font-medium text-zinc-300">No activity logged yet.</p>
-            <p className="text-xs text-zinc-500 mt-1">Inbound calls, SMS replies, and automation events will be logged here as they occur.</p>
+            <p className="text-xs font-medium text-slate-800 dark:text-zinc-300">No activity logged yet.</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-500 mt-1">Inbound calls, SMS replies, and automation events will be logged here as they occur.</p>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-800/60">
+          <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
             {logs.map(log => {
               const eventType = log.event_type || log.type || 'system_event'
               const deliveryStatus = log.metadata?.delivery || log.delivery_status || 'sent'
@@ -158,12 +158,12 @@ export default function ActivityPage() {
                 <button
                   key={log.id}
                   onClick={() => setSelected(log)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50/70 dark:hover:bg-zinc-800/40 transition-colors text-left"
                 >
                   <div className={`h-2 w-2 rounded-full shrink-0 ${typeDot[eventType] ?? 'bg-blue-500'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-zinc-200 truncate">{typeLabel[eventType] ?? eventType}</p>
-                    <p className="text-xs text-zinc-400 truncate">
+                    <p className="text-xs font-medium text-slate-900 dark:text-zinc-200 truncate">{typeLabel[eventType] ?? eventType}</p>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
                       {contactInfo} · {new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -183,46 +183,46 @@ export default function ActivityPage() {
       {selected && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)}>
           <div
-            className="bg-zinc-900 border border-zinc-800 text-zinc-100 w-full sm:max-w-md sm:rounded-lg rounded-t-lg px-5 pt-5 pb-8 sm:pb-5 shadow-2xl"
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl px-5 pt-5 pb-8 sm:pb-5 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
+            <div className="w-10 h-1 bg-slate-300 dark:bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
 
             <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-sm font-semibold text-zinc-100">{typeLabel[selected.event_type || selected.type] ?? selected.event_type}</p>
-                <p className="text-xs text-zinc-400">{new Date(selected.created_at).toLocaleString()}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-zinc-100">{typeLabel[selected.event_type || selected.type] ?? selected.event_type}</p>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">{new Date(selected.created_at).toLocaleString()}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-zinc-400 hover:text-zinc-200">
+              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600 dark:text-zinc-400 dark:hover:text-zinc-200">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Event Description / Contact */}
-            <div className="bg-zinc-950/60 border border-zinc-800 rounded-md p-3 mb-3">
-              <p className="text-[10px] uppercase font-semibold text-zinc-400 mb-0.5">Details</p>
-              <p className="text-xs font-medium text-zinc-200">{selected.description || 'System action'}</p>
+            <div className="bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 mb-3">
+              <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-zinc-400 mb-0.5">Details</p>
+              <p className="text-xs font-medium text-slate-900 dark:text-zinc-200">{selected.description || 'System action'}</p>
               {selected.metadata?.phone && (
-                <p className="text-xs text-zinc-400 mt-0.5">{selected.metadata.phone}</p>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">{selected.metadata.phone}</p>
               )}
             </div>
 
             {/* Message payload if present */}
             {selected.metadata?.message && (
               <div className="mb-3">
-                <p className="text-[10px] uppercase font-semibold text-zinc-400 mb-1.5 flex items-center gap-1">
+                <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-zinc-400 mb-1.5 flex items-center gap-1">
                   <MessageSquare className="h-3 w-3" /> Message Payload
                 </p>
-                <div className="bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 rounded-md p-3">
+                <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-800 dark:text-zinc-300 rounded-xl p-3">
                   {selected.metadata.message}
                 </div>
               </div>
             )}
 
             {/* Delivery status */}
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-800">
               <div>
-                <p className="text-[10px] uppercase font-semibold text-zinc-400 mb-1">Delivery Status</p>
+                <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-zinc-400 mb-1">Delivery Status</p>
                 <span className={`text-xs px-2.5 py-0.5 rounded-md font-medium ${statusBadge(selected.delivery_status ?? selected.status ?? 'pending')}`}>
                   {selected.delivery_status ?? selected.status ?? 'pending'}
                 </span>

@@ -235,7 +235,7 @@ export default function PublicBookingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060911] text-zinc-200 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 dark:border-blue-500 border-t-transparent" />
           <p className="text-xs text-slate-500 dark:text-zinc-400">Loading schedule...</p>
