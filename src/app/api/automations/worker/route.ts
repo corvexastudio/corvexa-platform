@@ -101,10 +101,20 @@ async function handleWorkerExecution(request: Request) {
       console.error('[WORKER_HEALTH_EVALUATION_ERROR]', monErr)
     }
 
+    // 5. Autonomous Recurring Maintenance Job Generation
+    let recurringSummary: any = null
+    try {
+      const { generateDueRecurringJobs } = await import('../../../../lib/jobs/recurring-manager.ts')
+      recurringSummary = await generateDueRecurringJobs(supabase, { limit: 25 })
+    } catch (recErr) {
+      console.error('[WORKER_RECURRING_JOBS_ERROR]', recErr)
+    }
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      ...summary
+      ...summary,
+      recurring: recurringSummary
     })
   } catch (err: any) {
     console.error('[AUTOMATION WORKER ENDPOINT ERROR]', err)

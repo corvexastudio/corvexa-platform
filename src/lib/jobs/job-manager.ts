@@ -370,6 +370,7 @@ export async function customerViewJobTracking(
   invoice?: any
   reviewUrl?: string | null
   referral?: any
+  photos?: any[]
   error?: string
 }> {
   if (!token || !token.trim()) {
@@ -460,6 +461,13 @@ export async function customerViewJobTracking(
     }
   }
 
+  // 5. Job Photos Resolution (Visual proof: Before & After)
+  const { data: photos } = await supabase
+    .from('job_photos')
+    .select('id, photo_type, url, caption, created_at')
+    .eq('job_id', job.id)
+    .order('created_at', { ascending: true })
+
   return {
     success: true,
     job: {
@@ -502,7 +510,8 @@ export async function customerViewJobTracking(
       manageToken: invoice.manage_token
     } : null,
     reviewUrl,
-    referral
+    referral,
+    photos: photos || []
   }
 }
 

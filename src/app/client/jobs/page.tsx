@@ -20,7 +20,13 @@ import {
   Loader2,
   ChevronRight,
   ExternalLink,
-  Download
+  Download,
+  Repeat,
+  Camera,
+  Sparkles,
+  Pause,
+  PlayCircle,
+  Trash2
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -34,6 +40,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
+import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
+import { RecurringPlanModal } from '@/components/jobs/recurring-plan-modal'
 
 interface JobItem {
   id: string
@@ -106,8 +114,16 @@ function JobsContent() {
   const [jobs, setJobs] = useState<JobItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'today' | 'active' | 'completed' | 'all'>('today')
+  const [tab, setTab] = useState<'today' | 'active' | 'completed' | 'all' | 'recurring'>('today')
   const [search, setSearch] = useState('')
+
+  // Phase 3 State: Field Photos & Recurring Plans
+  const [photoJob, setPhotoJob] = useState<JobItem | null>(null)
+  const [showRecurringModal, setShowRecurringModal] = useState(false)
+  const [recurringTemplates, setRecurringTemplates] = useState<any[]>([])
+  const [loadingRecurring, setLoadingRecurring] = useState(false)
+  const [services, setServices] = useState<any[]>([])
+  const [runningSpawner, setRunningSpawner] = useState(false)
 
   // Create Job Modal State
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -125,6 +141,98 @@ function JobsContent() {
       setShowCreateModal(true)
     }
   }, [contactIdParam])
+
+  // Load recurring templates
+  const loadRecurringTemplates = useCallback(async () => {
+    setLoadingRecurring(true)
+    try {
+      const res = await fetch('/api/client/recurring-jobs')
+      if (res.ok) {
+        const data = await res.json()
+        setRecurringTemplates(data.templates || [])
+      }
+    } catch {
+      toast.error('Failed to load recurring maintenance plans')
+    } finally {
+      setLoadingRecurring(false)
+    }
+  }, [])
+
+  // Load services for recurring plan modal
+  useEffect(() => {
+    async function loadServices() {
+      try {
+        const res = await fetch('/api/client/services')
+        if (res.ok) {
+          const data = await res.json()
+          setServices(data.services || [])
+        }
+      } catch {}
+    }
+    loadServices()
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'recurring') {
+      loadRecurringTemplates()
+    }
+  }, [tab, loadRecurringTemplates])
+
+  const handleToggleRecurringStatus = async (templateId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'paused' : 'active'
+    try {
+      const res = await fetch(`/api/client/recurring-jobs/${templateId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      })
+      if (res.ok) {
+        toast.success(`Plan ${newStatus === 'active' ? 'resumed' : 'paused'}`)
+        loadRecurringTemplates()
+      } else {
+        toast.error('Failed to update recurring plan')
+      }
+    } catch {
+      toast.error('Network error updating plan')
+    }
+  }
+
+  const handleDeleteRecurringTemplate = async (templateId: string) => {
+    try {
+      const res = await fetch(`/api/client/recurring-jobs/${templateId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Recurring plan deleted')
+        loadRecurringTemplates()
+      } else {
+        toast.error('Failed to delete plan')
+      }
+    } catch {
+      toast.error('Network error deleting plan')
+    }
+  }
+
+  const handleRunAutonomousSpawner = async () => {
+    setRunningSpawner(true)
+    try {
+      const res = await fetch('/api/client/recurring-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate' })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Autonomous job engine generated ${data.generatedCount || 0} scheduled visit(s)!`)
+        loadRecurringTemplates()
+        loadJobs()
+      } else {
+        toast.error(data.error || 'Failed to run autonomous spawner')
+      }
+    } catch {
+      toast.error('Network error running autonomous spawner')
+    } finally {
+      setRunningSpawner(false)
+    }
+  }
 
   // Note dialog state
   const [activeJobForNote, setActiveJobForNote] = useState<string | null>(null)
@@ -389,6 +497,15 @@ function JobsContent() {
             </Button>
           </Link>
           <Button
+            onClick={() => setShowRecurringModal(true)}
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shadow-xs cursor-pointer"
+          >
+            <Repeat className="h-3.5 w-3.5 mr-1 text-blue-600 dark:text-blue-400" />
+            <span>Recurring Plan</span>
+          </Button>
+          <Button
             size="sm"
             onClick={() => setShowCreateModal(true)}
             className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
@@ -407,7 +524,8 @@ function JobsContent() {
             { key: 'today', label: "Today's Schedule" },
             { key: 'active', label: 'Active Pipeline' },
             { key: 'completed', label: 'Completed' },
-            { key: 'all', label: 'All Jobs' }
+            { key: 'all', label: 'All Jobs' },
+            { key: 'recurring', label: 'Recurring Plans' }
           ].map((t) => (
             <button
               key={t.key}
@@ -438,7 +556,144 @@ function JobsContent() {
       </div>
 
       {/* Content Feed */}
-      {error ? (
+      {tab === 'recurring' ? (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/50">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                <Repeat className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-slate-900 dark:text-white">Autonomous Recurring Engine</h2>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Visits schedule themselves 14 days ahead and advance automatically upon completion.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={runningSpawner}
+                onClick={handleRunAutonomousSpawner}
+                className="h-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 shadow-xs cursor-pointer"
+              >
+                {runningSpawner ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    <span>Spawning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
+                    <span>Run Spawner Now</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowRecurringModal(true)}
+                className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                <span>New Plan</span>
+              </Button>
+            </div>
+          </div>
+
+          {loadingRecurring ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400 dark:text-zinc-500">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="text-xs">Loading recurring plans...</span>
+            </div>
+          ) : recurringTemplates.length === 0 ? (
+            <EmptyState
+              icon={Repeat}
+              title="No recurring service plans yet"
+              description="Automate recurring visits for weekly pool maintenance, bi-weekly lawn mowing, quarterly pest control, or seasonal HVAC tune-ups."
+              actionLabel="Create First Recurring Plan"
+              onAction={() => setShowRecurringModal(true)}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {recurringTemplates.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3 shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-xs text-slate-900 dark:text-white">{plan.title}</h3>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          plan.status === 'active'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
+                            : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30'
+                        }`}>
+                          {plan.status}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider block mt-0.5">
+                        {plan.cadence}
+                      </span>
+                    </div>
+
+                    <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
+                      ${Number(plan.amount).toFixed(2)}
+                      <span className="text-[10px] text-slate-400 font-normal"> / visit</span>
+                    </span>
+                  </div>
+
+                  <div className="text-xs space-y-1 text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+                    <div className="font-medium text-slate-800 dark:text-zinc-200">
+                      {plan.contacts?.name || 'Customer'} • {plan.contacts?.phone || ''}
+                    </div>
+                    {plan.contacts?.address && (
+                      <div className="truncate text-[11px] text-slate-400 dark:text-zinc-500">
+                        {plan.contacts.address}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300 font-semibold pt-1">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Next Visit: {new Date(plan.next_scheduled_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} at {plan.preferred_time_start?.slice(0, 5)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleRecurringStatus(plan.id, plan.status)}
+                      className="h-7 px-2.5 text-xs text-slate-700 dark:text-zinc-300"
+                    >
+                      {plan.status === 'active' ? (
+                        <>
+                          <Pause className="w-3 h-3 mr-1 text-amber-500" />
+                          <span>Pause Plan</span>
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-3 h-3 mr-1 text-emerald-500" />
+                          <span>Resume Plan</span>
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteRecurringTemplate(plan.id)}
+                      className="h-7 px-2 text-xs text-red-600 hover:text-red-700 border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : error ? (
         <ErrorState
           title="Failed to load field jobs"
           message={error}
@@ -595,6 +850,15 @@ function JobsContent() {
                       title="Add note"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPhotoJob(job)}
+                      className="p-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
+                      title="Job Photos (Before / After)"
+                    >
+                      <Camera className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                     </button>
 
                     {job.contact?.phone && (
@@ -788,6 +1052,26 @@ function JobsContent() {
         onClose={() => setEnRouteJob(null)}
         job={enRouteJob}
         onConfirm={handleConfirmEnRoute}
+      />
+
+      {/* Work Proof Photos Modal */}
+      <JobPhotosModal
+        isOpen={!!photoJob}
+        onClose={() => setPhotoJob(null)}
+        job={photoJob}
+        onPhotosUpdated={() => loadJobs()}
+      />
+
+      {/* Recurring Maintenance Plan Modal */}
+      <RecurringPlanModal
+        isOpen={showRecurringModal}
+        onClose={() => setShowRecurringModal(false)}
+        customers={contacts}
+        services={services}
+        onSuccess={() => {
+          loadRecurringTemplates()
+          loadJobs()
+        }}
       />
 
     </div>

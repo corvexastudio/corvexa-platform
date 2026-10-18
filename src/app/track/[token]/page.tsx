@@ -20,7 +20,10 @@ import {
   Gift,
   Copy,
   Check,
-  Share2
+  Share2,
+  Camera,
+  Sparkles,
+  X
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -71,6 +74,13 @@ interface TrackingPayload {
     rewardAmount: number
     discountAmount: number
   } | null
+  photos?: {
+    id: string
+    photo_type: 'before' | 'after' | 'progress' | 'completion'
+    url: string
+    caption?: string | null
+    created_at: string
+  }[]
 }
 
 const STAGES = [
@@ -107,6 +117,10 @@ export default function CustomerJobTrackerPage({
     setCopiedReferral(true)
     setTimeout(() => setCopiedReferral(false), 3000)
   }
+
+  // Work Photo Proof state
+  const [activePreviewPhoto, setActivePreviewPhoto] = useState<any | null>(null)
+  const [photoFilter, setPhotoFilter] = useState<'all' | 'before' | 'after'>('all')
 
   const handleFeedbackSubmit = async () => {
     if (!feedbackText.trim() || !selectedRating || !token) return
@@ -424,6 +438,103 @@ export default function CustomerJobTrackerPage({
           </div>
         </section>
 
+        {/* Work Photo Proof (Before & After Visual Transformation) */}
+        {data.photos && data.photos.length > 0 && (
+          <section className="bg-white dark:bg-zinc-900/90 border border-slate-200/90 dark:border-zinc-800 rounded-2xl p-5 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-zinc-100">
+                    Work Photo Verification
+                  </h3>
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+                    Live photos captured on-site by your technician
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick filter pills if both before and after exist */}
+              {data.photos.some(p => p.photo_type === 'before') && data.photos.some(p => p.photo_type === 'after') && (
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800/80 p-0.5 rounded-lg text-[10px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setPhotoFilter('all')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      photoFilter === 'all'
+                        ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400'
+                    }`}
+                  >
+                    All ({data.photos.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoFilter('before')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      photoFilter === 'before'
+                        ? 'bg-white dark:bg-zinc-900 text-amber-600 dark:text-amber-400 shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400'
+                    }`}
+                  >
+                    Before
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoFilter('after')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      photoFilter === 'after'
+                        ? 'bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400'
+                    }`}
+                  >
+                    After
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Photo Gallery Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              {data.photos
+                .filter(p => photoFilter === 'all' || p.photo_type === photoFilter)
+                .map((photo) => (
+                  <div
+                    key={photo.id}
+                    onClick={() => setActivePreviewPhoto(photo)}
+                    className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 aspect-square cursor-pointer shadow-2xs"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={photo.caption || `${photo.photo_type} photo`}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    />
+
+                    {/* Badge */}
+                    <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider shadow-xs ${
+                      photo.photo_type === 'before'
+                        ? 'bg-amber-600 text-white'
+                        : photo.photo_type === 'after'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-indigo-600 text-white'
+                    }`}>
+                      {photo.photo_type}
+                    </span>
+
+                    {photo.caption && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 text-[10px] text-white truncate">
+                        {photo.caption}
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </section>
+        )}
+
         {/* Invoice & Payment Card (When Invoice is Ready) */}
         {invoice && (
           <section className="bg-white dark:bg-zinc-900/90 border border-indigo-200 dark:border-indigo-500/30 rounded-2xl p-5 space-y-3.5 shadow-sm">
@@ -633,6 +744,35 @@ export default function CustomerJobTrackerPage({
         </footer>
 
       </div>
+
+      {/* Lightbox Photo Preview */}
+      {activePreviewPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in cursor-pointer"
+          onClick={() => setActivePreviewPhoto(null)}
+        >
+          <div className="relative max-w-2xl w-full max-h-[85vh] flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setActivePreviewPhoto(null)}
+              className="absolute -top-10 right-0 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={activePreviewPhoto.url}
+              alt={activePreviewPhoto.caption || 'Work verification'}
+              className="max-h-[75vh] w-auto rounded-xl object-contain shadow-2xl"
+            />
+            {activePreviewPhoto.caption && (
+              <p className="mt-3 text-xs sm:text-sm text-white font-medium text-center bg-black/50 px-3 py-1 rounded-full">
+                {activePreviewPhoto.caption}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
