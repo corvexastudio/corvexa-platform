@@ -465,12 +465,23 @@ export async function customerViewJobTracking(
     }
   }
 
-  // 5. Job Photos Resolution (Visual proof: Before & After)
-  const { data: photos } = await supabase
+  // 5. Job Photos Resolution (Visual proof: Before & After with authorized URLs)
+  const { data: rawPhotos } = await supabase
     .from('job_photos')
     .select('id, photo_type, url, caption, created_at')
     .eq('job_id', job.id)
     .order('created_at', { ascending: true })
+
+  let photos: any[] = []
+  if (rawPhotos && rawPhotos.length > 0) {
+    const { getAuthorizedPhotoUrl } = await import('./photo-manager.ts')
+    photos = await Promise.all(
+      rawPhotos.map(async (p: any) => ({
+        ...p,
+        url: await getAuthorizedPhotoUrl(supabase, p.url)
+      }))
+    )
+  }
 
   // 6. Assigned Crew Resolution
   let crewInfo: { name: string; colorCode: string; phoneNumber?: string | null } | null = null

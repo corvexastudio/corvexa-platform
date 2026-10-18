@@ -140,7 +140,7 @@ export function JobPhotosModal({
               type="button"
               onClick={() => setActiveTab('before')}
               className={cn(
-                'py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer',
+                'py-2.5 px-3 min-h-[44px] rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer',
                 activeTab === 'before'
                   ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
                   : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -157,7 +157,7 @@ export function JobPhotosModal({
               type="button"
               onClick={() => setActiveTab('after')}
               className={cn(
-                'py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer',
+                'py-2.5 px-3 min-h-[44px] rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer',
                 activeTab === 'after'
                   ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
                   : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -176,9 +176,10 @@ export function JobPhotosModal({
             <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 placeholder={`Optional ${activeTab} note / caption (e.g. Broken valve, Repaired copper line)...`}
+                aria-label={`Photo note or caption for ${activeTab} photo`}
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
-                className="text-xs h-9 bg-white dark:bg-zinc-900"
+                className="text-xs h-10 sm:h-9 bg-white dark:bg-zinc-900"
               />
 
               <input
@@ -193,8 +194,9 @@ export function JobPhotosModal({
               <Button
                 type="button"
                 disabled={uploading}
+                size="touch"
                 onClick={() => fileInputRef.current?.click()}
-                className="h-9 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shrink-0 flex items-center gap-2 shadow-xs cursor-pointer"
+                className="min-h-[44px] h-11 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shrink-0 flex items-center justify-center gap-2 shadow-xs cursor-pointer rounded-xl"
               >
                 {uploading ? (
                   <>

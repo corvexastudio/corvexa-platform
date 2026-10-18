@@ -28,6 +28,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "test/**",
     "*.mjs",
+    "New folder/**",
+    "design-review/**",
   ]),
 ]);
 

@@ -1662,3 +1662,299 @@ USING (
 WITH CHECK (
     (org_id = auth_user_org_id() OR auth_is_super_admin())
 );
+
+-- ==============================================================================
+-- PHASE 2A: HARDENED TABLES & ROW LEVEL SECURITY POLICIES
+-- ==============================================================================
+
+-- 1. REFERRAL LINKS
+CREATE TABLE IF NOT EXISTS referral_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
+    referral_code TEXT UNIQUE NOT NULL,
+    reward_amount NUMERIC(10,2) DEFAULT 25.00,
+    discount_amount NUMERIC(10,2) DEFAULT 25.00,
+    clicks_count INT DEFAULT 0,
+    conversions_count INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_referral_links_code ON referral_links(referral_code);
+CREATE INDEX IF NOT EXISTS idx_referral_links_org ON referral_links(org_id);
+CREATE INDEX IF NOT EXISTS idx_referral_links_contact ON referral_links(contact_id);
+
+ALTER TABLE referral_links ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Referral tenant isolation select" ON referral_links;
+CREATE POLICY "Referral tenant isolation select" ON referral_links 
+  FOR SELECT TO authenticated
+  USING (
+    org_id = auth_user_org_id()
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Referral tenant isolation insert" ON referral_links;
+CREATE POLICY "Referral tenant isolation insert" ON referral_links 
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Referral tenant isolation update" ON referral_links;
+CREATE POLICY "Referral tenant isolation update" ON referral_links 
+  FOR UPDATE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  )
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Referral service role full access" ON referral_links;
+CREATE POLICY "Referral service role full access" ON referral_links 
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- 2. CREWS & FLEET
+CREATE TABLE IF NOT EXISTS crews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    color_code TEXT DEFAULT '#3B82F6',
+    phone_number TEXT,
+    service_area TEXT,
+    crew_lead_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    member_ids UUID[] DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_crews_org ON crews(org_id);
+CREATE INDEX IF NOT EXISTS idx_crews_active ON crews(org_id, is_active);
+
+ALTER TABLE crews ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Tenant users can view crews" ON crews;
+CREATE POLICY "Tenant users can view crews" ON crews
+  FOR SELECT TO authenticated
+  USING (
+    org_id = auth_user_org_id()
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Tenant users can insert crews" ON crews;
+CREATE POLICY "Tenant users can insert crews" ON crews
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Tenant users can update crews" ON crews;
+CREATE POLICY "Tenant users can update crews" ON crews
+  FOR UPDATE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  )
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Tenant users can delete crews" ON crews;
+CREATE POLICY "Tenant users can delete crews" ON crews
+  FOR DELETE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Crews service role full access" ON crews;
+CREATE POLICY "Crews service role full access" ON crews
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- 3. RECURRING JOB TEMPLATES
+CREATE TABLE IF NOT EXISTS recurring_job_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+    assigned_to UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    cadence TEXT NOT NULL CHECK (cadence IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'biannual')),
+    day_of_week INT,
+    preferred_time_start TIME DEFAULT '09:00:00',
+    duration_minutes INT DEFAULT 60,
+    amount NUMERIC(10,2) DEFAULT 0.00,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled')),
+    auto_generate_days_ahead INT DEFAULT 14,
+    last_generated_at TIMESTAMPTZ,
+    next_scheduled_date DATE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_recurring_templates_org ON recurring_job_templates(org_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_templates_due ON recurring_job_templates(status, next_scheduled_date);
+
+ALTER TABLE recurring_job_templates ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Recurring templates tenant isolation select" ON recurring_job_templates;
+CREATE POLICY "Recurring templates tenant isolation select" ON recurring_job_templates 
+  FOR SELECT TO authenticated
+  USING (
+    org_id = auth_user_org_id()
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Recurring templates tenant isolation insert" ON recurring_job_templates;
+CREATE POLICY "Recurring templates tenant isolation insert" ON recurring_job_templates 
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Recurring templates tenant isolation update" ON recurring_job_templates;
+CREATE POLICY "Recurring templates tenant isolation update" ON recurring_job_templates 
+  FOR UPDATE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  )
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Recurring templates tenant isolation delete" ON recurring_job_templates;
+CREATE POLICY "Recurring templates tenant isolation delete" ON recurring_job_templates 
+  FOR DELETE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND auth_user_role() IN ('owner', 'admin', 'client_admin')
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Recurring templates service role full access" ON recurring_job_templates;
+CREATE POLICY "Recurring templates service role full access" ON recurring_job_templates 
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- 4. JOB PHOTOS
+CREATE TABLE IF NOT EXISTS job_photos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    photo_type TEXT NOT NULL CHECK (photo_type IN ('before', 'after', 'progress', 'completion')),
+    url TEXT NOT NULL,
+    caption TEXT,
+    uploaded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_job_photos_job_id ON job_photos(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_photos_org_id ON job_photos(org_id);
+
+ALTER TABLE job_photos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Job photos tenant isolation select" ON job_photos;
+CREATE POLICY "Job photos tenant isolation select" ON job_photos 
+  FOR SELECT TO authenticated
+  USING (
+    org_id = auth_user_org_id()
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Job photos tenant isolation insert" ON job_photos;
+CREATE POLICY "Job photos tenant isolation insert" ON job_photos 
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    org_id = auth_user_org_id()
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Job photos tenant isolation update" ON job_photos;
+CREATE POLICY "Job photos tenant isolation update" ON job_photos 
+  FOR UPDATE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND (
+        auth_user_role() IN ('owner', 'admin', 'client_admin')
+        OR uploaded_by = auth.uid()
+      )
+    )
+    OR auth_is_super_admin()
+  )
+  WITH CHECK (
+    (
+      org_id = auth_user_org_id()
+      AND (
+        auth_user_role() IN ('owner', 'admin', 'client_admin')
+        OR uploaded_by = auth.uid()
+      )
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Job photos tenant isolation delete" ON job_photos;
+CREATE POLICY "Job photos tenant isolation delete" ON job_photos 
+  FOR DELETE TO authenticated
+  USING (
+    (
+      org_id = auth_user_org_id()
+      AND (
+        auth_user_role() IN ('owner', 'admin', 'client_admin')
+        OR uploaded_by = auth.uid()
+      )
+    )
+    OR auth_is_super_admin()
+  );
+
+DROP POLICY IF EXISTS "Job photos service role full access" ON job_photos;
+CREATE POLICY "Job photos service role full access" ON job_photos 
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+

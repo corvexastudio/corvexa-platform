@@ -4,6 +4,9 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
+import { FilterTabs } from '@/components/ui/filter-tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/modal'
@@ -66,29 +69,13 @@ const STAGES: { key: LeadItem['status']; label: string; countColor: string }[] =
 function getStatusBadge(status: LeadItem['status']) {
   switch (status) {
     case 'new':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          New
-        </span>
-      )
+      return <Badge variant="info" size="sm">New</Badge>
     case 'contacted':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          Contacted
-        </span>
-      )
+      return <Badge variant="warning" size="sm">Contacted</Badge>
     case 'booked':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          Booked
-        </span>
-      )
+      return <Badge variant="success" size="sm">Booked</Badge>
     case 'lost':
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
-          Archived
-        </span>
-      )
+      return <Badge variant="neutral" size="sm">Archived</Badge>
   }
 }
 
@@ -96,14 +83,9 @@ function getSourceBadge(source: string) {
   const formatted = source === 'missed_call' ? 'Missed Call' : source.replace('_', ' ')
   const isMissed = source === 'missed_call'
   return (
-    <span className={cn(
-      "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium border",
-      isMissed
-        ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-        : "bg-zinc-800 text-zinc-400 border-zinc-700/80"
-    )}>
+    <Badge variant={isMissed ? 'danger' : 'neutral'} size="sm">
       {formatted}
-    </span>
+    </Badge>
   )
 }
 
@@ -309,121 +291,83 @@ export default function LeadsPage() {
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Leads
-            </h1>
-            <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 tabular-nums">
-              {leads.length}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Inbound opportunities captured from phone calls, booking links, and messages.
-          </p>
-        </div>
-
-        {/* View Switcher & Actions */}
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleExportCsv}
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
-            title="Download full leads pipeline as CSV"
-          >
-            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
-            <span>Export CSV</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => setShowCreateModal(true)}
-            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            <span>New Lead</span>
-          </Button>
-
-          <div className="inline-flex rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 p-0.5">
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                viewMode === 'table'
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
+      <PageHeader
+        title="Leads Pipeline"
+        subtitle="Inbound opportunities captured from phone calls, booking links, and SMS triage."
+        badge={
+          <Badge variant="neutral" size="default" className="font-bold tabular-nums">
+            {leads.length} total
+          </Badge>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handleExportCsv}
+              variant="outline"
+              size="sm"
+              title="Download full leads pipeline as CSV"
             >
-              <LayoutList className="h-3.5 w-3.5" />
-              <span>Table</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('pipeline')}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                viewMode === 'pipeline'
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
-            >
-              <Columns3 className="h-3.5 w-3.5" />
-              <span>Pipeline</span>
-            </button>
-          </div>
-
-          <Link href="/client/inbox">
-            <Button variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white hover:bg-slate-50 dark:bg-zinc-900 text-slate-700 hover:text-slate-900 dark:text-zinc-200 dark:hover:text-white shadow-xs">
-              Open Inbox
+              <Download className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+              <span>Export CSV</span>
             </Button>
-          </Link>
-        </div>
-      </div>
+
+            <Button
+              size="sm"
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              <span>New Lead</span>
+            </Button>
+
+            <FilterTabs
+              tabs={[
+                { id: 'table', label: 'Table', icon: LayoutList },
+                { id: 'pipeline', label: 'Pipeline', icon: Columns3 },
+              ]}
+              activeTab={viewMode}
+              onChange={(val) => setViewMode(val as 'table' | 'pipeline')}
+              size="sm"
+              ariaLabel="View switcher"
+            />
+
+            <Link href="/client/inbox">
+              <Button variant="outline" size="sm">
+                Open Inbox
+              </Button>
+            </Link>
+          </div>
+        }
+      />
 
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Stage Filter Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setStageFilter('all')}
-            className={cn(
-              "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
-              stageFilter === 'all'
-                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/80 dark:border-zinc-700"
-                : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100/70 dark:hover:bg-zinc-900"
-            )}
-          >
-            All <span className="ml-1 text-[11px] text-slate-400 dark:text-zinc-500 tabular-nums">({stageCounts.all})</span>
-          </button>
-          {STAGES.map(stage => (
-            <button
-              key={stage.key}
-              type="button"
-              onClick={() => setStageFilter(stage.key)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
-                stageFilter === stage.key
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/80 dark:border-zinc-700"
-                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100/70 dark:hover:bg-zinc-900"
-              )}
-            >
-              {stage.label} <span className="ml-1 text-[11px] text-slate-400 dark:text-zinc-500 tabular-nums">({stageCounts[stage.key]})</span>
-            </button>
-          ))}
+        <div className="overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <FilterTabs
+            tabs={[
+              { id: 'all', label: 'All', count: stageCounts.all },
+              { id: 'new', label: 'New', count: stageCounts.new },
+              { id: 'contacted', label: 'Contacted', count: stageCounts.contacted },
+              { id: 'booked', label: 'Booked', count: stageCounts.booked },
+              { id: 'lost', label: 'Archived', count: stageCounts.lost },
+            ]}
+            activeTab={stageFilter}
+            onChange={(val) => setStageFilter(val as 'all' | LeadItem['status'])}
+            size="sm"
+            ariaLabel="Lead stage filter"
+          />
         </div>
 
         {/* Search */}
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-zinc-400 pointer-events-none" />
           <Input
             placeholder="Search name, phone, service..."
+            aria-label="Search leads by name, phone, or service"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="h-8 pl-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-400 rounded-md shadow-2xs"
+            className="h-9 pl-8.5 text-xs sm:text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-400 rounded-md shadow-2xs"
           />
         </div>
       </div>

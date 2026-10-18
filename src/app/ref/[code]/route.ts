@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveReferralByCode, recordReferralClick } from '@/lib/referrals/referral-manager'
+import { checkRateLimit, extractClientIp, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 
 export async function GET(
   request: NextRequest,
   props: { params: Promise<{ code: string }> }
 ) {
+  const clientIp = extractClientIp(request)
+  const rateLimitResult = checkRateLimit(`ref_redirect:${clientIp}`, { max: 30, windowMs: 60 * 1000 })
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+    )
+  }
+
   const { code } = await props.params
 
   if (!code || !code.trim()) {

@@ -115,7 +115,9 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
   const supabase = createClient()
   const router = useRouter()
   const routerRef = useRef(router)
-  routerRef.current = router
+  useEffect(() => {
+    routerRef.current = router
+  }, [router])
 
   const [mounted, setMounted] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -158,7 +160,9 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
   }, [])
 
   const fetchNotificationsRef = useRef(fetchNotifications)
-  fetchNotificationsRef.current = fetchNotifications
+  useEffect(() => {
+    fetchNotificationsRef.current = fetchNotifications
+  }, [fetchNotifications])
 
   // Initial load & organization ID detection
   useEffect(() => {

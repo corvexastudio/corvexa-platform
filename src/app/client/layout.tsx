@@ -359,10 +359,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => setMobileDrawerOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-colors"
+              className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-colors cursor-pointer"
               aria-label="Open navigation menu"
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-5 w-5" />
             </button>
             <h1 className="text-sm font-bold text-slate-900 dark:text-zinc-100 truncate">
               {pageTitle}
@@ -377,9 +377,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {unreadTotal > 0 && (
               <Link
                 href="/client/inbox"
-                className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 dark:bg-blue-600/10 dark:border-blue-500/20 px-2 py-0.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400"
+                className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 dark:bg-blue-600/10 dark:border-blue-500/20 px-2.5 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 min-h-[36px]"
               >
-                <MessageSquare className="h-3 w-3" />
+                <MessageSquare className="h-3.5 w-3.5" />
                 <span>{unreadTotal}</span>
               </Link>
             )}
@@ -445,10 +445,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               </div>
               <button
                 onClick={() => setMobileDrawerOpen(false)}
-                className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-900"
+                className="h-10 w-10 min-h-[44px] min-w-[44px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-900 cursor-pointer"
                 aria-label="Close menu"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 

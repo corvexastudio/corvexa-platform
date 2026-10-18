@@ -56,7 +56,52 @@ export async function addJobPhoto(
 }
 
 /**
+ * Resolves a stored photo URL or storage path into an authorized URL.
+ * If the path belongs to a private storage bucket, a short-lived signed URL (24h) is created.
+ * Fallbacks cleanly for data URIs or external links.
+ */
+export async function getAuthorizedPhotoUrl(
+  supabase: SupabaseClient,
+  rawUrl: string,
+  expiresInSeconds: number = 86400
+): Promise<string> {
+  if (!rawUrl || rawUrl.startsWith('data:')) {
+    return rawUrl
+  }
+
+  try {
+    // If it's already a relative storage path (e.g. orgId/jobId/filename.ext)
+    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+      const { data, error } = await supabase.storage
+        .from('job-photos')
+        .createSignedUrl(rawUrl, expiresInSeconds)
+      if (!error && data?.signedUrl) {
+        return data.signedUrl
+      }
+      return rawUrl
+    }
+
+    // If it's an existing full URL pointing to /job-photos/
+    const match = rawUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/job-photos\/(.+?)(?:\?.*)?$/)
+    if (match && match[1]) {
+      const storagePath = decodeURIComponent(match[1])
+      const { data, error } = await supabase.storage
+        .from('job-photos')
+        .createSignedUrl(storagePath, expiresInSeconds)
+      if (!error && data?.signedUrl) {
+        return data.signedUrl
+      }
+    }
+  } catch {
+    // Graceful fallback to raw URL
+  }
+
+  return rawUrl
+}
+
+/**
  * Retrieves all photos for a given job, categorized by photo_type.
+ * Resolves private storage paths to authorized signed URLs.
  */
 export async function listJobPhotos(
   supabase: SupabaseClient,
@@ -72,32 +117,99 @@ export async function listJobPhotos(
     return { success: false, photos: [], error: error.message }
   }
 
-  return { success: true, photos: (data as JobPhotoRecord[]) || [] }
+  const rawPhotos = (data as JobPhotoRecord[]) || []
+  const photosWithSignedUrls = await Promise.all(
+    rawPhotos.map(async (photo) => {
+      const authorizedUrl = await getAuthorizedPhotoUrl(supabase, photo.url)
+      return {
+        ...photo,
+        url: authorizedUrl
+      }
+    })
+  )
+
+  return { success: true, photos: photosWithSignedUrls }
 }
 
 /**
- * Deletes a photo record from a job.
+ * Deletes a photo record from a job and cleans up the underlying storage object.
+ * Enforces DB authorization first before deleting the storage object.
  */
 export async function deleteJobPhoto(
   supabase: SupabaseClient,
   photoId: string,
   orgId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
+  // 1. Fetch photo to get storage path
+  const { data: photo, error: fetchError } = await supabase
+    .from('job_photos')
+    .select('id, url, org_id')
+    .eq('id', photoId)
+    .eq('org_id', orgId)
+    .maybeSingle()
+
+  if (fetchError || !photo) {
+    return { success: false, error: 'Photo not found or inaccessible' }
+  }
+
+  // 2. Perform database deletion with RLS enforcement
+  const { data: deleted, error } = await supabase
     .from('job_photos')
     .delete()
     .eq('id', photoId)
     .eq('org_id', orgId)
+    .select('id')
 
   if (error) {
     return { success: false, error: error.message }
+  }
+
+  if (!deleted || (Array.isArray(deleted) && deleted.length === 0)) {
+    return { success: false, error: 'Forbidden: Insufficient permissions to delete photo' }
+  }
+
+  // 3. Remove storage object only after successful database deletion
+  if (photo.url && !photo.url.startsWith('data:')) {
+    let storagePath = photo.url
+    const match = photo.url.match(/\/storage\/v1\/object\/(?:public|sign)\/job-photos\/(.+?)(?:\?.*)?$/)
+    if (match && match[1]) {
+      storagePath = decodeURIComponent(match[1])
+    }
+    if (!storagePath.startsWith('http://') && !storagePath.startsWith('https://')) {
+      await supabase.storage.from('job-photos').remove([storagePath]).catch(() => {})
+    }
   }
 
   return { success: true }
 }
 
 /**
- * Uploads a file buffer or base64 to Supabase Storage bucket 'job-photos'
+ * Updates a job photo's caption or metadata.
+ * Enforces tenant boundary and role authorization via RLS.
+ */
+export async function updateJobPhotoCaption(
+  supabase: SupabaseClient,
+  photoId: string,
+  orgId: string,
+  caption: string
+): Promise<{ success: boolean; photo?: JobPhotoRecord; error?: string }> {
+  const { data, error } = await supabase
+    .from('job_photos')
+    .update({ caption: caption.trim() })
+    .eq('id', photoId)
+    .eq('org_id', orgId)
+    .select('*')
+    .single()
+
+  if (error || !data) {
+    return { success: false, error: error?.message || 'Failed to update photo caption' }
+  }
+
+  return { success: true, photo: data as JobPhotoRecord }
+}
+
+/**
+ * Uploads a file buffer or base64 to Supabase Storage private bucket 'job-photos'
  * and records it in the database.
  */
 export async function uploadJobPhotoFile(
@@ -129,12 +241,12 @@ export async function uploadJobPhotoFile(
         upsert: true
       })
 
-    let publicUrl = ''
+    let photoUrl = storagePath
 
     if (uploadError) {
-      // If bucket does not exist, try to create it or handle gracefully
+      // If bucket does not exist, create it as PRIVATE (public: false)
       if (uploadError.message?.toLowerCase().includes('not found') || uploadError.message?.toLowerCase().includes('bucket')) {
-        await supabase.storage.createBucket(bucketName, { public: true }).catch(() => {})
+        await supabase.storage.createBucket(bucketName, { public: false }).catch(() => {})
         const retry = await supabase.storage.from(bucketName).upload(storagePath, fileBuffer, {
           contentType,
           upsert: true
@@ -142,7 +254,7 @@ export async function uploadJobPhotoFile(
         if (retry.error) {
           // If storage bucket creation is restricted, fallback to data url for smaller images
           if (fileBuffer.byteLength < 2 * 1024 * 1024) {
-            publicUrl = `data:${contentType};base64,${Buffer.from(fileBuffer).toString('base64')}`
+            photoUrl = `data:${contentType};base64,${Buffer.from(fileBuffer).toString('base64')}`
           } else {
             return { success: false, error: `Storage upload failed: ${retry.error.message}` }
           }
@@ -152,20 +264,29 @@ export async function uploadJobPhotoFile(
       }
     }
 
-    if (!publicUrl) {
-      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(storagePath)
-      publicUrl = urlData.publicUrl
-    }
-
-    // 2. Persist to job_photos table
-    return await addJobPhoto(supabase, {
+    // 2. Persist to job_photos table with private storage path
+    const addResult = await addJobPhoto(supabase, {
       orgId,
       jobId,
       photoType,
-      url: publicUrl,
+      url: photoUrl,
       caption,
       uploadedBy
     })
+
+    if (!addResult.success || !addResult.photo) {
+      return addResult
+    }
+
+    // Resolve authorized URL for the immediate API response
+    const authorizedUrl = await getAuthorizedPhotoUrl(supabase, addResult.photo.url)
+    return {
+      success: true,
+      photo: {
+        ...addResult.photo,
+        url: authorizedUrl
+      }
+    }
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed to upload job photo' }
   }

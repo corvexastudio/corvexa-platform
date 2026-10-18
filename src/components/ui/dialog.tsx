@@ -65,8 +65,9 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2.5 right-2.5 h-8 w-8 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
-                size="icon-sm"
+                className="absolute top-2.5 right-2.5 h-9 w-9 min-h-[44px] min-w-[44px] text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white cursor-pointer"
+                size="icon-touch"
+                aria-label="Close dialog"
               />
             }
           >

@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { FilterTabs } from '@/components/ui/filter-tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
@@ -307,41 +309,26 @@ export default function InboxPage() {
           </div>
 
           {/* Quick Filter Segment */}
-          <div className="flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-zinc-900 p-0.5 border border-slate-200 dark:border-zinc-800 text-xs">
-            <button
-              type="button"
-              onClick={() => setFilterTab('all')}
-              className={cn(
-                "flex-1 py-1 rounded-md text-center text-xs font-semibold transition-all cursor-pointer",
-                filterTab === 'all'
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-2xs"
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
-            >
-              All ({conversations.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTab('unread')}
-              className={cn(
-                "flex-1 py-1 rounded-md text-center text-xs font-semibold transition-all cursor-pointer",
-                filterTab === 'unread'
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-2xs"
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
-            >
-              Unread {totalUnread > 0 ? `(${totalUnread})` : ''}
-            </button>
-          </div>
+          <FilterTabs
+            tabs={[
+              { id: 'all', label: 'All', count: conversations.length },
+              { id: 'unread', label: 'Unread', count: totalUnread > 0 ? totalUnread : undefined }
+            ]}
+            activeTab={filterTab}
+            onChange={(val) => setFilterTab(val as 'all' | 'unread')}
+            className="w-full justify-stretch grid grid-cols-2"
+            size="sm"
+            ariaLabel="Filter conversations"
+          />
 
           {/* Search bar */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
             <Input
               placeholder="Search customer, phone, text..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-8 h-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100"
+              className="pl-8.5 h-9 text-xs sm:text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100"
             />
           </div>
         </div>
@@ -397,10 +384,10 @@ export default function InboxPage() {
                 <button
                   type="button"
                   onClick={() => setMobileViewThread(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0"
+                  className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0 cursor-pointer"
                   aria-label="Back to conversations"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -426,18 +413,20 @@ export default function InboxPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <a
                   href={`tel:${activeConv.contact?.phone}`}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 transition-colors shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 transition-colors shadow-2xs cursor-pointer"
                   title="Call customer directly"
+                  aria-label="Call customer directly"
                 >
-                  <PhoneCall className="h-3.5 w-3.5" />
+                  <PhoneCall className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Call</span>
                 </a>
                 <Link
                   href={`/client/customers/${activeConv.contact_id}`}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer"
                   title="View customer record"
+                  aria-label="View customer profile"
                 >
-                  <User className="h-3.5 w-3.5" />
+                  <User className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Profile</span>
                 </Link>
               </div>
@@ -487,19 +476,21 @@ export default function InboxPage() {
             <div className="border-t border-slate-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-950 space-y-2.5 shrink-0 shadow-xs">
               <CannedSnippetsBar onSelect={text => setReplyText(text)} />
 
-              <form onSubmit={handleSendReply} className="flex gap-2">
+              <form onSubmit={handleSendReply} className="flex gap-2 items-center">
                 <Input
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
                   placeholder="Type an SMS reply (or select template)..."
-                  className="flex-1 h-10 text-xs sm:text-sm bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-900"
+                  aria-label="Type an SMS reply"
+                  className="flex-1 min-h-[44px] h-11 text-xs sm:text-sm bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-900 px-3.5"
                   disabled={sending}
                 />
                 <Button 
                   type="submit" 
                   disabled={!replyText.trim() || sending}
-                  size="sm"
-                  className="h-10 px-4 gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 shadow-xs transition-colors cursor-pointer"
+                  size="touch"
+                  aria-label="Send SMS message"
+                  className="min-h-[44px] h-11 px-4 gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 shadow-xs transition-colors cursor-pointer"
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -584,12 +575,13 @@ export default function InboxPage() {
                 <button
                   key={st}
                   type="button"
+                  aria-pressed={leadStatus === st}
                   onClick={() => handleStatusChange(st)}
                   className={cn(
-                    'px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all capitalize text-center shadow-2xs cursor-pointer',
+                    'px-2.5 py-2 min-h-[38px] text-xs font-semibold rounded-lg border transition-all capitalize text-center shadow-2xs cursor-pointer',
                     leadStatus === st
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                      : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                      ? 'bg-blue-600 border-blue-600 text-white shadow-xs font-bold'
+                      : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'
                   )}
                 >
                   {st}

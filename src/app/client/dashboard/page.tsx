@@ -29,6 +29,10 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { PageHeader } from '@/components/ui/page-header'
+import { FilterTabs } from '@/components/ui/filter-tabs'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { 
   AttentionItem, 
   OperationalMetrics, 
@@ -149,37 +153,37 @@ export default function DashboardPage() {
       case 'lead':
         return {
           label: 'New Lead',
-          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/40',
+          variant: 'info' as const,
           icon: Target
         }
       case 'message':
         return {
           label: 'Unread Inquiry',
-          badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-900/40',
+          variant: 'info' as const,
           icon: MessageSquare
         }
       case 'quote':
         return {
           label: 'Expiring Estimate',
-          badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/40',
+          variant: 'warning' as const,
           icon: FileText
         }
       case 'appointment':
         return {
           label: 'Booking Request',
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/40',
+          variant: 'success' as const,
           icon: CalendarCheck
         }
       case 'invoice':
         return {
           label: 'Overdue Balance',
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/40',
+          variant: 'danger' as const,
           icon: CreditCard
         }
       default:
         return {
           label: 'Action Required',
-          badgeClass: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700',
+          variant: 'neutral' as const,
           icon: AlertCircle
         }
     }
@@ -189,59 +193,39 @@ export default function DashboardPage() {
     <div className="space-y-8">
       
       {/* ── Page Header: Today's Briefing ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
-        <div>
+      <PageHeader
+        title="Today's Command Center"
+        subtitle={org?.name ? `${org.name} • Operational status, dispatch & triage.` : 'Daily operational overview.'}
+        badge={
+          <Badge variant="neutral" size="default" suppressHydrationWarning>
+            {todayFormatted}
+          </Badge>
+        }
+        actions={
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Today&apos;s Command Center
-            </h1>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700" suppressHydrationWarning>
-              {todayFormatted}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            {org?.name ? `${org.name} • Operational status, dispatch & triage.` : 'Daily operational overview.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Period selector */}
-          <div className="flex items-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100/80 dark:bg-zinc-900 p-0.5 text-xs shadow-2xs">
-            <button
-              onClick={() => setPeriod('7d')}
-              className={cn(
-                "px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer",
-                period === '7d' 
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-2xs" 
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
+            <FilterTabs
+              tabs={[
+                { id: '7d', label: '7 Days' },
+                { id: '30d', label: '30 Days' },
+              ]}
+              activeTab={period}
+              onChange={(val) => setPeriod(val as TimeRange)}
+              ariaLabel="Dashboard time period"
+            />
+            <Button
+              variant="outline"
+              size="icon-touch"
+              onClick={() => loadDashboard(period)}
+              disabled={loading}
+              title="Refresh dashboard"
+              aria-label="Refresh dashboard"
+              className="sm:size-9 min-h-[44px] min-w-[44px] sm:min-h-9 sm:min-w-9 cursor-pointer"
             >
-              7 Days
-            </button>
-            <button
-              onClick={() => setPeriod('30d')}
-              className={cn(
-                "px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer",
-                period === '30d' 
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-2xs" 
-                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
-            >
-              30 Days
-            </button>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
           </div>
-
-          <button
-            onClick={() => loadDashboard(period)}
-            disabled={loading}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 shadow-2xs cursor-pointer"
-            title="Refresh dashboard"
-            aria-label="Refresh dashboard"
-          >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <ErrorState
@@ -259,9 +243,9 @@ export default function DashboardPage() {
               Needs Immediate Attention
             </h2>
             {attentionQueue.length > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+              <Badge variant="warning" size="sm" className="font-bold tabular-nums">
                 {attentionQueue.length}
-              </span>
+              </Badge>
             )}
           </div>
           <span className="text-xs text-slate-400 dark:text-zinc-500 font-medium">Prioritized triage items</span>
@@ -311,10 +295,10 @@ export default function DashboardPage() {
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={cn("inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border", meta.badgeClass)}>
+                      <Badge variant={meta.variant} size="sm" className="font-semibold uppercase tracking-wider">
                         <Icon className="h-3 w-3" />
                         <span>{meta.label}</span>
-                      </span>
+                      </Badge>
                       <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
                         {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
@@ -396,16 +380,19 @@ export default function DashboardPage() {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate">{job.title}</span>
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded-md border capitalize",
-                        job.status === 'completed'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
-                          : job.status === 'in_progress'
-                          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
-                          : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
-                      )}>
+                      <Badge
+                        variant={
+                          job.status === 'completed'
+                            ? 'success'
+                            : job.status === 'in_progress'
+                            ? 'info'
+                            : 'neutral'
+                        }
+                        size="sm"
+                        className="capitalize font-semibold"
+                      >
                         {job.status.replace('_', ' ')}
-                      </span>
+                      </Badge>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
                       <span className="font-medium text-slate-700 dark:text-zinc-300">{job.customerName}</span>
@@ -528,9 +515,9 @@ export default function DashboardPage() {
               Directly measured and attributed to your CaptoDesk digital front desk.
             </p>
           </div>
-          <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
+          <Badge variant="neutral" size="default">
             {period === '7d' ? 'Last 7 Days' : 'Last 30 Days'}
-          </span>
+          </Badge>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">

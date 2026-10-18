@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -254,54 +256,53 @@ export default function FieldPage() {
   return (
     <div className="space-y-4 max-w-3xl mx-auto pb-12">
       {/* Field Mobile Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <h1 className="text-lg font-bold text-slate-900 dark:text-zinc-100">
-              Field Technician Portal
-            </h1>
+      <PageHeader
+        title="Field Technician Portal"
+        subtitle="1-Tap status updates, turn-by-turn navigation, and Before & After photo proof."
+        badge={
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Active Dispatch</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-            1-Tap status updates, turn-by-turn navigation, and Before &amp; After photo proof.
-          </p>
-        </div>
-
-        {/* Date Navigator */}
-        <div className="flex items-center gap-1 self-start sm:self-auto bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-xl">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleDateChange(-1)}
-            className="h-8 w-8 p-0 text-slate-600 dark:text-zinc-300"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="px-3 text-xs font-semibold text-slate-800 dark:text-zinc-100 min-w-28 text-center">
-            {new Intl.DateTimeFormat('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric'
-            }).format(new Date(`${selectedDate}T12:00:00.000Z`))}
+        }
+        actions={
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-700/60 shadow-2xs">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDateChange(-1)}
+              className="h-9 w-9 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200"
+              aria-label="Previous day"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="px-2 text-xs sm:text-sm font-bold text-slate-800 dark:text-zinc-100 min-w-28 text-center tabular-nums">
+              {new Intl.DateTimeFormat('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              }).format(new Date(`${selectedDate}T12:00:00.000Z`))}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDateChange(1)}
+              className="h-9 w-9 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200"
+              aria-label="Next day"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDateChange(0)}
+              className="min-h-[44px] text-xs font-bold text-blue-600 dark:text-blue-400 px-3.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 cursor-pointer"
+            >
+              Today
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleDateChange(1)}
-            className="h-8 w-8 p-0 text-slate-600 dark:text-zinc-300"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleDateChange(0)}
-            className="h-8 text-xs font-semibold text-blue-600 dark:text-blue-400 px-2"
-          >
-            Today
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Jobs Route List */}
       {error ? (
@@ -377,18 +378,21 @@ export default function FieldPage() {
                   </div>
 
                   {/* Status Badge */}
-                  <span className={cn(
-                    "text-[11px] font-bold px-2.5 py-0.5 rounded-full border uppercase tracking-wider",
-                    job.status === 'completed'
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800"
-                      : job.status === 'in_progress'
-                      ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800"
-                      : job.status === 'en_route'
-                      ? "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800"
-                      : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
-                  )}>
+                  <Badge
+                    variant={
+                      job.status === 'completed'
+                        ? 'success'
+                        : job.status === 'in_progress'
+                        ? 'info'
+                        : job.status === 'en_route'
+                        ? 'warning'
+                        : 'neutral'
+                    }
+                    size="default"
+                    className="font-bold uppercase tracking-wider text-[11px]"
+                  >
                     {job.status === 'in_progress' ? 'Working' : job.status.replace('_', ' ')}
-                  </span>
+                  </Badge>
                 </div>
 
                 {/* Job Title & Description */}
@@ -409,7 +413,7 @@ export default function FieldPage() {
                 </div>
 
                 {/* Customer Details & 1-Tap Navigation / Call */}
-                <div className="p-3 rounded-xl border border-slate-100 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1 min-w-0">
                     <div className="font-semibold text-slate-900 dark:text-zinc-100 truncate">
                       {job.contact?.name || 'Customer'}
@@ -428,19 +432,21 @@ export default function FieldPage() {
                         href={`https://maps.google.com/?q=${encodeURIComponent(job.contact.address)}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors"
+                        className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                        aria-label={`Navigate to ${job.contact.address}`}
                       >
-                        <Navigation className="w-3.5 h-3.5" />
-                        Navigate
+                        <Navigation className="w-4 h-4" />
+                        <span>Navigate</span>
                       </a>
                     )}
                     {job.contact?.phone && (
                       <a
                         href={`tel:${job.contact.phone}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 font-semibold text-xs shadow-2xs transition-colors"
+                        className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 font-bold text-xs shadow-2xs transition-colors cursor-pointer"
+                        aria-label={`Call ${job.contact.name || 'customer'} at ${job.contact.phone}`}
                       >
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                        Call
+                        <Phone className="w-4 h-4 text-emerald-600" />
+                        <span>Call</span>
                       </a>
                     )}
                   </div>
@@ -463,27 +469,27 @@ export default function FieldPage() {
                   {['scheduled', 'confirmed'].includes(job.status) && (
                     <>
                       <Button
-                        size="sm"
+                        size="touch"
                         disabled={isBusy}
                         onClick={() => {
                           setEnRouteJob(job)
                           setShowEnRouteModal(true)
                         }}
-                        className="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs"
                       >
                         <Truck className="w-4 h-4" />
-                        On My Way (Send ETA)
+                        <span>On My Way (Send ETA)</span>
                       </Button>
 
                       <Button
                         variant="outline"
-                        size="sm"
+                        size="touch"
                         disabled={isBusy}
                         onClick={() => handleTimestampAction(job.id, 'arrived')}
-                        className="h-10 px-4 rounded-xl text-slate-800 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 text-xs font-semibold"
+                        className="text-slate-800 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 font-semibold"
                       >
                         {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4 text-emerald-600" />}
-                        Mark Arrived
+                        <span>Mark Arrived</span>
                       </Button>
                     </>
                   )}
@@ -492,24 +498,24 @@ export default function FieldPage() {
                   {job.status === 'en_route' && (
                     <>
                       <Button
-                        size="sm"
+                        size="touch"
                         disabled={isBusy}
                         onClick={() => handleTimestampAction(job.id, 'arrived')}
-                        className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs"
                       >
                         {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                        I Have Arrived
+                        <span>I Have Arrived</span>
                       </Button>
 
                       <Button
                         variant="outline"
-                        size="sm"
+                        size="touch"
                         disabled={isBusy}
                         onClick={() => handleTimestampAction(job.id, 'started')}
-                        className="h-10 px-4 rounded-xl text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 font-semibold text-xs"
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 font-semibold"
                       >
                         <Play className="w-4 h-4" />
-                        Start Work Now
+                        <span>Start Work Now</span>
                       </Button>
                     </>
                   )}
@@ -519,25 +525,25 @@ export default function FieldPage() {
                     <>
                       <Button
                         variant="outline"
-                        size="sm"
+                        size="touch"
                         onClick={() => {
                           setPhotoJob(job)
                           setShowPhotoModal(true)
                         }}
-                        className="h-10 px-4 rounded-xl border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center gap-2 shadow-2xs"
+                        className="border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold shadow-2xs"
                       >
                         <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        Add Photos Proof
+                        <span>Add Photos Proof</span>
                       </Button>
 
                       <Button
-                        size="sm"
+                        size="touch"
                         disabled={isBusy}
                         onClick={() => handleTimestampAction(job.id, 'completed')}
-                        className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs"
                       >
                         {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                        Complete Job
+                        <span>Complete Job</span>
                       </Button>
                     </>
                   )}

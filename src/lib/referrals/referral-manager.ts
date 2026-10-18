@@ -134,7 +134,11 @@ export async function resolveReferralByCode(
     const { data, error } = await supabase
       .from('referral_links')
       .select(`
-        *,
+        id,
+        org_id,
+        referral_code,
+        reward_amount,
+        discount_amount,
         organizations (
           id,
           name,
@@ -152,7 +156,7 @@ export async function resolveReferralByCode(
 
     return {
       success: true,
-      referral: data as ReferralLinkRecord,
+      referral: data as unknown as ReferralLinkRecord,
       org: org ? { id: org.id, name: org.name, slug: org.slug } : undefined
     }
   } catch (err: any) {

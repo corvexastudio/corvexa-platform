@@ -28,6 +28,13 @@ export async function POST(request: Request) {
     return tenantResult.response
   }
 
+  if (!['owner', 'admin', 'super_admin'].includes(tenantResult.role)) {
+    return NextResponse.json(
+      { error: "Forbidden: role 'member' lacks permission to manage recurring templates" },
+      { status: 403 }
+    )
+  }
+
   const { orgId, supabase } = tenantResult
   const body = await request.json().catch(() => ({}))
 

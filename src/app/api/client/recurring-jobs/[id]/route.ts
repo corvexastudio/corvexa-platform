@@ -14,6 +14,13 @@ export async function PATCH(
     return tenantResult.response
   }
 
+  if (!['owner', 'admin', 'super_admin'].includes(tenantResult.role)) {
+    return NextResponse.json(
+      { error: "Forbidden: role 'member' lacks permission to update recurring templates" },
+      { status: 403 }
+    )
+  }
+
   const { id } = await props.params
   const { orgId, supabase } = tenantResult
   const body = await request.json().catch(() => ({}))
@@ -33,6 +40,13 @@ export async function DELETE(
   const tenantResult = await getTenantContext('appointments:manage')
   if (!tenantResult.ok) {
     return tenantResult.response
+  }
+
+  if (!['owner', 'admin', 'super_admin'].includes(tenantResult.role)) {
+    return NextResponse.json(
+      { error: "Forbidden: role 'member' lacks permission to delete recurring templates" },
+      { status: 403 }
+    )
   }
 
   const { id } = await props.params

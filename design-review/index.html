@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CaptoDesk — Phase 1B Interactive Visual Design Prototype</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Master Controller Header -->
+  <header class="controller-header">
+    <div class="controller-branding">
+      <div class="brand-badge">PROTOTYPE</div>
+      <div>
+        <div class="controller-title">CaptoDesk Design Review</div>
+        <div class="controller-subtitle">Phase 1B.3 Final Artifact Consistency</div>
+      </div>
+    </div>
+
+    <!-- Screen Selector Dropdown -->
+    <div class="controller-tools">
+      <select id="screenSelect" class="select-control">
+        <optgroup label="1. Public & Onboarding">
+          <option value="landing">1. Public Landing Page</option>
+          <option value="login">2. Contractor Login</option>
+          <option value="onboarding">3. Guided Onboarding (9-State Activation)</option>
+        </optgroup>
+        <optgroup label="2. Daily Operations & Dispatch">
+          <option value="dashboard" selected>4. Dashboard / Today (Attention Queue)</option>
+          <option value="leads">5. Inbound Leads & Pipeline</option>
+          <option value="inbox">6. Unified Inbox (2-Way SMS Triage)</option>
+          <option value="calendar">8. Calendar & Dispatch Board</option>
+          <option value="jobs">9. Job Management</option>
+          <option value="field">10. Field Technician Portal (44px Cockpit)</option>
+        </optgroup>
+        <optgroup label="3. Customers & Financials">
+          <option value="customers">7. Customers CRM</option>
+          <option value="services">11. Service Catalog</option>
+          <option value="quotes">12. Quotes & Estimates</option>
+          <option value="invoices">13. Invoices & Payments</option>
+          <option value="reviews">14. Google Reviews (100% Policy-Compliant)</option>
+        </optgroup>
+        <optgroup label="4. Team & System Settings">
+          <option value="automations">15. Automations Engine</option>
+          <option value="notifications">16. Notification Center</option>
+          <option value="team">17. Team & Fleet Permissions</option>
+          <option value="settings">18. Settings & Billing</option>
+        </optgroup>
+        <optgroup label="5. Customer-Facing Portals">
+          <option value="book_slug">19. Public Booking (/book/[slug])</option>
+          <option value="track_token">20. Public Appointment Tracking (/track/[token])</option>
+          <option value="quote_token">21. Public Estimate Approval (/quote/[token])</option>
+          <option value="invoice_token">22. Public Apple Pay Invoice (/invoice/[token])</option>
+        </optgroup>
+      </select>
+
+      <!-- Viewport Frame Switcher -->
+      <div class="btn-toggle-group">
+        <button class="btn-toggle active" data-device="desktop">🖥️ Desktop (1280px)</button>
+        <button class="btn-toggle" data-device="mobile">📱 Mobile (390px)</button>
+        <button class="btn-toggle" data-device="comparison">↔️ Side-by-Side (Actual vs Proposed)</button>
+      </div>
+
+      <!-- Theme Switcher -->
+      <button id="themeToggle" class="btn-toggle" style="background: #0f172a; border: 1px solid #475569; border-radius: 8px;">
+        ☀️ Light
+      </button>
+
+      <!-- Interactive Guided Journeys -->
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="journey-btn" data-journey="journeyA">⚡ Journey A: Missed Call</button>
+        <button class="journey-btn" data-journey="journeyB" style="background: #0284c7;">🚚 Journey B: Field Work</button>
+        <button class="journey-btn" data-journey="journeyC" style="background: #7c3aed;">📄 Journey C: Quote</button>
+        <button class="journey-btn" data-journey="journeyD" style="background: #d97706;">⭐ Journey D: Review</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Watermark & Compliance Notice -->
+  <div class="info-watermark-bar">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="watermark-tag">SIMULATED DESIGN PROTOTYPE</span>
+      <span>Zero live calls, SMS messages, or financial charges. All data shown is realistic demonstration data.</span>
+    </div>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <span>Verified Carrier Codes: <strong>Verizon (*71 conditional; never *72), T-Mobile (**61* conditional; ##004# resets all), AT&T (Forwarding depends on line service; contact AT&T to confirm conditional support)</strong></span>
+      <span>DID Safeguard: <strong>Illustrative Templates &bull; Real Active DID Required for Forwarding</strong></span>
+      <span>Google TOS: <strong>Strictly Zero Review Gating</strong></span>
+    </div>
+  </div>
+
+  <!-- Prototype Viewport Mount -->
+  <main class="canvas-container">
+    <div id="viewportFrame" class="viewport-frame desktop">
+      <div id="screenMount" style="min-height: 100%; display: flex; flex-direction: column;">
+        <!-- Dynamic screen content injected by prototype.js -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Interactive Journey Modal Overlay -->
+  <div id="journeyModalOverlay" class="journey-modal-overlay">
+    <div id="journeyModalMount" class="journey-modal">
+      <!-- Dynamic journey step injected by prototype.js -->
+    </div>
+  </div>
+
+  <script src="prototype.js"></script>
+</body>
+</html>
