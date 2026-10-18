@@ -60,6 +60,11 @@ interface Quote {
   status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired'
   expires_at: string
   manage_token: string
+  requires_deposit?: boolean
+  deposit_type?: 'percentage' | 'fixed'
+  deposit_value?: number
+  deposit_amount?: number
+  deposit_paid?: boolean
   sent_at?: string
   accepted_at?: string
   notes?: string
@@ -137,6 +142,9 @@ function ClientQuotesContent() {
     { description: 'Diagnostics & System Assessment', quantity: 1, unit_price: 120 }
   ])
   const [savingQuote, setSavingQuote] = useState(false)
+  const [requiresDeposit, setRequiresDeposit] = useState(false)
+  const [depositType, setDepositType] = useState<'percentage' | 'fixed'>('percentage')
+  const [depositValue, setDepositValue] = useState<number>(30)
 
   // Listen to contact_id query param
   useEffect(() => {
@@ -271,7 +279,10 @@ function ClientQuotesContent() {
           title: quoteTitle,
           items: newItems,
           valid_days: Number(validDays) || 14,
-          notes: quoteNotes
+          notes: quoteNotes,
+          requires_deposit: requiresDeposit,
+          deposit_type: depositType,
+          deposit_value: Number(depositValue) || 0
         })
       })
 
@@ -492,7 +503,12 @@ function ClientQuotesContent() {
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4 text-right font-bold text-xs text-slate-900 dark:text-zinc-100 tabular-nums">
-                        ${Number(quote.total).toFixed(2)}
+                        <div>${Number(quote.total).toFixed(2)}</div>
+                        {quote.requires_deposit && (
+                          <div className="text-[10px] font-normal text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            Deposit: ${Number(quote.deposit_amount || 0).toFixed(2)}
+                          </div>
+                        )}
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4 text-right">
@@ -577,6 +593,11 @@ function ClientQuotesContent() {
                       <p className="text-xs font-bold text-slate-900 dark:text-zinc-100 tabular-nums">
                         ${Number(quote.total).toFixed(2)}
                       </p>
+                      {quote.requires_deposit && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          Dep: ${Number(quote.deposit_amount || 0).toFixed(2)}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-500">
                         Exp {new Date(quote.expires_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                       </p>
@@ -752,6 +773,107 @@ function ClientQuotesContent() {
               <span className="text-slate-500 dark:text-zinc-400 mr-2 font-medium">Estimated Total:</span>
               <span className="font-bold text-slate-900 dark:text-white tabular-nums">${calculatedSubtotal.toFixed(2)}</span>
             </div>
+          </div>
+
+          {/* Upfront Deposit Section */}
+          <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label htmlFor="depositToggle" className="text-xs font-semibold text-slate-900 dark:text-zinc-100 cursor-pointer flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Require Upfront Deposit</span>
+                </label>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Customer pays deposit via Apple Pay / Card upon accepting to confirm their booking slot.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="depositToggle"
+                checked={requiresDeposit}
+                onChange={e => setRequiresDeposit(e.target.checked)}
+                className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-blue-600 h-4 w-4"
+              />
+            </div>
+
+            {requiresDeposit && (
+              <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800/80 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex rounded-lg border border-slate-200 dark:border-zinc-800 p-0.5 bg-white dark:bg-zinc-900 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => { setDepositType('percentage'); setDepositValue(30); }}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                        depositType === 'percentage'
+                          ? "bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-semibold"
+                          : "text-slate-600 dark:text-zinc-400"
+                      )}
+                    >
+                      % Percentage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDepositType('fixed'); setDepositValue(Math.round(calculatedSubtotal * 0.3)); }}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                        depositType === 'fixed'
+                          ? "bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-semibold"
+                          : "text-slate-600 dark:text-zinc-400"
+                      )}
+                    >
+                      $ Fixed Amount
+                    </button>
+                  </div>
+
+                  {depositType === 'percentage' ? (
+                    <div className="flex items-center gap-1.5">
+                      {[20, 30, 50].map(pct => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setDepositValue(pct)}
+                          className={cn(
+                            "h-7 px-2 rounded-md text-xs font-semibold border transition-all",
+                            depositValue === pct
+                              ? "bg-emerald-50 dark:bg-emerald-950/70 border-emerald-500 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30"
+                              : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
+                          )}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={depositValue}
+                        onChange={e => setDepositValue(Number(e.target.value))}
+                        className="h-7 w-16 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md text-right tabular-nums"
+                      />
+                      <span className="text-xs text-slate-500">%</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-slate-500 font-medium">$</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={calculatedSubtotal || 10000}
+                        value={depositValue}
+                        onChange={e => setDepositValue(Number(e.target.value))}
+                        className="h-7 w-24 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md tabular-nums"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-xs bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200/60 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                  <span>Deposit Due Now: <strong>${(depositType === 'percentage' ? (calculatedSubtotal * (depositValue || 0)) / 100 : Math.min(calculatedSubtotal, depositValue || 0)).toFixed(2)}</strong></span>
+                  <span className="text-[11px] text-emerald-700 dark:text-emerald-400">Balance on completion: ${(calculatedSubtotal - (depositType === 'percentage' ? (calculatedSubtotal * (depositValue || 0)) / 100 : Math.min(calculatedSubtotal, depositValue || 0))).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

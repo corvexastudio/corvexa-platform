@@ -35,6 +35,12 @@ interface QuoteData {
   tax: number
   discount: number
   total: number
+  requires_deposit?: boolean
+  deposit_type?: 'percentage' | 'fixed'
+  deposit_value?: number
+  deposit_amount?: number
+  deposit_paid?: boolean
+  deposit_invoice_token?: string | null
   status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired'
   expires_at?: string | null
   sent_at?: string | null
@@ -109,6 +115,11 @@ export default function CustomerQuotePage() {
       const data = await res.json()
       if (res.ok) {
         setShowAcceptModal(false)
+        if (data.requiresDeposit && data.depositInvoiceUrl) {
+          toast.success('Estimate accepted! Proceeding to secure deposit checkout...')
+          window.location.href = data.depositInvoiceUrl
+          return
+        }
         toast.success('Quote accepted successfully!')
         await loadQuote()
       } else {
@@ -234,15 +245,40 @@ export default function CustomerQuotePage() {
         </div>
 
         {/* Status Notification Banner */}
-        {isAccepted && (
+        {isAccepted && quote.requires_deposit && !quote.deposit_paid ? (
+          <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 text-xs">
+                <span className="font-bold text-sm block text-amber-950 dark:text-amber-100">
+                  Action Needed: Complete Upfront Deposit
+                </span>
+                <span className="text-amber-800 dark:text-amber-300 block mt-0.5">
+                  Your estimate is accepted! To lock in your scheduled appointment and release materials, please complete your upfront deposit of <strong>${Number(quote.deposit_amount).toFixed(2)}</strong>.
+                </span>
+              </div>
+            </div>
+            {quote.deposit_invoice_token && (
+              <div className="pt-1">
+                <a
+                  href={`/invoice/${quote.deposit_invoice_token}`}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-sm transition-all"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  <span>Pay ${Number(quote.deposit_amount).toFixed(2)} Deposit with Apple Pay / Card</span>
+                </a>
+              </div>
+            )}
+          </div>
+        ) : isAccepted ? (
           <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <div>
-              <span className="font-bold text-sm block text-emerald-900 dark:text-emerald-200">Estimate Accepted</span>
+              <span className="font-bold text-sm block text-emerald-900 dark:text-emerald-200">Estimate Accepted &amp; Confirmed</span>
               <span>Thank you! Your quote has been accepted and confirmed with {org?.name}.</span>
             </div>
           </div>
-        )}
+        ) : null}
 
         {isDeclined && (
           <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-800 dark:text-red-300 text-xs flex items-center gap-3">
@@ -320,11 +356,26 @@ export default function CustomerQuotePage() {
               <span>Total Investment</span>
               <span className="text-emerald-600 dark:text-emerald-400">${Number(quote.total).toFixed(2)}</span>
             </div>
+
+            {quote.requires_deposit && Number(quote.deposit_amount) > 0 && (
+              <div className="mt-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/30 space-y-1.5 text-xs">
+                <div className="flex justify-between items-center font-bold text-amber-900 dark:text-amber-200">
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span>Required Upfront Deposit ({quote.deposit_type === 'percentage' ? `${quote.deposit_value}%` : 'Fixed'})</span>
+                  </span>
+                  <span className="text-sm tabular-nums">${Number(quote.deposit_amount).toFixed(2)}</span>
+                </div>
+                <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                  Due upon acceptance to secure your appointment and release project materials. Remaining balance (${(Number(quote.total) - Number(quote.deposit_amount)).toFixed(2)}) is due upon job completion.
+                </p>
+              </div>
+            )}
           </div>
 
           {quote.notes && (
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 italic pt-2">
-              Terms & Notes: {quote.notes}
+              Terms &amp; Notes: {quote.notes}
             </p>
           )}
         </div>
@@ -339,7 +390,11 @@ export default function CustomerQuotePage() {
                 className="flex-1 py-3.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
               >
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Accept Estimate (${Number(quote.total).toFixed(2)})</span>
+                <span>
+                  {quote.requires_deposit && Number(quote.deposit_amount) > 0
+                    ? `Accept & Pay $${Number(quote.deposit_amount).toFixed(2)} Deposit`
+                    : `Accept Estimate ($${Number(quote.total).toFixed(2)})`}
+                </span>
               </button>
 
               <button

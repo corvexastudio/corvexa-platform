@@ -29,6 +29,9 @@ export interface CreateQuoteInput {
   discount?: number
   expiresInDays?: number // default: 14 days
   notes?: string
+  requiresDeposit?: boolean
+  depositType?: 'percentage' | 'fixed'
+  depositValue?: number
 }
 
 export interface QuoteResult {
@@ -94,6 +97,17 @@ export async function createQuote(
   const manageToken = randomBytes(24).toString('hex')
   const manageUrl = `${appBaseUrl}/quote/${manageToken}`
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
+
+  let depositAmount = 0
+  if (input.requiresDeposit) {
+    const val = Number(input.depositValue) || 0
+    if (input.depositType === 'percentage') {
+      const pct = Math.min(100, Math.max(1, val || 20))
+      depositAmount = Math.round(((financials.total * pct) / 100) * 100) / 100
+    } else {
+      depositAmount = Math.min(financials.total, Math.max(1, val))
+    }
+  }
 
   // 1. Transactional creation via PostgreSQL RPC if supported
   const clientWithRpc = supabase as unknown as {
@@ -162,6 +176,11 @@ export async function createQuote(
       status: 'draft',
       expires_at: expiresAt,
       manage_token: manageToken,
+      requires_deposit: !!input.requiresDeposit,
+      deposit_type: input.depositType || (input.requiresDeposit ? 'percentage' : null),
+      deposit_value: Number(input.depositValue) || 0,
+      deposit_amount: depositAmount,
+      deposit_paid: false,
       notes: notes?.trim() || null
     })
     .select('*')
@@ -501,9 +520,24 @@ export async function customerViewQuote(
     }
   }
 
+  let depositInvoiceToken: string | null = null
+  if (currentQuote.deposit_invoice_id) {
+    const { data: depInv } = await supabase
+      .from('invoices')
+      .select('manage_token')
+      .eq('id', currentQuote.deposit_invoice_id)
+      .maybeSingle()
+    if (depInv?.manage_token) {
+      depositInvoiceToken = depInv.manage_token
+    }
+  }
+
   return {
     success: true,
-    quote: currentQuote,
+    quote: {
+      ...currentQuote,
+      deposit_invoice_token: depositInvoiceToken
+    },
     items: items || [],
     organization: org,
     contact
@@ -518,7 +552,14 @@ export async function customerAcceptQuote(
   supabase: SupabaseClient,
   manageToken: string,
   customerName?: string
-): Promise<{ success: boolean; quote?: any; error?: string }> {
+): Promise<{
+  success: boolean
+  quote?: any
+  error?: string
+  requiresDeposit?: boolean
+  depositAmount?: number
+  depositInvoiceUrl?: string
+}> {
   const { data: quote, error } = await supabase
     .from('quotes')
     .select('*')
@@ -568,7 +609,57 @@ export async function customerAcceptQuote(
     })
   )
 
-  // 3. Send SMS confirmation to customer
+  // 3. Upfront Deposit Generation & Resolution
+  let depositInvoiceUrl: string | undefined
+  if (quote.requires_deposit && Number(quote.deposit_amount) > 0) {
+    let depositInvoiceId = quote.deposit_invoice_id
+    let depositManageToken: string | undefined
+
+    if (depositInvoiceId) {
+      const { data: existingInv } = await supabase
+        .from('invoices')
+        .select('id, manage_token')
+        .eq('id', depositInvoiceId)
+        .maybeSingle()
+      if (existingInv) {
+        depositManageToken = existingInv.manage_token
+      }
+    }
+
+    if (!depositManageToken) {
+      const { createInvoice } = await import('../payments/invoice-manager.ts')
+      const invRes = await createInvoice(supabase, {
+        orgId: quote.org_id,
+        contactId: quote.contact_id,
+        quoteId: quote.id,
+        title: `Upfront Deposit for Estimate #${quote.quote_number}`,
+        description: `Initial deposit payment for estimate #${quote.quote_number}`,
+        items: [
+          {
+            description: `Initial Service Deposit (${quote.deposit_type === 'percentage' ? `${quote.deposit_value}%` : `$${quote.deposit_value}`})`,
+            quantity: 1,
+            unit_price: Number(quote.deposit_amount)
+          }
+        ],
+        dueDate: new Date().toISOString()
+      })
+
+      if (invRes.success && invRes.invoice) {
+        depositInvoiceId = invRes.invoice.id
+        depositManageToken = invRes.invoice.manage_token
+        await supabase
+          .from('quotes')
+          .update({ deposit_invoice_id: depositInvoiceId })
+          .eq('id', quote.id)
+      }
+    }
+
+    if (depositManageToken) {
+      depositInvoiceUrl = `/invoice/${depositManageToken}`
+    }
+  }
+
+  // 4. Send SMS confirmation to customer
   const { data: org } = await supabase
     .from('organizations')
     .select('name, telnyx_phone_number, owner_phone')
@@ -583,7 +674,11 @@ export async function customerAcceptQuote(
 
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone
   if (senderNumber && contact?.phone) {
-    const rawText = `Thank you ${contact.name || ''}! Your acceptance of estimate #${quote.quote_number} ($${quote.total.toFixed(2)}) is confirmed. We will reach out shortly to schedule your service.`
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+    const depositPrompt = depositInvoiceUrl
+      ? ` Please secure your scheduled slot by completing your deposit of $${Number(quote.deposit_amount).toFixed(2)}: ${baseUrl}${depositInvoiceUrl}`
+      : ' We will reach out shortly to confirm your scheduled service.'
+    const rawText = `Thank you ${contact.name || ''}! Your acceptance of estimate #${quote.quote_number} ($${quote.total.toFixed(2)}) is confirmed.${depositPrompt}`
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId: quote.org_id,
       toPhone: contact.phone,
@@ -603,15 +698,25 @@ export async function customerAcceptQuote(
     }
   }
 
-  // 4. Notify Owner
+  // 5. Notify Owner
+  const depositNotifPart = quote.requires_deposit && Number(quote.deposit_amount) > 0
+    ? ` (Deposit Required: $${Number(quote.deposit_amount).toFixed(2)})`
+    : ''
+
   await supabase.from('notifications').insert({
     org_id: quote.org_id,
     title: 'Quote Accepted!',
-    message: `${contact?.name || 'Customer'} accepted estimate #${quote.quote_number} for $${quote.total.toFixed(2)}`,
+    message: `${contact?.name || 'Customer'} accepted estimate #${quote.quote_number} for $${quote.total.toFixed(2)}${depositNotifPart}`,
     link: '/client/calendar'
   })
 
-  return { success: true, quote: updatedQuote }
+  return {
+    success: true,
+    quote: updatedQuote,
+    requiresDeposit: !!quote.requires_deposit,
+    depositAmount: quote.deposit_amount,
+    depositInvoiceUrl
+  }
 }
 
 /**

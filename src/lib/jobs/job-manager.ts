@@ -129,9 +129,11 @@ export async function updateJobStatus(
     newStatus: JobStatus
     notifyCustomer?: boolean
     notes?: string
+    technicianName?: string
+    etaMinutes?: number
   }
 ): Promise<{ success: boolean; job?: any; error?: string; alreadyInStatus?: boolean }> {
-  const { jobId, orgId, newStatus, notifyCustomer = false, notes } = params
+  const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes } = params
 
   const { data: job, error: findError } = await supabase
     .from('jobs')
@@ -168,6 +170,12 @@ export async function updateJobStatus(
 
   if (newStatus === 'en_route') {
     updateFields.en_route_at = new Date().toISOString()
+    if (technicianName?.trim()) {
+      updateFields.technician_name = technicianName.trim()
+    }
+    if (typeof etaMinutes === 'number' && etaMinutes > 0) {
+      updateFields.eta_minutes = etaMinutes
+    }
   } else if (newStatus === 'in_progress') {
     updateFields.started_at = new Date().toISOString()
   } else if (newStatus === 'completed') {
@@ -185,7 +193,7 @@ export async function updateJobStatus(
     return { success: false, error: 'Failed to update job status' }
   }
 
-  // 1. If en_route and notifyCustomer, send en-route text
+  // 1. If en_route and notifyCustomer, send dynamic en-route text with tech name and ETA
   if (newStatus === 'en_route' && notifyCustomer) {
     const { data: org } = await supabase
       .from('organizations')
@@ -201,10 +209,16 @@ export async function updateJobStatus(
 
     const senderNumber = org?.telnyx_phone_number || org?.owner_phone
     if (senderNumber && contact?.phone) {
+      const techDisplay = technicianName?.trim() || updatedJob.technician_name || 'Your technician'
+      const etaVal = typeof etaMinutes === 'number' && etaMinutes > 0 ? etaMinutes : updatedJob.eta_minutes
+      const etaPart = etaVal ? ` (ETA: ~${etaVal} mins)` : ''
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+      const trackPart = job.tracking_token ? ` Live arrival tracker: ${baseUrl}/track/${job.tracking_token}` : ''
+
       await sendTelnyxSms({
         to: contact.phone,
         from: senderNumber,
-        text: `Hi ${contact.name || 'there'}! Your technician from ${org?.name || 'us'} is en route to your service location.`
+        text: `Hi ${contact.name || 'there'}! ${techDisplay} from ${org?.name || 'us'} is on the way${etaPart}.${trackPart}`
       })
     }
   }
@@ -355,6 +369,7 @@ export async function customerViewJobTracking(
   service?: any
   invoice?: any
   reviewUrl?: string | null
+  referral?: any
   error?: string
 }> {
   if (!token || !token.trim()) {
@@ -375,6 +390,8 @@ export async function customerViewJobTracking(
       en_route_at,
       started_at,
       completed_at,
+      technician_name,
+      eta_minutes,
       notes,
       tracking_token,
       org_id,
@@ -424,6 +441,25 @@ export async function customerViewJobTracking(
   const org = (job as any).organizations
   const reviewUrl: string | null = org?.google_review_url || null
 
+  // 4. Referral Program Resolution
+  let referral: { code: string; url: string; rewardAmount: number; discountAmount: number } | null = null
+  if (job.contact_id && job.org_id) {
+    const { getOrCreateReferralLink } = await import('../referrals/referral-manager.ts')
+    const refRes = await getOrCreateReferralLink(supabase, {
+      orgId: job.org_id,
+      contactId: job.contact_id,
+      contactName: (job as any).contacts?.name
+    })
+    if (refRes.success && refRes.referral && refRes.referralUrl) {
+      referral = {
+        code: refRes.referral.referral_code,
+        url: refRes.referralUrl,
+        rewardAmount: Number(refRes.referral.reward_amount || 25),
+        discountAmount: Number(refRes.referral.discount_amount || 25)
+      }
+    }
+  }
+
   return {
     success: true,
     job: {
@@ -437,6 +473,8 @@ export async function customerViewJobTracking(
       enRouteAt: job.en_route_at,
       startedAt: job.started_at,
       completedAt: job.completed_at,
+      technicianName: job.technician_name,
+      etaMinutes: job.eta_minutes,
       notes: job.notes,
       trackingToken: job.tracking_token
     },
@@ -463,7 +501,8 @@ export async function customerViewJobTracking(
       status: invoice.status,
       manageToken: invoice.manage_token
     } : null,
-    reviewUrl
+    reviewUrl,
+    referral
   }
 }
 

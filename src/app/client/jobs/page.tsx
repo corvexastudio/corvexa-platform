@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
+import { EnRouteModal } from '@/components/jobs/en-route-modal'
 
 interface JobItem {
   id: string
@@ -45,6 +46,8 @@ interface JobItem {
   en_route_at?: string | null
   started_at?: string | null
   completed_at?: string | null
+  technician_name?: string | null
+  eta_minutes?: number | null
   notes?: string | null
   tracking_token?: string | null
   contact?: {
@@ -127,6 +130,7 @@ function JobsContent() {
   const [activeJobForNote, setActiveJobForNote] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [enRouteJob, setEnRouteJob] = useState<JobItem | null>(null)
 
   const loadJobs = useCallback(async () => {
     setLoading(true)
@@ -234,6 +238,48 @@ function JobsContent() {
       } else {
         toast.error(data.error || 'Failed to update job status.')
         await loadJobs() // rollback
+      }
+    } catch {
+      toast.error('Network error updating job.')
+      await loadJobs()
+    }
+  }
+
+  const handleConfirmEnRoute = async (payload: {
+    technicianName: string
+    etaMinutes: number
+    notifyCustomer: boolean
+  }) => {
+    if (!enRouteJob) return
+    const jobId = enRouteJob.id
+
+    // Optimistic status update
+    setJobs(prev => prev.map(j => j.id === jobId ? {
+      ...j,
+      status: 'en_route',
+      technician_name: payload.technicianName,
+      eta_minutes: payload.etaMinutes
+    } : j))
+
+    try {
+      const res = await fetch(`/api/client/jobs/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'en_route',
+          notifyCustomer: payload.notifyCustomer,
+          technicianName: payload.technicianName,
+          etaMinutes: payload.etaMinutes
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Job marked En Route. Customer alerted with ~${payload.etaMinutes}m ETA.`)
+        await loadJobs()
+      } else {
+        toast.error(data.error || 'Failed to update job status.')
+        await loadJobs()
       }
     } catch {
       toast.error('Network error updating job.')
@@ -509,7 +555,7 @@ function JobsContent() {
                     {(job.status === 'scheduled' || job.status === 'confirmed') && (
                       <Button
                         size="sm"
-                        onClick={() => handleUpdateStatus(job.id, 'en_route', true)}
+                        onClick={() => setEnRouteJob(job)}
                         className="h-7.5 px-3 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium shadow-xs"
                       >
                         <Navigation className="h-3 w-3 mr-1" />
@@ -735,6 +781,14 @@ function JobsContent() {
           </div>
         </form>
       </Modal>
+
+      {/* En Route Arrival Modal */}
+      <EnRouteModal
+        isOpen={!!enRouteJob}
+        onClose={() => setEnRouteJob(null)}
+        job={enRouteJob}
+        onConfirm={handleConfirmEnRoute}
+      />
 
     </div>
   )

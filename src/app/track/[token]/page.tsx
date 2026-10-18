@@ -16,7 +16,11 @@ import {
   AlertCircle,
   Loader2,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Gift,
+  Copy,
+  Check,
+  Share2
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -32,6 +36,8 @@ interface TrackingPayload {
     enRouteAt?: string | null
     startedAt?: string | null
     completedAt?: string | null
+    technicianName?: string | null
+    etaMinutes?: number | null
     notes?: string | null
     trackingToken: string
   }
@@ -59,6 +65,12 @@ interface TrackingPayload {
     manageToken: string
   } | null
   reviewUrl?: string | null
+  referral?: {
+    code: string
+    url: string
+    rewardAmount: number
+    discountAmount: number
+  } | null
 }
 
 const STAGES = [
@@ -86,6 +98,15 @@ export default function CustomerJobTrackerPage({
   const [feedbackText, setFeedbackText] = useState('')
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
+
+  // Referral Link state
+  const [copiedReferral, setCopiedReferral] = useState(false)
+  const handleCopyReferral = () => {
+    if (!data?.referral?.url) return
+    navigator.clipboard.writeText(data.referral.url)
+    setCopiedReferral(true)
+    setTimeout(() => setCopiedReferral(false), 3000)
+  }
 
   const handleFeedbackSubmit = async () => {
     if (!feedbackText.trim() || !selectedRating || !token) return
@@ -291,7 +312,7 @@ export default function CustomerJobTrackerPage({
                   {isCompleted
                     ? 'Job Successfully Completed'
                     : isEnRoute
-                    ? 'Technician Is En Route!'
+                    ? (job.technicianName ? `${job.technicianName} is En Route!` : 'Technician Is En Route!')
                     : isInProgress
                     ? 'Work Underway On-Site'
                     : 'Appointment Confirmed'}
@@ -300,7 +321,7 @@ export default function CustomerJobTrackerPage({
                   {isCompleted
                     ? 'All work has been finished. Thank you for your business!'
                     : isEnRoute
-                    ? 'Your technician is on their way to your location. Please ensure access is clear.'
+                    ? `${job.technicianName || 'Your technician'} is heading to your service address${job.etaMinutes ? ` (Estimated arrival: ~${job.etaMinutes} mins)` : ''}. Please ensure site access is clear.`
                     : isInProgress
                     ? 'Your technician is actively working on your service right now.'
                     : `Scheduled for ${formattedDate} at ${formattedTime}. We look forward to seeing you.`}
@@ -534,6 +555,74 @@ export default function CustomerJobTrackerPage({
                 </p>
               </div>
             )}
+          </section>
+        )}
+
+        {/* Neighbor Referral Engine ("Give $25, Get $25") */}
+        {isCompleted && data.referral && (
+          <section className="bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 dark:from-indigo-950/20 dark:via-zinc-900/90 dark:to-purple-950/20 border border-indigo-200/90 dark:border-indigo-500/30 rounded-2xl p-5 space-y-3.5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-600/30">
+                <Gift className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                  Give ${data.referral.discountAmount}, Get ${data.referral.rewardAmount}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Share your link with neighbors, family, or friends
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+              When friends book with your link, they receive <strong>${data.referral.discountAmount} off</strong> their first service, and you get a <strong>${data.referral.rewardAmount} credit</strong> toward your next visit!
+            </p>
+
+            {/* Link Copy Box */}
+            <div className="flex items-center gap-2 bg-white dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 pl-3 shadow-xs">
+              <span className="text-xs font-mono text-slate-700 dark:text-zinc-300 truncate flex-1 select-all">
+                {data.referral.url}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyReferral}
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+              >
+                {copiedReferral ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick Share Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <a
+                href={`sms:?&body=${encodeURIComponent(`Hey! Check out ${org.name} - here is $${data.referral.discountAmount} off your service: ${data.referral.url}`)}`}
+                className="py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Text a Friend</span>
+              </a>
+
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Hey! Check out ${org.name} - here is $${data.referral.discountAmount} off your service: ${data.referral.url}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-xs"
+              >
+                <Share2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>WhatsApp</span>
+              </a>
+            </div>
           </section>
         )}
 

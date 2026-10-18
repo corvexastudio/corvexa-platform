@@ -32,8 +32,12 @@ export async function POST(
       customerAddress,
       startTime,
       notes,
-      bookingToken
+      bookingToken,
+      referralCode
     } = body
+
+    const cookieRef = (request as any).cookies?.get?.('capto_ref')?.value
+    const effectiveReferralCode = (referralCode || cookieRef || '').trim() || undefined
 
     if (!slug || !customerName?.trim() || !customerPhone?.trim() || !startTime) {
       return NextResponse.json(
@@ -96,6 +100,7 @@ export async function POST(
       startTime,
       notes: notes?.trim() || undefined,
       source: 'booking_page',
+      referralCode: effectiveReferralCode,
       appBaseUrl
     })
 

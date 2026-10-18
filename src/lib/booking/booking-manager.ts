@@ -26,7 +26,8 @@ export interface CreateBookingInput {
   customerAddress?: string
   startTime: string // ISO string
   notes?: string
-  source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call'
+  source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call' | 'referral'
+  referralCode?: string
   appBaseUrl?: string
 }
 
@@ -196,8 +197,20 @@ export async function createBooking(
     contactId = newContact.id
   }
 
-  // 6. Create or link Lead
+  // 6. Create or link Lead with optional referral attribution
   let leadId: string | null = null
+  let referringContactId: string | null = null
+  let effectiveSource: any = source
+
+  if (input.referralCode) {
+    const { resolveReferralByCode } = await import('../referrals/referral-manager.ts')
+    const refData = await resolveReferralByCode(supabase, input.referralCode)
+    if (refData.success && refData.referral) {
+      referringContactId = refData.referral.contact_id || null
+      effectiveSource = 'referral'
+    }
+  }
+
   const { data: existingLead } = await supabase
     .from('leads')
     .select('id')
@@ -209,13 +222,19 @@ export async function createBooking(
 
   if (existingLead) {
     leadId = existingLead.id
+    const leadUpdates: Record<string, any> = {
+      status: 'booked',
+      service_needed: activeService.name,
+      updated_at: new Date().toISOString()
+    }
+    if (input.referralCode) {
+      leadUpdates.source = effectiveSource
+      leadUpdates.referral_code = input.referralCode.trim().toLowerCase()
+      if (referringContactId) leadUpdates.referring_contact_id = referringContactId
+    }
     await supabase
       .from('leads')
-      .update({
-        status: 'booked',
-        service_needed: activeService.name,
-        updated_at: new Date().toISOString()
-      })
+      .update(leadUpdates)
       .eq('id', leadId)
   } else {
     const { data: newLead } = await supabase
@@ -223,13 +242,20 @@ export async function createBooking(
       .insert({
         org_id: orgId,
         contact_id: contactId,
-        source,
+        source: effectiveSource,
+        referral_code: input.referralCode ? input.referralCode.trim().toLowerCase() : null,
+        referring_contact_id: referringContactId,
         status: 'booked',
         service_needed: activeService.name
       })
       .select('id')
       .single()
     if (newLead) leadId = newLead.id
+  }
+
+  if (input.referralCode && leadId) {
+    const { recordReferralConversion } = await import('../referrals/referral-manager.ts')
+    await recordReferralConversion(supabase, input.referralCode, leadId)
   }
 
   // 7. Determine Initial State & Generate Secure Manage Token

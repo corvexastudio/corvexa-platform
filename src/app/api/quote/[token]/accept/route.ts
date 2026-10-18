@@ -27,7 +27,10 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Quote successfully accepted',
-      quote: result.quote
+      quote: result.quote,
+      requiresDeposit: result.requiresDeposit,
+      depositAmount: result.depositAmount,
+      depositInvoiceUrl: result.depositInvoiceUrl
     })
   } catch (err: any) {
     console.error('[QUOTE_ACCEPT_ERROR]', err)

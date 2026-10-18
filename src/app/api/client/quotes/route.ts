@@ -82,7 +82,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { contactId, leadId, title, description, items, taxRate, discount, expiresInDays, notes } = body
 
-    if (!contactId || !title?.trim() || !items || !Array.isArray(items) || items.length === 0) {
+    const resolvedContactId = contactId || body.contact_id
+    const resolvedExpiresDays = expiresInDays || body.valid_days
+
+    if (!resolvedContactId || !title?.trim() || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: 'Missing required quote fields: customer, title, and at least one item' },
         { status: 400 }
@@ -93,15 +96,18 @@ export async function POST(request: Request) {
 
     const result = await createQuote(supabase, {
       orgId,
-      contactId,
+      contactId: resolvedContactId,
       leadId,
       title,
       description,
       items,
       taxRate: taxRate ? parseFloat(taxRate) : 0,
       discount: discount ? parseFloat(discount) : 0,
-      expiresInDays: expiresInDays ? parseInt(expiresInDays, 10) : 14,
-      notes
+      expiresInDays: resolvedExpiresDays ? parseInt(resolvedExpiresDays, 10) : 14,
+      notes,
+      requiresDeposit: !!(body.requiresDeposit || body.requires_deposit),
+      depositType: body.depositType || body.deposit_type,
+      depositValue: Number(body.depositValue ?? body.deposit_value ?? 0)
     }, appBaseUrl)
 
     if (!result.success) {

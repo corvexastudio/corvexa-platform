@@ -15,7 +15,8 @@ import {
   AlertCircle,
   ShieldCheck,
   CalendarDays,
-  FileText
+  FileText,
+  Gift
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
@@ -91,6 +92,23 @@ export default function PublicBookingPage() {
     manageUrl: string
     status: string
   } | null>(null)
+
+  // Referral Attribution
+  const [referralCode, setReferralCode] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlRef = urlParams.get('ref')
+    if (urlRef) {
+      setReferralCode(urlRef.trim().toLowerCase())
+      return
+    }
+    const match = document.cookie.match(/(?:^|;\s*)capto_ref=([^;]+)/)
+    if (match && match[1]) {
+      setReferralCode(decodeURIComponent(match[1]).trim().toLowerCase())
+    }
+  }, [])
 
   // 1. Fetch Organization Profile & Services
   useEffect(() => {
@@ -213,7 +231,8 @@ export default function PublicBookingPage() {
           customerAddress: formData.address,
           startTime: selectedSlot.startTime,
           notes: formData.notes,
-          bookingToken: bookingToken || undefined
+          bookingToken: bookingToken || undefined,
+          referralCode: referralCode || undefined
         })
       })
 
@@ -273,6 +292,23 @@ export default function PublicBookingPage() {
             {org.booking_mode === 'instant' ? 'Select a time for instant confirmation' : 'Submit a booking request for quick owner review'}
           </p>
         </div>
+
+        {/* Referral Welcome Banner */}
+        {referralCode && (
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 flex items-center gap-3 text-xs text-emerald-900 dark:text-emerald-200 shadow-sm animate-in fade-in duration-300">
+            <div className="h-8 w-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Gift className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <span className="font-bold block text-emerald-950 dark:text-emerald-100">
+                Neighbor Referral Special Applied!
+              </span>
+              <span className="text-emerald-800 dark:text-emerald-300 text-[11px] leading-tight block">
+                You have $25 off your service with promo code <strong className="font-mono uppercase">{referralCode}</strong>.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Stepper Progress Bar */}
         {step < 4 && (
