@@ -110,11 +110,52 @@ async function handleWorkerExecution(request: Request) {
       console.error('[WORKER_RECURRING_JOBS_ERROR]', recErr)
     }
 
+    // 6. Autonomous Morning Daily Crew Route Broadcast (7 AM)
+    let crewBroadcastSummary: any = null
+    try {
+      const now = new Date()
+      const { data: orgs } = await supabase
+        .from('organizations')
+        .select('id, timezone, daily_crew_schedule_enabled, daily_crew_schedule_hour, last_daily_crew_schedule_sent_at')
+        .eq('daily_crew_schedule_enabled', true)
+
+      if (orgs && orgs.length > 0) {
+        const { sendDailyCrewScheduleBroadcast } = await import('../../../../lib/crews/crew-manager.ts')
+        for (const org of orgs) {
+          const tz = org.timezone || 'America/Chicago'
+          const targetHour = org.daily_crew_schedule_hour ?? 7
+          let currentHour = 7
+          let currentDateStr = new Date().toISOString().slice(0, 10)
+          try {
+            const hourStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false }).format(now)
+            currentHour = parseInt(hourStr, 10)
+            currentDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)
+          } catch {}
+
+          let alreadySentToday = false
+          if (org.last_daily_crew_schedule_sent_at) {
+            try {
+              const lastSentDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(org.last_daily_crew_schedule_sent_at))
+              alreadySentToday = (lastSentDateStr === currentDateStr)
+            } catch {}
+          }
+
+          if (!alreadySentToday && currentHour >= targetHour) {
+            const bcRes = await sendDailyCrewScheduleBroadcast(supabase, { orgId: org.id, dateStr: currentDateStr })
+            crewBroadcastSummary = { orgId: org.id, sent: bcRes.totalSent }
+          }
+        }
+      }
+    } catch (crewErr) {
+      console.error('[WORKER_CREW_BROADCAST_ERROR]', crewErr)
+    }
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       ...summary,
-      recurring: recurringSummary
+      recurring: recurringSummary,
+      crewBroadcast: crewBroadcastSummary
     })
   } catch (err: any) {
     console.error('[AUTOMATION WORKER ENDPOINT ERROR]', err)

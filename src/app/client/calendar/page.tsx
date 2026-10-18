@@ -23,7 +23,13 @@ import {
   CalendarDays,
   Plus,
   Trash2,
-  Globe
+  Globe,
+  Truck,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  UserCheck,
+  RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -31,6 +37,9 @@ import { ErrorState } from '@/components/ui/error-state'
 import { cn } from '@/lib/utils'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
+import { ReassignCrewModal } from '@/components/crews/reassign-crew-modal'
+import { CrewModal } from '@/components/crews/crew-modal'
+import type { Crew } from '@/lib/crews/crew-manager'
 
 interface AppointmentItem {
   id: string
@@ -42,6 +51,7 @@ interface AppointmentItem {
   source?: string | null
   manage_token?: string | null
   notes?: string | null
+  crew_id?: string | null
   contact: {
     id?: string
     name?: string | null
@@ -131,6 +141,27 @@ function CalendarContent() {
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>('')
   const [isManualTime, setIsManualTime] = useState(false)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+
+  // Multi-Crew Dispatch Columns State
+  const [calendarView, setCalendarView] = useState<'agenda' | 'crews'>('agenda')
+  const [crews, setCrews] = useState<Crew[]>([])
+  const [loadingCrews, setLoadingCrews] = useState(false)
+  const [dispatchDate, setDispatchDate] = useState(() => getTodayInTimezone(orgTimezone || 'America/Chicago'))
+  const [dispatchJobs, setDispatchJobs] = useState<any[]>([])
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [showCrewModal, setShowCrewModal] = useState(false)
+  const [reassignTargetItem, setReassignTargetItem] = useState<{
+    id: string
+    type: 'job' | 'appointment'
+    title: string
+    jobNumber?: string
+    startTime: string
+    endTime?: string | null
+    crewId?: string | null
+    customerName?: string | null
+    customerPhone?: string | null
+  } | null>(null)
+  const [showReassignModal, setShowReassignModal] = useState(false)
 
   // 7-day quick date pills strictly calculated within US business timezone
   const quickDatePills = useMemo<Array<{ dateStr: string; dayOfWeek: string; dayNum: string }>>(() => {
@@ -264,7 +295,7 @@ function CalendarContent() {
       const { data, error: aptsErr } = await supabase
         .from('appointments')
         .select(`
-          id, title, service_type, start_time, end_time, status, source, manage_token, notes,
+          id, title, service_type, start_time, end_time, status, source, manage_token, notes, crew_id,
           contact:contacts(id, name, phone, address)
         `)
         .eq('org_id', profile.org_id)
@@ -289,6 +320,39 @@ function CalendarContent() {
 
       if (svcs) {
         setServices(svcs)
+      }
+
+      // Load Crews
+      try {
+        const crewsRes = await fetch('/api/client/crews')
+        if (crewsRes.ok) {
+          const crewsData = await crewsRes.json()
+          setCrews(crewsData.crews || [])
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      // Load Profiles / Team Members for Crew Assignment
+      try {
+        const { data: membersData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('org_id', profile.org_id)
+        if (membersData) setTeamMembers(membersData)
+      } catch {
+        // Non-fatal
+      }
+
+      // Load Jobs for Multi-Crew Dispatch Board
+      try {
+        const jobsRes = await fetch('/api/client/jobs?limit=100')
+        if (jobsRes.ok) {
+          const jobsData = await jobsRes.json()
+          setDispatchJobs(jobsData.items || [])
+        }
+      } catch {
+        // Non-fatal
       }
     } catch {
       setError('An unexpected error occurred while loading schedule.')
@@ -463,6 +527,120 @@ function CalendarContent() {
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
+  const handleDispatchDateChange = (direction: -1 | 1 | 0) => {
+    if (direction === 0) {
+      setDispatchDate(getTodayInTimezone(orgTimezone || 'America/Chicago'))
+      return
+    }
+    const current = new Date(`${dispatchDate}T12:00:00.000Z`)
+    current.setDate(current.getDate() + direction)
+    setDispatchDate(current.toISOString().slice(0, 10))
+  }
+
+  // Multi-Crew Dispatch Computed Items & Conflict Detection
+  const itemsOnDispatchDate = useMemo(() => {
+    const list: Array<{
+      id: string
+      type: 'job' | 'appointment'
+      title: string
+      jobNumber?: string
+      serviceName?: string
+      startTime: string
+      endTime?: string | null
+      status: string
+      crewId?: string | null
+      customerName?: string | null
+      customerPhone?: string | null
+      customerAddress?: string | null
+      hasConflict?: boolean
+    }> = []
+
+    for (const a of appointments) {
+      if (!a.start_time) continue
+      let aDate = ''
+      try {
+        aDate = new Intl.DateTimeFormat('en-CA', { timeZone: orgTimezone }).format(new Date(a.start_time))
+      } catch {
+        aDate = a.start_time.slice(0, 10)
+      }
+      if (aDate === dispatchDate) {
+        list.push({
+          id: a.id,
+          type: 'appointment',
+          title: a.title,
+          serviceName: a.service_type || 'Appointment',
+          startTime: a.start_time,
+          endTime: a.end_time,
+          status: a.status,
+          crewId: a.crew_id || null,
+          customerName: a.contact?.name,
+          customerPhone: a.contact?.phone,
+          customerAddress: a.contact?.address
+        })
+      }
+    }
+
+    for (const j of dispatchJobs) {
+      if (!j.scheduled_start) continue
+      let jDate = ''
+      try {
+        jDate = new Intl.DateTimeFormat('en-CA', { timeZone: orgTimezone }).format(new Date(j.scheduled_start))
+      } catch {
+        jDate = j.scheduled_start.slice(0, 10)
+      }
+      if (jDate === dispatchDate) {
+        list.push({
+          id: j.id,
+          type: 'job',
+          title: j.title,
+          jobNumber: j.job_number,
+          serviceName: j.service?.name || 'Field Job',
+          startTime: j.scheduled_start,
+          endTime: j.scheduled_end,
+          status: j.status,
+          crewId: j.crew_id || null,
+          customerName: j.contact?.name,
+          customerPhone: j.contact?.phone,
+          customerAddress: j.contact?.address
+        })
+      }
+    }
+
+    // Sort by startTime
+    list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+
+    // Overlap conflict detection per crew
+    const crewGroups: Record<string, typeof list> = {}
+    for (const it of list) {
+      if (it.crewId && !['cancelled', 'no_show'].includes(it.status)) {
+        if (!crewGroups[it.crewId]) crewGroups[it.crewId] = []
+        crewGroups[it.crewId].push(it)
+      }
+    }
+
+    for (const group of Object.values(crewGroups)) {
+      if (group.length <= 1) continue
+      for (let i = 0; i < group.length; i++) {
+        const itemA = group[i]
+        const startA = new Date(itemA.startTime).getTime()
+        const endA = itemA.endTime ? new Date(itemA.endTime).getTime() : startA + 60 * 60 * 1000
+
+        for (let k = i + 1; k < group.length; k++) {
+          const itemB = group[k]
+          const startB = new Date(itemB.startTime).getTime()
+          const endB = itemB.endTime ? new Date(itemB.endTime).getTime() : startB + 60 * 60 * 1000
+
+          if (startA < endB && startB < endA) {
+            itemA.hasConflict = true
+            itemB.hasConflict = true
+          }
+        }
+      }
+    }
+
+    return list
+  }, [appointments, dispatchJobs, dispatchDate, orgTimezone])
+
   // Filter appointments
   const filteredAppointments = appointments.filter((apt) => {
     if (statusFilter === 'all') return true
@@ -539,6 +717,304 @@ function CalendarContent() {
         </div>
       </div>
 
+      {/* View Switcher */}
+      <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setCalendarView('agenda')}
+          className={cn(
+            "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5",
+            calendarView === 'agenda'
+              ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
+              : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+          )}
+        >
+          <CalendarDays className="h-3.5 w-3.5" />
+          <span>Agenda View</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalendarView('crews')}
+          className={cn(
+            "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5",
+            calendarView === 'crews'
+              ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
+              : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+          )}
+        >
+          <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+          <span>Crew Dispatch Columns</span>
+          {crews.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold tabular-nums">
+              {crews.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {calendarView === 'crews' ? (
+        /* Multi-Crew Dispatch Columns Board */
+        <div className="space-y-4">
+          {/* Dispatch Date Navigation Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDispatchDateChange(-1)}
+                className="h-8 w-8 p-0 border-slate-200 dark:border-zinc-700"
+                title="Previous Day"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="px-3 py-1 text-xs font-semibold text-slate-800 dark:text-zinc-200 min-w-36 text-center">
+                {new Intl.DateTimeFormat('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                }).format(new Date(`${dispatchDate}T12:00:00.000Z`))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDispatchDateChange(1)}
+                className="h-8 w-8 p-0 border-slate-200 dark:border-zinc-700"
+                title="Next Day"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDispatchDateChange(0)}
+                className="h-8 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+              >
+                Today
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 dark:text-zinc-400 hidden sm:inline">
+                {itemsOnDispatchDate.length} item{itemsOnDispatchDate.length !== 1 ? 's' : ''} scheduled
+              </span>
+              <Button
+                size="sm"
+                onClick={() => setShowCrewModal(true)}
+                className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Crew / Van
+              </Button>
+            </div>
+          </div>
+
+          {/* Columns Grid */}
+          {crews.length === 0 ? (
+            <EmptyState
+              icon={Truck}
+              title="No Crews or Vans Configured"
+              description="Add your first service van or field crew to unlock multi-crew column dispatch, territory routing, and double-booking protection."
+              actionLabel="Add First Crew"
+              onAction={() => setShowCrewModal(true)}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start overflow-x-auto pb-4">
+              {/* Active Crews Columns */}
+              {crews.map(crew => {
+                const crewItems = itemsOnDispatchDate.filter(it => it.crewId === crew.id)
+                return (
+                  <div
+                    key={crew.id}
+                    className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/70 p-3 flex flex-col gap-3 min-w-[280px]"
+                  >
+                    {/* Column Header */}
+                    <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-zinc-800/80 pb-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shrink-0 border border-black/10"
+                          style={{ backgroundColor: crew.color_code }}
+                        />
+                        <div className="truncate">
+                          <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                            {crew.name}
+                          </h3>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
+                            {crew.phone_number || (crew.crew_lead?.full_name ? `Lead: ${crew.crew_lead.full_name}` : 'Active Van')}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 tabular-nums">
+                        {crewItems.length}
+                      </span>
+                    </div>
+
+                    {/* Column Items */}
+                    <div className="space-y-2.5 min-h-[160px]">
+                      {crewItems.length === 0 ? (
+                        <div className="h-32 flex flex-col items-center justify-center text-center p-3 text-slate-400 dark:text-zinc-600 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl text-xs">
+                          <Truck className="w-5 h-5 mb-1 opacity-40" />
+                          <span>No bookings for this date</span>
+                        </div>
+                      ) : (
+                        crewItems.map(item => (
+                          <div
+                            key={`${item.type}-${item.id}`}
+                            className={cn(
+                              "rounded-xl border p-3 bg-white dark:bg-zinc-900 shadow-2xs space-y-2 transition-all hover:border-slate-300 dark:hover:border-zinc-700",
+                              item.hasConflict
+                                ? "border-amber-400 dark:border-amber-500/50 ring-1 ring-amber-400/30"
+                                : "border-slate-200/80 dark:border-zinc-800"
+                            )}
+                          >
+                            {/* Time & Conflict Pill */}
+                            <div className="flex items-center justify-between gap-1 text-[11px]">
+                              <span className="font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                {new Intl.DateTimeFormat('en-US', {
+                                  timeZone: orgTimezone,
+                                  hour: 'numeric',
+                                  minute: '2-digit'
+                                }).format(new Date(item.startTime))}
+                              </span>
+
+                              {item.hasConflict ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  Double Booked
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-medium text-slate-400 uppercase">
+                                  {item.type}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Title & Customer */}
+                            <div>
+                              <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                                {item.jobNumber ? `#${item.jobNumber}: ` : ''}{item.title}
+                              </div>
+                              {item.customerName && (
+                                <div className="text-[11px] text-slate-600 dark:text-zinc-400 truncate">
+                                  {item.customerName}
+                                </div>
+                              )}
+                              {item.customerAddress && (
+                                <div className="text-[10px] text-slate-500 dark:text-zinc-500 truncate flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                  <span className="truncate">{item.customerAddress}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Actions: Reassign Crew */}
+                            <div className="pt-1.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-1">
+                              {getAppointmentBadge(item.status as any)}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setReassignTargetItem(item)
+                                  setShowReassignModal(true)
+                                }}
+                                className="h-6 px-2 text-[10px] rounded-md border-slate-200 dark:border-zinc-700"
+                              >
+                                Reassign
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Unassigned Standby Column */}
+              {(() => {
+                const unassignedItems = itemsOnDispatchDate.filter(it => !it.crewId)
+                return (
+                  <div className="rounded-2xl border border-slate-200/90 dark:border-zinc-800 bg-slate-100/50 dark:bg-zinc-900/40 p-3 flex flex-col gap-3 min-w-[280px]">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 rounded-full bg-slate-400" />
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                            Unassigned Standby
+                          </h3>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                            Needs van dispatch
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 tabular-nums">
+                        {unassignedItems.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 min-h-[160px]">
+                      {unassignedItems.length === 0 ? (
+                        <div className="h-32 flex flex-col items-center justify-center text-center p-3 text-slate-400 dark:text-zinc-600 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl text-xs">
+                          <CheckCircle2 className="w-5 h-5 mb-1 text-emerald-500/70" />
+                          <span>All items dispatched to crews</span>
+                        </div>
+                      ) : (
+                        unassignedItems.map(item => (
+                          <div
+                            key={`${item.type}-${item.id}`}
+                            className="rounded-xl border border-amber-200/70 dark:border-amber-500/20 p-3 bg-amber-50/30 dark:bg-amber-950/10 shadow-2xs space-y-2"
+                          >
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                {new Intl.DateTimeFormat('en-US', {
+                                  timeZone: orgTimezone,
+                                  hour: 'numeric',
+                                  minute: '2-digit'
+                                }).format(new Date(item.startTime))}
+                              </span>
+                              <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400 uppercase">
+                                Unassigned
+                              </span>
+                            </div>
+
+                            <div>
+                              <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                                {item.jobNumber ? `#${item.jobNumber}: ` : ''}{item.title}
+                              </div>
+                              {item.customerName && (
+                                <div className="text-[11px] text-slate-600 dark:text-zinc-400 truncate">
+                                  {item.customerName}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="pt-1.5 border-t border-slate-200/60 dark:border-zinc-800 flex items-center justify-end">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setReassignTargetItem(item)
+                                  setShowReassignModal(true)
+                                }}
+                                className="h-6 px-2.5 text-[10px] rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                              >
+                                Assign Crew
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Agenda View Wrapper */
+        <>
       {/* Filter Tabs */}
       <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1 overflow-x-auto max-w-full scrollbar-none">
         {[
@@ -765,6 +1241,8 @@ function CalendarContent() {
             )
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* Booking Rules & Services Modal */}
@@ -1307,6 +1785,27 @@ function CalendarContent() {
           </div>
         </form>
       </Modal>
+
+      {/* Reassign Crew Modal */}
+      <ReassignCrewModal
+        open={showReassignModal}
+        onOpenChange={setShowReassignModal}
+        item={reassignTargetItem}
+        crews={crews}
+        onSuccess={() => {
+          loadAppointments()
+        }}
+      />
+
+      {/* Crew Modal for quick crew/van creation */}
+      <CrewModal
+        open={showCrewModal}
+        onOpenChange={setShowCrewModal}
+        teamMembers={teamMembers}
+        onSuccess={() => {
+          loadAppointments()
+        }}
+      />
 
     </div>
   )

@@ -23,6 +23,8 @@ export type DomainEventType =
   | 'appointment.upcoming'
   // Jobs
   | 'job.completed'
+  | 'job.started'
+  | 'job.reassigned'
   // Invoices & Billing
   | 'invoice.sent'
   | 'invoice.overdue'

@@ -26,7 +26,8 @@ import {
   Sparkles,
   Pause,
   PlayCircle,
-  Trash2
+  Trash2,
+  Truck
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -42,6 +43,8 @@ import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
 import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
 import { RecurringPlanModal } from '@/components/jobs/recurring-plan-modal'
+import type { Crew } from '@/lib/crews/crew-manager'
+import { ReassignCrewModal } from '@/components/crews/reassign-crew-modal'
 
 interface JobItem {
   id: string
@@ -58,6 +61,14 @@ interface JobItem {
   eta_minutes?: number | null
   notes?: string | null
   tracking_token?: string | null
+  crew_id?: string | null
+  crew?: {
+    id: string
+    name: string
+    color: string
+    van_identifier?: string | null
+    phone_number?: string | null
+  } | null
   contact?: {
     id: string
     name?: string | null
@@ -133,6 +144,21 @@ function JobsContent() {
   const [jobScheduledStart, setJobScheduledStart] = useState('')
   const [jobNotes, setJobNotes] = useState('')
   const [creatingJob, setCreatingJob] = useState(false)
+
+  // Phase 4 State: Fleet & Crews
+  const [crews, setCrews] = useState<Crew[]>([])
+  const [selectedCrewId, setSelectedCrewId] = useState('')
+  const [reassignJobItem, setReassignJobItem] = useState<{
+    id: string
+    type: 'job' | 'appointment'
+    title: string
+    jobNumber?: string
+    startTime: string
+    endTime?: string | null
+    crewId?: string | null
+    customerName?: string | null
+    customerPhone?: string | null
+  } | null>(null)
 
   // Listen to contact_id query param
   useEffect(() => {
@@ -276,10 +302,23 @@ function JobsContent() {
     }
   }, [])
 
+  const loadCrews = useCallback(async () => {
+    try {
+      const res = await fetch('/api/client/crews')
+      if (res.ok) {
+        const data = await res.json()
+        setCrews(data.crews || [])
+      }
+    } catch {
+      // quiet fail
+    }
+  }, [])
+
   useEffect(() => {
     loadJobs()
     loadContacts()
-  }, [loadJobs, loadContacts])
+    loadCrews()
+  }, [loadJobs, loadContacts, loadCrews])
 
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -305,7 +344,8 @@ function JobsContent() {
           contactId: selectedContactId,
           title: jobTitle.trim(),
           scheduledStart: new Date(jobScheduledStart).toISOString(),
-          notes: jobNotes.trim() || undefined
+          notes: jobNotes.trim() || undefined,
+          crewId: selectedCrewId || undefined
         })
       })
 
@@ -317,6 +357,7 @@ function JobsContent() {
         setJobScheduledStart('')
         setJobNotes('')
         setSelectedContactId('')
+        setSelectedCrewId('')
         await loadJobs()
       } else {
         toast.error(data.error || 'Failed to create job.')
@@ -764,6 +805,66 @@ function JobsContent() {
                       </h2>
                       {getJobStatusBadge(job.status)}
 
+                      {/* Crew Badge or Assign Button */}
+                      {(() => {
+                        const jobCrew = job.crew || (job.crew_id ? crews.find(c => c.id === job.crew_id) : null)
+                        if (jobCrew) {
+                          const crewColor = (jobCrew as any).color || (jobCrew as any).color_code || '#3b82f6'
+                          const crewVan = (jobCrew as any).van_identifier
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setReassignJobItem({
+                                id: job.id,
+                                type: 'job',
+                                title: job.title,
+                                jobNumber: job.job_number,
+                                startTime: job.scheduled_start,
+                                endTime: job.scheduled_end,
+                                crewId: job.crew_id,
+                                customerName: job.contact?.name,
+                                customerPhone: job.contact?.phone
+                              })}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all hover:opacity-85 cursor-pointer shadow-2xs"
+                              style={{
+                                backgroundColor: `${crewColor}15`,
+                                borderColor: `${crewColor}40`,
+                                color: crewColor
+                              }}
+                              title="Click to reassign crew/fleet"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: crewColor }} />
+                              <Truck className="w-3 h-3 shrink-0" />
+                              <span className="truncate max-w-[120px]">{jobCrew.name}</span>
+                              {crewVan && (
+                                <span className="text-[10px] opacity-75 font-mono">({crewVan})</span>
+                              )}
+                            </button>
+                          )
+                        }
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setReassignJobItem({
+                              id: job.id,
+                              type: 'job',
+                              title: job.title,
+                              jobNumber: job.job_number,
+                              startTime: job.scheduled_start,
+                              endTime: job.scheduled_end,
+                              crewId: null,
+                              customerName: job.contact?.name,
+                              customerPhone: job.contact?.phone
+                            })}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 hover:text-blue-600 hover:border-blue-400 transition-colors cursor-pointer"
+                            title="Assign crew to this job"
+                          >
+                            <Truck className="w-3 h-3" />
+                            <span>+ Crew</span>
+                          </button>
+                        )
+                      })()}
+
                       {job.quote?.total && (
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 tabular-nums">
                           ${Number(job.quote.total).toFixed(2)}
@@ -1006,6 +1107,25 @@ function JobsContent() {
 
           <div>
             <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+              Assigned Crew / Van (Optional)
+            </label>
+            <select
+              aria-label="Select Crew"
+              value={selectedCrewId}
+              onChange={e => setSelectedCrewId(e.target.value)}
+              className="w-full p-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="">-- Unassigned (Standby) --</option>
+              {crews.map(c => (
+                <option key={c.id} value={c.id} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white">
+                  {c.name} {(c as any).van_identifier ? `(${(c as any).van_identifier})` : ''} {c.service_area ? `• ${c.service_area}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
               Job Notes
             </label>
             <textarea
@@ -1070,6 +1190,17 @@ function JobsContent() {
         services={services}
         onSuccess={() => {
           loadRecurringTemplates()
+          loadJobs()
+        }}
+      />
+
+      {/* Reassign Crew Modal */}
+      <ReassignCrewModal
+        open={!!reassignJobItem}
+        onOpenChange={(open) => !open && setReassignJobItem(null)}
+        item={reassignJobItem}
+        crews={crews}
+        onSuccess={() => {
           loadJobs()
         }}
       />

@@ -12,11 +12,12 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const statusFilter = searchParams.get('status')
   const dateParam = searchParams.get('date')
+  const crewIdParam = searchParams.get('crew_id')
 
   let query = supabase
     .from('appointments')
     .select(`
-      id, title, service_type, start_time, end_time, status, source, manage_token, notes,
+      id, title, service_type, start_time, end_time, status, source, manage_token, notes, crew_id,
       contact:contacts(id, name, phone, address),
       service:services(id, name, duration_minutes, price)
     `)
@@ -25,6 +26,14 @@ export async function GET(request: Request) {
 
   if (statusFilter && statusFilter !== 'all') {
     query = query.eq('status', statusFilter)
+  }
+
+  if (crewIdParam) {
+    if (crewIdParam === 'unassigned') {
+      query = query.is('crew_id', null)
+    } else {
+      query = query.eq('crew_id', crewIdParam)
+    }
   }
 
   if (dateParam) {

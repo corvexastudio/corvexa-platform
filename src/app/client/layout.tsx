@@ -15,13 +15,15 @@ import {
   Users, 
   Zap, 
   Settings, 
-  PhoneCall,
-  LogOut,
-  ShieldCheck,
-  Menu,
-  X,
-  Plus,
-  Wrench
+  PhoneCall, 
+  LogOut, 
+  ShieldCheck, 
+  Menu, 
+  X, 
+  Plus, 
+  Wrench,
+  Navigation,
+  Truck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -40,6 +42,7 @@ export const navSections = [
       { href: '/client/leads', label: 'Leads', icon: Target },
       { href: '/client/calendar', label: 'Calendar', icon: Calendar },
       { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
+      { href: '/client/field', label: 'Field Portal', icon: Navigation },
     ]
   },
   {
@@ -55,6 +58,7 @@ export const navSections = [
     items: [
       { href: '/client/customers', label: 'Customers', icon: Users },
       { href: '/client/services', label: 'Services', icon: Wrench },
+      { href: '/client/team', label: 'Team & Fleet', icon: Truck },
       { href: '/client/automations', label: 'Automations', icon: Zap },
       { href: '/client/settings', label: 'Settings', icon: Settings },
     ]

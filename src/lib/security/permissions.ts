@@ -26,6 +26,8 @@ export type Action =
   | 'reviews:send'
   | 'reviews:view'
   | 'reviews:manage'
+  | 'crews:view'
+  | 'crews:manage'
   | 'admin:all'
 
 /**
@@ -37,7 +39,7 @@ export function normalizeRole(role: string | null | undefined): CanonicalRole {
   if (normalized === 'super_admin') return 'super_admin'
   if (normalized === 'owner') return 'owner'
   if (normalized === 'admin' || normalized === 'client_admin') return 'admin'
-  if (normalized === 'member' || normalized === 'dispatcher') return 'member'
+  if (normalized === 'member' || normalized === 'dispatcher' || normalized === 'technician') return 'member'
   return 'member'
 }
 
@@ -54,6 +56,7 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
     'reviews:send', 'reviews:view', 'reviews:manage',
+    'crews:view', 'crews:manage',
     'admin:all'
   ]),
   owner: new Set([
@@ -64,7 +67,8 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'contacts:read', 'contacts:manage',
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
-    'reviews:send', 'reviews:view', 'reviews:manage'
+    'reviews:send', 'reviews:view', 'reviews:manage',
+    'crews:view', 'crews:manage'
   ]),
   admin: new Set([
     'org:view', 'org:update',
@@ -74,7 +78,8 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'contacts:read', 'contacts:manage',
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
-    'reviews:send', 'reviews:view', 'reviews:manage'
+    'reviews:send', 'reviews:view', 'reviews:manage',
+    'crews:view', 'crews:manage'
   ]),
   member: new Set([
     'org:view',
@@ -84,7 +89,8 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'contacts:read', 'contacts:manage',
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
-    'reviews:send', 'reviews:view'
+    'reviews:send', 'reviews:view',
+    'crews:view'
   ])
 }
 

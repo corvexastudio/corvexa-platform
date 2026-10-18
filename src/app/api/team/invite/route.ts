@@ -52,8 +52,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Role mapping: dispatcher (default) or client_admin
-    const assignedRole = ['client_admin', 'admin'].includes(rawTargetRole) ? 'client_admin' : 'dispatcher'
+    // Role mapping: client_admin, technician, or dispatcher (default)
+    const assignedRole = ['client_admin', 'admin'].includes(rawTargetRole)
+      ? 'client_admin'
+      : rawTargetRole === 'technician'
+      ? 'technician'
+      : 'dispatcher'
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     let inviteStatus: 'INVITE_SENT' | 'INVITE_CREATED_BUT_EMAIL_PENDING' | 'INVITE_FAILED' = 'INVITE_FAILED'

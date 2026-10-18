@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   const { orgId, supabase } = tenantResult
   const { searchParams } = new URL(request.url)
   const isTodayOnly = searchParams.get('today') === 'true'
+  const crewIdParam = searchParams.get('crew_id')
   const limitParam = searchParams.get('limit')
   const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 50
   const cursorStr = searchParams.get('cursor')
@@ -26,11 +27,20 @@ export async function GET(request: Request) {
       service:services(id, name, duration_minutes),
       appointment:appointments(id, start_time, end_time),
       quote:quotes!quote_id(id, quote_number, total),
+      crew:crews!crew_id(id, name, color, van_identifier, phone_number),
       items:job_items(*)
     `)
     .eq('org_id', orgId)
     .order('scheduled_start', { ascending: true })
     .limit(limit + 1)
+
+  if (crewIdParam) {
+    if (crewIdParam === 'unassigned') {
+      query = query.is('crew_id', null)
+    } else {
+      query = query.eq('crew_id', crewIdParam)
+    }
+  }
 
   const includeDeleted = searchParams.get('include_deleted') === 'true'
   if (!includeDeleted) {
@@ -51,8 +61,8 @@ export async function GET(request: Request) {
 
   let { data: rawJobs, error } = await query
 
-  // Resilient fallback: If PostgREST fails to embed relations, fall back to safe query without quotes embed
-  if (error && (error.message?.includes('embed') || error.message?.includes('relationship'))) {
+  // Resilient fallback: If PostgREST fails to embed relations, fall back to safe query without quotes/crew embed
+  if (error && (error.message?.includes('embed') || error.message?.includes('relationship') || error.message?.includes('crew') || error.message?.includes('quote'))) {
     let fallbackQuery = supabase
       .from('jobs')
       .select(`
@@ -149,6 +159,7 @@ export async function POST(request: Request) {
       appointmentId,
       serviceId,
       assignedTo,
+      crewId,
       title,
       description,
       scheduledStart,
@@ -172,6 +183,7 @@ export async function POST(request: Request) {
       appointmentId,
       serviceId,
       assignedTo,
+      crewId,
       title,
       description,
       scheduledStart,

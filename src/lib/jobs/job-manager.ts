@@ -29,6 +29,7 @@ export interface CreateJobInput {
   appointmentId?: string
   serviceId?: string
   assignedTo?: string
+  crewId?: string
   title: string
   description?: string
   scheduledStart: string // ISO string
@@ -52,6 +53,7 @@ export async function createJob(
     appointmentId,
     serviceId,
     assignedTo,
+    crewId,
     title,
     description,
     scheduledStart,
@@ -77,6 +79,7 @@ export async function createJob(
       appointment_id: appointmentId || null,
       service_id: serviceId || null,
       assigned_to: assignedTo || null,
+      crew_id: crewId || null,
       job_number: jobNumber,
       title: title.trim(),
       description: description?.trim() || null,
@@ -364,6 +367,7 @@ export async function customerViewJobTracking(
 ): Promise<{
   success: boolean
   job?: any
+  crew?: any
   org?: any
   contact?: any
   service?: any
@@ -468,6 +472,27 @@ export async function customerViewJobTracking(
     .eq('job_id', job.id)
     .order('created_at', { ascending: true })
 
+  // 6. Assigned Crew Resolution
+  let crewInfo: { name: string; colorCode: string; phoneNumber?: string | null } | null = null
+  if ((job as any).crew_id) {
+    try {
+      const { data: crewData } = await supabase
+        .from('crews')
+        .select('name, color_code, phone_number')
+        .eq('id', (job as any).crew_id)
+        .maybeSingle()
+      if (crewData) {
+        crewInfo = {
+          name: crewData.name,
+          colorCode: crewData.color_code || '#3B82F6',
+          phoneNumber: crewData.phone_number || null
+        }
+      }
+    } catch {
+      // Non-fatal if crews table is not yet migrated
+    }
+  }
+
   return {
     success: true,
     job: {
@@ -479,6 +504,7 @@ export async function customerViewJobTracking(
       scheduledStart: job.scheduled_start,
       scheduledEnd: job.scheduled_end,
       enRouteAt: job.en_route_at,
+      arrivedAt: (job as any).arrived_at || null,
       startedAt: job.started_at,
       completedAt: job.completed_at,
       technicianName: job.technician_name,
@@ -486,6 +512,7 @@ export async function customerViewJobTracking(
       notes: job.notes,
       trackingToken: job.tracking_token
     },
+    crew: crewInfo,
     org: {
       id: org?.id,
       name: org?.name || 'Service Provider',
@@ -513,5 +540,75 @@ export async function customerViewJobTracking(
     referral,
     photos: photos || []
   }
+}
+
+/**
+ * 1-Tap Technician Field Timestamp Logger (Arrived, Started, Completed)
+ */
+export async function recordJobTimestamp(
+  supabase: SupabaseClient,
+  params: {
+    orgId: string
+    jobId: string
+    action: 'arrived' | 'started' | 'completed'
+    notes?: string
+  }
+): Promise<{ success: boolean; job?: any; error?: string }> {
+  const { orgId, jobId, action, notes } = params
+  const now = new Date().toISOString()
+
+  // First fetch the job to verify existence and current state
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', jobId)
+    .eq('org_id', orgId)
+    .single()
+
+  if (jobError || !job) {
+    return { success: false, error: 'Job not found' }
+  }
+
+  const updateFields: Record<string, any> = {
+    updated_at: now
+  }
+
+  if (notes) {
+    updateFields.notes = job.notes ? `${job.notes}\n${notes}` : notes
+  }
+
+  if (action === 'arrived') {
+    updateFields.arrived_at = now
+    // If job was scheduled/confirmed/en_route, progress it
+    if (['scheduled', 'confirmed', 'en_route'].includes(job.status)) {
+      updateFields.status = 'in_progress'
+    }
+  } else if (action === 'started') {
+    updateFields.started_at = now
+    updateFields.status = 'in_progress'
+  } else if (action === 'completed') {
+    updateFields.completed_at = now
+    return updateJobStatus(supabase, {
+      orgId,
+      jobId,
+      newStatus: 'completed',
+      notes,
+      notifyCustomer: false
+    })
+  }
+
+  const { data: updatedJob, error: updateError } = await supabase
+    .from('jobs')
+    .update(updateFields)
+    .eq('id', jobId)
+    .eq('org_id', orgId)
+    .select('*')
+    .single()
+
+  if (updateError || !updatedJob) {
+    return { success: false, error: updateError?.message || 'Failed to record timestamp' }
+  }
+
+  return { success: true, job: updatedJob }
 }
 
