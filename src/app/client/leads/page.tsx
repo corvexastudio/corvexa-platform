@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -109,7 +108,6 @@ function getSourceBadge(source: string) {
 }
 
 export default function LeadsPage() {
-  const supabase = createClient()
   const [leads, setLeads] = useState<LeadItem[]>([])
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<'all' | LeadItem['status']>('all')
@@ -129,7 +127,6 @@ export default function LeadsPage() {
   const [leadEstimatedValue, setLeadEstimatedValue] = useState('')
   const [leadNotes, setLeadNotes] = useState('')
   const [savingLead, setSavingLead] = useState(false)
-  const [orgId, setOrgId] = useState<string | null>(null)
 
   // Load contacts for picker
   useEffect(() => {
@@ -145,49 +142,27 @@ export default function LeadsPage() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { user }, error: authErr } = await supabase.auth.getUser()
-      if (authErr || !user) {
-        setError('Authentication required to load leads.')
-        setLoading(false)
-        return
-      }
-
-      const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('org_id')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (profileErr || !profile || !profile.org_id) {
-        window.location.href = '/client/onboarding'
-        return
-      }
-      setOrgId(profile.org_id)
-
-      const { data, error: leadsErr } = await supabase
-        .from('leads')
-        .select(`
-          id, contact_id, source, status, urgency, service_needed, estimated_value, notes, created_at,
-          contact:contacts(id, name, phone, address)
-        `)
-        .eq('org_id', profile.org_id)
-        .order('created_at', { ascending: false })
-
-      if (leadsErr) {
-        setError('Unable to load inbound leads. Please retry.')
-      } else if (data) {
-        const enriched: LeadItem[] = data.map((l: any) => ({
-          ...l,
-          contact: Array.isArray(l.contact) ? l.contact[0] : l.contact
-        }))
-        setLeads(enriched)
+      const res = await fetch('/api/client/leads')
+      if (res.ok) {
+        const data = await res.json()
+        setLeads(data.leads || [])
+      } else {
+        if (res.status === 403) {
+          const err = await res.json().catch(() => ({}))
+          if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
+            window.location.href = '/client/onboarding'
+            return
+          }
+        }
+        const err = await res.json().catch(() => ({}))
+        setError(err.error || 'Unable to load inbound leads. Please retry.')
       }
     } catch {
-      setError('An unexpected error occurred while loading leads.')
+      setError('Unable to load inbound leads. Please check your network and retry.')
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => { loadLeads() }, [loadLeads])
 
@@ -195,22 +170,27 @@ export default function LeadsPage() {
     // Optimistic update
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l))
 
-    const { error } = await supabase
-      .from('leads')
-      .update({ status: newStatus })
-      .eq('id', leadId)
+    try {
+      const res = await fetch(`/api/client/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      })
 
-    if (error) {
-      toast.error('Failed to update stage.')
-      loadLeads() // Rollback on failure
-    } else {
-      toast.success(`Stage updated to ${newStatus}`)
+      if (res.ok) {
+        toast.success(`Stage updated to ${newStatus}`)
+      } else {
+        toast.error('Failed to update stage.')
+        loadLeads() // Rollback on failure
+      }
+    } catch {
+      toast.error('Network error updating stage.')
+      loadLeads()
     }
   }
 
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!orgId) return
 
     setSavingLead(true)
     try {
@@ -245,22 +225,22 @@ export default function LeadsPage() {
         return
       }
 
-      const { error: insertErr } = await supabase
-        .from('leads')
-        .insert({
-          org_id: orgId,
-          contact_id: finalContactId,
+      const res = await fetch('/api/client/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: finalContactId,
           source: leadSource,
           status: 'new',
           urgency: leadUrgency,
-          service_needed: leadServiceNeeded.trim() || null,
-          estimated_value: leadEstimatedValue ? parseFloat(leadEstimatedValue) : null,
-          notes: leadNotes.trim() || null
+          serviceNeeded: leadServiceNeeded.trim() || undefined,
+          estimatedValue: leadEstimatedValue ? parseFloat(leadEstimatedValue) : undefined,
+          notes: leadNotes.trim() || undefined
         })
+      })
 
-      if (insertErr) {
-        toast.error(insertErr.message || 'Failed to create lead.')
-      } else {
+      const data = await res.json()
+      if (res.ok && data.success) {
         toast.success('Inbound lead recorded successfully')
         setShowCreateModal(false)
         setLeadContactId('')
@@ -272,6 +252,8 @@ export default function LeadsPage() {
         setLeadEstimatedValue('')
         setLeadNotes('')
         await loadLeads()
+      } else {
+        toast.error(data.error || 'Failed to create lead.')
       }
     } catch {
       toast.error('Network error creating lead.')
