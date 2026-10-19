@@ -30,6 +30,10 @@ export interface CheckoutSessionResult {
 let stripeClientInstance: Stripe | null = null
 
 export function getStripeClient(): Stripe | null {
+  // If mock dispatch is enabled, return null to force all routes and adapters to simulation mode
+  if (process.env.STRIPE_MOCK_DISPATCH === 'true') {
+    return null
+  }
   const secretKey = process.env.STRIPE_SECRET_KEY
   if (!secretKey) {
     return null
@@ -49,6 +53,18 @@ export function getStripeClient(): Stripe | null {
 export async function createStripeCheckoutSession(
   input: CreateCheckoutSessionInput
 ): Promise<CheckoutSessionResult> {
+  const isDemoOrE2E =
+    process.env.E2E_ALLOW_DEMO_TENANT === 'true' ||
+    process.env.E2E_TEST_MODE === 'demo_tenant' ||
+    process.env.DEMO_MODE === 'true'
+
+  // In demo or E2E mode, STRIPE_MOCK_DISPATCH === 'true' is strictly required. Missing, empty, false, or malformed values fail closed.
+  if (isDemoOrE2E && process.env.STRIPE_MOCK_DISPATCH !== 'true') {
+    throw new Error(
+      '[STRIPE SAFETY VIOLATION] In demo or E2E mode, STRIPE_MOCK_DISPATCH must be "true". Rejected to prevent external payment charge.'
+    )
+  }
+
   const stripe = getStripeClient()
   const {
     invoiceId,
@@ -69,9 +85,10 @@ export async function createStripeCheckoutSession(
   const successUrl = `${safeBaseUrl}/invoice/${manageToken}?status=paid&session_id={CHECKOUT_SESSION_ID}`
   const cancelUrl = `${safeBaseUrl}/invoice/${manageToken}?status=cancelled`
 
-  // 1. Simulation fallback when no API key is provided
-  if (!stripe) {
-    if (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production') {
+  // 1. Simulation fallback when no API key is provided or explicit mock mode is set
+  const isMockExplicit = process.env.STRIPE_MOCK_DISPATCH === 'true'
+  if (!stripe || isMockExplicit) {
+    if (!stripe && !isMockExplicit && (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production')) {
       console.error('[STRIPE CONFIGURATION ERROR] STRIPE_SECRET_KEY is missing in production environment.')
       throw new Error('STRIPE_SECRET_KEY is not configured in production environment (fail-closed)')
     }

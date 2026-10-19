@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -38,20 +39,9 @@ import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 
 export default function CustomersPage() {
   const router = useRouter()
-  const [customers, setCustomers] = useState<any[]>([])
-  const [counts, setCounts] = useState({
-    total: 0,
-    active: 0,
-    due: 0,
-    overdue: 0,
-    inactive: 0,
-    totalLtv: 0
-  })
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'due' | 'overdue' | 'inactive'>('all')
   const [sortBy, setSortBy] = useState<'last_activity' | 'ltv' | 'last_service' | 'name'>('last_activity')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [runningReactivation, setRunningReactivation] = useState(false)
 
   // Add Customer Modal State
@@ -64,43 +54,38 @@ export default function CustomersPage() {
   const [addFrequency, setAddFrequency] = useState('90')
   const [addingCustomer, setAddingCustomer] = useState(false)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
+  // React Query with stale-while-revalidate caching
+  const { data, isLoading: loading, isError, error: queryError, refetch } = useQuery({
+    queryKey: ['customers', search, filterStatus, sortBy],
+    queryFn: async () => {
       const params = new URLSearchParams()
       if (search.trim()) params.set('query', search.trim())
       if (filterStatus !== 'all') params.set('status', filterStatus)
       if (sortBy) params.set('sortBy', sortBy)
 
       const res = await fetch(`/api/client/customers?${params.toString()}`)
-      if (res.ok) {
-        const data = await res.json()
-        setCustomers(data.customers || [])
-        setCounts(data.counts || {})
-      } else {
+      if (!res.ok) {
         if (res.status === 403) {
           const err = await res.json().catch(() => ({}))
           if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
             window.location.href = '/client/onboarding'
-            return
+            return { customers: [], counts: {} }
           }
         }
-        setError('Failed to load customer directory. Please retry.')
+        throw new Error('Failed to load customer directory. Please retry.')
       }
-    } catch {
-      setError('Network error while loading customer directory.')
-    } finally {
-      setLoading(false)
-    }
-  }, [search, filterStatus, sortBy])
+      return res.json()
+    },
+    staleTime: 60 * 1000
+  })
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadData()
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [loadData])
+  const customers: any[] = (data as any)?.customers || []
+  const counts = (data as any)?.counts || { total: 0, active: 0, due: 0, overdue: 0, inactive: 0, totalLtv: 0 }
+  const error = isError ? (queryError?.message || 'Failed to load customer directory.') : null
+
+  const loadData = useCallback(async () => {
+    await refetch()
+  }, [refetch])
 
   const handleRunReactivation = async () => {
     setRunningReactivation(true)

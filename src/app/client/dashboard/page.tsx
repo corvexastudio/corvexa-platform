@@ -41,106 +41,48 @@ import {
   RecentCallItem, 
   TimeRange 
 } from '@/lib/dashboard/dashboard-service'
+import { useQuery } from '@tanstack/react-query'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { orgName } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
-  const [org, setOrg] = useState<any>(null)
-  const [attentionQueue, setAttentionQueue] = useState<AttentionItem[]>([])
-  const [operations, setOperations] = useState<OperationalMetrics | null>(null)
-  const [outcomes, setOutcomes] = useState<OutcomeMetrics | null>(null)
-  const [jobsToday, setJobsToday] = useState<JobTodayItem[]>([])
-  const [recentCalls, setRecentCalls] = useState<RecentCallItem[]>([])
 
-  const loadDashboard = useCallback(async (selectedPeriod: TimeRange) => {
-    setLoading(true)
-    setError(null)
-    try {
-      // 1. Fetch organization details safely
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('org_id')
-          .eq('id', user.id)
-          .maybeSingle()
-        if (profile?.org_id) {
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('name')
-            .eq('id', profile.org_id)
-            .maybeSingle()
-          if (orgData) {
-            setOrg(orgData)
-          }
-        }
-      }
-
-      // 2. Fetch aggregated dashboard data
+  const { data, isLoading, isError, error: queryError, refetch } = useQuery({
+    queryKey: ['dashboard', period],
+    queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const reqHeaders: Record<string, string> = {}
       if (session?.access_token) {
         reqHeaders['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const res = await fetch(`/api/client/dashboard?period=${selectedPeriod}`, { headers: reqHeaders })
-      if (res.ok) {
-        const data = await res.json()
-        setAttentionQueue(data.attentionQueue || [])
-        setOperations(data.operations || null)
-        setOutcomes(data.outcomes || null)
-        setJobsToday(data.jobsToday || [])
-        setRecentCalls(data.recentCalls || [])
-      } else {
-        const errData = await res.json().catch(() => ({}))
-        if (res.status === 403 && (errData.error?.includes('profile not registered') || errData.error?.includes('not linked to an organization'))) {
-          // Attempt self-healing provisioning once
-          try {
-            const healHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
-            if (session?.access_token) {
-              healHeaders['Authorization'] = `Bearer ${session.access_token}`
-            }
-            const healRes = await fetch('/api/onboarding', {
-              method: 'POST',
-              headers: healHeaders,
-              body: JSON.stringify({})
-            })
-            if (healRes.ok) {
-              const retryRes = await fetch(`/api/client/dashboard?period=${selectedPeriod}`, { headers: reqHeaders })
-              if (retryRes.ok) {
-                const retryData = await retryRes.json()
-                setAttentionQueue(retryData.attentionQueue || [])
-                setOperations(retryData.operations || null)
-                setOutcomes(retryData.outcomes || null)
-                setJobsToday(retryData.jobsToday || [])
-                setRecentCalls(retryData.recentCalls || [])
-                return
-              }
-            }
-          } catch {
-            // Non-fatal
+      const res = await fetch(`/api/client/dashboard?period=${period}`, { headers: reqHeaders })
+      if (!res.ok) {
+        if (res.status === 403) {
+          const err = await res.json().catch(() => ({}))
+          if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
+            window.location.href = '/client/onboarding'
+            return {}
           }
-          setError(
-            errData.error || 
-            'Your user profile is not linked to an organization yet. Please complete workspace setup at /client/onboarding.'
-          )
-          return
         }
-        setError(errData.error || 'Failed to load dashboard metrics.')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to load dashboard metrics')
       }
-    } catch {
-      setError('Unable to load dashboard. Please check your connection and try again.')
-    } finally {
-      setLoading(false)
-    }
-  }, [supabase])
+      return res.json()
+    },
+    staleTime: 60 * 1000
+  })
 
-  useEffect(() => {
-    loadDashboard(period)
-  }, [loadDashboard, period])
+  const attentionQueue: AttentionItem[] = data?.attentionQueue || []
+  const operations: OperationalMetrics | null = data?.operations || null
+  const outcomes: OutcomeMetrics | null = data?.outcomes || null
+  const jobsToday: JobTodayItem[] = data?.jobsToday || []
+  const recentCalls: RecentCallItem[] = data?.recentCalls || []
+  const loading = isLoading
+  const error = isError ? (queryError?.message || 'Failed to load dashboard metrics.') : null
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -195,7 +137,7 @@ export default function DashboardPage() {
       {/* ── Page Header: Today's Briefing ── */}
       <PageHeader
         title="Today's Command Center"
-        subtitle={org?.name ? `${org.name} • Operational status, dispatch & triage.` : 'Daily operational overview.'}
+        subtitle={orgName ? `${orgName} • Operational status, dispatch & triage.` : 'Daily operational overview.'}
         badge={
           <Badge variant="neutral" size="default" suppressHydrationWarning>
             {todayFormatted}
@@ -215,7 +157,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               size="icon-touch"
-              onClick={() => loadDashboard(period)}
+              onClick={() => refetch()}
               disabled={loading}
               title="Refresh dashboard"
               aria-label="Refresh dashboard"
@@ -231,7 +173,7 @@ export default function DashboardPage() {
         <ErrorState
           title="Could not load dashboard data"
           message={error}
-          onRetry={() => loadDashboard(period)}
+          onRetry={() => refetch()}
         />
       )}
 

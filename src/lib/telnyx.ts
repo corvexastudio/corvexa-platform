@@ -22,6 +22,27 @@ export async function sendTelnyxSms({
   text: string
   from?: string
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  // Explicit test/sandbox mock guard to guarantee zero billable dispatches
+  if (process.env.TELNYX_MOCK_DISPATCH === 'true') {
+    return { success: true, messageId: `mock_telnyx_${Date.now()}` }
+  }
+
+  const isDemoOrE2E =
+    process.env.E2E_ALLOW_DEMO_TENANT === 'true' ||
+    process.env.E2E_TEST_MODE === 'demo_tenant' ||
+    process.env.DEMO_MODE === 'true'
+
+  // In demo or E2E mode, TELNYX_MOCK_DISPATCH === 'true' is strictly required. Missing, empty, false, or malformed values fail closed.
+  if (isDemoOrE2E) {
+    console.error(
+      '[TELNYX SAFETY VIOLATION] In demo or E2E mode, TELNYX_MOCK_DISPATCH must be "true". Rejected to prevent external carrier dispatch.'
+    )
+    return {
+      success: false,
+      error: '[TELNYX SAFETY VIOLATION] In demo or E2E mode, TELNYX_MOCK_DISPATCH must be "true". Missing, false, or malformed values fail closed.'
+    }
+  }
+
   const apiKey = process.env.TELNYX_API_KEY
   const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || '+18777713802' || process.env.TELNYX_PHONE_NUMBER || from
 

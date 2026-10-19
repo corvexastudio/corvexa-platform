@@ -113,7 +113,7 @@ export async function getAttentionQueue(
   const now = new Date()
   const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000)
 
-  // 1. New Unhandled Leads
+  // 1. Prepare queries for concurrent parallel execution
   let leadsQuery = supabase
     .from('leads')
     .select('id, created_at, status, value, deleted_at, contacts(id, name, phone, deleted_at)')
@@ -126,7 +126,83 @@ export async function getAttentionQueue(
     leadsQuery = (leadsQuery as any).is('deleted_at', null)
   }
 
-  const { data: rawLeads } = await leadsQuery
+  // 2. Customers Waiting for Response (Unread Conversations)
+  const convQuery = supabase
+    .from('conversations')
+    .select('id, unread_count, last_message_at, contacts(name, phone)')
+    .eq('org_id', orgId)
+    .gt('unread_count', 0)
+    .order('last_message_at', { ascending: false })
+    .limit(10)
+
+  // 3. Expiring Quotes (Sent or Viewed with expiration within 48h or expired)
+  let quotesQuery = supabase
+    .from('quotes')
+    .select('id, quote_number, total, expires_at, status, deleted_at, contacts(name, phone)')
+    .eq('org_id', orgId)
+    .in('status', ['sent', 'viewed'])
+    .not('expires_at', 'is', null)
+    .lte('expires_at', in48Hours.toISOString())
+    .order('expires_at', { ascending: true })
+    .limit(10)
+
+  if (typeof (quotesQuery as any).is === 'function') {
+    quotesQuery = (quotesQuery as any).is('deleted_at', null)
+  }
+
+  // 4. Appointments Needing Confirmation (Requested Bookings)
+  const apptsQuery = supabase
+    .from('appointments')
+    .select('id, start_time, source, services(name), contacts(name, phone)')
+    .eq('org_id', orgId)
+    .eq('status', 'requested')
+    .order('start_time', { ascending: true })
+    .limit(10)
+
+  // 5. Overdue / Outstanding Past Due Invoices
+  let invQuery = supabase
+    .from('invoices')
+    .select('id, invoice_number, total, due_date, status, deleted_at, contacts(name, phone)')
+    .eq('org_id', orgId)
+    .or(`status.eq.overdue,and(status.in.(sent,partially_paid),due_date.lt.${now.toISOString()})`)
+    .order('due_date', { ascending: true })
+    .limit(10)
+
+  if (typeof (invQuery as any).is === 'function') {
+    invQuery = (invQuery as any).is('deleted_at', null)
+  }
+
+  // 6. Customers Due for Service / Follow-up
+  let custQuery = supabase
+    .from('contacts')
+    .select('id, name, phone, last_service_date, lifecycle_status, next_expected_service_date, deleted_at')
+    .eq('org_id', orgId)
+    .in('lifecycle_status', ['due', 'overdue'])
+    .order('next_expected_service_date', { ascending: true })
+    .limit(10)
+
+  if (typeof (custQuery as any).is === 'function') {
+    custQuery = (custQuery as any).is('deleted_at', null)
+  }
+
+  // Execute all 6 queries concurrently in parallel to eliminate sequential latency
+  const [
+    { data: rawLeads },
+    { data: unreadConvs },
+    { data: rawExpiringQuotes },
+    { data: requestedAppts },
+    { data: rawOverdueInvoices },
+    { data: rawDueCustomers }
+  ] = await Promise.all([
+    leadsQuery,
+    convQuery,
+    quotesQuery,
+    apptsQuery,
+    invQuery,
+    custQuery
+  ])
+
+  // Process 1: New Unhandled Leads
   const newLeads = (rawLeads || []).filter((lead: any) => {
     if (lead.deleted_at) return false
     if ((lead.contacts as any)?.deleted_at) return false
@@ -150,15 +226,7 @@ export async function getAttentionQueue(
     }
   }
 
-  // 2. Customers Waiting for Response (Unread Conversations)
-  const { data: unreadConvs } = await supabase
-    .from('conversations')
-    .select('id, unread_count, last_message_at, contacts(name, phone)')
-    .eq('org_id', orgId)
-    .gt('unread_count', 0)
-    .order('last_message_at', { ascending: false })
-    .limit(10)
-
+  // Process 2: Customers Waiting for Response (Unread Conversations)
   if (unreadConvs && unreadConvs.length > 0) {
     for (const conv of unreadConvs) {
       const contactName = (conv.contacts as any)?.name || (conv.contacts as any)?.phone || 'Customer'
@@ -176,22 +244,7 @@ export async function getAttentionQueue(
     }
   }
 
-  // 3. Expiring Quotes (Sent or Viewed with expiration within 48h or expired)
-  let quotesQuery = supabase
-    .from('quotes')
-    .select('id, quote_number, total, expires_at, status, deleted_at, contacts(name, phone)')
-    .eq('org_id', orgId)
-    .in('status', ['sent', 'viewed'])
-    .not('expires_at', 'is', null)
-    .lte('expires_at', in48Hours.toISOString())
-    .order('expires_at', { ascending: true })
-    .limit(10)
-
-  if (typeof (quotesQuery as any).is === 'function') {
-    quotesQuery = (quotesQuery as any).is('deleted_at', null)
-  }
-
-  const { data: rawExpiringQuotes } = await quotesQuery
+  // Process 3: Expiring Quotes
   const expiringQuotes = (rawExpiringQuotes || []).filter((q: any) => !q.deleted_at)
 
   if (expiringQuotes && expiringQuotes.length > 0) {
@@ -212,15 +265,7 @@ export async function getAttentionQueue(
     }
   }
 
-  // 4. Appointments Needing Confirmation (Requested Bookings)
-  const { data: requestedAppts } = await supabase
-    .from('appointments')
-    .select('id, start_time, source, services(name), contacts(name, phone)')
-    .eq('org_id', orgId)
-    .eq('status', 'requested')
-    .order('start_time', { ascending: true })
-    .limit(10)
-
+  // Process 4: Appointments Needing Confirmation
   if (requestedAppts && requestedAppts.length > 0) {
     for (const appt of requestedAppts) {
       const contactName = (appt.contacts as any)?.name || 'Client'
@@ -239,20 +284,7 @@ export async function getAttentionQueue(
     }
   }
 
-  // 5. Overdue / Outstanding Past Due Invoices
-  let invQuery = supabase
-    .from('invoices')
-    .select('id, invoice_number, total, due_date, status, deleted_at, contacts(name, phone)')
-    .eq('org_id', orgId)
-    .or(`status.eq.overdue,and(status.in.(sent,partially_paid),due_date.lt.${now.toISOString()})`)
-    .order('due_date', { ascending: true })
-    .limit(10)
-
-  if (typeof (invQuery as any).is === 'function') {
-    invQuery = (invQuery as any).is('deleted_at', null)
-  }
-
-  const { data: rawOverdueInvoices } = await invQuery
+  // Process 5: Overdue / Outstanding Past Due Invoices
   const overdueInvoices = (rawOverdueInvoices || []).filter((i: any) => !i.deleted_at)
 
   if (overdueInvoices && overdueInvoices.length > 0) {
@@ -272,20 +304,7 @@ export async function getAttentionQueue(
     }
   }
 
-  // 6. Customers Due for Service / Follow-up
-  let custQuery = supabase
-    .from('contacts')
-    .select('id, name, phone, last_service_date, lifecycle_status, next_expected_service_date, deleted_at')
-    .eq('org_id', orgId)
-    .in('lifecycle_status', ['due', 'overdue'])
-    .order('next_expected_service_date', { ascending: true })
-    .limit(10)
-
-  if (typeof (custQuery as any).is === 'function') {
-    custQuery = (custQuery as any).is('deleted_at', null)
-  }
-
-  const { data: rawDueCustomers } = await custQuery
+  // Process 6: Customers Due for Service / Follow-up
   const dueCustomers = (rawDueCustomers || []).filter((c: any) => !c.deleted_at)
 
   if (dueCustomers && dueCustomers.length > 0) {
@@ -326,7 +345,7 @@ export async function getOutcomeMetrics(
 ): Promise<OutcomeMetrics> {
   const rangeStart = getTimeRangeStart(timeRange)
 
-  // 1. Recovered Conversations
+  // 1. Prepare queries for concurrent parallel execution
   let missedCallsQuery = supabase
     .from('calls')
     .select('id, contact_id, status, created_at')
@@ -334,45 +353,23 @@ export async function getOutcomeMetrics(
     .eq('status', 'missed')
 
   if (rangeStart) missedCallsQuery = missedCallsQuery.gte('created_at', rangeStart)
-  const { data: missedCalls } = await missedCallsQuery
-  const totalMissed = missedCalls?.length || 0
 
   // Check conversations where inbound customer messages arrived
-  let convQuery = supabase
+  const convQuery = supabase
     .from('conversations')
     .select('id, contact_id, last_message_at')
     .eq('org_id', orgId)
     .limit(1000)
 
-  const { data: allConversations } = await convQuery
-  let recoveredCount = 0
-
-  if (missedCalls && missedCalls.length > 0 && allConversations) {
-    const missedContactIds = new Set(missedCalls.map(c => c.contact_id).filter(Boolean))
-    // A conversation is considered recovered if contact had a missed call and conversation had customer response
-    const recoveredContacts = allConversations.filter(c => missedContactIds.has(c.contact_id))
-    recoveredCount = recoveredContacts.length
-  }
-
-  const recoveryRate = totalMissed > 0 ? Math.round((recoveredCount / totalMissed) * 100) : 0
-
   // 2. Bookings from CaptoDesk
   let apptsQuery = supabase
     .from('appointments')
-    .select('id, status, source, services(price), created_at')
+    .select('id, contact_id, status, source, services(price), created_at')
     .eq('org_id', orgId)
     .in('status', ['confirmed', 'scheduled', 'completed'])
     .limit(2000)
 
   if (rangeStart) apptsQuery = apptsQuery.gte('created_at', rangeStart)
-  const { data: appts } = await apptsQuery
-  const totalBookings = appts?.length || 0
-  const totalBookedValue = Math.round(
-    (appts || []).reduce((sum, a) => sum + (Number((a.services as any)?.price) || 0), 0) * 100
-  ) / 100
-
-  const onlineBookingsCount = (appts || []).filter(a => a.source === 'booking_page' || a.source === 'online').length
-  const recoveryBookingsCount = totalBookings - onlineBookingsCount
 
   // 3. Quote Conversion
   let quotesQuery = supabase
@@ -386,16 +383,6 @@ export async function getOutcomeMetrics(
   }
 
   if (rangeStart) quotesQuery = quotesQuery.gte('created_at', rangeStart)
-  const { data: rawQuotes } = await quotesQuery
-  const allQuotes = (rawQuotes || []).filter(q => !q.deleted_at)
-  const acceptedQuotes = allQuotes.filter(q => q.status === 'accepted')
-  const acceptedCount = acceptedQuotes.length
-  const acceptedValue = Math.round(acceptedQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
-  const totalSentValue = Math.round(allQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
-
-  const resolvedQuotes = allQuotes.filter(q => ['accepted', 'declined', 'expired'].includes(q.status))
-  const totalResolvedCount = resolvedQuotes.length
-  const conversionRate = totalResolvedCount > 0 ? Math.round((acceptedCount / totalResolvedCount) * 100) : 0
 
   // 4. Payment Collection
   let invoicesQuery = supabase
@@ -409,12 +396,6 @@ export async function getOutcomeMetrics(
   }
 
   if (rangeStart) invoicesQuery = invoicesQuery.gte('created_at', rangeStart)
-  const { data: rawInvoices } = await invoicesQuery
-  const allInvoices = (rawInvoices || []).filter(i => !i.deleted_at)
-  const totalInvoicesCount = allInvoices.length
-  const invoicedAmount = Math.round(allInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0) * 100) / 100
-  const paidInvoices = allInvoices.filter(i => i.status === 'paid')
-  const paidInvoicesCount = paidInvoices.length
 
   let paymentsQuery = supabase
     .from('payments')
@@ -424,14 +405,6 @@ export async function getOutcomeMetrics(
     .limit(2000)
 
   if (rangeStart) paymentsQuery = paymentsQuery.gte('created_at', rangeStart)
-  const { data: payments } = await paymentsQuery
-  const collectedAmount = Math.round(
-    ((payments && payments.length > 0)
-      ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-      : paidInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0)) * 100
-  ) / 100
-
-  const collectionRate = invoicedAmount > 0 ? Math.round((collectedAmount / invoicedAmount) * 100) : 0
 
   // 5. Repeat Bookings
   let allJobsQuery = supabase
@@ -444,7 +417,74 @@ export async function getOutcomeMetrics(
     allJobsQuery = (allJobsQuery as any).is('deleted_at', null)
   }
 
-  const { data: rawJobs } = await allJobsQuery
+  // Execute all 7 queries concurrently in parallel to eliminate sequential network latency
+  const [
+    { data: missedCalls },
+    { data: allConversations },
+    { data: appts },
+    { data: rawQuotes },
+    { data: rawInvoices },
+    { data: payments },
+    { data: rawJobs }
+  ] = await Promise.all([
+    missedCallsQuery,
+    convQuery,
+    apptsQuery,
+    quotesQuery,
+    invoicesQuery,
+    paymentsQuery,
+    allJobsQuery
+  ])
+
+  // Process 1: Recovered Conversations
+  const totalMissed = missedCalls?.length || 0
+  let recoveredCount = 0
+
+  if (missedCalls && missedCalls.length > 0 && allConversations) {
+    const missedContactIds = new Set(missedCalls.map(c => c.contact_id).filter(Boolean))
+    // A conversation is considered recovered if contact had a missed call and conversation had customer response
+    const recoveredContacts = allConversations.filter(c => missedContactIds.has(c.contact_id))
+    recoveredCount = recoveredContacts.length
+  }
+
+  const recoveryRate = totalMissed > 0 ? Math.round((recoveredCount / totalMissed) * 100) : 0
+
+  // Process 2: Bookings from CaptoDesk
+  const totalBookings = appts?.length || 0
+  const totalBookedValue = Math.round(
+    (appts || []).reduce((sum, a) => sum + (Number((a.services as any)?.price) || 0), 0) * 100
+  ) / 100
+
+  const onlineBookingsCount = (appts || []).filter(a => a.source === 'booking_page' || a.source === 'online').length
+  const recoveryBookingsCount = totalBookings - onlineBookingsCount
+
+  // Process 3: Quote Conversion
+  const allQuotes = (rawQuotes || []).filter(q => !q.deleted_at)
+  const acceptedQuotes = allQuotes.filter(q => q.status === 'accepted')
+  const acceptedCount = acceptedQuotes.length
+  const acceptedValue = Math.round(acceptedQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
+  const totalSentValue = Math.round(allQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
+
+  const resolvedQuotes = allQuotes.filter(q => ['accepted', 'declined', 'expired'].includes(q.status))
+  const totalResolvedCount = resolvedQuotes.length
+  const conversionRate = totalResolvedCount > 0 ? Math.round((acceptedCount / totalResolvedCount) * 100) : 0
+
+  // Process 4: Payment Collection
+  const allInvoices = (rawInvoices || []).filter(i => !i.deleted_at)
+  const totalInvoicesCount = allInvoices.length
+  const invoicedAmount = Math.round(allInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0) * 100) / 100
+  const paidInvoices = allInvoices.filter(i => i.status === 'paid')
+  const paidInvoicesCount = paidInvoices.length
+
+  const collectedAmount = Math.round(
+    ((payments && payments.length > 0)
+      ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+      : paidInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0)) * 100
+  ) / 100
+
+  const collectionRate = invoicedAmount > 0 ? Math.round((collectedAmount / invoicedAmount) * 100) : 0
+
+  // Process 5: Repeat Bookings
   const allJobs = (rawJobs || []).filter(j => !j.deleted_at)
   const contactJobCount: Record<string, number> = {}
   for (const job of allJobs || []) {

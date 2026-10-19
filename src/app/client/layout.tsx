@@ -31,6 +31,7 @@ import { NotificationCenter } from '@/components/notifications/notification-cent
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { UniversalQuickCreate } from '@/components/universal-quick-create'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { WorkspaceContext, WorkspaceContextValue } from '@/lib/context/workspace-context'
 
 // Workflow-centric information architecture for field service businesses
 export const navSections = [
@@ -115,8 +116,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [unreadTotal, setUnreadTotal] = useState(0)
   const [orgName, setOrgName] = useState<string>('')
   const [orgPhone, setOrgPhone] = useState<string>('')
+  const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [orgId, setOrgId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userFullName, setUserFullName] = useState<string | null>(null)
+  const [role, setRole] = useState<string | null>(null)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   const [authState, setAuthState] = useState<'checking' | 'authorized' | 'redirecting'>('checking')
@@ -151,7 +157,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         // Direct profile lookup
         let { data: profile } = await supabase
           .from('profiles')
-          .select('org_id, role')
+          .select('org_id, role, full_name, email')
           .eq('id', user.id)
           .maybeSingle()
 
@@ -179,7 +185,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             if (onboardRes.ok) {
               const { data: freshProfile } = await supabase
                 .from('profiles')
-                .select('org_id, role')
+                .select('org_id, role, full_name, email')
                 .eq('id', user.id)
                 .maybeSingle()
               profile = freshProfile
@@ -198,27 +204,33 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           return
         }
 
+        setUserId(user.id)
+        setUserEmail(user.email || profile.email || null)
+        setUserFullName(profile.full_name || user.user_metadata?.full_name || null)
         setIsSuperAdmin(profile.role === 'super_admin')
+        setRole(profile.role || null)
         setOrgId(profile.org_id)
 
-        // Fetch organization details safely
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('name, telnyx_phone_number')
-          .eq('id', profile.org_id)
-          .maybeSingle()
+        // Concurrently fetch organization details and unread count in parallel
+        const [{ data: org }, { count }] = await Promise.all([
+          supabase
+            .from('organizations')
+            .select('name, telnyx_phone_number, timezone')
+            .eq('id', profile.org_id)
+            .maybeSingle(),
+          supabase
+            .from('conversations')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .gt('unread_count', 0)
+        ])
 
         if (org) {
           setOrgName(org.name || 'My Business')
           setOrgPhone(org.telnyx_phone_number || '')
+          if (org.timezone) setOrgTimezone(org.timezone)
         }
 
-        const { count } = await supabase
-          .from('conversations')
-          .select('*', { count: 'exact', head: true })
-          .eq('org_id', profile.org_id)
-          .gt('unread_count', 0)
-        
         if (isMounted) {
           setUnreadTotal(count || 0)
           setAuthState('authorized')
@@ -266,14 +278,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push('/client/login')
   }
 
-  // Current active page title for mobile top bar
   const currentItem = navItems.find(item => 
     pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
   )
   const pageTitle = currentItem ? currentItem.label : 'CaptoDesk'
+  const workspaceValue: WorkspaceContextValue = {
+    orgId,
+    orgName,
+    orgPhone,
+    orgTimezone,
+    isSuperAdmin,
+    role,
+    userId,
+    userEmail,
+    userFullName,
+    unreadTotal
+  }
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 font-sans antialiased">
+    <WorkspaceContext.Provider value={workspaceValue}>
+      <div className="flex min-h-screen w-full bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 font-sans antialiased">
 
       {/* ── Desktop Persistent Sidebar (>= 768px) ── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 md:flex shadow-2xs">
@@ -565,7 +589,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <span>More</span>
         </button>
       </nav>
-
-    </div>
+      </div>
+    </WorkspaceContext.Provider>
   )
 }

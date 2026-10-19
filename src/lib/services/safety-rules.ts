@@ -64,8 +64,13 @@ export function isWithinBusinessHours(
  * TCPA strictly prohibits unsolicited commercial messaging before 8:00 AM and after 8:00 PM local time.
  */
 export function isTcpaQuietHours(timezone: string = 'America/Chicago', overrideDate?: Date): boolean {
-  if (process.env.NODE_ENV === 'test' && !process.env.TEST_TCPA_HOURS && !overrideDate) {
-    return false
+  const isDemoOrTest =
+    process.env.NODE_ENV === 'test' ||
+    process.env.E2E_ALLOW_DEMO_TENANT === 'true' ||
+    process.env.DEMO_MODE === 'true';
+
+  if (isDemoOrTest && !process.env.TEST_TCPA_HOURS && !overrideDate) {
+    return false;
   }
 
   try {

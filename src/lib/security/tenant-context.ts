@@ -27,6 +27,28 @@ export type TenantContextResult =
       response: NextResponse
     }
 
+interface CachedProfile {
+  data: {
+    id: string
+    org_id: string
+    full_name: string | null
+    email: string | null
+    role: any
+  }
+  expiresAt: number
+}
+
+const profileMemoryCache = new Map<string, CachedProfile>()
+const PROFILE_CACHE_TTL_MS = 60 * 1000 // 60 seconds
+
+export function invalidateProfileCache(userId?: string) {
+  if (userId) {
+    profileMemoryCache.delete(userId)
+  } else {
+    profileMemoryCache.clear()
+  }
+}
+
 /**
  * Resolves the authenticated user and their tenant organization strictly server-side.
  * Never trusts client-supplied organization_id or role headers.
@@ -78,17 +100,35 @@ export async function getTenantContext(
     }
   }
 
-  // Fetch the authoritative profile from the database
-  const query = supabase
-    .from('profiles')
-    .select('id, org_id, full_name, email, role')
-    .eq('id', user.id)
+  // Fetch the authoritative profile from the database (with short-lived cache to eliminate redundant roundtrips)
+  let profileData: any = null
+  const now = Date.now()
+  const useCache = !customSupabase
+  const cached = useCache ? profileMemoryCache.get(user.id) : null
+  if (cached && cached.expiresAt > now) {
+    profileData = cached.data
+  } else {
+    const query = supabase
+      .from('profiles')
+      .select('id, org_id, full_name, email, role')
+      .eq('id', user.id)
 
-  const { data: profileData, error: profileError } = typeof (query as any).maybeSingle === 'function'
-    ? await (query as any).maybeSingle()
-    : await query.single()
+    const { data, error } = typeof (query as any).maybeSingle === 'function'
+      ? await (query as any).maybeSingle()
+      : await query.single()
 
-  if (profileError || !profileData) {
+    if (!error && data) {
+      profileData = data
+      if (useCache && data.org_id) {
+        profileMemoryCache.set(user.id, {
+          data,
+          expiresAt: now + PROFILE_CACHE_TTL_MS
+        })
+      }
+    }
+  }
+
+  if (!profileData) {
     return {
       ok: false,
       error: 'Forbidden: User profile not registered',

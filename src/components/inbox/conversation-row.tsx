@@ -44,6 +44,7 @@ export function ConversationRow({
 
   return (
     <button
+      data-slot="conversation-row"
       type="button"
       onClick={onClick}
       className={cn(

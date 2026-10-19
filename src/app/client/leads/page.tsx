@@ -1,7 +1,8 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -90,12 +91,9 @@ function getSourceBadge(source: string) {
 }
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<LeadItem[]>([])
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<'all' | LeadItem['status']>('all')
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   // New Lead Modal State
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -110,47 +108,61 @@ export default function LeadsPage() {
   const [leadNotes, setLeadNotes] = useState('')
   const [savingLead, setSavingLead] = useState(false)
 
-  // Load contacts for picker
-  useEffect(() => {
-    fetch('/api/client/customers?limit=100')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.customers) setContacts(data.customers)
-      })
-      .catch(() => {})
-  }, [])
-
-  const loadLeads = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
+  // React Query with stale-while-revalidate caching
+  const { data, isLoading: loading, isError, error: queryError, refetch } = useQuery({
+    queryKey: ['leads'],
+    queryFn: async () => {
       const res = await fetch('/api/client/leads')
-      if (res.ok) {
-        const data = await res.json()
-        setLeads(data.leads || [])
-      } else {
+      if (!res.ok) {
         if (res.status === 403) {
           const err = await res.json().catch(() => ({}))
           if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
             window.location.href = '/client/onboarding'
-            return
+            return { leads: [] }
           }
         }
         const err = await res.json().catch(() => ({}))
-        setError(err.error || 'Unable to load inbound leads. Please retry.')
+        throw new Error(err.error || 'Unable to load inbound leads. Please retry.')
       }
-    } catch {
-      setError('Unable to load inbound leads. Please check your network and retry.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      return res.json()
+    },
+    staleTime: 60 * 1000
+  })
 
-  useEffect(() => { loadLeads() }, [loadLeads])
+  const [localOverrides, setLocalOverrides] = useState<Record<string, Partial<LeadItem>>>({})
+  const serverLeads: LeadItem[] = data?.leads || []
+  const leads: LeadItem[] = useMemo(() => {
+    return serverLeads.map(l => ({
+      ...l,
+      ...(localOverrides[l.id] || {})
+    }))
+  }, [serverLeads, localOverrides])
+
+  const error = isError ? (queryError?.message || 'Unable to load inbound leads.') : null
+
+  const loadLeads = useCallback(async () => {
+    setLocalOverrides({})
+    await refetch()
+  }, [refetch])
+
+  // Lazy-load contacts picker ONLY when the modal is opened (avoids blocking initial render)
+  useEffect(() => {
+    if (showCreateModal && contacts.length === 0) {
+      fetch('/api/client/customers?limit=100')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.customers) setContacts(data.customers)
+        })
+        .catch(() => {})
+    }
+  }, [showCreateModal, contacts.length])
 
   const handleUpdateStatus = async (leadId: string, newStatus: LeadItem['status']) => {
     // Optimistic update
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l))
+    setLocalOverrides(prev => ({
+      ...prev,
+      [leadId]: { ...(prev[leadId] || {}), status: newStatus }
+    }))
 
     try {
       const res = await fetch(`/api/client/leads/${leadId}`, {

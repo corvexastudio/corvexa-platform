@@ -116,6 +116,30 @@ export class TelnyxApiClient {
    * Search available phone numbers via GET /v2/available_phone_numbers
    */
   async searchAvailableNumbers(options?: TelnyxSearchNumbersOptions): Promise<TelnyxAvailableNumber[]> {
+    if (process.env.TELNYX_MOCK_DISPATCH === 'true') {
+      return [{
+        phoneNumber: '+15125550199',
+        recordType: 'available_phone_number',
+        features: ['sms', 'voice'],
+        locality: 'Austin',
+        region: 'TX',
+        costInformation: { upfrontCost: '1.00', monthlyCost: '1.00', currency: 'USD' }
+      }]
+    }
+
+    const isDemoOrE2E =
+      process.env.E2E_ALLOW_DEMO_TENANT === 'true' ||
+      process.env.E2E_TEST_MODE === 'demo_tenant' ||
+      process.env.DEMO_MODE === 'true'
+
+    if (isDemoOrE2E) {
+      throw new TelnyxApiError(
+        '[TELNYX SAFETY VIOLATION] In demo or E2E mode, TELNYX_MOCK_DISPATCH must be "true". Rejected to prevent external Telnyx API call.',
+        403,
+        'MOCK_DISPATCH_REQUIRED'
+      )
+    }
+
     const headers = this.getAuthHeaders()
     const query = new URLSearchParams()
 
@@ -181,6 +205,34 @@ export class TelnyxApiClient {
    * Submit a Number Order via POST /v2/number_orders
    */
   async createNumberOrder(params: TelnyxCreateOrderParams): Promise<TelnyxNumberOrderResponse> {
+    if (process.env.TELNYX_MOCK_DISPATCH === 'true') {
+      return {
+        orderId: `mock_order_${Date.now()}`,
+        status: 'success',
+        customerReference: params.customerReference,
+        phoneNumbers: [{
+          id: `mock_num_${Date.now()}`,
+          phoneNumber: params.phoneNumber,
+          status: 'success',
+          requirementsMet: true
+        }],
+        createdAt: new Date().toISOString()
+      }
+    }
+
+    const isDemoOrE2E =
+      process.env.E2E_ALLOW_DEMO_TENANT === 'true' ||
+      process.env.E2E_TEST_MODE === 'demo_tenant' ||
+      process.env.DEMO_MODE === 'true'
+
+    if (isDemoOrE2E) {
+      throw new TelnyxApiError(
+        '[TELNYX SAFETY VIOLATION] In demo or E2E mode, TELNYX_MOCK_DISPATCH must be "true". Rejected to prevent external DID purchase.',
+        403,
+        'MOCK_DISPATCH_REQUIRED'
+      )
+    }
+
     const headers = this.getAuthHeaders()
     const url = `${this.baseUrl}/number_orders`
 

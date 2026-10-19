@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -62,22 +63,48 @@ interface MessageItem {
 
 export default function InboxPage() {
   const supabase = createClient()
-  const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
   const [search, setSearch] = useState('')
   const [filterTab, setFilterTab] = useState<'all' | 'unread'>('all')
   const [sending, setSending] = useState(false)
-  const [loadingConvs, setLoadingConvs] = useState(true)
-  const [convError, setConvError] = useState<string | null>(null)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [oldestCursor, setOldestCursor] = useState<string | null>(null)
   const [mobileViewThread, setMobileViewThread] = useState(false)
   const [leadStatus, setLeadStatus] = useState<string | null>(null)
-  
+
+  // React Query for instant in-memory conversation list retrieval
+  const { data: convData, isLoading: loadingConvs, isError: isConvError, error: convQueryError, refetch: refetchConvs } = useQuery({
+    queryKey: ['inbox-conversations'],
+    queryFn: async () => {
+      const res = await fetch('/api/client/inbox')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        if (res.status === 403 && (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization'))) {
+          window.location.href = '/client/onboarding'
+          return { conversations: [] }
+        }
+        throw new Error(err.error || 'Failed to load conversations.')
+      }
+      return res.json()
+    },
+    staleTime: 30 * 1000
+  })
+
+  const [localConversations, setLocalConversations] = useState<ConversationItem[] | null>(null)
+  const conversations: ConversationItem[] = localConversations ?? (convData?.conversations || [])
+  const convError = isConvError ? (convQueryError?.message || 'Failed to load conversations.') : null
+
+  // Ensure active conversation is selected
+  useEffect(() => {
+    if (conversations.length > 0 && !activeConvId) {
+      setActiveConvId(conversations[0].id)
+    }
+  }, [conversations, activeConvId])
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -88,31 +115,9 @@ export default function InboxPage() {
   }
 
   const loadConversations = useCallback(async () => {
-    setLoadingConvs(true)
-    setConvError(null)
-    try {
-      const res = await fetch('/api/client/inbox')
-      if (res.ok) {
-        const data = await res.json()
-        const convList: ConversationItem[] = data.conversations || []
-        setConversations(convList)
-        if (convList.length > 0 && !activeConvId) {
-          setActiveConvId(convList[0].id)
-        }
-      } else {
-        const err = await res.json().catch(() => ({}))
-        if (res.status === 403 && (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization'))) {
-          window.location.href = '/client/onboarding'
-          return
-        }
-        setConvError(err.error || 'Failed to load conversations.')
-      }
-    } catch {
-      setConvError('Unable to load conversations. Check your connection.')
-    } finally {
-      setLoadingConvs(false)
-    }
-  }, [activeConvId])
+    setLocalConversations(null)
+    await refetchConvs()
+  }, [refetchConvs])
 
   const loadMessages = useCallback(async (convId: string) => {
     setLoadingMessages(true)
@@ -127,7 +132,7 @@ export default function InboxPage() {
 
         // Mark as read in background
         supabase.from('conversations').update({ unread_count: 0 }).eq('id', convId).then(() => {
-          setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
+          setLocalConversations(prev => (prev || conversations).map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
         })
       } else {
         toast.error('Failed to load message history.')

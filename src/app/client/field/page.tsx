@@ -2,6 +2,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -62,12 +64,10 @@ interface FieldJob {
 
 export default function FieldPage() {
   const supabase = createClient()
-  const [jobs, setJobs] = useState<FieldJob[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [orgTimezone, setOrgTimezone] = useState('America/Chicago')
-  const [orgName, setOrgName] = useState('Our team')
-  const [selectedDate, setSelectedDate] = useState(() => getTodayInTimezone('America/Chicago'))
+  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone } = useWorkspace()
+  const orgTimezone = wsOrgTimezone || 'America/Chicago'
+  const orgName = wsOrgName || 'Our team'
+  const [selectedDate, setSelectedDate] = useState(() => getTodayInTimezone(orgTimezone))
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null)
 
   // En Route Modal
@@ -83,61 +83,22 @@ export default function FieldPage() {
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
-  const loadFieldSchedule = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('Authentication required to access field dispatch.')
-        setLoading(false)
-        return
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('org_id, full_name, role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (!profile?.org_id) {
-        window.location.href = '/client/onboarding'
-        return
-      }
-
-      // Load organization info
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('name, timezone')
-        .eq('id', profile.org_id)
-        .single()
-
-      if (org) {
-        if (org.name) setOrgName(org.name)
-        if (org.timezone) {
-          setOrgTimezone(org.timezone)
-          setSelectedDate(getTodayInTimezone(org.timezone))
-        }
-      }
-
-      // Fetch all jobs for this org
+  const { data, isLoading: loading, isError, refetch } = useQuery({
+    queryKey: ['field-jobs'],
+    queryFn: async () => {
       const res = await fetch('/api/client/jobs?limit=100')
-      if (res.ok) {
-        const data = await res.json()
-        setJobs(data.items || [])
-      } else {
-        setError('Failed to load field jobs')
-      }
-    } catch {
-      setError('Network error loading field portal')
-    } finally {
-      setLoading(false)
-    }
-  }, [supabase])
+      if (!res.ok) throw new Error('Failed to load field jobs')
+      return res.json()
+    },
+    staleTime: 60 * 1000
+  })
 
-  useEffect(() => {
-    loadFieldSchedule()
-  }, [loadFieldSchedule])
+  const jobs: FieldJob[] = data?.jobs || data?.items || []
+  const error = isError ? 'Failed to load field jobs' : null
+
+  const loadFieldSchedule = useCallback(async () => {
+    await refetch()
+  }, [refetch])
 
   // Filter jobs for selected date
   const filteredJobs = useMemo(() => {
@@ -570,18 +531,32 @@ export default function FieldPage() {
                     </div>
                   )}
 
-                  {/* Add Field Note Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setActiveNoteJobId(activeNoteJobId === job.id ? null : job.id)
-                      setNoteText('')
-                    }}
-                    className="h-9 px-2 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 ml-auto"
-                  >
-                    + Note
-                  </Button>
+                  {/* Photos & Notes Quick Actions */}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setPhotoJob(job)
+                        setShowPhotoModal(true)
+                      }}
+                      className="h-9 px-2.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200"
+                    >
+                      <Camera className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                      Photos
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setActiveNoteJobId(activeNoteJobId === job.id ? null : job.id)
+                        setNoteText('')
+                      }}
+                      className="h-9 px-2.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200"
+                    >
+                      + Note
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Inline Note Composer */}

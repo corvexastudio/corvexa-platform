@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "@/components/theme-provider"
+import { QueryProvider } from "@/components/providers/query-provider"
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -30,8 +31,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="top-right" />
+          <QueryProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

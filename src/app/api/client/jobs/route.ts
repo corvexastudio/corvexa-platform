@@ -118,6 +118,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     jobs: items,
+    items,
     nextCursor,
     hasMore
   })
