@@ -376,11 +376,16 @@ function CalendarContent() {
       })
 
       if (!res.ok) {
-        toast.error('Failed to update appointment status.')
+        const errData = await res.json().catch(() => null)
+        toast.error(errData?.error || 'Failed to update appointment status.')
         loadAppointments()
         return
       }
 
+      const resData = await res.json().catch(() => null)
+      if (resData?.appointment) {
+        setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, ...resData.appointment, contact: a.contact } : a))
+      }
       toast.success(`Appointment marked as ${newStatus}`)
     } catch {
       toast.error('An error occurred while updating status.')

@@ -510,8 +510,7 @@ export async function reassignAppointmentCrew(
   const { data: updatedApt, error: updateError } = await supabase
     .from('appointments')
     .update({
-      crew_id: crewId || null,
-      updated_at: new Date().toISOString()
+      crew_id: crewId || null
     })
     .eq('id', appointmentId)
     .eq('org_id', orgId)

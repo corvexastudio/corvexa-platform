@@ -539,8 +539,7 @@ export async function customerCancelBooking(
     .from('appointments')
     .update({
       status: 'cancelled',
-      cancellation_reason: reason || 'Cancelled by customer',
-      updated_at: new Date().toISOString()
+      cancellation_reason: reason || 'Cancelled by customer'
     })
     .eq('id', apt.id)
     .select('*')
@@ -703,8 +702,7 @@ export async function customerRescheduleBooking(
       start_time: newStartTime,
       end_time: newEndTime,
       status: 'confirmed',
-      cancellation_reason: null,
-      updated_at: new Date().toISOString()
+      cancellation_reason: null
     })
     .eq('id', apt.id)
     .select('*')
@@ -801,8 +799,7 @@ export async function ownerUpdateBookingStatus(
   }
 
   const updateFields: Record<string, any> = {
-    status: newStatus,
-    updated_at: new Date().toISOString()
+    status: newStatus
   }
 
   if (newStatus === 'confirmed' && !apt.confirmed_at) {
@@ -836,98 +833,103 @@ export async function ownerUpdateBookingStatus(
     return { success: false, error: 'Failed to update booking status' }
   }
 
-  let org = apt.organization
-  if (!org) {
-    const { data: orgData } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', apt.org_id)
-      .maybeSingle()
-    org = orgData
-  }
-
-  let contact = apt.contact
-  if (!contact && apt.contact_id) {
-    const { data: contactData } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('id', apt.contact_id)
-      .maybeSingle()
-    contact = contactData
-  }
-
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
-  const manageUrl = `${appBaseUrl}/book/manage/${apt.manage_token}`
-
-  if (newStatus === 'confirmed' && contact?.phone && senderNumber) {
-    const slotStartDate = new Date(apt.start_time)
-    const timezone = org?.timezone || 'America/Chicago'
-    const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
-
-    // Send confirmation SMS
-    const confirmText = `Great news ${contact.name || ''}! Your appointment with ${org?.name || 'us'} is confirmed for ${displayTime}. Manage: ${manageUrl}`
-    const confirmCompliance = await verifyOutboundCompliance(supabase, {
-      orgId,
-      toPhone: contact.phone,
-      fromPhone: senderNumber,
-      flowType: 'booking_confirmed',
-      messageType: 'transactional',
-      body: confirmText,
-      contactId: contact.id
-    })
-
-    if (confirmCompliance.allowed) {
-      await sendTelnyxSms({
-        to: contact.phone,
-        from: senderNumber,
-        text: confirmCompliance.formattedText
-      })
+  // Safe execution of notification and lifecycle side effects (never fail database update)
+  try {
+    let org = apt.organization
+    if (!org) {
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', apt.org_id)
+        .maybeSingle()
+      org = orgData
     }
 
-    // Schedule reminders
-    await scheduleAppointmentReminders(supabase, {
-      appointmentId: apt.id,
-      orgId,
-      orgName: org?.name || 'CaptoDesk',
-      senderNumber,
-      customerPhone: contact.phone,
-      serviceName: apt.service_type || 'Service Call',
-      startTime: apt.start_time,
-      displayTime,
-      manageUrl
-    })
-  } else if (newStatus === 'cancelled') {
-    // Invalidate reminders
-    await evaluateAndApplyStopConditions(
-      supabase,
-      createEventEnvelope('booking.cancelled', orgId, {
-        appointment_id: apt.id,
-        contact_id: apt.contact_id,
-        reason
-      }, { entityId: apt.id, contactId: apt.contact_id })
-    )
+    let contact = apt.contact
+    if (!contact && apt.contact_id) {
+      const { data: contactData } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', apt.contact_id)
+        .maybeSingle()
+      contact = contactData
+    }
 
-    if (contact?.phone && senderNumber) {
-      const cancelText = `Your appointment with ${org?.name || 'us'} has been cancelled (${reason || 'business schedule update'}).`
-      const cancelCompliance = await verifyOutboundCompliance(supabase, {
+    const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
+    const manageUrl = `${appBaseUrl}/book/manage/${apt.manage_token}`
+
+    if (newStatus === 'confirmed' && contact?.phone && senderNumber) {
+      const slotStartDate = new Date(apt.start_time)
+      const timezone = org?.timezone || 'America/Chicago'
+      const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
+
+      // Send confirmation SMS
+      const confirmText = `Great news ${contact.name || ''}! Your appointment with ${org?.name || 'us'} is confirmed for ${displayTime}. Manage: ${manageUrl}`
+      const confirmCompliance = await verifyOutboundCompliance(supabase, {
         orgId,
         toPhone: contact.phone,
         fromPhone: senderNumber,
-        flowType: 'booking_cancellation',
+        flowType: 'booking_confirmed',
         messageType: 'transactional',
-        body: cancelText,
+        body: confirmText,
         contactId: contact.id
       })
 
-      if (cancelCompliance.allowed) {
+      if (confirmCompliance.allowed) {
         await sendTelnyxSms({
           to: contact.phone,
           from: senderNumber,
-          text: cancelCompliance.formattedText
+          text: confirmCompliance.formattedText
         })
       }
+
+      // Schedule reminders
+      await scheduleAppointmentReminders(supabase, {
+        appointmentId: apt.id,
+        orgId,
+        orgName: org?.name || 'CaptoDesk',
+        senderNumber,
+        customerPhone: contact.phone,
+        serviceName: apt.service_type || 'Service Call',
+        startTime: apt.start_time,
+        displayTime,
+        manageUrl
+      })
+    } else if (newStatus === 'cancelled') {
+      // Invalidate reminders
+      await evaluateAndApplyStopConditions(
+        supabase,
+        createEventEnvelope('booking.cancelled', orgId, {
+          appointment_id: apt.id,
+          contact_id: apt.contact_id,
+          reason
+        }, { entityId: apt.id, contactId: apt.contact_id })
+      )
+
+      if (contact?.phone && senderNumber) {
+        const cancelText = `Your appointment with ${org?.name || 'us'} has been cancelled (${reason || 'business schedule update'}).`
+        const cancelCompliance = await verifyOutboundCompliance(supabase, {
+          orgId,
+          toPhone: contact.phone,
+          fromPhone: senderNumber,
+          flowType: 'booking_cancellation',
+          messageType: 'transactional',
+          body: cancelText,
+          contactId: contact.id
+        })
+
+        if (cancelCompliance.allowed) {
+          await sendTelnyxSms({
+            to: contact.phone,
+            from: senderNumber,
+            text: cancelCompliance.formattedText
+          })
+        }
+      }
     }
+  } catch (sideEffectErr) {
+    console.warn('[BOOKING_STATUS_NOTIFICATION_ERROR]', sideEffectErr)
   }
 
   return { success: true, appointment: updatedApt }
