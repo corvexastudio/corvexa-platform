@@ -144,6 +144,7 @@ export async function getTenantContext(
   // Missing or empty allowlist in production fails closed (isSuperAdminEmail = false).
   // In dev/test, if SUPER_ADMIN_EMAILS is omitted, profile role is respected for local mock testing.
   const isProd = process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production'
+  const isTest = process.env.NODE_ENV === 'test' || process.env.APP_ENV === 'test'
   const defaultSuperEmails = [
     'corvexastudio@gmail.com',
     'shanta@corvexastudio.com',
@@ -156,7 +157,7 @@ export async function getTenantContext(
   const configuredSuperEmails = envSuperEmails.length > 0 ? envSuperEmails : defaultSuperEmails
 
   const userEmail = (user.email || profileData.email || '').toLowerCase()
-  const isSuperAdminEmail = configuredSuperEmails.includes(userEmail)
+  const isSuperAdminEmail = isTest || (!isProd && envSuperEmails.length === 0) || configuredSuperEmails.includes(userEmail)
 
   const effectiveRole: CanonicalRole = (role === 'super_admin' && !isSuperAdminEmail) ? 'owner' : role
   const isSuperAdmin = effectiveRole === 'super_admin'

@@ -35,11 +35,15 @@ export default function AdminOrganizationsPage() {
   const [activating10DlcId, setActivating10DlcId] = useState<string | null>(null)
   const [batchActivating, setBatchActivating] = useState(false)
   const [resettingDemo, setResettingDemo] = useState(false)
+  const [confirmingDemoReset, setConfirmingDemoReset] = useState(false)
 
   const handleResetDemoOrg = async () => {
-    if (!window.confirm("Are you sure you want to erase demo data? This will clear all prospect test appointments, leads, and messages, and restore the baseline demo catalog.")) {
+    if (!confirmingDemoReset) {
+      setConfirmingDemoReset(true)
+      setTimeout(() => setConfirmingDemoReset(false), 5000)
       return
     }
+    setConfirmingDemoReset(false)
     setResettingDemo(true)
     try {
       const res = await fetch('/api/admin/demo/reset', { method: 'POST' })
@@ -716,11 +720,19 @@ export default function AdminOrganizationsPage() {
                           <button
                             onClick={handleResetDemoOrg}
                             disabled={resettingDemo}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-1.5 rounded-lg border border-rose-500/20 transition-colors disabled:opacity-50 cursor-pointer"
-                            title="Clean Slate: Reset Demo Tenant Data"
+                            className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-50 cursor-pointer ${
+                              confirmingDemoReset
+                                ? 'bg-rose-600 text-white border-rose-500 shadow-md animate-pulse font-bold'
+                                : 'text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/20'
+                            }`}
+                            title={confirmingDemoReset ? 'Click again to confirm wipe' : 'Clean Slate: Reset Demo Tenant Data'}
                           >
-                            {resettingDemo ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                            <span>Reset Demo</span>
+                            {resettingDemo ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3 w-3" />
+                            )}
+                            <span>{confirmingDemoReset ? 'Confirm Wipe?' : 'Reset Demo'}</span>
                           </button>
                         )}
                         <button

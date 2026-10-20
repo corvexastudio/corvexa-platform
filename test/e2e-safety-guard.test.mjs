@@ -422,8 +422,8 @@ test('Demo Reset Guard — Case 23: validateResetTarget strictly rejects protect
 });
 
 test('Demo Reset Guard — Case 24: buildCleanupQuery scopes 100% of tables to org_id and forbids global tables', () => {
-  // Check all 18 tables
-  assert.strictEqual(DEMO_RESET_CLEANUP_TABLES.length, 18);
+  // Check all 22 tables
+  assert.strictEqual(DEMO_RESET_CLEANUP_TABLES.length, 22);
 
   for (const table of DEMO_RESET_CLEANUP_TABLES) {
     const query = buildCleanupQuery(table, SYNTHETIC_DEMO_ORG_ID);

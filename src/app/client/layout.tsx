@@ -144,10 +144,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const isDemoOrg = orgId === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || orgName?.toLowerCase().includes('demo')
 
+  const [confirmingClientReset, setConfirmingClientReset] = useState(false)
+
   const handleClientResetDemo = async () => {
-    if (!window.confirm("Are you sure you want to erase demo data? This will clear test bookings, leads, jobs, and SMS conversations, and restore the baseline demo catalog.")) {
+    if (!confirmingClientReset) {
+      setConfirmingClientReset(true)
+      setTimeout(() => setConfirmingClientReset(false), 5000)
       return
     }
+    setConfirmingClientReset(false)
     setResettingDemo(true)
     try {
       const res = await fetch('/api/admin/demo/reset', { method: 'POST' })
@@ -476,7 +481,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 title="Wipe demo test data and restore clean slate"
               >
                 <RotateCcw className={cn("h-3 w-3", resettingDemo && "animate-spin")} />
-                <span>{resettingDemo ? 'Resetting...' : 'Reset Demo (Clean Slate)'}</span>
+                <span>{resettingDemo ? 'Resetting...' : confirmingClientReset ? 'Confirm Reset?' : 'Reset Demo (Clean Slate)'}</span>
               </button>
             </div>
           </div>
