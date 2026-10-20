@@ -23,7 +23,7 @@ export interface JobItemInput {
 
 export interface CreateJobInput {
   orgId: string
-  contactId: string
+  contactId?: string
   leadId?: string
   quoteId?: string
   appointmentId?: string

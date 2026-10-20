@@ -306,6 +306,29 @@ export async function createBooking(
     return { success: false, error: aptError?.message || 'Failed to save appointment record' }
   }
 
+  // 8b. Create linked field job in jobs so booking is immediately synced across Jobs & Dispatch, Field Portal, and Dashboard
+  let linkedJob: any = null
+  try {
+    const { createJob } = await import('../jobs/job-manager.ts')
+    const jobRes = await createJob(supabase, {
+      orgId,
+      contactId: contactId || undefined,
+      leadId: leadId || undefined,
+      appointmentId: appointment.id,
+      serviceId: activeService.id.startsWith('default') ? undefined : activeService.id,
+      title: `${activeService.name} - ${customerName}`,
+      description: notes || `Booked via ${source || 'booking link'}`,
+      scheduledStart: startTime,
+      scheduledEnd: endTime,
+      notes: notes || undefined
+    })
+    if (jobRes.success && jobRes.job) {
+      linkedJob = jobRes.job
+    }
+  } catch (jobErr) {
+    console.warn('[CREATE_BOOKING_LINKED_JOB_WARNING]', jobErr)
+  }
+
   const slotStartDate = new Date(startTime)
   const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
 
@@ -549,6 +572,20 @@ export async function customerCancelBooking(
     return { success: false, error: 'Failed to cancel appointment' }
   }
 
+  // 1b. Synchronize linked field job
+  try {
+    await supabase
+      .from('jobs')
+      .update({
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('appointment_id', apt.id)
+      .eq('org_id', apt.org_id)
+  } catch (jobErr) {
+    console.warn('[CANCEL_BOOKING_LINKED_JOB_WARNING]', jobErr)
+  }
+
   // 2. Halt all scheduled reminder runs for this appointment
   await evaluateAndApplyStopConditions(
     supabase,
@@ -728,6 +765,22 @@ export async function customerRescheduleBooking(
     return { success: false, error: 'Failed to update appointment' }
   }
 
+  // 3b. Synchronize linked field job
+  try {
+    await supabase
+      .from('jobs')
+      .update({
+        scheduled_start: newStartTime,
+        scheduled_end: newEndTime,
+        status: 'scheduled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('appointment_id', apt.id)
+      .eq('org_id', apt.org_id)
+  } catch (jobErr) {
+    console.warn('[RESCHEDULE_BOOKING_LINKED_JOB_WARNING]', jobErr)
+  }
+
   const timezone = org?.timezone || 'America/Chicago'
   const slotStartDate = new Date(newStartTime)
   const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
@@ -844,12 +897,38 @@ export async function ownerUpdateBookingStatus(
         .update({ status: 'completed', updated_at: nowIso })
         .eq('appointment_id', appointmentId)
         .eq('org_id', orgId)
-    } else if (newStatus === 'cancelled') {
+    } else if (newStatus === 'cancelled' || newStatus === 'no_show') {
       await supabase
         .from('jobs')
         .update({ status: 'cancelled', updated_at: nowIso })
         .eq('appointment_id', appointmentId)
         .eq('org_id', orgId)
+    } else if (newStatus === 'confirmed') {
+      const { data: existingJob } = await supabase
+        .from('jobs')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .eq('org_id', orgId)
+        .maybeSingle()
+
+      if (existingJob) {
+        await supabase
+          .from('jobs')
+          .update({ status: 'scheduled', updated_at: nowIso })
+          .eq('id', existingJob.id)
+      } else {
+        const { createJob } = await import('../jobs/job-manager.ts')
+        await createJob(supabase, {
+          orgId,
+          contactId: apt.contact_id || undefined,
+          appointmentId: appointmentId,
+          serviceId: apt.service_id || undefined,
+          title: apt.title || 'Field Service Job',
+          scheduledStart: apt.start_time,
+          scheduledEnd: apt.end_time || undefined,
+          notes: apt.notes || undefined
+        })
+      }
     }
   } catch (jobErr) {
     console.warn('[SYNC_LINKED_JOB_WARNING]', jobErr)
