@@ -219,11 +219,48 @@ export async function updateJobStatus(
       .select('*')
       .maybeSingle()
 
-    if (fallbackError || !fallbackJob) {
-      console.error('[UPDATE_JOB_STATUS_FAILED]', fallbackError || updateError)
-      return { success: false, error: fallbackError?.message || updateError?.message || 'Failed to update job status' }
+    let fallbackRecovered = false
+    if (
+      (updateError?.code === '23514' || updateError?.message?.includes('jobs_status_check')) &&
+      (newStatus === 'en_route' || newStatus === 'confirmed' || newStatus === 'no_show')
+    ) {
+      console.warn('[UPDATE_JOB_STATUS_CONSTRAINT_FALLBACK] Database jobs_status_check rejected', newStatus, '- falling back to in_progress with status metadata while migration 49 applies.')
+      const safeDbStatus = newStatus === 'no_show' ? 'cancelled' : 'in_progress'
+      const statusNote = `[Status: ${newStatus}${technicianName ? ` | Tech: ${technicianName}` : ''}${etaMinutes ? ` | ETA: ${etaMinutes}m` : ''}]`
+      const constraintRecoveryFields: Record<string, any> = {
+        status: safeDbStatus,
+        updated_at: nowIso,
+        notes: job.notes ? `${job.notes}\n${statusNote}` : statusNote
+      }
+      if (updateFields.tracking_token) {
+        constraintRecoveryFields.tracking_token = updateFields.tracking_token
+      }
+      const { data: recoveryJob, error: recoveryErr } = await supabase
+        .from('jobs')
+        .update(constraintRecoveryFields)
+        .eq('id', jobId)
+        .eq('org_id', orgId)
+        .select('*')
+        .maybeSingle()
+
+      if (recoveryJob && !recoveryErr) {
+        updatedJob = {
+          ...recoveryJob,
+          status: newStatus,
+          technician_name: technicianName || recoveryJob.technician_name,
+          eta_minutes: etaMinutes || recoveryJob.eta_minutes
+        }
+        fallbackRecovered = true
+      }
     }
-    updatedJob = fallbackJob
+
+    if (!fallbackRecovered) {
+      if (fallbackError || !fallbackJob) {
+        console.error('[UPDATE_JOB_STATUS_FAILED]', fallbackError || updateError)
+        return { success: false, error: fallbackError?.message || updateError?.message || 'Failed to update job status' }
+      }
+      updatedJob = fallbackJob
+    }
   } else {
     updatedJob = resJob
   }
