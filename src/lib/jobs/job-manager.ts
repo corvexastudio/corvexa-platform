@@ -408,8 +408,7 @@ export async function customerViewJobTracking(
         name,
         telnyx_phone_number,
         owner_phone,
-        google_review_url,
-        logo_url
+        google_review_url
       ),
       contacts (
         id,
