@@ -149,22 +149,28 @@ export async function updateJobStatus(
     return { success: false, error: 'Job not found' }
   }
 
-  // Idempotency guard: If job is already in the target status, return cleanly without duplicating hooks or SMS
-  if (job.status === newStatus) {
+  // Idempotency check: If job is already in the target status and no additional parameters are provided, return cleanly
+  if (job.status === newStatus && !notes && !technicianName && !etaMinutes) {
     return { success: true, job, alreadyInStatus: true }
   }
 
   // Terminal lifecycle guard: completed and cancelled jobs cannot regress
-  if (job.status === 'completed') {
+  if (job.status === 'completed' && newStatus !== 'completed') {
     return { success: false, error: 'Cannot change status of an already completed job' }
   }
-  if (job.status === 'cancelled') {
+  if (job.status === 'cancelled' && newStatus !== 'cancelled') {
     return { success: false, error: 'Cannot change status of a cancelled job' }
   }
 
+  const nowIso = new Date().toISOString()
   const updateFields: Record<string, any> = {
     status: newStatus,
-    updated_at: new Date().toISOString()
+    updated_at: nowIso
+  }
+
+  // Ensure tracking_token exists so tracking link always works
+  if (!job.tracking_token) {
+    updateFields.tracking_token = crypto.randomUUID().replace(/-/g, '')
   }
 
   if (notes) {
@@ -172,7 +178,7 @@ export async function updateJobStatus(
   }
 
   if (newStatus === 'en_route') {
-    updateFields.en_route_at = new Date().toISOString()
+    updateFields.en_route_at = nowIso
     if (technicianName?.trim()) {
       updateFields.technician_name = technicianName.trim()
     }
@@ -180,83 +186,143 @@ export async function updateJobStatus(
       updateFields.eta_minutes = etaMinutes
     }
   } else if (newStatus === 'in_progress') {
-    updateFields.started_at = new Date().toISOString()
+    updateFields.started_at = nowIso
   } else if (newStatus === 'completed') {
-    updateFields.completed_at = new Date().toISOString()
+    updateFields.completed_at = nowIso
   }
 
-  const { data: updatedJob, error: updateError } = await supabase
+  let updatedJob: any = null
+  let { data: resJob, error: updateError } = await supabase
     .from('jobs')
     .update(updateFields)
     .eq('id', jobId)
+    .eq('org_id', orgId)
     .select('*')
-    .single()
+    .maybeSingle()
 
-  if (updateError || !updatedJob) {
-    return { success: false, error: 'Failed to update job status' }
+  if (updateError) {
+    console.warn('[UPDATE_JOB_STATUS_RETRY] Primary update encountered warning:', updateError.message)
+    // If update failed due to optional schema columns (e.g. technician_name, eta_minutes),
+    // retry with core fields only so the status update NEVER gets blocked
+    const fallbackFields: Record<string, any> = {
+      status: newStatus,
+      updated_at: nowIso
+    }
+    if (notes) {
+      fallbackFields.notes = job.notes ? `${job.notes}\n${notes}` : notes
+    }
+    const { data: fallbackJob, error: fallbackError } = await supabase
+      .from('jobs')
+      .update(fallbackFields)
+      .eq('id', jobId)
+      .eq('org_id', orgId)
+      .select('*')
+      .maybeSingle()
+
+    if (fallbackError || !fallbackJob) {
+      console.error('[UPDATE_JOB_STATUS_FAILED]', fallbackError || updateError)
+      return { success: false, error: fallbackError?.message || updateError?.message || 'Failed to update job status' }
+    }
+    updatedJob = fallbackJob
+  } else {
+    updatedJob = resJob
+  }
+
+  if (!updatedJob) {
+    return { success: false, error: 'Failed to update job status: job not found' }
   }
 
   // 1. If en_route and notifyCustomer, send dynamic en-route text with tech name and ETA
   if (newStatus === 'en_route' && notifyCustomer) {
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('name, telnyx_phone_number, owner_phone')
-      .eq('id', orgId)
-      .single()
+    try {
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('name, telnyx_phone_number, owner_phone')
+        .eq('id', orgId)
+        .maybeSingle()
 
-    const { data: contact } = await supabase
-      .from('contacts')
-      .select('name, phone')
-      .eq('id', job.contact_id)
-      .single()
+      const { data: contact } = await supabase
+        .from('contacts')
+        .select('name, phone')
+        .eq('id', job.contact_id)
+        .maybeSingle()
 
-    const senderNumber = org?.telnyx_phone_number || org?.owner_phone
-    if (senderNumber && contact?.phone) {
-      const techDisplay = technicianName?.trim() || updatedJob.technician_name || 'Your technician'
-      const etaVal = typeof etaMinutes === 'number' && etaMinutes > 0 ? etaMinutes : updatedJob.eta_minutes
-      const etaPart = etaVal ? ` (ETA: ~${etaVal} mins)` : ''
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
-      const trackPart = job.tracking_token ? ` Live arrival tracker: ${baseUrl}/track/${job.tracking_token}` : ''
+      const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+      if (senderNumber && contact?.phone) {
+        const techDisplay = technicianName?.trim() || updatedJob.technician_name || 'Your technician'
+        const etaVal = typeof etaMinutes === 'number' && etaMinutes > 0 ? etaMinutes : updatedJob.eta_minutes
+        const etaPart = etaVal ? ` (ETA: ~${etaVal} mins)` : ''
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+        const trackingToken = updatedJob.tracking_token || job.tracking_token
+        const trackPart = trackingToken ? ` Live arrival tracker: ${baseUrl}/track/${trackingToken}` : ''
 
-      await sendTelnyxSms({
-        to: contact.phone,
-        from: senderNumber,
-        text: `Hi ${contact.name || 'there'}! ${techDisplay} from ${org?.name || 'us'} is on the way${etaPart}.${trackPart}`
-      })
+        await sendTelnyxSms({
+          to: contact.phone,
+          from: senderNumber,
+          text: `Hi ${contact.name || 'there'}! ${techDisplay} from ${org?.name || 'us'} is on the way${etaPart}.${trackPart}`
+        })
+      }
+    } catch (smsErr) {
+      console.warn('[EN_ROUTE_SMS_WARNING] SMS delivery failed or was skipped:', smsErr)
     }
   }
 
-  // 2. When completed: Update customer service date, schedule review request, and EMIT job.completed Domain Event
-  if (newStatus === 'completed') {
-    if (job.contact_id) {
-      await updateCustomerServiceDate(supabase, {
-        contactId: job.contact_id,
-        orgId,
-        serviceDate: new Date()
-      })
-      await scheduleJobReviewAutomation(supabase, {
-        orgId,
-        jobId: job.id,
-        contactId: job.contact_id
-      })
+  // 2. Synchronize linked appointment if one exists
+  if (job.appointment_id) {
+    try {
+      if (newStatus === 'completed') {
+        await supabase
+          .from('appointments')
+          .update({ status: 'completed', updated_at: nowIso })
+          .eq('id', job.appointment_id)
+          .eq('org_id', orgId)
+      } else if (newStatus === 'cancelled') {
+        await supabase
+          .from('appointments')
+          .update({ status: 'cancelled', updated_at: nowIso, cancellation_reason: 'Job cancelled' })
+          .eq('id', job.appointment_id)
+          .eq('org_id', orgId)
+      }
+    } catch (apptErr) {
+      console.warn('[SYNC_APPOINTMENT_WARNING]', apptErr)
     }
+  }
 
-    await handleAutomationEvent(
-      supabase,
-      createEventEnvelope('job.completed', orgId, {
-        job_id: job.id,
-        job_number: job.job_number,
-        contact_id: job.contact_id,
-        lead_id: job.lead_id,
-        quote_id: job.quote_id,
-        appointment_id: job.appointment_id,
-        completed_at: new Date().toISOString()
-      }, {
-        entityId: job.id,
-        contactId: job.contact_id,
-        leadId: job.lead_id || undefined
-      })
-    )
+  // 3. When completed: Update customer service date, schedule review request, and emit domain event
+  if (newStatus === 'completed') {
+    try {
+      if (job.contact_id) {
+        await updateCustomerServiceDate(supabase, {
+          contactId: job.contact_id,
+          orgId,
+          serviceDate: new Date()
+        })
+        await scheduleJobReviewAutomation(supabase, {
+          orgId,
+          jobId: job.id,
+          contactId: job.contact_id
+        })
+      }
+
+      await handleAutomationEvent(
+        supabase,
+        createEventEnvelope('job.completed', orgId, {
+          job_id: job.id,
+          job_number: job.job_number,
+          contact_id: job.contact_id,
+          lead_id: job.lead_id,
+          quote_id: job.quote_id,
+          appointment_id: job.appointment_id,
+          completed_at: nowIso
+        }, {
+          entityId: job.id,
+          contactId: job.contact_id,
+          leadId: job.lead_id || undefined
+        })
+      )
+    } catch (automationErr) {
+      console.warn('[JOB_COMPLETED_AUTOMATION_WARNING]', automationErr)
+    }
   }
 
   return { success: true, job: updatedJob }

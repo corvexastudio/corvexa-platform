@@ -781,7 +781,7 @@ export async function ownerUpdateBookingStatus(
   params: {
     appointmentId: string
     orgId: string
-    newStatus: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+    newStatus: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'requested'
     reason?: string
   }
 ): Promise<{ success: boolean; appointment?: any; error?: string }> {
@@ -789,21 +789,23 @@ export async function ownerUpdateBookingStatus(
 
   const { data: apt, error: findError } = await supabase
     .from('appointments')
-    .select('*, organization:organizations(*), contact:contacts(*)')
+    .select('*')
     .eq('id', appointmentId)
     .eq('org_id', orgId)
-    .single()
+    .maybeSingle()
 
   if (findError || !apt) {
-    return { success: false, error: 'Appointment not found' }
+    return { success: false, error: findError?.message || 'Appointment not found' }
   }
 
+  const nowIso = new Date().toISOString()
   const updateFields: Record<string, any> = {
-    status: newStatus
+    status: newStatus,
+    updated_at: nowIso
   }
 
   if (newStatus === 'confirmed' && !apt.confirmed_at) {
-    updateFields.confirmed_at = new Date().toISOString()
+    updateFields.confirmed_at = nowIso
   }
   if (newStatus === 'cancelled') {
     updateFields.cancellation_reason = reason || 'Cancelled by business owner'
@@ -813,8 +815,9 @@ export async function ownerUpdateBookingStatus(
     .from('appointments')
     .update(updateFields)
     .eq('id', appointmentId)
+    .eq('org_id', orgId)
     .select('*')
-    .single()
+    .maybeSingle()
 
   if (updateError || !updatedApt) {
     if (
@@ -830,7 +833,26 @@ export async function ownerUpdateBookingStatus(
         error: 'Cannot confirm appointment: this time slot overlaps with another scheduled appointment.'
       }
     }
-    return { success: false, error: 'Failed to update booking status' }
+    return { success: false, error: updateError?.message || 'Failed to update booking status' }
+  }
+
+  // Synchronize linked field job if one exists
+  try {
+    if (newStatus === 'completed') {
+      await supabase
+        .from('jobs')
+        .update({ status: 'completed', updated_at: nowIso })
+        .eq('appointment_id', appointmentId)
+        .eq('org_id', orgId)
+    } else if (newStatus === 'cancelled') {
+      await supabase
+        .from('jobs')
+        .update({ status: 'cancelled', updated_at: nowIso })
+        .eq('appointment_id', appointmentId)
+        .eq('org_id', orgId)
+    }
+  } catch (jobErr) {
+    console.warn('[SYNC_LINKED_JOB_WARNING]', jobErr)
   }
 
   // Safe execution of notification and lifecycle side effects (never fail database update)
