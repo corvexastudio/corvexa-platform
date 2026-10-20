@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -63,6 +63,7 @@ interface MessageItem {
 
 export default function InboxPage() {
   const supabase = createClient()
+  const queryClient = useQueryClient()
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
@@ -94,8 +95,7 @@ export default function InboxPage() {
     staleTime: 30 * 1000
   })
 
-  const [localConversations, setLocalConversations] = useState<ConversationItem[] | null>(null)
-  const conversations: ConversationItem[] = localConversations ?? (convData?.conversations || [])
+  const conversations: ConversationItem[] = convData?.conversations || []
   const convError = isConvError ? (convQueryError?.message || 'Failed to load conversations.') : null
 
   // Ensure active conversation is selected
@@ -115,7 +115,6 @@ export default function InboxPage() {
   }
 
   const loadConversations = useCallback(async () => {
-    setLocalConversations(null)
     await refetchConvs()
   }, [refetchConvs])
 
@@ -130,9 +129,15 @@ export default function InboxPage() {
         setOldestCursor(data.oldestCursor || null)
         setTimeout(() => scrollToBottom('auto'), 50)
 
-        // Mark as read in background
+        // Mark as read in background without race condition or stale closure
         supabase.from('conversations').update({ unread_count: 0 }).eq('id', convId).then(() => {
-          setLocalConversations(prev => (prev || conversations).map(c => c.id === convId ? { ...c, unread_count: 0 } : c))
+          queryClient.setQueryData<{ conversations?: ConversationItem[] }>(['inbox-conversations'], (old) => {
+            if (!old?.conversations) return old
+            return {
+              ...old,
+              conversations: old.conversations.map(c => c.id === convId ? { ...c, unread_count: 0 } : c)
+            }
+          })
         })
       } else {
         toast.error('Failed to load message history.')
@@ -142,7 +147,7 @@ export default function InboxPage() {
     } finally {
       setLoadingMessages(false)
     }
-  }, [supabase])
+  }, [supabase, queryClient])
 
   // Load active lead status for the selected contact
   useEffect(() => {
@@ -193,10 +198,6 @@ export default function InboxPage() {
   }
 
   useEffect(() => {
-    loadConversations()
-  }, [loadConversations])
-
-  useEffect(() => {
     if (activeConvId) {
       loadMessages(activeConvId)
     }
@@ -223,6 +224,18 @@ export default function InboxPage() {
             return [...prev, newMsg]
           })
           setTimeout(() => scrollToBottom('smooth'), 100)
+
+          queryClient.setQueryData<{ conversations?: ConversationItem[] }>(['inbox-conversations'], (old) => {
+            if (!old?.conversations) return old
+            return {
+              ...old,
+              conversations: old.conversations.map(c => c.id === activeConvId ? {
+                ...c,
+                last_message_preview: newMsg.body,
+                last_message_at: newMsg.created_at || new Date().toISOString()
+              } : c)
+            }
+          })
         }
       )
       .subscribe()
@@ -230,7 +243,7 @@ export default function InboxPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [activeConvId, supabase])
+  }, [activeConvId, supabase, queryClient])
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -252,6 +265,18 @@ export default function InboxPage() {
         if (message) {
           setMessages(prev => [...prev, message])
           setTimeout(() => scrollToBottom('smooth'), 100)
+
+          queryClient.setQueryData<{ conversations?: ConversationItem[] }>(['inbox-conversations'], (old) => {
+            if (!old?.conversations) return old
+            return {
+              ...old,
+              conversations: old.conversations.map(c => c.id === activeConv.id ? {
+                ...c,
+                last_message_preview: textToSend,
+                last_message_at: new Date().toISOString()
+              } : c)
+            }
+          })
         }
       } else {
         const err = await res.json().catch(() => ({}))
