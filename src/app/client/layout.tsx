@@ -94,7 +94,8 @@ function NavLinkItem({
   unreadCount?: number
   onClick?: () => void
 }) {
-  const pathname = usePathname()
+  const rawPathname = usePathname()
+  const pathname = rawPathname || ''
   const isActive = pathname === href || (href !== '/client/dashboard' && pathname.startsWith(href + '/'))
 
   return (
@@ -124,7 +125,8 @@ function NavLinkItem({
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
   const router = useRouter()
-  const pathname = usePathname()
+  const rawPathname = usePathname()
+  const pathname = rawPathname || ''
   const [unreadTotal, setUnreadTotal] = useState(0)
   const [orgName, setOrgName] = useState<string>('')
   const [orgPhone, setOrgPhone] = useState<string>('')
@@ -156,13 +158,29 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     const loadProfile = async () => {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        // Fast local session read first
+        const sessionRes = await supabase.auth.getSession()
+        let activeUser = sessionRes?.data?.session?.user
+
+        // If no user immediately found, check getUser
+        if (!activeUser) {
+          const userRes = await supabase.auth.getUser()
+          activeUser = userRes?.data?.user
+        }
+
+        // If still no user, wait 350ms to allow browser cookies to finish hydrating and try once more
+        if (!activeUser) {
+          await new Promise((resolve) => setTimeout(resolve, 350))
+          if (!isMounted) return
+          const retryRes = await supabase.auth.getUser()
+          activeUser = retryRes?.data?.user
+        }
+
         if (!isMounted) return
 
-        if (userError || !user) {
+        if (!activeUser) {
           setAuthState('redirecting')
           router.replace('/client/login')
-          window.location.href = '/client/login'
           return
         }
 
@@ -170,7 +188,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         let { data: profile } = await supabase
           .from('profiles')
           .select('org_id, role, full_name, email')
-          .eq('id', user.id)
+          .eq('id', activeUser.id)
           .maybeSingle()
 
         if (!isMounted) return
@@ -184,9 +202,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               headers['Authorization'] = `Bearer ${session.access_token}`
             }
 
-            const defaultName = user.user_metadata?.full_name 
-              ? `${user.user_metadata.full_name}'s Business`
-              : (user.email ? `${user.email.split('@')[0]}'s Services` : 'My Business')
+            const defaultName = activeUser.user_metadata?.full_name 
+              ? `${activeUser.user_metadata.full_name}'s Business`
+              : (activeUser.email ? `${activeUser.email.split('@')[0]}'s Services` : 'My Business')
 
             const onboardRes = await fetch('/api/onboarding', {
               method: 'POST',
@@ -198,7 +216,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               const { data: freshProfile } = await supabase
                 .from('profiles')
                 .select('org_id, role, full_name, email')
-                .eq('id', user.id)
+                .eq('id', activeUser.id)
                 .maybeSingle()
               profile = freshProfile
             }
@@ -212,46 +230,52 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         if (!profile || !profile.org_id) {
           setAuthState('redirecting')
           router.replace('/client/onboarding')
-          window.location.href = '/client/onboarding'
           return
         }
 
-        setUserId(user.id)
-        setUserEmail(user.email || profile.email || null)
-        setUserFullName(profile.full_name || user.user_metadata?.full_name || null)
+        setUserId(activeUser.id)
+        setUserEmail(activeUser.email || profile.email || null)
+        setUserFullName(profile.full_name || activeUser.user_metadata?.full_name || null)
         setIsSuperAdmin(profile.role === 'super_admin')
         setRole(profile.role || null)
         setOrgId(profile.org_id)
 
-        // Concurrently fetch organization details and unread count in parallel
-        const [{ data: org }, { count }] = await Promise.all([
-          supabase
-            .from('organizations')
-            .select('name, telnyx_phone_number, timezone')
-            .eq('id', profile.org_id)
-            .maybeSingle(),
-          supabase
-            .from('conversations')
-            .select('*', { count: 'exact', head: true })
-            .eq('org_id', profile.org_id)
-            .gt('unread_count', 0)
-        ])
+        // Non-fatal parallel enrichment: organization metadata and unread counts
+        try {
+          const [{ data: org }, { count }] = await Promise.all([
+            supabase
+              .from('organizations')
+              .select('name, telnyx_phone_number, timezone')
+              .eq('id', profile.org_id)
+              .maybeSingle(),
+            supabase
+              .from('conversations')
+              .select('*', { count: 'exact', head: true })
+              .eq('org_id', profile.org_id)
+              .gt('unread_count', 0)
+          ])
 
-        if (org) {
-          setOrgName(org.name || 'My Business')
-          setOrgPhone(org.telnyx_phone_number || '')
-          if (org.timezone) setOrgTimezone(org.timezone)
+          if (org && isMounted) {
+            setOrgName(org.name || 'My Business')
+            setOrgPhone(org.telnyx_phone_number || '')
+            if (org.timezone) setOrgTimezone(org.timezone)
+          }
+
+          if (isMounted) {
+            setUnreadTotal(count || 0)
+          }
+        } catch (enrichErr) {
+          console.warn('[LAYOUT] Non-fatal metadata enrichment error:', enrichErr)
         }
 
         if (isMounted) {
-          setUnreadTotal(count || 0)
           setAuthState('authorized')
         }
-      } catch {
+      } catch (err) {
+        console.error('[LAYOUT] Unexpected profile load failure:', err)
+        // Never redirect into an onboarding loop on unexpected error; allow layout to render
         if (isMounted) {
-          setAuthState('redirecting')
-          router.replace('/client/onboarding')
-          window.location.href = '/client/onboarding'
+          setAuthState('authorized')
         }
       }
     }
@@ -608,62 +632,114 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {/* ── Mobile Purpose-Built Bottom Action Bar (< 768px) ── */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-14 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 md:hidden px-1 backdrop-blur-md safe-area-bottom">
-        <Link
-          href="/client/dashboard"
-          className={cn(
-            'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-            pathname === '/client/dashboard' ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-          )}
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          <span>Today</span>
-        </Link>
+        {isTechnician ? (
+          <>
+            <Link
+              href="/client/field"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <Navigation className="h-4 w-4" />
+              <span>Route</span>
+            </Link>
 
-        <Link
-          href="/client/inbox"
-          className={cn(
-            'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-            pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-          )}
-        >
-          <div className="relative">
-            <MessageSquare className="h-4 w-4" />
-            {unreadTotal > 0 && (
-              <span className="absolute -top-1 -right-2 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
-            )}
-          </div>
-          <span>Inbox</span>
-        </Link>
+            <Link
+              href="/client/calendar"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname.startsWith('/client/calendar') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <Calendar className="h-4 w-4" />
+              <span>Schedule</span>
+            </Link>
 
-        <Link
-          href="/client/jobs"
-          className={cn(
-            'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-            pathname.startsWith('/client/jobs') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-          )}
-        >
-          <Briefcase className="h-4 w-4" />
-          <span>Jobs</span>
-        </Link>
+            <Link
+              href="/client/inbox"
+              className={cn(
+                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <div className="relative">
+                <MessageSquare className="h-4 w-4" />
+                {unreadTotal > 0 && (
+                  <span className="absolute -top-1 -right-2 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
+                )}
+              </div>
+              <span>Inbox</span>
+            </Link>
 
-        <Link
-          href="/client/invoices"
-          className={cn(
-            'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-            pathname.startsWith('/client/invoices') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-          )}
-        >
-          <CreditCard className="h-4 w-4" />
-          <span>Invoices</span>
-        </Link>
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[44px]"
+            >
+              <Menu className="h-4 w-4" />
+              <span>More</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/client/dashboard"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname === '/client/dashboard' ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Today</span>
+            </Link>
 
-        <button
-          onClick={() => setMobileDrawerOpen(true)}
-          className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[44px]"
-        >
-          <Menu className="h-4 w-4" />
-          <span>More</span>
-        </button>
+            <Link
+              href="/client/inbox"
+              className={cn(
+                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <div className="relative">
+                <MessageSquare className="h-4 w-4" />
+                {unreadTotal > 0 && (
+                  <span className="absolute -top-1 -right-2 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
+                )}
+              </div>
+              <span>Inbox</span>
+            </Link>
+
+            <Link
+              href="/client/jobs"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname.startsWith('/client/jobs') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <Briefcase className="h-4 w-4" />
+              <span>Jobs</span>
+            </Link>
+
+            <Link
+              href="/client/invoices"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
+                pathname.startsWith('/client/invoices') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <CreditCard className="h-4 w-4" />
+              <span>Invoices</span>
+            </Link>
+
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[44px]"
+            >
+              <Menu className="h-4 w-4" />
+              <span>More</span>
+            </button>
+          </>
+        )}
       </nav>
       </div>
     </WorkspaceContext.Provider>

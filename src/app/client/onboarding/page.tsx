@@ -80,17 +80,17 @@ export default function OnboardingPage() {
           return
         }
 
-        // If user is already linked to an organization, go directly to dashboard
+        // If user is already linked to an organization, go directly to appropriate dashboard
         const { data: profile } = await supabase
           .from('profiles')
-          .select('org_id')
+          .select('org_id, role')
           .eq('id', user.id)
           .maybeSingle()
 
         if (!isMounted) return
 
         if (profile?.org_id) {
-          window.location.href = '/client/dashboard'
+          router.replace(profile.role === 'technician' ? '/client/field' : '/client/dashboard')
           return
         }
 
@@ -208,7 +208,7 @@ export default function OnboardingPage() {
       }
 
       toast.success('Welcome to CaptoDesk! Workspace ready.')
-      window.location.href = '/client/dashboard'
+      router.replace('/client/dashboard')
     } catch {
       toast.error('Network error. Please try again.')
       setSaving(false)

@@ -14,7 +14,9 @@ const CLIENT_ROUTES = [
   '/reviews',
   '/jobs',
   '/invoices',
-  '/team'
+  '/quotes',
+  '/team',
+  '/field'
 ]
 
 export async function proxy(request: NextRequest) {

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { 
   PhoneMissed, 
   MessageSquare, 
@@ -47,6 +48,7 @@ import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const router = useRouter()
   const { orgName } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
 
@@ -66,8 +68,12 @@ export default function DashboardPage() {
       if (!res.ok) {
         if (res.status === 403) {
           const err = await res.json().catch(() => ({}))
+          if (err.error?.includes('technician') || err.error?.includes('lacks permission')) {
+            router.replace('/client/field')
+            return {}
+          }
           if (err.error?.includes('profile not registered') || err.error?.includes('not linked to an organization')) {
-            window.location.href = '/client/onboarding'
+            router.replace('/client/onboarding')
             return {}
           }
         }
