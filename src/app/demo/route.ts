@@ -3,12 +3,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const DEMO_EMAIL = 'corvexastudio@gmail.com'
+const DEMO_EMAIL = 'demo@captodesk.com'
 
 /**
  * Public Frictionless Demo Entrypoint
  * Allows prospects to experience the full CaptoDesk owner workspace without signing in.
- * Strictly locked to the official demo account (corvexastudio@gmail.com).
+ * Strictly locked to the official synthetic demo account (demo@captodesk.com).
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)

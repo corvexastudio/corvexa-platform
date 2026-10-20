@@ -456,7 +456,7 @@ export async function resetDemoTenant(options = {}) {
   console.log('\n========================================================================');
   console.log('  ✨ CAPTODESK DEMO TENANT IS 100% FRESH & READY FOR WALKTHROUGH!');
   console.log('========================================================================');
-  console.log(`• Login Account : corvexastudio@gmail.com`);
+  console.log(`• Login Account : demo@captodesk.com (Role: Business Owner)`);
   console.log(`• Organization  : CaptoDesk Demo Services`);
   console.log(`• Live Clients  : 100% UNTOUCHED (Zero mutations outside org_id ${SYNTHETIC_DEMO_ORG_ID})`);
   console.log('========================================================================\n');

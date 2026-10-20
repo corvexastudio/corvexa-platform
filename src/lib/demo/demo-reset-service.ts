@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const SYNTHETIC_DEMO_ORG_ID = '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7'
 export const SYNTHETIC_DEMO_ORG_NAME = 'CaptoDesk Demo Services'
-export const SYNTHETIC_DEMO_EMAIL = 'corvexastudio@gmail.com'
+export const SYNTHETIC_DEMO_EMAIL = 'demo@captodesk.com'
 
 export const DEMO_RESET_CLEANUP_TABLES = [
   'notifications',

@@ -12,7 +12,7 @@ export const KNOWN_PRODUCTION_PROJECT_REF = 'vlztovqaummczupslymr';
 export const SYNTHETIC_DEMO_ORG_ID = '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7';
 export const SYNTHETIC_DEMO_ORG_NAME = 'CaptoDesk Demo Services';
 export const SYNTHETIC_DEMO_ORG_SLUG = 'captodesk-demo-services-rdhr6';
-export const SYNTHETIC_DEMO_EMAIL = 'corvexastudio@gmail.com';
+export const SYNTHETIC_DEMO_EMAIL = 'demo@captodesk.com';
 export const PROTECTED_OWNER_ORG_ID = '87348a58-b47f-4e80-8dec-bc2117ad45a6';
 
 export function extractProjectRef(urlStr) {

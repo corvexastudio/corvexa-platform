@@ -456,8 +456,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* ── Main Layout Column ── */}
       <div className="flex flex-col md:pl-64 w-full min-h-screen">
 
-        {/* ── Demo Account Walkthrough Banner ── */}
-        {isDemoOrg && (
+        {/* ── Demo Account Walkthrough Banner (Only visible to Super Admins, hidden from prospects) ── */}
+        {isSuperAdmin && isDemoOrg && (
           <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs z-30">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
