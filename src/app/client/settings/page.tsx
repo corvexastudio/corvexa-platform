@@ -347,13 +347,22 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-4xl">
 
       {/* Page Header */}
-      <div className="border-b border-slate-200 dark:border-zinc-800 pb-5">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Settings & Preferences
-        </h1>
-        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-          Interface display theme, phone routing, conditional call forwarding, and business details.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Settings & Preferences
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+            Interface display theme, phone routing, conditional call forwarding, and business details.
+          </p>
+        </div>
+        <Link
+          href="/client/billing"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all shrink-0"
+        >
+          <CreditCard className="w-4 h-4" />
+          <span>SaaS Plan & Billing →</span>
+        </Link>
       </div>
 
       {error ? (

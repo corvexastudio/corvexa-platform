@@ -24,7 +24,8 @@ import {
   Wrench,
   Navigation,
   Truck,
-  RotateCcw
+  RotateCcw,
+  DollarSign
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,7 @@ export const navSections = [
     items: [
       { href: '/client/quotes', label: 'Quotes', icon: FileText },
       { href: '/client/invoices', label: 'Invoices', icon: CreditCard },
+      { href: '/client/billing', label: 'Plan & Billing', icon: DollarSign },
       { href: '/client/reviews', label: 'Reviews', icon: Star },
     ]
   },
