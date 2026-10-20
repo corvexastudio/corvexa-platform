@@ -61,10 +61,36 @@ interface MessageItem {
   created_at: string
 }
 
+function playMessageChime() {
+  if (typeof window === 'undefined') return
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.06, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.25)
+  } catch {
+    // Non-blocking if audio autoplay policy prevents sound
+  }
+}
+
 export default function InboxPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const activeConvIdRef = useRef<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
   const [search, setSearch] = useState('')
@@ -77,7 +103,11 @@ export default function InboxPage() {
   const [mobileViewThread, setMobileViewThread] = useState(false)
   const [leadStatus, setLeadStatus] = useState<string | null>(null)
 
-  // React Query for instant in-memory conversation list retrieval
+  useEffect(() => {
+    activeConvIdRef.current = activeConvId
+  }, [activeConvId])
+
+  // React Query with resilient background polling (like Gmail auto-sync)
   const { data: convData, isLoading: loadingConvs, isError: isConvError, error: convQueryError, refetch: refetchConvs } = useQuery({
     queryKey: ['inbox-conversations'],
     queryFn: async () => {
@@ -92,7 +122,10 @@ export default function InboxPage() {
       }
       return res.json()
     },
-    staleTime: 30 * 1000
+    staleTime: 3000,
+    refetchInterval: 4000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true
   })
 
   const conversations: ConversationItem[] = convData?.conversations || []
@@ -203,39 +236,49 @@ export default function InboxPage() {
     }
   }, [activeConvId, loadMessages])
 
-  // Realtime subscription for incoming messages
+  // Persistent realtime subscription for incoming messages & conversation updates
   useEffect(() => {
-    if (!activeConvId) return
-
     const channel = supabase
-      .channel(`inbox_messages_${activeConvId}`)
+      .channel('inbox_realtime_stream')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${activeConvId}`
+          table: 'messages'
         },
         (payload: any) => {
           const newMsg = payload.new as MessageItem
-          setMessages(prev => {
-            if (prev.some(m => m.id === newMsg.id)) return prev
-            return [...prev, newMsg]
-          })
-          setTimeout(() => scrollToBottom('smooth'), 100)
+          if (!newMsg) return
 
-          queryClient.setQueryData<{ conversations?: ConversationItem[] }>(['inbox-conversations'], (old) => {
-            if (!old?.conversations) return old
-            return {
-              ...old,
-              conversations: old.conversations.map(c => c.id === activeConvId ? {
-                ...c,
-                last_message_preview: newMsg.body,
-                last_message_at: newMsg.created_at || new Date().toISOString()
-              } : c)
+          // If the message is for the currently viewed conversation
+          if (newMsg.conversation_id === activeConvIdRef.current) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMsg.id)) return prev
+              return [...prev, newMsg]
+            })
+            if (newMsg.direction === 'inbound') {
+              playMessageChime()
+              supabase.from('conversations').update({ unread_count: 0 }).eq('id', newMsg.conversation_id)
             }
-          })
+            setTimeout(() => scrollToBottom('smooth'), 100)
+          } else if (newMsg.direction === 'inbound') {
+            playMessageChime()
+          }
+
+          // Instantly refresh conversation list and unread badges
+          refetchConvs()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations'
+        },
+        () => {
+          refetchConvs()
         }
       )
       .subscribe()
@@ -243,7 +286,44 @@ export default function InboxPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [activeConvId, supabase, queryClient])
+  }, [supabase, refetchConvs])
+
+  // Resilient background auto-sync for active conversation thread (like Gmail)
+  useEffect(() => {
+    if (!activeConvId) return
+
+    const syncTimer = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+
+      try {
+        const res = await fetch(`/api/client/inbox/messages?conversation_id=${activeConvId}&limit=50`)
+        if (!res.ok) return
+        const data = await res.json()
+        const incomingMessages: MessageItem[] = data.messages || []
+        if (incomingMessages.length === 0) return
+
+        setMessages(prev => {
+          if (prev.length === 0) return incomingMessages
+          const prevIds = new Set(prev.map(m => m.id))
+          const newItems = incomingMessages.filter(m => !prevIds.has(m.id))
+          if (newItems.length === 0) return prev
+
+          const hasInbound = newItems.some(m => m.direction === 'inbound')
+          if (hasInbound) {
+            playMessageChime()
+            supabase.from('conversations').update({ unread_count: 0 }).eq('id', activeConvId)
+          }
+
+          setTimeout(() => scrollToBottom('smooth'), 100)
+          return incomingMessages
+        })
+      } catch {
+        // Silent non-blocking background sync
+      }
+    }, 3500)
+
+    return () => clearInterval(syncTimer)
+  }, [activeConvId, supabase])
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -319,9 +399,15 @@ export default function InboxPage() {
         {/* Header, Filter Pills & Search */}
         <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 space-y-2.5 bg-slate-50/50 dark:bg-zinc-900/40">
           <div className="flex items-center justify-between">
-            <h1 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Conversations
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Conversations
+              </h1>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50" title="Auto-sync active: updates in real-time">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live
+              </span>
+            </div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold tabular-nums">
                 {conversations.length} total
