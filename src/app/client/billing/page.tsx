@@ -217,8 +217,8 @@ export default function ClientBillingPage() {
       <div className="max-w-4xl mx-auto p-6">
         <ErrorState
           title="Unable to load billing"
-          description={error || 'An error occurred loading your subscription details.'}
-          onRetry={fetchBilling}
+          message={error || 'An error occurred loading your subscription details.'}
+          onRetry={() => { void fetchBilling() }}
         />
       </div>
     )

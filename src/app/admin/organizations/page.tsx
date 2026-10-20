@@ -83,7 +83,7 @@ export default function AdminOrganizationsPage() {
   const [paymentRefInput, setPaymentRefInput] = useState('')
   const [billingNotesInput, setBillingNotesInput] = useState('')
   const [billingPeriodMonths, setBillingPeriodMonths] = useState(1)
-  const [selectedPlanId, setSelectedPlanId] = useState<'solo' | 'multi_crew'>('solo')
+  const [selectedPlanId, setSelectedPlanId] = useState<'solo' | 'solo_yearly' | 'multi_crew' | 'multi_crew_yearly'>('solo')
   const [cancelImmediate, setCancelImmediate] = useState(false)
 
   const handleOpenProvisionModal = (tenant: TenantHealthSummary) => {
