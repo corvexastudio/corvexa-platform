@@ -668,10 +668,10 @@ function CalendarContent() {
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700 tabular-nums">
               {appointments.length}
             </span>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100/80 dark:bg-zinc-800/80 text-slate-600 dark:text-zinc-400 border border-slate-200/60 dark:border-zinc-700/60">
+              {orgTimezone}
+            </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Real-time calendar agenda, customer booking requests, and availability rules • <span className="font-medium text-slate-700 dark:text-zinc-300">{orgTimezone}</span>
-          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

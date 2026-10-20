@@ -426,9 +426,6 @@ function ClientInvoicesContent() {
               {invoices.length}
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Fast mobile checkout links with Stripe, offline payment tracking, and automated reminders.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -459,25 +456,21 @@ function ClientInvoicesContent() {
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Invoiced</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">${totalInvoiced.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">{invoices.length} total generated</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Balance Due</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums mt-1">${totalDue.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Pending customer payment</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Collected</p>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">${totalPaid.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">{paidInvoices.length} paid in full</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Overdue</p>
           <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums mt-1">{overdueInvoices.length}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Auto reminders scheduled</p>
         </div>
       </div>
 

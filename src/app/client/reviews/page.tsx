@@ -310,9 +310,6 @@ export default function ReviewsPage() {
               {requests.length} requests
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Google review automation with built-in negative feedback interception to protect your public rating.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

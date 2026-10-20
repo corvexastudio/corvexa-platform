@@ -195,9 +195,6 @@ export default function TeamPage() {
           <h1 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-zinc-100 tracking-tight">
             Team &amp; Fleet Management
           </h1>
-          <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">
-            Manage authorized staff, technician field roles, and multi-van dispatch crews.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

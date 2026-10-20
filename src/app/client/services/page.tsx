@@ -292,10 +292,6 @@ export default function ServicesPage() {
     })
   }, [services, statusFilter, searchQuery])
 
-  // Detect default "General Service"
-  const generalService = useMemo(() => {
-    return services.find(s => s.name.trim().toLowerCase() === 'general service')
-  }, [services])
 
   const counts = useMemo(() => {
     const total = services.length
@@ -317,9 +313,6 @@ export default function ServicesPage() {
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
                 Service Catalog
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5">
-                Configure bookable services, durations, and pricing displayed on your public booking page. You can freely edit names, update pricing, add new offerings, or delete any starter service anytime.
-              </p>
             </div>
           </div>
         </div>
@@ -346,50 +339,6 @@ export default function ServicesPage() {
           </Button>
         </div>
       </div>
-
-      {/* General Service Helper Banner (if General Service is present) */}
-      {generalService && (
-        <div className="rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-950/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Default Onboarding Service</h4>
-                <Badge variant={generalService.is_active ? 'default' : 'secondary'} className="text-[10px]">
-                  {generalService.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                The standard <span className="text-slate-800 dark:text-zinc-200 font-medium">"General Service"</span> was created during onboarding so your booking page would function out-of-the-box. Once you configure your custom services, you can customize its duration/pricing or deactivate it so clients only book your real services.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleOpenEdit(generalService)}
-              className="text-xs border-slate-300 dark:border-zinc-700 bg-white dark:bg-transparent hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200"
-            >
-              <Edit2 className="w-3.5 h-3.5 mr-1" />
-              Customize
-            </Button>
-            {generalService.is_active && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handleToggleActive(generalService)}
-                className="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300"
-              >
-                Deactivate
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -146,7 +146,7 @@ export default function DashboardPage() {
       {/* ── Page Header: Today's Briefing ── */}
       <PageHeader
         title="Today's Command Center"
-        subtitle={orgName ? `${orgName} • Operational status, dispatch & triage.` : 'Daily operational overview.'}
+        subtitle={orgName || undefined}
         badge={
           <Badge variant="neutral" size="default" suppressHydrationWarning>
             {todayFormatted}

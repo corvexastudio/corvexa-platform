@@ -305,7 +305,6 @@ export default function LeadsPage() {
       {/* Page Header */}
       <PageHeader
         title="Leads Pipeline"
-        subtitle="Inbound opportunities captured from phone calls, booking links, and SMS triage."
         badge={
           <Badge variant="neutral" size="default" className="font-bold tabular-nums">
             {leads.length} total

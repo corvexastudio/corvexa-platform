@@ -210,9 +210,6 @@ export default function CustomersPage() {
               {counts.total}
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Complete customer directory, service history, and lifetime revenue.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -258,19 +255,16 @@ export default function CustomersPage() {
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Customers</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '-' : counts.total}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Verified contacts</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Active Customers</p>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '-' : counts.active}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Recent service completed</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Service Due / Overdue</p>
           <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums mt-1">{loading ? '-' : counts.due + counts.overdue}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Eligible for reactivation</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
@@ -278,7 +272,6 @@ export default function CustomersPage() {
           <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
             {loading ? '-' : `$${counts.totalLtv.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Collected revenue</p>
         </div>
       </div>
 

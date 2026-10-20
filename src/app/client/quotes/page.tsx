@@ -330,9 +330,6 @@ function ClientQuotesContent() {
               {quotes.length}
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Send transparent service estimates, track customer views, and convert won jobs.
-          </p>
         </div>
 
         <Button
@@ -350,25 +347,21 @@ function ClientQuotesContent() {
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Estimates</p>
           <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">${totalValue.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">{quotes.length} quotes generated</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Awaiting Approval</p>
           <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums mt-1">${pendingValue.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">{pendingQuotes.length} active with customers</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Won Revenue</p>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">${acceptedValue.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">{acceptedQuotes.length} quotes accepted</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Win Rate</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums mt-1">{winRate}%</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Based on resolved quotes</p>
         </div>
       </div>
 

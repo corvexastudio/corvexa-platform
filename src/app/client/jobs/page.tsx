@@ -515,9 +515,6 @@ function JobsContent() {
               {jobs.length}
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Dispatch, execution lifecycle, and service completion for field technicians.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

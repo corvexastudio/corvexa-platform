@@ -133,9 +133,6 @@ export default function AutomationsPage() {
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
             Automations
           </h1>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Rules and automated responses for missed calls, booking reminders, and customer reviews.
-          </p>
         </div>
 
         <Button

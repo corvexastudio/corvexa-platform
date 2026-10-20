@@ -237,7 +237,6 @@ export default function FieldPage() {
       {/* Field Mobile Header */}
       <PageHeader
         title="Field Technician Portal"
-        subtitle="1-Tap status updates, turn-by-turn navigation, and Before & After photo proof."
         badge={
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
