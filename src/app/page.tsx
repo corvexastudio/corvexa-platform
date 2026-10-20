@@ -484,7 +484,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── 9. Straightforward Pricing ── */}
-      <section id="pricing" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-10">
+      <section id="pricing" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-10">
         <div className="text-center max-w-2xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <DollarSign className="w-3.5 h-3.5" />
@@ -494,7 +494,7 @@ export default function LandingPage() {
             Simple Pricing. Zero Contracts.
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400">
-            One extra booked job covers your entire year of CaptoDesk.
+            One extra booked job covers your entire year of CaptoDesk. Choose the tier that matches your business size.
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -519,100 +519,198 @@ export default function LandingPage() {
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <span>Annual Billing</span>
+              <span>Yearly Billing</span>
               <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-400/40 text-[10px] font-extrabold uppercase">
-                Save 47%
+                2 Months Free
               </span>
             </button>
           </div>
+
+          {/* Setup Fee Transparency Pill */}
+          <div className="pt-2">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span><strong>One-Time $199 White-Glove Setup Fee:</strong> Includes custom business DID provisioning, carrier 10DLC TCR compliance registration, and 1-on-1 Zoom call-forwarding setup.</span>
+            </div>
+          </div>
         </div>
 
-        {/* Pricing Card */}
-        <div className="rounded-3xl border-2 border-emerald-500/40 bg-zinc-950 p-6 sm:p-10 shadow-2xl relative overflow-hidden space-y-8">
-          <div className="absolute top-0 right-0 px-4 py-1.5 bg-emerald-600 text-white font-bold text-xs uppercase font-mono tracking-wider rounded-bl-xl">
-            30-DAY MONEY-BACK GUARANTEE
-          </div>
-
-          {/* Header & Price with MRP Strikethrough */}
-          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-2xl font-bold text-white">CaptoDesk Pro</h3>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 font-mono">
-                  REGULAR MRP $149/MO
+        {/* Pricing Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          {/* Card 1: Solo Operator ($99/mo or $990/yr) */}
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-xl relative flex flex-col justify-between space-y-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  SOLO OPERATOR
                 </span>
+                <span className="text-xs text-zinc-500 font-mono">1 Truck / Van</span>
               </div>
-              <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
-                Complete AI front desk, live technician tracking, and 0.5% mobile invoicing.
-              </p>
-            </div>
 
-            <div className="flex flex-col sm:items-end">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl sm:text-2xl font-bold text-zinc-500 line-through decoration-rose-500 decoration-2">
-                  $149
+              <div>
+                <h3 className="text-2xl font-bold text-white">CaptoDesk Solo</h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Built for solo owner-operators. Capture missed calls, manage routes, and get paid on site.
+                </p>
+              </div>
+
+              <div className="flex items-baseline gap-2 pt-2 border-t border-zinc-850">
+                <span className="text-lg font-bold text-zinc-500 line-through decoration-rose-500 decoration-2">
+                  {billingCycle === 'monthly' ? '$149' : '$1,188'}
                 </span>
                 <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">
-                  ${billingCycle === 'monthly' ? '97' : '79'}
+                  ${billingCycle === 'monthly' ? '99' : '82.50'}
                 </span>
                 <span className="text-zinc-400 text-sm font-medium">/ month</span>
               </div>
-              <span className="text-[11px] font-semibold text-emerald-400 font-mono mt-0.5">
+              <p className="text-[11px] text-emerald-400 font-mono">
                 {billingCycle === 'monthly'
-                  ? '✓ Save $52/mo vs MRP — Locked-in Launch Rate'
-                  : '✓ Billed annually ($948/yr) — Save $840/yr'}
-              </span>
+                  ? '✓ Standard monthly ($99/mo) + $199 one-time setup'
+                  : '✓ $990 billed yearly (Pay for 10 months, get 2 FREE) + $199 setup'}
+              </p>
+
+              <div className="space-y-2.5 text-xs text-zinc-300 pt-2 border-t border-zinc-850">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span><strong>1 Owner-Operator User</strong> included</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Dedicated local phone line (10DLC verified)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Instant 8-second AI missed-call recovery SMS</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Public booking link & calendar scheduling</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Mobile Field Portal (GPS maps & photo capture)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Apple Pay & Card Invoicing at <strong>0.5% flat</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Domino&apos;s customer live tracking links</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Automated 5-star Google review booster</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-850">
+              <Link
+                href="/client/login"
+                className="w-full py-3.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all border border-zinc-700"
+              >
+                <span>
+                  {billingCycle === 'monthly'
+                    ? 'Get Started with Solo ($99/mo)'
+                    : 'Get Started with Solo ($990/yr — 2 Mo Free)'}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
 
-          {/* Launch Rate Lock Callout */}
-          <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-xs text-amber-200 flex items-center gap-2.5">
-            <Flame className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <strong>Early Contractor Launch Rate:</strong> The regular price is <strong>$149/month</strong>. Activate today to lock in <strong>${billingCycle === 'monthly' ? '97' : '79'}/mo</strong> for the lifetime of your account before rates increase.
-            </span>
-          </div>
+          {/* Card 2: Multi-Crew Fleet ($199/mo or $1,990/yr) */}
+          <div className="rounded-3xl border-2 border-emerald-500 bg-zinc-950 p-6 sm:p-8 shadow-2xl relative flex flex-col justify-between space-y-6">
+            <div className="absolute top-0 right-0 px-4 py-1.5 bg-emerald-600 text-white font-bold text-xs uppercase font-mono tracking-wider rounded-bl-xl shadow-md">
+              MOST POPULAR FOR TEAMS
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-zinc-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Unlimited 8-second AI missed-call recovery</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Unlimited Domino&apos;s live tracking links (/t/[token])</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Apple Pay & Card Invoicing at <strong>0.5% flat</strong></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Smart 5-star Google review booster & shield</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Dedicated carrier-verified phone line (10DLC included)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Rolling 48-hr bank deposits via Stripe Connect</span>
-            </div>
-          </div>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  GROWING FLEET
+                </span>
+                <span className="text-xs text-zinc-400 font-mono">Up to 5 Technicians</span>
+              </div>
 
-          <div className="pt-4 border-t border-zinc-850 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Link
-              href="/client/login"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
-            >
-              <span>Get Started Today</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <span className="text-xs text-zinc-400 text-center sm:text-right">
-              Month-to-month. Cancel anytime with 1 click.
-            </span>
+              <div>
+                <h3 className="text-2xl font-bold text-white">CaptoDesk Multi-Crew</h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  For service businesses with helpers, crews, or technicians. Keep every truck dispatched and busy.
+                </p>
+              </div>
+
+              <div className="flex items-baseline gap-2 pt-2 border-t border-zinc-850">
+                <span className="text-lg font-bold text-zinc-500 line-through decoration-rose-500 decoration-2">
+                  {billingCycle === 'monthly' ? '$299' : '$2,388'}
+                </span>
+                <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">
+                  ${billingCycle === 'monthly' ? '199' : '165.80'}
+                </span>
+                <span className="text-zinc-400 text-sm font-medium">/ month</span>
+              </div>
+              <p className="text-[11px] text-emerald-400 font-mono">
+                {billingCycle === 'monthly'
+                  ? '✓ Standard monthly ($199/mo) + $199 one-time setup'
+                  : '✓ $1,990 billed yearly (Pay for 10 months, get 2 FREE) + $199 setup'}
+              </p>
+
+              <div className="space-y-2.5 text-xs text-zinc-200 pt-2 border-t border-zinc-850">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span><strong>Up to 5 Crew Members & Technicians</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span><strong>Everything in Solo Plan</strong>, plus:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Multi-crew live dispatch board & team schedule</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Restricted technician mobile portal (zero financial visibility)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Role permissions (Owner, Admin, Dispatcher, Field Tech)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Dynamic job routing by crew or vehicle</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Priority carrier message routing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Dedicated white-glove onboarding & setup call</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-850">
+              <Link
+                href="/client/login"
+                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
+              >
+                <span>
+                  {billingCycle === 'monthly'
+                    ? 'Get Started with Multi-Crew ($199/mo)'
+                    : 'Get Started with Multi-Crew ($1,990/yr — 2 Mo Free)'}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
+
+        <p className="text-center text-xs text-zinc-500">
+          All plans include 30-day money-back guarantee • $199 one-time setup fee • Keep your existing phone number
+        </p>
       </section>
 
       {/* ── 10. Frequently Asked Questions ── */}

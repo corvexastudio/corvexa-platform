@@ -83,6 +83,7 @@ export default function AdminOrganizationsPage() {
   const [paymentRefInput, setPaymentRefInput] = useState('')
   const [billingNotesInput, setBillingNotesInput] = useState('')
   const [billingPeriodMonths, setBillingPeriodMonths] = useState(1)
+  const [selectedPlanId, setSelectedPlanId] = useState<'solo' | 'multi_crew'>('solo')
   const [cancelImmediate, setCancelImmediate] = useState(false)
 
   const handleOpenProvisionModal = (tenant: TenantHealthSummary) => {
@@ -176,6 +177,7 @@ export default function AdminOrganizationsPage() {
     setPaymentRefInput('')
     setBillingNotesInput('')
     setBillingPeriodMonths(1)
+    setSelectedPlanId(tenant.monthlyRate === 199 ? 'multi_crew' : 'solo')
     setCancelImmediate(false)
     setBillingModalOpen(true)
     fetchBillingDetails(tenant.id)
@@ -196,6 +198,7 @@ export default function AdminOrganizationsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          planId: selectedPlanId,
           paymentReference: paymentRefInput.trim() || undefined,
           notes: billingNotesInput.trim() || undefined,
           periodMonths: billingPeriodMonths,
@@ -958,16 +961,27 @@ export default function AdminOrganizationsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
                       <label className="block text-zinc-400 font-semibold mb-1">
-                        PayPal Transaction / Reference ID
+                        Subscription Plan Tier
                       </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. PAYID-M5XYZ1234..."
-                        value={paymentRefInput}
-                        onChange={(e) => setPaymentRefInput(e.target.value)}
+                      <select
+                        value={selectedPlanId}
+                        onChange={(e) => {
+                          const val = e.target.value as any
+                          setSelectedPlanId(val)
+                          if (val.includes('yearly')) {
+                            setBillingPeriodMonths(12)
+                          } else {
+                            setBillingPeriodMonths(1)
+                          }
+                        }}
                         disabled={billingSubmitting}
-                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 font-mono text-xs focus:outline-none focus:border-emerald-500 transition-colors"
-                      />
+                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-medium text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+                      >
+                        <option value="solo">CaptoDesk Solo — $99/mo (+$199 setup fee)</option>
+                        <option value="solo_yearly">CaptoDesk Solo (Yearly) — $990/yr (2 Mo Free, +$199 setup)</option>
+                        <option value="multi_crew">CaptoDesk Multi-Crew — $199/mo (+$199 setup fee)</option>
+                        <option value="multi_crew_yearly">CaptoDesk Multi-Crew (Yearly) — $1,990/yr (2 Mo Free, +$199 setup)</option>
+                      </select>
                     </div>
 
                     <div>
@@ -980,11 +994,34 @@ export default function AdminOrganizationsPage() {
                         disabled={billingSubmitting}
                         className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-medium text-xs focus:outline-none focus:border-emerald-500 transition-colors"
                       >
-                        <option value={1}>1 Month ($99 USD)</option>
-                        <option value={3}>3 Months ($297 USD)</option>
-                        <option value={6}>6 Months ($594 USD)</option>
-                        <option value={12}>12 Months ($1,188 USD)</option>
+                        {selectedPlanId.includes('yearly') ? (
+                          <>
+                            <option value={12}>1 Year Full (${selectedPlanId === 'solo_yearly' ? '990' : '1,990'} USD — 2 Mo Free)</option>
+                            <option value={24}>2 Years Full (${selectedPlanId === 'solo_yearly' ? '1,980' : '3,980'} USD — 4 Mo Free)</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value={1}>1 Month (${(selectedPlanId === 'multi_crew' ? 199 : 99) * 1} USD)</option>
+                            <option value={3}>3 Months (${(selectedPlanId === 'multi_crew' ? 199 : 99) * 3} USD)</option>
+                            <option value={6}>6 Months (${(selectedPlanId === 'multi_crew' ? 199 : 99) * 6} USD)</option>
+                            <option value={12}>12 Months (${(selectedPlanId === 'multi_crew' ? 199 : 99) * 12} USD)</option>
+                          </>
+                        )}
                       </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-zinc-400 font-semibold mb-1">
+                        PayPal Transaction / Reference ID (or Setup Fee Receipt)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. PAYID-M5XYZ1234... or PayPal Subscription Plan ID"
+                        value={paymentRefInput}
+                        onChange={(e) => setPaymentRefInput(e.target.value)}
+                        disabled={billingSubmitting}
+                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 font-mono text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+                      />
                     </div>
 
                     <div className="sm:col-span-2">
@@ -993,7 +1030,7 @@ export default function AdminOrganizationsPage() {
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Paid via PayPal invoice #1001"
+                        placeholder="e.g. Paid $199 setup + subscription via PayPal invoice #1001"
                         value={billingNotesInput}
                         onChange={(e) => setBillingNotesInput(e.target.value)}
                         disabled={billingSubmitting}
@@ -1016,7 +1053,15 @@ export default function AdminOrganizationsPage() {
                         ) : (
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         )}
-                        <span>Activate Subscription (${99 * billingPeriodMonths} USD)</span>
+                        <span>
+                          Activate Subscription ($
+                          {selectedPlanId === 'solo_yearly'
+                            ? 990 * (billingPeriodMonths / 12)
+                            : selectedPlanId === 'multi_crew_yearly'
+                            ? 1990 * (billingPeriodMonths / 12)
+                            : (selectedPlanId === 'multi_crew' ? 199 : 99) * billingPeriodMonths}{' '}
+                          USD)
+                        </span>
                       </button>
                     ) : (
                       <>
