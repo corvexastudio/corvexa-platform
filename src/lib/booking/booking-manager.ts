@@ -405,6 +405,13 @@ export async function createBooking(
     confirmationText = `Hi ${customerName}! We received your booking request for ${activeService.name} with ${org.name} on ${displayTime}. We will confirm shortly. Manage: ${manageUrl}`
   }
 
+  // If this is the demo tenant, append the 1-tap live owner dashboard link (no login required)
+  const isDemoOrg = orgId === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || org.slug?.includes('demo')
+  if (isDemoOrg) {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.corvexastudio.com').replace(/\/$/, '')
+    confirmationText += `\n\nExperience the Live Owner Dashboard (no login required): ${appUrl}/demo`
+  }
+
   if (senderNumber) {
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,

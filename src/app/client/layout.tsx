@@ -23,8 +23,10 @@ import {
   Plus, 
   Wrench,
   Navigation,
-  Truck
+  Truck,
+  RotateCcw
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationCenter } from '@/components/notifications/notification-center'
@@ -138,6 +140,32 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [userFullName, setUserFullName] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+  const [resettingDemo, setResettingDemo] = useState(false)
+
+  const isDemoOrg = orgId === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || orgName?.toLowerCase().includes('demo')
+
+  const handleClientResetDemo = async () => {
+    if (!window.confirm("Are you sure you want to erase demo data? This will clear test bookings, leads, jobs, and SMS conversations, and restore the baseline demo catalog.")) {
+      return
+    }
+    setResettingDemo(true)
+    try {
+      const res = await fetch('/api/admin/demo/reset', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('✨ Demo account wiped and reset to pristine clean slate!')
+        setTimeout(() => {
+          window.location.reload()
+        }, 800)
+      } else {
+        toast.error(data.error || 'Failed to reset demo tenant.')
+      }
+    } catch {
+      toast.error('Network error resetting demo tenant.')
+    } finally {
+      setResettingDemo(false)
+    }
+  }
 
   const [authState, setAuthState] = useState<'checking' | 'authorized' | 'redirecting'>('checking')
 
@@ -427,6 +455,32 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {/* ── Main Layout Column ── */}
       <div className="flex flex-col md:pl-64 w-full min-h-screen">
+
+        {/* ── Demo Account Walkthrough Banner ── */}
+        {isDemoOrg && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs z-30">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="font-bold text-amber-600 dark:text-amber-400">
+                ⚡ Live Interactive Demo
+              </span>
+              <span className="hidden sm:inline text-slate-500 dark:text-zinc-400">
+                • Real-Time Owner Workspace (CaptoDesk Demo Services)
+              </span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={handleClientResetDemo}
+                disabled={resettingDemo}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer disabled:opacity-50"
+                title="Wipe demo test data and restore clean slate"
+              >
+                <RotateCcw className={cn("h-3 w-3", resettingDemo && "animate-spin")} />
+                <span>{resettingDemo ? 'Resetting...' : 'Reset Demo (Clean Slate)'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Mobile Top Header (< 768px) ── */}
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md px-4 md:hidden">

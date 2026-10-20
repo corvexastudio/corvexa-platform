@@ -956,6 +956,31 @@ export default function PublicBookingPage() {
                 A copy of this link was sent to {formData.phone}
               </p>
             </div>
+
+            {/* Live Demo Owner Dashboard Preview (Only for Demo Org) */}
+            {(org.id === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || org.slug?.includes('demo')) && (
+              <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 p-4 text-left space-y-2.5 mt-4 shadow-sm">
+                <div className="flex items-center gap-1.5 text-amber-500 text-[11px] font-black uppercase tracking-wider">
+                  <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+                  <span>⚡ Live Interactive Demo</span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  See what the business owner sees right now
+                </h3>
+                <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed">
+                  Your booking was just received in real time! Click below to enter the business owner workspace (no login required) to see your booked job on the calendar, SMS in the inbox, and technician route.
+                </p>
+                <a
+                  href="/demo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-extrabold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                >
+                  <span>Open Live Owner Dashboard (No Login Needed)</span>
+                  <ChevronRight className="h-4 w-4" />
+                </a>
+              </div>
+            )}
           </div>
         )}
 

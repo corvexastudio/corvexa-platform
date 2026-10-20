@@ -20,7 +20,8 @@ import {
   CreditCard,
   Calendar,
   DollarSign,
-  Receipt
+  Receipt,
+  RotateCcw
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { TenantHealthSummary } from '@/lib/admin/admin-service'
@@ -33,6 +34,28 @@ export default function AdminOrganizationsPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [activating10DlcId, setActivating10DlcId] = useState<string | null>(null)
   const [batchActivating, setBatchActivating] = useState(false)
+  const [resettingDemo, setResettingDemo] = useState(false)
+
+  const handleResetDemoOrg = async () => {
+    if (!window.confirm("Are you sure you want to erase demo data? This will clear all prospect test appointments, leads, and messages, and restore the baseline demo catalog.")) {
+      return
+    }
+    setResettingDemo(true)
+    try {
+      const res = await fetch('/api/admin/demo/reset', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('✨ Demo tenant wiped and reset to pristine baseline!')
+        fetchTenants()
+      } else {
+        toast.error(data.error || 'Failed to reset demo tenant.')
+      }
+    } catch {
+      toast.error('Network error resetting demo tenant.')
+    } finally {
+      setResettingDemo(false)
+    }
+  }
 
   // Super Admin Phone/DID Provisioning Modal State (P1-OPS-01)
   const [provisionModalOpen, setProvisionModalOpen] = useState(false)
@@ -485,7 +508,14 @@ export default function AdminOrganizationsPage() {
                   <tr key={t.id} className="hover:bg-zinc-800/30 transition-colors">
                     {/* Name & Slug */}
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-white">{t.name}</div>
+                      <div className="font-bold text-white flex items-center gap-2">
+                        <span>{t.name}</span>
+                        {t.id === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            Demo Tenant
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-zinc-400">/{t.slug} • ${t.monthlyRate}/mo</div>
                     </td>
 
@@ -681,7 +711,18 @@ export default function AdminOrganizationsPage() {
 
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {t.id === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' && (
+                          <button
+                            onClick={handleResetDemoOrg}
+                            disabled={resettingDemo}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-2.5 py-1.5 rounded-lg border border-rose-500/20 transition-colors disabled:opacity-50 cursor-pointer"
+                            title="Clean Slate: Reset Demo Tenant Data"
+                          >
+                            {resettingDemo ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                            <span>Reset Demo</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleOpenBillingModal(t)}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1.5 rounded-lg border border-emerald-500/20 transition-colors"

@@ -36,6 +36,10 @@ export {
 };
 
 export const DEMO_RESET_CLEANUP_TABLES = [
+  'notifications',
+  'push_subscriptions',
+  'recurring_job_templates',
+  'crews',
   'job_photos',
   'job_items',
   'jobs',

@@ -15,7 +15,11 @@ import {
   Clock, 
   Quote, 
   ShieldCheck, 
-  Zap 
+  Zap,
+  RotateCcw,
+  Trash2,
+  Loader2,
+  ExternalLink
 } from 'lucide-react'
 
 const TRADE_TEMPLATES: Record<string, string> = {
@@ -31,6 +35,26 @@ export default function SimulatorPage() {
   const [trade, setTrade] = useState('plumbing')
   const [sending, setSending] = useState(false)
   const [lastDelivered, setLastDelivered] = useState<{ name: string; phone: string; time: string } | null>(null)
+  const [resettingDemo, setResettingDemo] = useState(false)
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false)
+
+  const handleResetDemo = async () => {
+    setResettingDemo(true)
+    try {
+      const res = await fetch('/api/admin/demo/reset', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('✨ Demo tenant wiped and reset to pristine day-one baseline!')
+        setConfirmResetOpen(false)
+      } else {
+        toast.error(data.error || 'Failed to reset demo tenant.')
+      }
+    } catch {
+      toast.error('Network error resetting demo tenant.')
+    } finally {
+      setResettingDemo(false)
+    }
+  }
 
   const handlePhoneFormat = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '').slice(0, 10)
@@ -215,6 +239,71 @@ export default function SimulatorPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* ── Demo Account Clean Slate Card ── */}
+      <div className="rounded-2xl border border-zinc-800 bg-[#0A0E1A] p-6 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[10px] font-black text-blue-400 border border-blue-500/20 uppercase tracking-wider flex items-center gap-1">
+                <RotateCcw className="h-3 w-3" /> 1-Click Clean Slate
+              </span>
+              <span className="text-xs font-mono text-zinc-400">CaptoDesk Demo Services</span>
+            </div>
+            <h3 className="text-lg font-bold text-white">Erase Demo Data &amp; Reset Baseline</h3>
+            <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+              Wipes all prospect test calls, booking appointments, test SMS chats, and leads from the official demo account. Re-seeds fresh starter services and walkthrough records so the next prospect experiences a completely clean, pristine slate.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <a
+              href="/demo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Preview Live Demo
+            </a>
+
+            {confirmResetOpen ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={resettingDemo}
+                  onClick={handleResetDemo}
+                  className="rounded-xl text-xs font-bold px-3 py-2 flex items-center gap-1.5 shadow-lg bg-red-600 hover:bg-red-700 cursor-pointer"
+                >
+                  {resettingDemo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Confirm Erase All
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={resettingDemo}
+                  onClick={() => setConfirmResetOpen(false)}
+                  className="rounded-xl text-xs text-zinc-400 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => setConfirmResetOpen(true)}
+                className="rounded-xl bg-gradient-to-r from-red-500/20 to-orange-500/20 hover:from-red-500/30 hover:to-orange-500/30 border border-red-500/40 text-red-300 hover:text-red-200 text-xs font-bold px-4 py-2 flex items-center gap-2 transition-all shadow-md cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-red-400" />
+                <span>Reset Demo (Clean Slate)</span>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
     </div>
