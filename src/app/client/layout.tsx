@@ -287,6 +287,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   }, [supabase, isAuthPage, router])
 
+  const isTechnician = role?.toLowerCase() === 'technician'
+  const effectiveNavSections = isTechnician ? technicianNavSections : navSections
+
+  // Strict route guard for technician role (Hook declared unconditionally at top level)
+  useEffect(() => {
+    if (authState === 'authorized' && isTechnician) {
+      const allowedPaths = ['/client/field', '/client/calendar', '/client/inbox']
+      const isAllowed = allowedPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+      if (!isAllowed) {
+        router.replace('/client/field')
+      }
+    }
+  }, [authState, isTechnician, pathname, router])
+
   // Close drawer on path change
   useEffect(() => {
     setMobileDrawerOpen(false)
@@ -308,20 +322,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </div>
     )
   }
-
-  const isTechnician = role?.toLowerCase() === 'technician'
-  const effectiveNavSections = isTechnician ? technicianNavSections : navSections
-
-  // Strict route guard for technician role
-  useEffect(() => {
-    if (authState === 'authorized' && isTechnician) {
-      const allowedPaths = ['/client/field', '/client/calendar', '/client/inbox']
-      const isAllowed = allowedPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
-      if (!isAllowed) {
-        router.replace('/client/field')
-      }
-    }
-  }, [authState, isTechnician, pathname, router])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

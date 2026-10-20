@@ -216,6 +216,12 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
 
     let channel: any = null
     try {
+      const topic = `realtime:inapp_notifications:${orgId}`
+      const existing = supabase.getChannels?.()?.find((c: any) => c.topic === topic)
+      if (existing) {
+        supabase.removeChannel(existing)
+      }
+
       channel = supabase
         .channel(`inapp_notifications:${orgId}`)
         .on(
