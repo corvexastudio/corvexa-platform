@@ -66,6 +66,18 @@ export const navSections = [
   }
 ]
 
+// Strict field-only navigation for technician role
+export const technicianNavSections = [
+  {
+    title: 'Field Operations',
+    items: [
+      { href: '/client/field', label: "Today's Route", icon: Navigation },
+      { href: '/client/calendar', label: 'My Schedule', icon: Calendar },
+      { href: '/client/inbox', label: 'Customer Chat', icon: MessageSquare, badgeKey: 'inbox' },
+    ]
+  }
+]
+
 // Flattened list for lookup
 export const navItems = navSections.flatMap(s => s.items)
 
@@ -273,6 +285,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     )
   }
 
+  const isTechnician = role?.toLowerCase() === 'technician'
+  const effectiveNavSections = isTechnician ? technicianNavSections : navSections
+
+  // Strict route guard for technician role
+  useEffect(() => {
+    if (authState === 'authorized' && isTechnician) {
+      const allowedPaths = ['/client/field', '/client/calendar', '/client/inbox']
+      const isAllowed = allowedPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+      if (!isAllowed) {
+        router.replace('/client/field')
+      }
+    }
+  }, [authState, isTechnician, pathname, router])
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/client/login')
@@ -304,7 +330,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         
         {/* Workspace Identity */}
         <div className="flex h-16 items-center justify-between border-b border-slate-200 dark:border-zinc-800 px-4">
-          <Link href="/client/dashboard" className="flex items-center gap-2.5 min-w-0 group">
+          <Link href={isTechnician ? "/client/field" : "/client/dashboard"} className="flex items-center gap-2.5 min-w-0 group">
             <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-blue-700 transition-colors">
               <PhoneCall className="h-4 w-4" />
             </div>
@@ -313,7 +339,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 {orgName || 'CaptoDesk'}
               </span>
               <span className="block text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">
-                {orgPhone ? orgPhone : 'Digital Front Desk'}
+                {isTechnician ? 'Field Technician' : (orgPhone ? orgPhone : 'Digital Front Desk')}
               </span>
             </div>
           </Link>
@@ -329,7 +355,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
         {/* Structured Navigation Groups */}
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-          {navSections.map(sec => (
+          {effectiveNavSections.map(sec => (
             <div key={sec.title} className="space-y-0.5">
               <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                 {sec.title}
@@ -393,7 +419,32 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* Solo Operator / Owner 1-Tap Mode Switcher */}
+            {!isTechnician && (
+              <Link
+                href={pathname === '/client/field' ? '/client/dashboard' : '/client/field'}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer min-h-[36px]",
+                  pathname === '/client/field'
+                    ? "bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700"
+                    : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                )}
+                title={pathname === '/client/field' ? 'Switch to Office Dashboard' : 'Switch to Field Route'}
+              >
+                {pathname === '/client/field' ? (
+                  <>
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                    <span className="text-[11px]">Office</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="h-3.5 w-3.5" />
+                    <span className="text-[11px]">Route</span>
+                  </>
+                )}
+              </Link>
+            )}
             <ThemeToggle />
             <ErrorBoundary fallback={<div className="h-8 w-8" />}>
               <NotificationCenter orgId={orgId} />
@@ -424,7 +475,32 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
 
           <div className="flex items-center gap-3">
-            <UniversalQuickCreate />
+            {/* Solo Operator / Owner 1-Tap Mode Switcher */}
+            {!isTechnician && (
+              <Link
+                href={pathname === '/client/field' ? '/client/dashboard' : '/client/field'}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs",
+                  pathname === '/client/field'
+                    ? "bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700"
+                    : "bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                )}
+                title={pathname === '/client/field' ? 'Switch to Office Dashboard' : 'Switch to Field Route'}
+              >
+                {pathname === '/client/field' ? (
+                  <>
+                    <LayoutDashboard className="h-3.5 w-3.5 text-slate-600 dark:text-zinc-400" />
+                    <span>Office Dashboard</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Field Route</span>
+                  </>
+                )}
+              </Link>
+            )}
+            {!isTechnician && <UniversalQuickCreate />}
             <div className="h-4 w-px bg-slate-200 dark:bg-zinc-800" />
             <ErrorBoundary fallback={<div className="h-8 w-8" />}>
               <NotificationCenter orgId={orgId} />
@@ -478,7 +554,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
             {/* Drawer Navigation List with 44px+ touch targets */}
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {navSections.map(sec => (
+              {effectiveNavSections.map(sec => (
                 <div key={sec.title} className="space-y-1">
                   <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                     {sec.title}

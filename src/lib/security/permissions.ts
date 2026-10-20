@@ -3,7 +3,7 @@
  * Defines canonical roles, permission sets, and evaluation functions.
  */
 
-export type CanonicalRole = 'owner' | 'admin' | 'member' | 'super_admin'
+export type CanonicalRole = 'owner' | 'admin' | 'member' | 'technician' | 'super_admin'
 
 export type Action =
   | 'org:view'
@@ -39,7 +39,8 @@ export function normalizeRole(role: string | null | undefined): CanonicalRole {
   if (normalized === 'super_admin') return 'super_admin'
   if (normalized === 'owner') return 'owner'
   if (normalized === 'admin' || normalized === 'client_admin') return 'admin'
-  if (normalized === 'member' || normalized === 'dispatcher' || normalized === 'technician') return 'member'
+  if (normalized === 'technician') return 'technician'
+  if (normalized === 'member' || normalized === 'dispatcher') return 'member'
   return 'member'
 }
 
@@ -90,6 +91,13 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
     'reviews:send', 'reviews:view',
+    'crews:view'
+  ]),
+  technician: new Set([
+    'messages:read', 'messages:send',
+    'contacts:read',
+    'appointments:read', 'appointments:manage',
+    'reviews:send',
     'crews:view'
   ])
 }

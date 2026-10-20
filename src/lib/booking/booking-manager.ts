@@ -310,20 +310,55 @@ export async function createBooking(
   let linkedJob: any = null
   try {
     const { createJob } = await import('../jobs/job-manager.ts')
+    
+    // Smart Auto-Assignment: If business is run solo (<=1 active member), automatically assign directly to owner
+    let autoAssignedTo: string | undefined = undefined
+    let autoCrewId: string | undefined = undefined
+    try {
+      const { data: teamProfiles } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('org_id', orgId)
+
+      if (teamProfiles && teamProfiles.length <= 1) {
+        autoAssignedTo = teamProfiles[0]?.id
+        const { data: firstCrew } = await supabase
+          .from('crews')
+          .select('id')
+          .eq('org_id', orgId)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle()
+        if (firstCrew) autoCrewId = firstCrew.id
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+
     const jobRes = await createJob(supabase, {
       orgId,
       contactId: contactId || undefined,
       leadId: leadId || undefined,
       appointmentId: appointment.id,
       serviceId: activeService.id.startsWith('default') ? undefined : activeService.id,
+      assignedTo: autoAssignedTo,
+      crewId: autoCrewId,
       title: `${activeService.name} - ${customerName}`,
       description: notes || `Booked via ${source || 'booking link'}`,
       scheduledStart: startTime,
       scheduledEnd: endTime,
       notes: notes || undefined
     })
+
     if (jobRes.success && jobRes.job) {
       linkedJob = jobRes.job
+      // Also link crew on appointment if resolved
+      if (autoCrewId) {
+        await supabase
+          .from('appointments')
+          .update({ crew_id: autoCrewId })
+          .eq('id', appointment.id)
+      }
     }
   } catch (jobErr) {
     console.warn('[CREATE_BOOKING_LINKED_JOB_WARNING]', jobErr)

@@ -131,7 +131,8 @@ function getInvoiceStatusBadge(inv: Invoice) {
 
 function ClientInvoicesContent() {
   const searchParams = useSearchParams()
-  const contactIdParam = searchParams.get('contact_id')
+  const contactIdParam = searchParams.get('contact_id') || searchParams.get('contactId')
+  const titleParam = searchParams.get('title')
 
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,13 +156,16 @@ function ClientInvoicesContent() {
   ])
   const [savingInvoice, setSavingInvoice] = useState(false)
 
-  // Listen to contact_id query param
+  // Listen to contact_id / title query param
   useEffect(() => {
     if (contactIdParam) {
       setSelectedContactId(contactIdParam)
+      if (titleParam) {
+        setInvoiceTitle(titleParam)
+      }
       setShowCreateModal(true)
     }
-  }, [contactIdParam])
+  }, [contactIdParam, titleParam])
 
   // Offline Payment Modal
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null)

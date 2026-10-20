@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { createClient } from '@/lib/supabase/client'
@@ -23,6 +24,7 @@ import {
   Calendar,
   AlertCircle,
   FileText,
+  Receipt,
   Loader2,
   ChevronLeft,
   ChevronRight
@@ -63,8 +65,10 @@ interface FieldJob {
 }
 
 export default function FieldPage() {
+  const router = useRouter()
   const supabase = createClient()
-  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone } = useWorkspace()
+  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone, role, isSuperAdmin } = useWorkspace()
+  const isOwnerOrAdmin = role === 'owner' || role === 'admin' || isSuperAdmin
   const orgTimezone = wsOrgTimezone || 'America/Chicago'
   const orgName = wsOrgName || 'Our team'
   const [selectedDate, setSelectedDate] = useState(() => getTodayInTimezone(orgTimezone))
@@ -138,7 +142,21 @@ export default function FieldPage() {
       if (res.ok && data.success) {
         if (action === 'arrived') toast.success('Marked Arrived at job site!')
         if (action === 'started') toast.success('Work started!')
-        if (action === 'completed') toast.success('Job completed successfully! Review prompt dispatched.')
+        if (action === 'completed') {
+          const targetJob = jobs.find(j => j.id === jobId)
+          const contactId = targetJob?.contact?.id
+          if (isOwnerOrAdmin && contactId) {
+            toast.success('Job completed! Ready to invoice customer?', {
+              action: {
+                label: 'Create Invoice',
+                onClick: () => router.push(`/client/invoices?contact_id=${contactId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}`)
+              },
+              duration: 8000
+            })
+          } else {
+            toast.success('Job completed successfully! Review prompt dispatched.')
+          }
+        }
         loadFieldSchedule()
       } else {
         toast.error(data.error || 'Failed to update status')
@@ -509,9 +527,9 @@ export default function FieldPage() {
                     </>
                   )}
 
-                  {/* Completed -> Summary & Photos View */}
+                  {/* Completed -> Summary, Photos View & Create Invoice */}
                   {job.status === 'completed' && (
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                         <CheckCircle2 className="w-4 h-4" />
                         Finished{durationMins ? ` (${durationMins}m on site)` : ''}
@@ -528,6 +546,17 @@ export default function FieldPage() {
                         <Camera className="w-3.5 h-3.5 mr-1" />
                         View Photos
                       </Button>
+                      {Boolean(isOwnerOrAdmin && job.contact?.id) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/client/invoices?contact_id=${job.contact?.id}&title=${encodeURIComponent(job.title || 'Completed Job')}`)}
+                          className="h-8 text-xs font-semibold text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                        >
+                          <Receipt className="w-3.5 h-3.5 mr-1" />
+                          Create Invoice
+                        </Button>
+                      )}
                     </div>
                   )}
 

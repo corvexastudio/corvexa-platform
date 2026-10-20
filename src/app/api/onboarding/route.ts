@@ -117,6 +117,23 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       }
     }
 
+    // If user was invited by an owner into an existing organization, attach directly
+    const invitedOrgId = user.user_metadata?.org_id
+    const invitedRole = user.user_metadata?.role
+    if (invitedOrgId) {
+      const assignedRole = invitedRole === 'technician' ? 'technician' : (invitedRole || 'dispatcher')
+      await dbClient
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          org_id: invitedOrgId,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Team Member',
+          role: assignedRole
+        })
+      return NextResponse.json({ success: true, org_id: invitedOrgId, role: assignedRole })
+    }
+
     // Generate deterministic UUID and unique slug
     const orgId = crypto.randomUUID()
     const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'company'
