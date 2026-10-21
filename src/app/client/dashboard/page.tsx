@@ -146,7 +146,6 @@ export default function DashboardPage() {
       {/* ── Page Header: Today's Briefing ── */}
       <PageHeader
         title="Today's Command Center"
-        subtitle={orgName || undefined}
         badge={
           <Badge variant="neutral" size="default" suppressHydrationWarning>
             {todayFormatted}
@@ -199,7 +198,6 @@ export default function DashboardPage() {
               </Badge>
             )}
           </div>
-          <span className="text-xs text-slate-400 dark:text-zinc-500 font-medium">Prioritized triage items</span>
         </div>
 
         {loading ? (
@@ -220,9 +218,6 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">All caught up!</p>
-                <p className="text-xs text-emerald-800/80 dark:text-emerald-400/90 mt-0.5">
-                  No unread inquiries, expiring quotes, or past-due balances need your attention right now.
-                </p>
               </div>
             </div>
             <Link
@@ -308,9 +303,6 @@ export default function DashboardPage() {
                 <Calendar className="h-5 w-5" />
               </div>
               <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">No field appointments scheduled for today</p>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
-                Appointments booked online by customers or dispatched manually will appear here chronologically.
-              </p>
               <div className="mt-4">
                 <Link
                   href="/client/calendar"
@@ -383,7 +375,6 @@ export default function DashboardPage() {
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
               Pipeline Status
             </h2>
-            <span className="text-xs text-slate-400 dark:text-zinc-500 font-medium">Active volume</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -399,7 +390,6 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {operations?.newLeads ?? 0}
               </div>
-              <div className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">Awaiting booking</div>
             </Link>
 
             {/* Pending Estimates */}
@@ -413,9 +403,6 @@ export default function DashboardPage() {
               </div>
               <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 {operations?.quotesAwaitingResponse ?? 0}
-              </div>
-              <div className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 font-mono">
-                ${(operations?.quotesAwaitingResponseValue ?? 0).toLocaleString()} out
               </div>
             </Link>
 
@@ -431,7 +418,6 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 ${((outcomes?.paymentCollection?.invoicedAmount ?? 0) - (outcomes?.paymentCollection?.collectedAmount ?? 0)).toLocaleString()}
               </div>
-              <div className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">Balance pending</div>
             </Link>
 
             {/* Inbound Call Recovery */}
@@ -446,9 +432,6 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                 {outcomes?.recoveredConversations?.totalMissedCalls ?? 0}
               </div>
-              <div className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
-                {outcomes?.recoveredConversations?.recoveryRate ?? 0}% SMS reply rate
-              </div>
             </Link>
           </div>
         </div>
@@ -458,14 +441,9 @@ export default function DashboardPage() {
       {/* ── Section 3: Verified Outcomes (Business Numbers) ── */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between border-t border-slate-200 dark:border-zinc-800 pt-6">
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Verified Attributed Performance
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Directly measured and attributed to your CaptoDesk digital front desk.
-            </p>
-          </div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+            Verified Attributed Performance
+          </h2>
           <Badge variant="neutral" size="default">
             {period === '7d' ? 'Last 7 Days' : 'Last 30 Days'}
           </Badge>
@@ -478,9 +456,6 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
               ${(outcomes?.paymentCollection?.collectedAmount ?? 0).toLocaleString()}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-              {outcomes?.paymentCollection?.collectionRate ?? 0}% of ${(outcomes?.paymentCollection?.invoicedAmount ?? 0).toLocaleString()} invoiced
-            </p>
           </div>
 
           {/* 2. Missed Call Recovery */}
@@ -489,9 +464,6 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
               {outcomes?.recoveredConversations?.recoveryRate ?? 0}%
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-              {outcomes?.recoveredConversations?.recoveredCount ?? 0} of {outcomes?.recoveredConversations?.totalMissedCalls ?? 0} engaged via instant SMS
-            </p>
           </div>
 
           {/* 3. Bookings Won */}
@@ -500,9 +472,6 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">
               {outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-              ${(outcomes?.bookingsFromCaptoDesk?.totalBookedValue ?? 0).toLocaleString()} total job value
-            </p>
           </div>
 
           {/* 4. Quote Acceptance */}
@@ -511,9 +480,6 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
               {outcomes?.quoteConversion?.conversionRate ?? 0}%
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-              {outcomes?.quoteConversion?.acceptedCount ?? 0} accepted (${(outcomes?.quoteConversion?.acceptedValue ?? 0).toLocaleString()})
-            </p>
           </div>
         </div>
       </section>
@@ -521,14 +487,9 @@ export default function DashboardPage() {
       {/* ── Section 4: Recent Inbound Calls ── */}
       <section className="space-y-3.5 border-t border-slate-200 dark:border-zinc-800 pt-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Recent Inbound Calls & Auto-Replies
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Live feed of callers answered or recovered by CaptoDesk safety net.
-            </p>
-          </div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+            Recent Inbound Calls & Auto-Replies
+          </h2>
           <Link href="/client/inbox" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors">
             View All in Inbox &rarr;
           </Link>
@@ -536,7 +497,7 @@ export default function DashboardPage() {
 
         {recentCalls.length === 0 ? (
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-6 text-xs text-slate-500 dark:text-zinc-400 text-center shadow-2xs">
-            No recent calls logged. Incoming calls forwarded to your CaptoDesk phone number will appear here in real time.
+            No recent calls logged.
           </div>
         ) : (
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800/80">
