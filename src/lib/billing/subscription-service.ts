@@ -19,6 +19,16 @@ export interface EntitlementResult {
   cancelAtPeriodEnd?: boolean
 }
 
+export interface TrialQuotaResult {
+  isTrial: boolean
+  isExceeded: boolean
+  reason?: string
+  bookedCount: number
+  maxBookings: number
+  daysRemaining?: number
+  expiresAt?: string | null
+}
+
 export interface ActivateSubscriptionInput {
   planId?: string
   paymentReference?: string | null
@@ -730,6 +740,142 @@ export class SubscriptionService {
       return false
     }
   }
+
+  /**
+   * Evaluates trial quota and entitlement caps for an organization.
+   * If in trial / trialing status, enforces a 3-booking cap and a 14-day trial window.
+   * When limits are exceeded, automated outbound SMS is paused while public customer bookings remain unblocked.
+   */
+  static async evaluateTrialQuota(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<TrialQuotaResult> {
+    if (!orgId || !supabase) {
+      return {
+        isTrial: false,
+        isExceeded: false,
+        bookedCount: 0,
+        maxBookings: 3
+      }
+    }
+
+    try {
+      // 1. Fetch organization status
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('id, name, subscription_status, created_at')
+        .eq('id', orgId)
+        .maybeSingle()
+
+      // 2. Fetch SaaS subscription record if one exists
+      const { data: sub } = await supabase
+        .from('saas_subscriptions')
+        .select('id, status, current_period_end, created_at')
+        .eq('org_id', orgId)
+        .maybeSingle()
+
+      const isOrgTrial = org?.subscription_status === 'trial'
+      const isSubTrial = sub?.status === 'trial' || sub?.status === 'trialing'
+
+      // If neither org nor sub indicates trial, organization is not subject to trial quota
+      if (!isOrgTrial && !isSubTrial) {
+        return {
+          isTrial: false,
+          isExceeded: false,
+          bookedCount: 0,
+          maxBookings: 3
+        }
+      }
+
+      const maxBookings = 3
+      const now = new Date()
+      let trialWindowExpired = false
+      let daysRemaining = 14
+      let expiresAt: string | null = null
+
+      if (sub?.current_period_end) {
+        expiresAt = sub.current_period_end
+        const endDate = new Date(sub.current_period_end)
+        const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        daysRemaining = Math.max(0, diffDays)
+        if (endDate < now) {
+          trialWindowExpired = true
+        }
+      } else if (org?.created_at) {
+        const createdDate = new Date(org.created_at)
+        const endDate = new Date(createdDate.getTime() + 14 * 24 * 60 * 60 * 1000)
+        expiresAt = endDate.toISOString()
+        const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        daysRemaining = Math.max(0, diffDays)
+        if (endDate < now) {
+          trialWindowExpired = true
+        }
+      }
+
+      // Count booked appointments/leads
+      let bookedCount = 0
+      try {
+        const { count, error } = await supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', orgId)
+        if (!error && typeof count === 'number') {
+          bookedCount = count
+        } else {
+          const { data } = await supabase
+            .from('appointments')
+            .select('id')
+            .eq('org_id', orgId)
+          if (Array.isArray(data)) {
+            bookedCount = data.length
+          }
+        }
+      } catch {
+        bookedCount = 0
+      }
+
+      if (bookedCount >= maxBookings) {
+        return {
+          isTrial: true,
+          isExceeded: true,
+          reason: `Trial booking quota reached (${bookedCount}/${maxBookings} bookings used)`,
+          bookedCount,
+          maxBookings,
+          daysRemaining,
+          expiresAt
+        }
+      }
+
+      if (trialWindowExpired) {
+        return {
+          isTrial: true,
+          isExceeded: true,
+          reason: 'Trial period window has expired',
+          bookedCount,
+          maxBookings,
+          daysRemaining: 0,
+          expiresAt
+        }
+      }
+
+      return {
+        isTrial: true,
+        isExceeded: false,
+        bookedCount,
+        maxBookings,
+        daysRemaining,
+        expiresAt
+      }
+    } catch (err) {
+      console.error('[EVALUATE_TRIAL_QUOTA_ERROR]', err)
+      return {
+        isTrial: false,
+        isExceeded: false,
+        bookedCount: 0,
+        maxBookings: 3
+      }
+    }
+  }
 }
 
 /**
@@ -740,4 +886,14 @@ export async function hasActiveSaaSEntitlement(
   orgId: string
 ): Promise<boolean> {
   return SubscriptionService.hasActiveSaaSEntitlement(supabase, orgId)
+}
+
+/**
+ * Convenience helper for evaluating organization trial quota status.
+ */
+export async function evaluateTrialQuota(
+  supabase: SupabaseClient,
+  orgId: string
+): Promise<TrialQuotaResult> {
+  return SubscriptionService.evaluateTrialQuota(supabase, orgId)
 }

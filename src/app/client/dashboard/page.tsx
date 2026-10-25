@@ -189,6 +189,32 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* ── Trial Limit Notification Banner (BILL-001) ── */}
+      {data?.trialStatus?.isTrial && data?.trialStatus?.isExceeded && (
+        <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-800 dark:text-amber-200 shrink-0">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100">
+                Trial Limit Reached — Automated SMS Recovery Paused
+              </h3>
+              <p className="text-xs text-amber-800/90 dark:text-amber-300/90 mt-0.5">
+                {data.trialStatus.reason || `You have reached the trial quota (${data.trialStatus.bookedCount}/${data.trialStatus.maxBookings} bookings).`} Public bookings continue to succeed safely, but outbound SMS auto-replies and reminders are paused.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/client/billing"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <span>Upgrade Plan</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* ── Section 1: Needs Attention (Action-First Queue) ── */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between">

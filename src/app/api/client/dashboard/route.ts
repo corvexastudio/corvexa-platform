@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
 import { hasPermission } from '../../../../lib/security/permissions.ts'
 import { getDashboardOverview, type TimeRange } from '../../../../lib/dashboard/dashboard-service.ts'
+import { SubscriptionService } from '../../../../lib/billing/subscription-service.ts'
 
 export async function GET(
   request: Request,
@@ -19,6 +20,7 @@ export async function GET(
 
   try {
     const overview = await getDashboardOverview(supabase, orgId, validPeriod)
+    const trialStatus = await SubscriptionService.evaluateTrialQuota(supabase, orgId).catch(() => null)
 
     const canViewFinancials = hasPermission(role, 'financials:read')
     const canViewQuotes = hasPermission(role, 'quotes:read')
@@ -88,6 +90,7 @@ export async function GET(
         canViewInvoices,
         canViewQuotes
       },
+      trialStatus,
       ...overview
     })
   } catch (err: any) {

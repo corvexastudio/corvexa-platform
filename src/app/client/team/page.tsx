@@ -25,7 +25,9 @@ import {
   Clock, 
   Edit2, 
   Trash2,
-  Loader2
+  Loader2,
+  UserX,
+  Shield
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CrewModal } from '@/components/crews/crew-modal'
@@ -45,6 +47,15 @@ export default function TeamPage() {
   const [pendingInvite, setPendingInvite] = useState<{ email: string; link?: string } | null>(null)
   const [copiedLink, setCopiedLink] = useState(false)
 
+  // Current User & Staff Management State
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
+  const [editingMember, setEditingMember] = useState<any | null>(null)
+  const [targetRole, setTargetRole] = useState<string>('dispatcher')
+  const [savingRole, setSavingRole] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState<any | null>(null)
+  const [removingMember, setRemovingMember] = useState(false)
+
   // Crews & Fleet State
   const [crews, setCrews] = useState<Crew[]>([])
   const [crewMetrics, setCrewMetrics] = useState<CrewPerformanceMetric[]>([])
@@ -63,11 +74,13 @@ export default function TeamPage() {
         setLoading(false)
         return
       }
-      const { data: profile, error: profileErr } = await supabase.from('profiles').select('org_id').eq('id', user.id).maybeSingle()
+      const { data: profile, error: profileErr } = await supabase.from('profiles').select('org_id, role').eq('id', user.id).maybeSingle()
       if (profileErr || !profile || !profile.org_id) {
         window.location.href = '/client/onboarding'
         return
       }
+      setCurrentUserId(user.id)
+      setCurrentUserRole(profile.role || 'member')
       const { data, error: membersErr } = await supabase.from('profiles').select('*').eq('org_id', profile.org_id)
       if (membersErr) {
         setError('Failed to load team members. Please retry.')
@@ -180,6 +193,84 @@ export default function TeamPage() {
       }
     } catch {
       toast.error('Network error deactivating crew')
+    }
+  }
+
+  // Staff Management Helpers & Handlers
+  const canManageTeam = ['owner', 'admin', 'client_admin', 'super_admin'].includes(currentUserRole || '')
+  const isOwnerOrSuper = ['owner', 'super_admin'].includes(currentUserRole || '')
+
+  const canEditTarget = (target: any) => {
+    if (!canManageTeam) return false
+    if (target.id === currentUserId) return false
+    if (['owner', 'super_admin'].includes(target.role) && !isOwnerOrSuper) return false
+    return true
+  }
+
+  const openRoleModal = (m: any) => {
+    setEditingMember(m)
+    setTargetRole(m.role === 'admin' ? 'client_admin' : (m.role || 'dispatcher'))
+  }
+
+  const handleSaveRole = async () => {
+    if (!editingMember) return
+    setSavingRole(true)
+    try {
+      const res = await fetch(`/api/team/${editingMember.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: targetRole })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Member role updated successfully')
+        setEditingMember(null)
+        fetchMembers()
+      } else {
+        toast.error(data.error || 'Failed to update member role')
+      }
+    } catch {
+      toast.error('Network error updating member role')
+    } finally {
+      setSavingRole(false)
+    }
+  }
+
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return
+    setRemovingMember(true)
+    try {
+      const res = await fetch(`/api/team/${memberToRemove.id}`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('Member removed from organization')
+        setMemberToRemove(null)
+        fetchMembers()
+      } else {
+        toast.error(data.error || 'Failed to remove member')
+      }
+    } catch {
+      toast.error('Network error removing member')
+    } finally {
+      setRemovingMember(false)
+    }
+  }
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'owner':
+        return { label: 'Owner', className: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20' }
+      case 'admin':
+      case 'client_admin':
+        return { label: 'Admin', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' }
+      case 'technician':
+        return { label: 'Technician', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' }
+      case 'dispatcher':
+        return { label: 'Dispatcher', className: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700' }
+      default:
+        return { label: role || 'Member', className: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700' }
     }
   }
 
@@ -405,29 +496,63 @@ export default function TeamPage() {
               <>
                 {/* Mobile: card list */}
                 <div className="block sm:hidden divide-y divide-slate-100 dark:divide-zinc-800/60">
-                  {members.map((m) => (
-                    <div key={m.id} className="py-3.5 min-h-[48px] flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-xs font-semibold text-slate-700 dark:text-zinc-200 shrink-0">
-                        {(m.full_name || m.email || '?')[0].toUpperCase()}
+                  {members.map((m) => {
+                    const badge = getRoleBadge(m.role)
+                    const isSelf = m.id === currentUserId
+                    const editable = canEditTarget(m)
+                    return (
+                      <div key={m.id} className="py-3.5 min-h-[48px] flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-xs font-semibold text-slate-700 dark:text-zinc-200 shrink-0">
+                            {(m.full_name || m.email || '?')[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-slate-900 dark:text-zinc-200 truncate flex items-center gap-1.5">
+                              <span>{m.full_name || '—'}</span>
+                              {isSelf && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-medium">
+                                  You
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-1 truncate">
+                              <Mail className="h-3 w-3 shrink-0" /> {m.email}
+                            </p>
+                          </div>
+                          <span className={cn(
+                            "shrink-0 text-[11px] px-2 py-0.5 rounded-md font-medium border",
+                            badge.className
+                          )}>
+                            {badge.label}
+                          </span>
+                        </div>
+                        {editable && (
+                          <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800/40">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openRoleModal(m)}
+                              className="h-7 px-2 text-[11px] rounded-md border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
+                            >
+                              <Edit2 className="w-3 h-3 mr-1 text-slate-500" />
+                              Role
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMemberToRemove(m)}
+                              className="h-7 px-2 text-[11px] rounded-md border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-900 dark:text-zinc-200 truncate">{m.full_name || '—'}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-1 truncate">
-                          <Mail className="h-3 w-3 shrink-0" /> {m.email}
-                        </p>
-                      </div>
-                      <span className={cn(
-                        "shrink-0 text-[11px] px-2 py-0.5 rounded-md font-medium border",
-                        m.role === 'client_admin'
-                          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                          : m.role === 'technician'
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                          : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
-                      )}>
-                        {m.role === 'client_admin' ? 'Admin' : m.role === 'technician' ? 'Technician' : 'Dispatcher'}
-                      </span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Desktop: table */}
@@ -439,31 +564,169 @@ export default function TeamPage() {
                         <th className="text-left py-2.5 px-3 font-semibold">Email</th>
                         <th className="text-left py-2.5 px-3 font-semibold">Role</th>
                         <th className="text-left py-2.5 px-3 font-semibold">Joined</th>
+                        {canManageTeam && (
+                          <th className="text-right py-2.5 px-3 font-semibold">Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
-                      {members.map((m) => (
-                        <tr key={m.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
-                          <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-zinc-200">{m.full_name || '—'}</td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-zinc-400">{m.email}</td>
-                          <td className="py-2.5 px-3">
-                            <span className={cn(
-                              "text-[11px] px-2 py-0.5 rounded-md font-medium border",
-                              m.role === 'client_admin'
-                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                                : m.role === 'technician'
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                                : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
-                            )}>
-                              {m.role === 'client_admin' ? 'Admin' : m.role === 'technician' ? 'Technician' : 'Dispatcher'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-500 dark:text-zinc-400 text-[11px]">{new Date(m.created_at).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
+                      {members.map((m) => {
+                        const badge = getRoleBadge(m.role)
+                        const isSelf = m.id === currentUserId
+                        const editable = canEditTarget(m)
+                        return (
+                          <tr key={m.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                            <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-zinc-200">
+                              <div className="flex items-center gap-1.5">
+                                <span>{m.full_name || '—'}</span>
+                                {isSelf && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-medium">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-zinc-400">{m.email}</td>
+                            <td className="py-2.5 px-3">
+                              <span className={cn(
+                                "text-[11px] px-2 py-0.5 rounded-md font-medium border",
+                                badge.className
+                              )}>
+                                {badge.label}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-500 dark:text-zinc-400 text-[11px]">{new Date(m.created_at).toLocaleDateString()}</td>
+                            {canManageTeam && (
+                              <td className="py-2.5 px-3 text-right">
+                                {editable ? (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openRoleModal(m)}
+                                      className="h-7 px-2 text-[11px] rounded-md border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                                    >
+                                      <Edit2 className="w-3 h-3 mr-1 text-slate-500" />
+                                      Role
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setMemberToRemove(m)}
+                                      className="h-7 px-2 text-[11px] rounded-md border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      Remove
+                                    </Button>
+                                  </div>
+                                ) : isSelf ? (
+                                  <span className="text-[11px] text-slate-400 dark:text-zinc-500 italic">Current User</span>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400 dark:text-zinc-500">—</span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Role Edit Modal */}
+                <Dialog open={!!editingMember} onOpenChange={(isOpen) => !isOpen && setEditingMember(null)}>
+                  <DialogContent className="mx-4 sm:mx-0 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 shadow-lg">
+                    <DialogHeader>
+                      <DialogTitle className="text-slate-900 dark:text-zinc-100">Update Team Member Role</DialogTitle>
+                      <DialogDescription className="text-slate-500 dark:text-zinc-400">
+                        Change permissions and system access for {editingMember?.full_name || editingMember?.email}.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div className="grid gap-1.5">
+                        <Label className="text-xs text-slate-700 dark:text-zinc-300">Select Role</Label>
+                        <Select value={targetRole} onValueChange={(val) => val && setTargetRole(val)}>
+                          <SelectTrigger className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200">
+                            {isOwnerOrSuper && (
+                              <SelectItem value="owner">Owner — Primary organization owner &amp; billing authority</SelectItem>
+                            )}
+                            <SelectItem value="client_admin">Admin — Full operational &amp; financial access</SelectItem>
+                            <SelectItem value="dispatcher">Dispatcher — Calendar, Calls &amp; Inbox</SelectItem>
+                            <SelectItem value="technician">Technician — Field Mobile View &amp; Daily Route Only</SelectItem>
+                            <SelectItem value="member">General Member — Basic Read-Only Access</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter className="flex gap-2 sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setEditingMember(null)}
+                        disabled={savingRole}
+                        className="text-xs h-9"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleSaveRole}
+                        disabled={savingRole}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9"
+                      >
+                        {savingRole ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                        Save Changes
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Remove Member Confirmation Modal */}
+                <Dialog open={!!memberToRemove} onOpenChange={(isOpen) => !isOpen && setMemberToRemove(null)}>
+                  <DialogContent className="mx-4 sm:mx-0 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 shadow-lg">
+                    <DialogHeader>
+                      <DialogTitle className="text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                        <UserX className="w-5 h-5" /> Remove Team Member
+                      </DialogTitle>
+                      <DialogDescription className="text-slate-600 dark:text-zinc-400">
+                        Are you sure you want to remove <strong>{memberToRemove?.full_name || memberToRemove?.email}</strong> from this organization?
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2 text-xs text-slate-600 dark:text-zinc-400 space-y-2">
+                      <p>
+                        They will immediately lose access to your company&apos;s leads, appointments, customer inbox, and financial records.
+                      </p>
+                      <p className="text-slate-500 dark:text-zinc-500">
+                        Active crew assignments and scheduled job dispatches will be automatically unlinked.
+                      </p>
+                    </div>
+                    <DialogFooter className="flex gap-2 sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setMemberToRemove(null)}
+                        disabled={removingMember}
+                        className="text-xs h-9"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleRemoveMember}
+                        disabled={removingMember}
+                        className="bg-rose-600 hover:bg-rose-700 text-white text-xs h-9"
+                      >
+                        {removingMember ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                        Remove Member
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </>
             )}
           </div>

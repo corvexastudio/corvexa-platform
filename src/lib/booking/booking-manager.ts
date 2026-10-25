@@ -16,6 +16,7 @@ import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
 import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
+import { SubscriptionService } from '../billing/subscription-service.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -431,7 +432,46 @@ export async function createBooking(
     confirmationText += `\n\nExperience the Live Owner Dashboard (no login required): ${appUrl}/demo`
   }
 
-  if (senderNumber) {
+  // 10. Check Trial Quota Safety: evaluate if outbound SMS should be paused (BILL-001)
+  const trialQuota = await SubscriptionService.evaluateTrialQuota(supabase, orgId)
+  const isTrialLimitReached = trialQuota.isTrial && trialQuota.isExceeded
+
+  if (isTrialLimitReached) {
+    // Log suppression audit
+    await logComplianceAudit(supabase, {
+      orgId,
+      phone: normalizedPhone.e164,
+      contactId: contactId || undefined,
+      action: 'message_suppressed',
+      messageType: 'transactional',
+      reason: 'trial_limit_reached'
+    })
+
+    // Surface contractor in-app warning notification
+    try {
+      await supabase.from('notifications').insert({
+        org_id: orgId,
+        title: 'Trial Quota Reached — Outbound SMS Paused',
+        message: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
+        link: '/client/billing'
+      })
+    } catch {
+      // Non-fatal
+    }
+
+    await notifyOwner(supabase, {
+      event: 'system_action_required',
+      organizationId: orgId,
+      data: {
+        title: 'Trial Quota Reached — Outbound SMS Paused',
+        body: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
+        targetUrl: '/client/billing',
+        customerName,
+        customerPhone: normalizedPhone.e164,
+        appointmentId: appointment.id
+      }
+    }).catch(() => {})
+  } else if (senderNumber) {
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,
       toPhone: normalizedPhone.e164,
@@ -509,8 +549,8 @@ export async function createBooking(
     }
   }
 
-  // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed
-  if (isInstant && senderNumber) {
+  // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed
+  if (isInstant && senderNumber && !isTrialLimitReached) {
     await scheduleAppointmentReminders(supabase, {
       appointmentId: appointment.id,
       orgId,

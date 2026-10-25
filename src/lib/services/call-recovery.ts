@@ -8,6 +8,7 @@ import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
 import { formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import type { OwnerNotificationResult } from '../telephony/owner-notifier.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
+import { SubscriptionService } from '../billing/subscription-service.ts'
 
 export interface InboundCallContext {
   callerNumber: string
@@ -203,6 +204,65 @@ export async function processMissedCall(
       console.error('[CONTACT INSERT ERROR]', contactInsertError)
     }
     contact = newContact
+  }
+
+  // 3.5. Evaluate Trial Quota & Outbound Safety Limits (BILL-001)
+  const trialQuota = await SubscriptionService.evaluateTrialQuota(supabase, org.id)
+  if (trialQuota.isTrial && trialQuota.isExceeded) {
+    // Log suppressed call to database
+    const { data: suppressedCall } = await supabase.from('calls').insert({
+      org_id: org.id,
+      contact_id: contact?.id,
+      caller_number: formattedCaller,
+      called_number: formattedCalled,
+      status: call.callOutcome.state,
+      duration_seconds: call.callOutcome.durationSeconds,
+      telnyx_call_control_id: call.callControlId,
+      call_session_id: call.callSessionId,
+      call_leg_id: call.callLegId,
+      hangup_cause: call.callOutcome.hangupCause,
+      auto_reply_sent: false,
+      suppression_reason: 'trial_limit_reached'
+    }).select('id').maybeSingle()
+
+    // Preserve the caller contact and ensure lead is logged so contractor does not lose customer
+    if (contact?.id) {
+      await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id, {
+        notes: `Missed call received during trial quota limit (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings used). Automated SMS text-back paused.`
+      })
+    }
+
+    // In-app alert notification
+    try {
+      await supabase.from('notifications').insert({
+        org_id: org.id,
+        title: 'Trial Quota Reached — Auto-Replies Paused',
+        message: `Your organization has reached the trial limit (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Automated outbound SMS recovery is paused. Upgrade now to keep customer recovery active.`,
+        link: '/client/billing'
+      })
+    } catch {
+      // Non-fatal
+    }
+
+    await notifyOwner(supabase, {
+      event: 'system_action_required',
+      organizationId: org.id,
+      data: {
+        title: 'Trial Quota Reached — Auto-Replies Paused',
+        body: `Your organization has reached the trial limit (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Automated outbound SMS recovery is paused. Upgrade now to keep customer recovery active.`,
+        targetUrl: '/client/billing',
+        callerPhone: formattedCaller,
+        calledPhone: formattedCalled
+      }
+    }).catch(() => {})
+
+    return {
+      success: true,
+      action: 'suppressed_trial_limit_reached',
+      suppressionReason: 'trial_limit_reached',
+      orgId: org.id,
+      callId: suppressedCall?.id
+    }
   }
 
   // 4. Evaluate Suppression Rules
@@ -477,7 +537,7 @@ export async function recordOrUpdateLeadForMissedCall(
   supabase: SupabaseClient,
   orgId: string,
   contactId: string,
-  options?: { isQuietHours?: boolean }
+  options?: { isQuietHours?: boolean; notes?: string }
 ): Promise<void> {
   let existingOpenLead: any = null
   const baseQuery: any = supabase
@@ -515,7 +575,7 @@ export async function recordOrUpdateLeadForMissedCall(
   if (existingOpenLead) {
     const updatedCount = (existingOpenLead.missed_call_count || 1) + 1
     const noteDetail = options?.isQuietHours ? 'during TCPA quiet hours ' : ''
-    const appendNote = `Repeat missed call ${noteDetail}at ${new Date().toLocaleTimeString()} (Attempt #${updatedCount})`
+    const appendNote = options?.notes || `Repeat missed call ${noteDetail}at ${new Date().toLocaleTimeString()} (Attempt #${updatedCount})`
     const newNotes = existingOpenLead.notes
       ? `${existingOpenLead.notes}\n${appendNote}`
       : appendNote
@@ -535,9 +595,9 @@ export async function recordOrUpdateLeadForMissedCall(
       source: 'missed_call',
       status: 'new',
       missed_call_count: 1,
-      notes: options?.isQuietHours
+      notes: options?.notes || (options?.isQuietHours
         ? 'Missed call during TCPA quiet hours (morning recovery scheduled)'
-        : undefined
+        : undefined)
     })
   }
 }

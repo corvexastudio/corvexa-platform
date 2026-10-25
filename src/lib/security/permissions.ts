@@ -12,6 +12,7 @@ export type Action =
   | 'org:billing'
   | 'team:view'
   | 'team:invite'
+  | 'team:manage'
   | 'team:remove'
   | 'automations:view'
   | 'automations:update'
@@ -59,7 +60,7 @@ export function normalizeRole(role: string | null | undefined): CanonicalRole {
 const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
   super_admin: new Set([
     'org:view', 'org:update', 'org:delete', 'org:billing',
-    'team:view', 'team:invite', 'team:remove',
+    'team:view', 'team:invite', 'team:manage', 'team:remove',
     'automations:view', 'automations:update',
     'messages:read', 'messages:send',
     'contacts:read', 'contacts:manage',
@@ -76,7 +77,7 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
   ]),
   owner: new Set([
     'org:view', 'org:update', 'org:delete', 'org:billing',
-    'team:view', 'team:invite', 'team:remove',
+    'team:view', 'team:invite', 'team:manage', 'team:remove',
     'automations:view', 'automations:update',
     'messages:read', 'messages:send',
     'contacts:read', 'contacts:manage',
@@ -92,7 +93,7 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
   ]),
   admin: new Set([
     'org:view', 'org:update',
-    'team:view', 'team:invite', 'team:remove',
+    'team:view', 'team:invite', 'team:manage', 'team:remove',
     'automations:view', 'automations:update',
     'messages:read', 'messages:send',
     'contacts:read', 'contacts:manage',
