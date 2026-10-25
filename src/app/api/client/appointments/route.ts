@@ -19,7 +19,8 @@ export async function GET(request: Request) {
     .select(`
       id, title, service_type, start_time, end_time, status, source, manage_token, notes, crew_id,
       contact:contacts(id, name, phone, address),
-      service:services(id, name, duration_minutes, price)
+      service:services(id, name, duration_minutes, price),
+      jobs:jobs(id, job_number, status, technician_name, eta_minutes)
     `)
     .eq('org_id', orgId)
     .order('start_time', { ascending: true })

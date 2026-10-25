@@ -76,6 +76,7 @@ interface Quote {
     email?: string
   }
   items?: QuoteItem[]
+  jobs?: Array<{ id: string; job_number: string; status: string }>
 }
 
 function getQuoteStatusBadge(status: Quote['status']) {
@@ -130,6 +131,7 @@ function ClientQuotesContent() {
   const [search, setSearch] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [convertingId, setConvertingId] = useState<string | null>(null)
 
   // New Quote Modal State
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -238,6 +240,27 @@ function ClientQuotesContent() {
       toast.error('Network error sending quote.')
     } finally {
       setActionLoadingId(null)
+    }
+  }
+
+  const handleConvertToJob = async (quoteId: string) => {
+    setConvertingId(quoteId)
+    try {
+      const res = await fetch(`/api/client/quotes/${quoteId}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        toast.success(`Job #${data.job?.job_number || ''} created successfully!`)
+        await loadQuotes()
+      } else {
+        toast.error(data.error || 'Failed to convert quote to job.')
+      }
+    } catch {
+      toast.error('Network error converting quote.')
+    } finally {
+      setConvertingId(null)
     }
   }
 
@@ -547,13 +570,32 @@ function ClientQuotesContent() {
                           </a>
 
                           {isAccepted && (
-                            <Link
-                              href="/client/jobs"
-                              className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:border-emerald-500/20 shadow-2xs transition-colors"
-                            >
-                              <Briefcase className="h-3 w-3" />
-                              <span>In Jobs</span>
-                            </Link>
+                            quote.jobs && quote.jobs.length > 0 ? (
+                              <Link
+                                href={`/client/jobs?search=${quote.jobs[0].job_number}`}
+                                className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:border-emerald-500/20 shadow-2xs transition-colors"
+                                title={`Open Job #${quote.jobs[0].job_number}`}
+                              >
+                                <Briefcase className="h-3 w-3" />
+                                <span>Job #{quote.jobs[0].job_number}</span>
+                              </Link>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleConvertToJob(quote.id)}
+                                disabled={convertingId === quote.id}
+                                className="h-7.5 px-2 text-xs font-semibold text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-500/20 shadow-2xs cursor-pointer"
+                                title="Convert this accepted estimate to a field service job"
+                              >
+                                {convertingId === quote.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <Briefcase className="h-3 w-3 mr-1" />
+                                )}
+                                <span>Convert to Job</span>
+                              </Button>
+                            )
                           )}
                         </div>
                       </TableCell>
@@ -638,13 +680,30 @@ function ClientQuotesContent() {
                     </a>
 
                     {isAccepted && (
-                      <Link
-                        href="/client/jobs"
-                        className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20 shadow-2xs transition-colors"
-                      >
-                        <Briefcase className="h-3 w-3" />
-                        <span>Jobs</span>
-                      </Link>
+                      quote.jobs && quote.jobs.length > 0 ? (
+                        <Link
+                          href={`/client/jobs?search=${quote.jobs[0].job_number}`}
+                          className="inline-flex items-center gap-1 h-7.5 px-2.5 rounded-md text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20 shadow-2xs transition-colors"
+                        >
+                          <Briefcase className="h-3 w-3" />
+                          <span>Job #{quote.jobs[0].job_number}</span>
+                        </Link>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleConvertToJob(quote.id)}
+                          disabled={convertingId === quote.id}
+                          className="h-7.5 px-2 text-xs font-semibold text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-500/20 shadow-2xs"
+                        >
+                          {convertingId === quote.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <Briefcase className="h-3 w-3 mr-1" />
+                          )}
+                          <span>Convert to Job</span>
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>

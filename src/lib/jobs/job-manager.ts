@@ -135,7 +135,7 @@ export async function updateJobStatus(
     technicianName?: string
     etaMinutes?: number
   }
-): Promise<{ success: boolean; job?: any; error?: string; alreadyInStatus?: boolean }> {
+): Promise<{ success: boolean; job?: any; invoice?: any; error?: string; alreadyInStatus?: boolean }> {
   const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes } = params
 
   const { data: job, error: findError } = await supabase
@@ -310,13 +310,25 @@ export async function updateJobStatus(
       if (newStatus === 'completed') {
         await supabase
           .from('appointments')
-          .update({ status: 'completed', updated_at: nowIso })
+          .update({ status: 'completed' })
           .eq('id', job.appointment_id)
           .eq('org_id', orgId)
       } else if (newStatus === 'cancelled') {
         await supabase
           .from('appointments')
-          .update({ status: 'cancelled', updated_at: nowIso, cancellation_reason: 'Job cancelled' })
+          .update({ status: 'cancelled', cancellation_reason: 'Job cancelled' })
+          .eq('id', job.appointment_id)
+          .eq('org_id', orgId)
+      } else if (newStatus === 'no_show') {
+        await supabase
+          .from('appointments')
+          .update({ status: 'no_show', cancellation_reason: 'Customer no-show' })
+          .eq('id', job.appointment_id)
+          .eq('org_id', orgId)
+      } else if (newStatus === 'en_route' || newStatus === 'in_progress' || newStatus === 'confirmed') {
+        await supabase
+          .from('appointments')
+          .update({ status: 'confirmed', confirmed_at: nowIso })
           .eq('id', job.appointment_id)
           .eq('org_id', orgId)
       }
@@ -325,8 +337,97 @@ export async function updateJobStatus(
     }
   }
 
-  // 3. When completed: Update customer service date, schedule review request, and emit domain event
+  // 3. When completed: Update customer service date, auto-generate draft invoice, schedule review request, and emit domain event
+  let draftInvoice: any = null
   if (newStatus === 'completed') {
+    try {
+      // 3a. Auto-generate draft invoice if none exists for this job
+      let existingInvQuery: any = supabase
+        .from('invoices')
+        .select('*')
+        .eq('org_id', orgId)
+        .eq('job_id', jobId)
+
+      if (typeof existingInvQuery?.is === 'function') {
+        existingInvQuery = existingInvQuery.is('deleted_at', null)
+      }
+
+      const { data: rawExistingInv } = await existingInvQuery
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const existingInv = (rawExistingInv && !rawExistingInv.deleted_at) ? rawExistingInv : null
+
+      if (existingInv) {
+        draftInvoice = existingInv
+      } else if (job.contact_id) {
+        // Fetch line items from job_items
+        const { data: jobItems } = await supabase
+          .from('job_items')
+          .select('*')
+          .eq('job_id', jobId)
+          .eq('org_id', orgId)
+
+        let invoiceItems: Array<{ description: string; quantity: number; unit_price: number }> = []
+        if (jobItems && jobItems.length > 0) {
+          invoiceItems = jobItems.map((it: any) => ({
+            description: it.description,
+            quantity: Number(it.quantity) || 1,
+            unit_price: Number(it.unit_price) || 0
+          }))
+        } else if (job.quote_id) {
+          // Fallback to linked quote line items
+          const { data: quoteItems } = await supabase
+            .from('quote_items')
+            .select('*')
+            .eq('quote_id', job.quote_id)
+
+          if (quoteItems && quoteItems.length > 0) {
+            invoiceItems = quoteItems.map((it: any) => ({
+              description: it.description,
+              quantity: Number(it.quantity) || 1,
+              unit_price: Number(it.unit_price) || 0
+            }))
+          }
+        }
+
+        if (invoiceItems.length === 0) {
+          invoiceItems = [
+            {
+              description: job.title || 'Completed Field Service',
+              quantity: 1,
+              unit_price: 0
+            }
+          ]
+        }
+
+        const { createInvoice } = await import('../payments/invoice-manager.ts')
+        const invRes = await createInvoice(supabase, {
+          orgId,
+          contactId: job.contact_id,
+          jobId: job.id,
+          quoteId: job.quote_id || undefined,
+          title: `Invoice for Job #${job.job_number}`,
+          description: job.description || `Field service invoice for ${job.title}`,
+          items: invoiceItems,
+          dueDate: new Date().toISOString()
+        })
+
+        if (invRes.success && invRes.invoice) {
+          draftInvoice = invRes.invoice
+          await supabase.from('notifications').insert({
+            org_id: orgId,
+            title: 'Draft Invoice Ready',
+            message: `Job #${job.job_number} completed. Draft Invoice #${invRes.invoice.invoice_number} is ready for review.`,
+            link: '/client/invoices'
+          })
+        }
+      }
+    } catch (invErr) {
+      console.warn('[AUTO_INVOICE_GENERATION_WARNING] Failed to generate draft invoice:', invErr)
+    }
+
     try {
       if (job.contact_id) {
         await updateCustomerServiceDate(supabase, {
@@ -362,7 +463,7 @@ export async function updateJobStatus(
     }
   }
 
-  return { success: true, job: updatedJob }
+  return { success: true, job: updatedJob, invoice: draftInvoice }
 }
 
 /**
@@ -373,12 +474,34 @@ export async function convertQuoteToJob(
   params: {
     quoteId: string
     orgId: string
-    scheduledStart: string
+    scheduledStart?: string
     scheduledEnd?: string
     assignedTo?: string
   }
-): Promise<{ success: boolean; job?: any; error?: string }> {
+): Promise<{ success: boolean; job?: any; invoice?: any; error?: string }> {
   const { quoteId, orgId, scheduledStart, scheduledEnd, assignedTo } = params
+
+  // 1. Idempotency: Check if quote is already linked to an active/existing job
+  let existingJobQuery: any = supabase
+    .from('jobs')
+    .select('*')
+    .eq('org_id', orgId)
+    .eq('quote_id', quoteId)
+
+  if (typeof existingJobQuery?.is === 'function') {
+    existingJobQuery = existingJobQuery.is('deleted_at', null)
+  }
+
+  const { data: rawExistingJob } = await existingJobQuery
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const existingJob = (rawExistingJob && !rawExistingJob.deleted_at) ? rawExistingJob : null
+
+  if (existingJob) {
+    return { success: true, job: existingJob }
+  }
 
   const { data: quote, error: quoteError } = await supabase
     .from('quotes')
@@ -402,19 +525,47 @@ export async function convertQuoteToJob(
     unit_price: it.unit_price
   }))
 
-  return createJob(supabase, {
+  // Check if open appointment exists for this customer
+  const { data: openAppt } = await supabase
+    .from('appointments')
+    .select('id, start_time, end_time')
+    .eq('org_id', orgId)
+    .eq('contact_id', quote.contact_id)
+    .in('status', ['requested', 'scheduled', 'confirmed'])
+    .order('start_time', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const finalStart = scheduledStart || openAppt?.start_time || new Date().toISOString()
+  const finalEnd = scheduledEnd || openAppt?.end_time || undefined
+
+  const jobResult = await createJob(supabase, {
     orgId,
     contactId: quote.contact_id,
     leadId: quote.lead_id,
     quoteId: quote.id,
+    appointmentId: openAppt?.id || undefined,
     assignedTo,
     title: quote.title || `Service for Quote #${quote.quote_number}`,
     description: quote.description,
-    scheduledStart,
-    scheduledEnd,
+    scheduledStart: finalStart,
+    scheduledEnd: finalEnd,
     items: jobItems,
     notes: quote.notes
   })
+
+  if (jobResult.success && openAppt?.id) {
+    await supabase
+      .from('appointments')
+      .update({
+        status: 'confirmed',
+        confirmed_at: new Date().toISOString()
+      })
+      .eq('id', openAppt.id)
+      .eq('org_id', orgId)
+  }
+
+  return jobResult
 }
 
 /**
@@ -666,7 +817,7 @@ export async function recordJobTimestamp(
     action: 'arrived' | 'started' | 'completed'
     notes?: string
   }
-): Promise<{ success: boolean; job?: any; error?: string }> {
+): Promise<{ success: boolean; job?: any; invoice?: any; error?: string }> {
   const { orgId, jobId, action, notes } = params
   const now = new Date().toISOString()
 

@@ -382,7 +382,22 @@ function JobsContent() {
 
       const data = await res.json()
       if (res.ok) {
-        toast.success(`Job marked as ${newStatus.replace('_', ' ')}`)
+        if (newStatus === 'completed') {
+          const draftInv = data.invoice
+          if (draftInv) {
+            toast.success(`Job completed! Draft Invoice #${draftInv.invoice_number} created.`, {
+              action: {
+                label: 'View Invoice',
+                onClick: () => router.push(`/client/invoices?search=${draftInv.invoice_number}`)
+              },
+              duration: 8000
+            })
+          } else {
+            toast.success('Job marked as completed')
+          }
+        } else {
+          toast.success(`Job marked as ${newStatus.replace('_', ' ')}`)
+        }
         await loadJobs()
       } else {
         toast.error(data.error || 'Failed to update job status.')

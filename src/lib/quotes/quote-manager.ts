@@ -555,6 +555,7 @@ export async function customerAcceptQuote(
 ): Promise<{
   success: boolean
   quote?: any
+  job?: any
   error?: string
   requiresDeposit?: boolean
   depositAmount?: number
@@ -707,12 +708,162 @@ export async function customerAcceptQuote(
     org_id: quote.org_id,
     title: 'Quote Accepted!',
     message: `${contact?.name || 'Customer'} accepted estimate #${quote.quote_number} for $${quote.total.toFixed(2)}${depositNotifPart}`,
-    link: '/client/calendar'
+    link: '/client/quotes'
   })
+
+  // 6. Quote-to-Job Continuity: Check for active job or auto-create field execution record
+  let linkedJob: any = null
+  try {
+    const activeStatuses = ['scheduled', 'confirmed', 'en_route', 'in_progress']
+
+    // 6a. Check if active job already explicitly references this quote
+    let quoteJobQuery: any = supabase
+      .from('jobs')
+      .select('*')
+      .eq('org_id', quote.org_id)
+      .eq('quote_id', quote.id)
+
+    if (typeof quoteJobQuery?.is === 'function') {
+      quoteJobQuery = quoteJobQuery.is('deleted_at', null)
+    }
+
+    const { data: rawQuoteJob } = await quoteJobQuery
+      .in('status', activeStatuses)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const existingQuoteJob = (rawQuoteJob && !rawQuoteJob.deleted_at) ? rawQuoteJob : null
+
+    if (existingQuoteJob) {
+      linkedJob = existingQuoteJob
+    } else {
+      // 6b. Check if an active open job exists for this lead (if lead exists)
+      let candidateJob: any = null
+      if (quote.lead_id) {
+        let leadJobQuery: any = supabase
+          .from('jobs')
+          .select('*')
+          .eq('org_id', quote.org_id)
+          .eq('lead_id', quote.lead_id)
+
+        if (typeof leadJobQuery?.is === 'function') {
+          leadJobQuery = leadJobQuery.is('deleted_at', null)
+        }
+
+        const { data: rawLeadJob } = await leadJobQuery
+          .in('status', activeStatuses)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (rawLeadJob && !rawLeadJob.deleted_at) candidateJob = rawLeadJob
+      }
+
+      // 6c. Check if an active open job exists for this contact without an assigned quote
+      if (!candidateJob && quote.contact_id) {
+        let contactJobQuery: any = supabase
+          .from('jobs')
+          .select('*')
+          .eq('org_id', quote.org_id)
+          .eq('contact_id', quote.contact_id)
+
+        if (typeof contactJobQuery?.is === 'function') {
+          contactJobQuery = contactJobQuery.is('quote_id', null).is('deleted_at', null)
+        }
+
+        const { data: rawContactJob } = await contactJobQuery
+          .in('status', activeStatuses)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (rawContactJob && !rawContactJob.quote_id && !rawContactJob.deleted_at) {
+          candidateJob = rawContactJob
+        }
+      }
+
+      if (candidateJob) {
+        // Update existing open job with quote reference and acceptance note
+        const acceptanceNote = `Accepted Estimate #${quote.quote_number} ($${Number(quote.total).toFixed(2)})`
+        const mergedNotes = candidateJob.notes ? `${candidateJob.notes}\n${acceptanceNote}` : acceptanceNote
+        const { data: updatedExistingJob } = await supabase
+          .from('jobs')
+          .update({
+            quote_id: quote.id,
+            notes: mergedNotes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', candidateJob.id)
+          .select('*')
+          .maybeSingle()
+
+        linkedJob = updatedExistingJob || candidateJob
+      } else {
+        // 6d. No active job exists: Automatically create a linked job from the accepted quote
+        // Check if an open appointment exists for this contact to sync schedule & appointment_id
+        const { data: openAppt } = await supabase
+          .from('appointments')
+          .select('id, start_time, end_time')
+          .eq('org_id', quote.org_id)
+          .eq('contact_id', quote.contact_id)
+          .in('status', ['requested', 'scheduled', 'confirmed'])
+          .order('start_time', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        // Fetch quote line items
+        const { data: quoteItems } = await supabase
+          .from('quote_items')
+          .select('*')
+          .eq('quote_id', quote.id)
+
+        const jobItems = (quoteItems || []).map((it: any) => ({
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price
+        }))
+
+        const { createJob } = await import('../jobs/job-manager.ts')
+        const jobResult = await createJob(supabase, {
+          orgId: quote.org_id,
+          contactId: quote.contact_id,
+          leadId: quote.lead_id || undefined,
+          quoteId: quote.id,
+          appointmentId: openAppt?.id || undefined,
+          title: quote.title || `Service for Quote #${quote.quote_number}`,
+          description: quote.description || undefined,
+          scheduledStart: openAppt?.start_time || new Date().toISOString(),
+          scheduledEnd: openAppt?.end_time || undefined,
+          items: jobItems,
+          notes: (quote.notes ? `${quote.notes}\n` : '') + `Auto-created from accepted Estimate #${quote.quote_number} ($${Number(quote.total).toFixed(2)})`
+        })
+
+        if (jobResult.success && jobResult.job) {
+          linkedJob = jobResult.job
+
+          // If linked to an open appointment, synchronize appointment to confirmed
+          if (openAppt?.id) {
+            await supabase
+              .from('appointments')
+              .update({
+                status: 'confirmed',
+                confirmed_at: new Date().toISOString()
+              })
+              .eq('id', openAppt.id)
+              .eq('org_id', quote.org_id)
+          }
+        }
+      }
+    }
+  } catch (jobLinkErr) {
+    console.warn('[QUOTE_TO_JOB_CONTINUITY_WARNING] Failed to link or create job:', jobLinkErr)
+  }
 
   return {
     success: true,
     quote: updatedQuote,
+    job: linkedJob,
     requiresDeposit: !!quote.requires_deposit,
     depositAmount: quote.deposit_amount,
     depositInvoiceUrl
@@ -772,7 +923,7 @@ export async function customerDeclineQuote(
     org_id: quote.org_id,
     title: 'Quote Declined',
     message: `Estimate #${quote.quote_number} was declined${reason ? `: ${reason}` : ''}`,
-    link: '/client/calendar'
+    link: '/client/quotes'
   })
 
   return { success: true, quote: updatedQuote }

@@ -58,6 +58,13 @@ interface AppointmentItem {
     phone: string
     address?: string | null
   }
+  jobs?: Array<{
+    id: string
+    job_number?: string
+    status: string
+    technician_name?: string | null
+    eta_minutes?: number | null
+  }>
 }
 
 interface ServiceItem {
@@ -70,7 +77,48 @@ interface ServiceItem {
   is_active: boolean
 }
 
-function getAppointmentBadge(status: AppointmentItem['status']) {
+function getAppointmentBadge(
+  status: AppointmentItem['status'],
+  linkedJob?: { status: string; technician_name?: string | null; eta_minutes?: number | null } | null
+) {
+  if (linkedJob) {
+    if (linkedJob.status === 'en_route') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
+          En Route {linkedJob.eta_minutes ? `(~${linkedJob.eta_minutes}m)` : ''}
+        </span>
+      )
+    }
+    if (linkedJob.status === 'in_progress') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
+          In Progress
+        </span>
+      )
+    }
+    if (linkedJob.status === 'completed') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+          Completed
+        </span>
+      )
+    }
+    if (linkedJob.status === 'no_show') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20">
+          No Show
+        </span>
+      )
+    }
+    if (linkedJob.status === 'cancelled') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20">
+          Cancelled
+        </span>
+      )
+    }
+  }
+
   switch (status) {
     case 'confirmed':
     case 'scheduled':
@@ -915,7 +963,7 @@ function CalendarContent() {
 
                             {/* Actions: Reassign Crew */}
                             <div className="pt-1.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-1">
-                              {getAppointmentBadge(item.status as any)}
+                              {getAppointmentBadge(item.status as any, item.type === 'job' ? { status: item.status } : (item as any).jobs?.[0])}
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1114,7 +1162,7 @@ function CalendarContent() {
                       <h2 className="font-semibold text-sm text-slate-900 dark:text-zinc-100 truncate">
                         {apt.title}
                       </h2>
-                      {getAppointmentBadge(apt.status)}
+                      {getAppointmentBadge(apt.status, apt.jobs?.[0])}
                       {apt.source && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-800">
                           {apt.source}

@@ -28,6 +28,7 @@ export async function POST(
       success: true,
       message: 'Quote successfully accepted',
       quote: result.quote,
+      job: (result as any).job,
       requiresDeposit: result.requiresDeposit,
       depositAmount: result.depositAmount,
       depositInvoiceUrl: result.depositInvoiceUrl

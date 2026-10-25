@@ -143,18 +143,31 @@ export default function FieldPage() {
         if (action === 'arrived') toast.success('Marked Arrived at job site!')
         if (action === 'started') toast.success('Work started!')
         if (action === 'completed') {
+          const draftInv = data.invoice
           const targetJob = jobs.find(j => j.id === jobId)
           const contactId = targetJob?.contact?.id
-          if (isOwnerOrAdmin && contactId) {
-            toast.success('Job completed! Ready to invoice customer?', {
-              action: {
-                label: 'Create Invoice',
-                onClick: () => router.push(`/client/invoices?contact_id=${contactId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}`)
-              },
-              duration: 8000
-            })
+          if (isOwnerOrAdmin) {
+            if (draftInv) {
+              toast.success(`Job completed! Draft Invoice #${draftInv.invoice_number} ready.`, {
+                action: {
+                  label: 'Review Invoice',
+                  onClick: () => router.push(`/client/invoices?search=${draftInv.invoice_number}`)
+                },
+                duration: 8000
+              })
+            } else if (contactId) {
+              toast.success('Job completed! Ready to invoice customer?', {
+                action: {
+                  label: 'Create Invoice',
+                  onClick: () => router.push(`/client/invoices?contact_id=${contactId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}`)
+                },
+                duration: 8000
+              })
+            } else {
+              toast.success('Job completed successfully! Review prompt dispatched.')
+            }
           } else {
-            toast.success('Job completed successfully! Review prompt dispatched.')
+            toast.success('Job completed successfully! Office draft invoice created and review prompt dispatched.')
           }
         }
         loadFieldSchedule()

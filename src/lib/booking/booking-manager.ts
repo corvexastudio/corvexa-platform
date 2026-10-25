@@ -167,16 +167,35 @@ export async function createBooking(
     contactId = existingContact.id
     const currentTags: string[] = existingContact.tags || []
     const updatedTags = Array.from(new Set([...currentTags, 'booking', 'lead']))
+    const resolvedName = (customerName && customerName !== 'Customer' && customerName.trim())
+      ? customerName.trim()
+      : (existingContact.name && existingContact.name !== 'New Caller' ? existingContact.name : (customerName || null))
+
     await supabase
       .from('contacts')
       .update({
-        name: customerName || existingContact.name,
+        name: resolvedName,
         email: customerEmail || existingContact.email,
         address: customerAddress || existingContact.address,
         tags: updatedTags,
         updated_at: new Date().toISOString()
       })
       .eq('id', contactId)
+
+    const isTransitioningFromPlaceholder = !existingContact.name || existingContact.name === 'New Caller'
+    if (isTransitioningFromPlaceholder && resolvedName && resolvedName !== 'New Caller' && resolvedName !== 'Customer') {
+      try {
+        const leadTable = supabase.from('leads')
+        if (typeof leadTable?.update === 'function') {
+          await leadTable
+            .update({ updated_at: new Date().toISOString() })
+            .eq('contact_id', contactId)
+            .eq('org_id', orgId)
+        }
+      } catch (leadSyncErr) {
+        console.warn('[LEAD_SYNC_WARNING]', leadSyncErr)
+      }
+    }
   } else {
     const { data: newContact, error: contactError } = await supabase
       .from('contacts')

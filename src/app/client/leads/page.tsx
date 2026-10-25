@@ -67,6 +67,17 @@ const STAGES: { key: LeadItem['status']; label: string; countColor: string }[] =
   { key: 'lost', label: 'Archived', countColor: 'text-zinc-500' }
 ]
 
+function getLeadDisplayName(contact?: { name?: string | null; phone?: string | null } | null) {
+  if (!contact) return 'Unknown Caller'
+  if (contact.name && contact.name.trim() && contact.name !== 'New Caller' && contact.name !== 'Customer') {
+    return contact.name.trim()
+  }
+  if (contact.phone) {
+    return `New Caller (${contact.phone})`
+  }
+  return 'New Caller'
+}
+
 function getStatusBadge(status: LeadItem['status']) {
   switch (status) {
     case 'new':
@@ -286,7 +297,7 @@ export default function LeadsPage() {
       return
     }
     exportToCsv('captodesk_leads', [
-      { header: 'Contact Name', accessor: l => l.contact?.name || 'Unnamed' },
+      { header: 'Contact Name', accessor: l => getLeadDisplayName(l.contact) },
       { header: 'Phone', accessor: l => l.contact?.phone || '' },
       { header: 'Email', accessor: l => l.contact?.email || '' },
       { header: 'Status', accessor: l => CsvFormatters.status(l.status) },
@@ -446,7 +457,7 @@ export default function LeadsPage() {
                     <TableCell className="py-3 px-4">
                       <div>
                         <div className="font-medium text-xs text-slate-900 dark:text-zinc-100">
-                          {lead.contact?.name || 'Unknown Caller'}
+                          {getLeadDisplayName(lead.contact)}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
                           {lead.contact?.phone}
@@ -540,7 +551,7 @@ export default function LeadsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="font-medium text-sm text-slate-900 dark:text-zinc-100">
-                      {lead.contact?.name || 'Unknown Caller'}
+                      {getLeadDisplayName(lead.contact)}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 tabular-nums">
                       {lead.contact?.phone}
@@ -631,7 +642,7 @@ export default function LeadsPage() {
                         <div className="flex items-start justify-between gap-1">
                           <div>
                             <p className="font-medium text-xs text-slate-900 dark:text-zinc-100">
-                              {lead.contact?.name || 'Unknown Caller'}
+                              {getLeadDisplayName(lead.contact)}
                             </p>
                             <p className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
                               {lead.contact?.phone}

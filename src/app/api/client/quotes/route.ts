@@ -26,7 +26,8 @@ export async function GET(
     .select(`
       *,
       contact:contacts(id, name, phone, email, address),
-      items:quote_items(*)
+      items:quote_items(*),
+      jobs:jobs(id, job_number, status)
     `)
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })

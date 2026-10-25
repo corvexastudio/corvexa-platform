@@ -68,6 +68,57 @@ export async function POST(request: Request) {
 
   const cleanPhone = toE164(body.phone)
 
+  // Check if contact already exists for this org and phone (e.g. from missed-call recovery)
+  const { data: existingContact } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('org_id', orgId)
+    .eq('phone', cleanPhone)
+    .maybeSingle()
+
+  if (existingContact) {
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
+    if (body.name && body.name.trim()) {
+      updatePayload.name = body.name.trim()
+    }
+    if (body.email && body.email.trim()) {
+      updatePayload.email = body.email.trim()
+    }
+    if (body.address && body.address.trim()) {
+      updatePayload.address = body.address.trim()
+    }
+    if (Array.isArray(body.tags) && body.tags.length > 0) {
+      updatePayload.tags = Array.from(new Set([...(existingContact.tags || []), ...body.tags]))
+    }
+    if (body.notes && body.notes.trim()) {
+      updatePayload.notes = existingContact.notes ? `${existingContact.notes}\n${body.notes.trim()}` : body.notes.trim()
+    }
+
+    const { data: updatedContact, error: updateError } = await supabase
+      .from('contacts')
+      .update(updatePayload)
+      .eq('id', existingContact.id)
+      .select('*')
+      .single()
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    // Reactively touch open leads to sync contact updates
+    if (body.name && body.name.trim()) {
+      await supabase
+        .from('leads')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('org_id', orgId)
+        .eq('contact_id', existingContact.id)
+    }
+
+    return NextResponse.json({ success: true, contact: updatedContact })
+  }
+
   const { data: contact, error } = await supabase
     .from('contacts')
     .insert({
