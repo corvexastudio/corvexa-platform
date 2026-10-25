@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { createInvoice, convertJobToInvoice, convertQuoteToInvoice } from '@/lib/payments/invoice-manager'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
+import { createInvoice, convertJobToInvoice, convertQuoteToInvoice } from '../../../../lib/payments/invoice-manager.ts'
 
-import { encodeCursor, decodeCursor } from '@/lib/pagination/cursor'
+import { encodeCursor, decodeCursor } from '../../../../lib/pagination/cursor.ts'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: Request) {
-  const tenantResult = await getTenantContext('appointments:read')
+export async function GET(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('invoices:read', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -73,8 +76,11 @@ export async function GET(request: Request) {
   })
 }
 
-export async function POST(request: Request) {
-  const tenantResult = await getTenantContext('appointments:manage')
+export async function POST(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('invoices:manage', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -123,8 +129,11 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
-  const tenantResult = await getTenantContext('appointments:manage')
+export async function DELETE(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('invoices:manage', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }

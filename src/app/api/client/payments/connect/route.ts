@@ -1,14 +1,17 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { getStripeClient } from '@/lib/payments/stripe-adapter'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../../lib/security/tenant-context.ts'
+import { getStripeClient } from '../../../../../lib/payments/stripe-adapter.ts'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET: Retrieves latest Stripe Connect onboarding and payout status
  */
-export async function GET() {
-  const tenant = await getTenantContext('org:view')
+export async function GET(
+  request?: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenant = await getTenantContext('payments:read', context?.customSupabase)
   if (!tenant.ok) return tenant.response
 
   const { orgId, supabase } = tenant
@@ -75,8 +78,11 @@ export async function GET() {
 /**
  * POST: Initiates Stripe Connect Express Onboarding Link
  */
-export async function POST(request: Request) {
-  const tenant = await getTenantContext('org:update')
+export async function POST(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenant = await getTenantContext('payments:manage', context?.customSupabase)
   if (!tenant.ok) return tenant.response
 
   const { orgId, supabase } = tenant

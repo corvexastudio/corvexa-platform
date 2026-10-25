@@ -3,7 +3,7 @@
  * Defines canonical roles, permission sets, and evaluation functions.
  */
 
-export type CanonicalRole = 'owner' | 'admin' | 'member' | 'technician' | 'super_admin'
+export type CanonicalRole = 'owner' | 'admin' | 'dispatcher' | 'member' | 'technician' | 'super_admin'
 
 export type Action =
   | 'org:view'
@@ -23,11 +23,19 @@ export type Action =
   | 'leads:manage'
   | 'appointments:read'
   | 'appointments:manage'
+  | 'invoices:read'
+  | 'invoices:manage'
+  | 'quotes:read'
+  | 'quotes:manage'
+  | 'payments:read'
+  | 'payments:manage'
+  | 'financials:read'
   | 'reviews:send'
   | 'reviews:view'
   | 'reviews:manage'
   | 'crews:view'
   | 'crews:manage'
+  | 'analytics:read'
   | 'admin:all'
 
 /**
@@ -39,8 +47,9 @@ export function normalizeRole(role: string | null | undefined): CanonicalRole {
   if (normalized === 'super_admin') return 'super_admin'
   if (normalized === 'owner') return 'owner'
   if (normalized === 'admin' || normalized === 'client_admin') return 'admin'
+  if (normalized === 'dispatcher') return 'dispatcher'
   if (normalized === 'technician') return 'technician'
-  if (normalized === 'member' || normalized === 'dispatcher') return 'member'
+  if (normalized === 'member') return 'member'
   return 'member'
 }
 
@@ -56,8 +65,13 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'contacts:read', 'contacts:manage',
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
+    'invoices:read', 'invoices:manage',
+    'quotes:read', 'quotes:manage',
+    'payments:read', 'payments:manage',
+    'financials:read',
     'reviews:send', 'reviews:view', 'reviews:manage',
     'crews:view', 'crews:manage',
+    'analytics:read',
     'admin:all'
   ]),
   owner: new Set([
@@ -68,8 +82,13 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'contacts:read', 'contacts:manage',
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
+    'invoices:read', 'invoices:manage',
+    'quotes:read', 'quotes:manage',
+    'payments:read', 'payments:manage',
+    'financials:read',
     'reviews:send', 'reviews:view', 'reviews:manage',
-    'crews:view', 'crews:manage'
+    'crews:view', 'crews:manage',
+    'analytics:read'
   ]),
   admin: new Set([
     'org:view', 'org:update',
@@ -79,7 +98,23 @@ const ROLE_PERMISSIONS: Record<CanonicalRole, Set<Action>> = {
     'contacts:read', 'contacts:manage',
     'leads:read', 'leads:manage',
     'appointments:read', 'appointments:manage',
+    'invoices:read', 'invoices:manage',
+    'quotes:read', 'quotes:manage',
+    'payments:read', 'payments:manage',
+    'financials:read',
     'reviews:send', 'reviews:view', 'reviews:manage',
+    'crews:view', 'crews:manage',
+    'analytics:read'
+  ]),
+  dispatcher: new Set([
+    'org:view',
+    'team:view',
+    'automations:view',
+    'messages:read', 'messages:send',
+    'contacts:read', 'contacts:manage',
+    'leads:read', 'leads:manage',
+    'appointments:read', 'appointments:manage',
+    'reviews:send', 'reviews:view',
     'crews:view', 'crews:manage'
   ]),
   member: new Set([

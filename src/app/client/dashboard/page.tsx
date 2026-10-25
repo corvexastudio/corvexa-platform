@@ -49,7 +49,7 @@ import { cn } from '@/lib/utils'
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgName } = useWorkspace()
+  const { orgName, role } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
 
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
@@ -92,6 +92,10 @@ export default function DashboardPage() {
   const recentCalls: RecentCallItem[] = data?.recentCalls || []
   const loading = isLoading
   const error = isError ? (queryError?.message || 'Failed to load dashboard metrics.') : null
+
+  const canViewFinancials = data?.permissions?.canViewFinancials ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
+  const canViewInvoices = data?.permissions?.canViewInvoices ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
+  const canViewQuotes = data?.permissions?.canViewQuotes ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -392,33 +396,63 @@ export default function DashboardPage() {
               </div>
             </Link>
 
-            {/* Pending Estimates */}
-            <Link
-              href="/client/quotes"
-              className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Pending Quotes</span>
-                <FileText className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                {operations?.quotesAwaitingResponse ?? 0}
-              </div>
-            </Link>
+            {/* Pending Estimates / Active Bookings */}
+            {canViewQuotes ? (
+              <Link
+                href="/client/quotes"
+                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Pending Quotes</span>
+                  <FileText className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  {operations?.quotesAwaitingResponse ?? 0}
+                </div>
+              </Link>
+            ) : (
+              <Link
+                href="/client/calendar"
+                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Active Bookings</span>
+                  <CalendarCheck className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  {operations?.activeBookings ?? 0}
+                </div>
+              </Link>
+            )}
 
-            {/* Unpaid Invoices */}
-            <Link
-              href="/client/invoices"
-              className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Unpaid Invoices</span>
-                <CreditCard className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                ${((outcomes?.paymentCollection?.invoicedAmount ?? 0) - (outcomes?.paymentCollection?.collectedAmount ?? 0)).toLocaleString()}
-              </div>
-            </Link>
+            {/* Unpaid Invoices / Today's Jobs */}
+            {canViewInvoices && canViewFinancials ? (
+              <Link
+                href="/client/invoices"
+                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Unpaid Invoices</span>
+                  <CreditCard className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  ${((outcomes?.paymentCollection?.invoicedAmount ?? 0) - (outcomes?.paymentCollection?.collectedAmount ?? 0)).toLocaleString()}
+                </div>
+              </Link>
+            ) : (
+              <Link
+                href="/client/jobs"
+                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Today&apos;s Jobs</span>
+                  <Briefcase className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  {operations?.jobsToday ?? jobsToday.length}
+                </div>
+              </Link>
+            )}
 
             {/* Inbound Call Recovery */}
             <Link
@@ -450,13 +484,22 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* 1. Revenue Collected */}
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Payments Collected</div>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-              ${(outcomes?.paymentCollection?.collectedAmount ?? 0).toLocaleString()}
+          {/* 1. Revenue Collected (or Calls Recovered if restricted) */}
+          {canViewFinancials ? (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Payments Collected</div>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                ${(outcomes?.paymentCollection?.collectedAmount ?? 0).toLocaleString()}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Calls Recovered</div>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                {outcomes?.recoveredConversations?.recoveredCount ?? 0}
+              </div>
+            </div>
+          )}
 
           {/* 2. Missed Call Recovery */}
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
@@ -474,13 +517,22 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 4. Quote Acceptance */}
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Quote Acceptance Rate</div>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-              {outcomes?.quoteConversion?.conversionRate ?? 0}%
+          {/* 4. Quote Acceptance (or Repeat Bookings if restricted) */}
+          {canViewQuotes ? (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Quote Acceptance Rate</div>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                {outcomes?.quoteConversion?.conversionRate ?? 0}%
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Repeat Bookings</div>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                {outcomes?.repeatBookings?.repeatRate ?? 0}%
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

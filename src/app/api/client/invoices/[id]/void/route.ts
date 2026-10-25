@@ -1,19 +1,19 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { voidInvoice } from '@/lib/payments/invoice-manager'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../../../lib/security/tenant-context.ts'
+import { voidInvoice } from '../../../../../../lib/payments/invoice-manager.ts'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }>; customSupabase?: any }
 ) {
-  const tenantResult = await getTenantContext('appointments:manage')
+  const tenantResult = await getTenantContext('invoices:manage', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
 
-  const { id } = await params
+  const { id } = await context.params
   const { orgId, supabase } = tenantResult
 
   try {

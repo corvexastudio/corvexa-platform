@@ -1,18 +1,19 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { getCustomerProfile360 } from '@/lib/crm/customer-manager'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../../lib/security/tenant-context.ts'
+import { hasPermission } from '../../../../../lib/security/permissions.ts'
+import { getCustomerProfile360 } from '../../../../../lib/crm/customer-manager.ts'
 
 export async function GET(
   request: Request,
-  props: { params: Promise<{ id: string }> }
+  props: { params: Promise<{ id: string }>; customSupabase?: any }
 ) {
   const { id } = await props.params
-  const tenantResult = await getTenantContext('contacts:read')
+  const tenantResult = await getTenantContext('contacts:read', props?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
 
-  const { orgId, supabase } = tenantResult
+  const { orgId, supabase, role } = tenantResult
 
   const result = await getCustomerProfile360(supabase, {
     orgId,
@@ -23,7 +24,34 @@ export async function GET(
     return NextResponse.json({ error: result.error || 'Customer not found' }, { status: 404 })
   }
 
-  return NextResponse.json(result.profile)
+  const sanitizedProfile = { ...result.profile }
+  const canReadInvoices = hasPermission(role, 'invoices:read')
+  const canReadQuotes = hasPermission(role, 'quotes:read')
+
+  if (!canReadInvoices) {
+    sanitizedProfile.invoices = []
+    sanitizedProfile.payments = []
+    sanitizedProfile.lifetimeValue = 0
+    if (sanitizedProfile.stats) {
+      sanitizedProfile.stats = {
+        ...sanitizedProfile.stats,
+        totalInvoices: 0,
+        totalPayments: 0
+      }
+    }
+  }
+
+  if (!canReadQuotes) {
+    sanitizedProfile.quotes = []
+    if (sanitizedProfile.stats) {
+      sanitizedProfile.stats = {
+        ...sanitizedProfile.stats,
+        totalQuotes: 0
+      }
+    }
+  }
+
+  return NextResponse.json(sanitizedProfile)
 }
 
 export async function PATCH(

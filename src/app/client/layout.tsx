@@ -82,6 +82,35 @@ export const technicianNavSections = [
   }
 ]
 
+// Dispatcher & Member navigation (least privilege: operational access without restricted financial modules)
+export const dispatcherNavSections = [
+  {
+    title: 'Daily Work',
+    items: [
+      { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
+      { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
+      { href: '/client/leads', label: 'Leads', icon: Target },
+      { href: '/client/calendar', label: 'Calendar', icon: Calendar },
+      { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
+    ]
+  },
+  {
+    title: 'Reputation & Clients',
+    items: [
+      { href: '/client/reviews', label: 'Reviews', icon: Star },
+      { href: '/client/customers', label: 'Customers', icon: Users },
+      { href: '/client/services', label: 'Services', icon: Wrench },
+    ]
+  },
+  {
+    title: 'Operations',
+    items: [
+      { href: '/client/team', label: 'Team & Fleet', icon: Truck },
+      { href: '/client/settings', label: 'Settings', icon: Settings },
+    ]
+  }
+]
+
 // Flattened list for lookup
 export const navItems = navSections.flatMap(s => s.items)
 
@@ -323,7 +352,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }, [supabase, isAuthPage, router])
 
   const isTechnician = role?.toLowerCase() === 'technician'
-  const effectiveNavSections = isTechnician ? technicianNavSections : navSections
+  const isDispatcher = role?.toLowerCase() === 'dispatcher'
+  const isMember = role?.toLowerCase() === 'member'
+  const effectiveNavSections = isTechnician
+    ? technicianNavSections
+    : (isDispatcher || isMember)
+    ? dispatcherNavSections
+    : navSections
 
   // Strict route guard for technician role (Hook declared unconditionally at top level)
   useEffect(() => {
@@ -335,6 +370,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       }
     }
   }, [authState, isTechnician, pathname, router])
+
+  // Route guard for non-financial roles (dispatcher and member)
+  useEffect(() => {
+    if (authState === 'authorized' && (isDispatcher || isMember)) {
+      const forbiddenFinancialPaths = ['/client/invoices', '/client/quotes', '/client/billing']
+      const isForbidden = forbiddenFinancialPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+      if (isForbidden) {
+        router.replace('/client/dashboard')
+      }
+    }
+  }, [authState, isDispatcher, isMember, pathname, router])
 
   // Close drawer on path change
   useEffect(() => {

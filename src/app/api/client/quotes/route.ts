@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { createQuote } from '@/lib/quotes/quote-manager'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
+import { createQuote } from '../../../../lib/quotes/quote-manager.ts'
 
-import { encodeCursor, decodeCursor } from '@/lib/pagination/cursor'
+import { encodeCursor, decodeCursor } from '../../../../lib/pagination/cursor.ts'
 
-export async function GET(request: Request) {
-  const tenantResult = await getTenantContext('appointments:read')
+export async function GET(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('quotes:read', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -70,8 +73,11 @@ export async function GET(request: Request) {
   })
 }
 
-export async function POST(request: Request) {
-  const tenantResult = await getTenantContext('appointments:manage')
+export async function POST(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('quotes:manage', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }
@@ -121,8 +127,11 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
-  const tenantResult = await getTenantContext('appointments:manage')
+export async function DELETE(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('quotes:manage', context?.customSupabase)
   if (!tenantResult.ok) {
     return tenantResult.response
   }

@@ -1,14 +1,17 @@
-import { NextResponse } from 'next/server'
-import { getTenantContext } from '@/lib/security/tenant-context'
-import { getStripeClient } from '@/lib/payments/stripe-adapter'
+import { NextResponse } from 'next/server.js'
+import { getTenantContext } from '../../../../../../lib/security/tenant-context.ts'
+import { getStripeClient } from '../../../../../../lib/payments/stripe-adapter.ts'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * POST: Generates a secure single-use login link to the contractor's Stripe Express Dashboard
  */
-export async function POST() {
-  const tenant = await getTenantContext('org:update')
+export async function POST(
+  request?: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenant = await getTenantContext('payments:manage', context?.customSupabase)
   if (!tenant.ok) return tenant.response
 
   const { orgId, supabase } = tenant

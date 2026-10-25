@@ -13,10 +13,12 @@ import {
   Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/context/workspace-context'
 
 export function UniversalQuickCreate() {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { role } = useWorkspace()
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -76,6 +78,18 @@ export function UniversalQuickCreate() {
     }
   ]
 
+  const canManageQuotes = role === 'owner' || role === 'admin' || role === 'super_admin'
+
+  const filteredQuickActions = quickActions.filter(action => {
+    if (action.href === '/client/quotes' && !canManageQuotes) {
+      return false
+    }
+    if (role === 'technician') {
+      return action.href === '/client/calendar' || action.href === '/client/inbox'
+    }
+    return true
+  })
+
   return (
     <div className="relative inline-flex items-center" ref={menuRef}>
       <button
@@ -96,7 +110,7 @@ export function UniversalQuickCreate() {
             Quick Actions
           </div>
           <div className="py-1 space-y-0.5">
-            {quickActions.map((action) => {
+            {filteredQuickActions.map((action) => {
               const Icon = action.icon
               return (
                 <Link

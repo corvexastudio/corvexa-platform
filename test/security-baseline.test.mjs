@@ -185,7 +185,8 @@ test('RBAC: Normalizes canonical and legacy roles correctly', () => {
   assert.strictEqual(normalizeRole('admin'), 'admin')
   assert.strictEqual(normalizeRole('client_admin'), 'admin')
   assert.strictEqual(normalizeRole('member'), 'member')
-  assert.strictEqual(normalizeRole('dispatcher'), 'member')
+  assert.strictEqual(normalizeRole('dispatcher'), 'dispatcher')
+  assert.strictEqual(normalizeRole('technician'), 'technician')
   assert.strictEqual(normalizeRole('super_admin'), 'super_admin')
   assert.strictEqual(normalizeRole(''), 'member')
   assert.strictEqual(normalizeRole(null), 'member')
@@ -201,9 +202,16 @@ test('RBAC: Enforces permission boundaries across roles', () => {
   assert.strictEqual(hasPermission('member', 'org:delete'), false)
   assert.strictEqual(hasPermission('member', 'admin:all'), false)
 
-  // Dispatcher (legacy role aliased to member): same boundaries
+  // Dispatcher: operational boundaries, no billing or invoices
   assert.strictEqual(hasPermission('dispatcher', 'messages:send'), true)
   assert.strictEqual(hasPermission('dispatcher', 'team:invite'), false)
+  assert.strictEqual(hasPermission('dispatcher', 'invoices:read'), false)
+  assert.strictEqual(hasPermission('dispatcher', 'quotes:manage'), false)
+
+  // Technician: field boundaries, no billing or invoices
+  assert.strictEqual(hasPermission('technician', 'appointments:manage'), true)
+  assert.strictEqual(hasPermission('technician', 'invoices:read'), false)
+  assert.strictEqual(hasPermission('technician', 'quotes:manage'), false)
 
   // Admin: can invite team, cannot delete org or access billing
   assert.strictEqual(hasPermission('admin', 'team:invite'), true)
