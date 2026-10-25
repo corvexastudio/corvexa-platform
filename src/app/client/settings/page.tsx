@@ -39,6 +39,7 @@ export default function SettingsPage() {
   const [settingsTab, setSettingsTab] = useState<'profile' | 'display' | 'telephony' | 'retention' | 'payments' | 'notifications'>('profile')
   const [orgId, setOrgId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copiedCarrier, setCopiedCarrier] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [testingSms, setTestingSms] = useState(false)
   const [testingDigest, setTestingDigest] = useState(false)
@@ -230,6 +231,14 @@ export default function SettingsPage() {
     setCopied(true)
     toast.success('Forwarding number copied to clipboard')
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleCopyCarrier = (carrierKey: string, code: string) => {
+    if (!code) return
+    navigator.clipboard.writeText(code)
+    setCopiedCarrier(carrierKey)
+    toast.success('Carrier activation code copied to clipboard!')
+    setTimeout(() => setCopiedCarrier(null), 2000)
   }
 
   const canEditSettings = ['owner', 'admin', 'super_admin'].includes(userRole)
@@ -588,33 +597,150 @@ export default function SettingsPage() {
                 <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block">Dial Code by Carrier:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {/* Verizon */}
-                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-1.5">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-300 block">Verizon Wireless</span>
-                    <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center">
-                      *71{cleanForwardingDigits || 'XXXXXXXXXX'}
+                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-2.5 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 block">Verizon Wireless</span>
+                      <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center select-all">
+                        *71{cleanForwardingDigits || 'XXXXXXXXXX'}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code, listen for 2 beeps, hang up.</p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-600">
+                        To disable: <a href="tel:*73" className="underline hover:text-slate-600 dark:hover:text-zinc-400">dial *73</a>
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code, listen for 2 beeps, hang up.</p>
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-600">To disable: dial *73</p>
+
+                    <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800/80 space-y-1.5">
+                      <a
+                        href={cleanForwardingDigits ? `tel:*71${cleanForwardingDigits}` : '#'}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg text-xs font-semibold shadow-xs transition-colors text-center",
+                          cleanForwardingDigits
+                            ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                            : "bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 pointer-events-none"
+                        )}
+                      >
+                        <PhoneCall className="h-3.5 w-3.5" />
+                        <span>Tap to Dial &amp; Activate</span>
+                      </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyCarrier('verizon', `*71${cleanForwardingDigits}`)}
+                        disabled={!cleanForwardingDigits}
+                        className="w-full h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300"
+                      >
+                        {copiedCarrier === 'verizon' ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            <span>Copy Code</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* AT&T */}
-                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-1.5">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-300 block">AT&amp;T</span>
-                    <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center">
-                      *71{cleanForwardingDigits || 'XXXXXXXXXX'}
+                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-2.5 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 block">AT&amp;T</span>
+                      <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center select-all">
+                        *71{cleanForwardingDigits || 'XXXXXXXXXX'}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code, wait for tone, hang up.</p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-600">
+                        To disable: <a href="tel:*73" className="underline hover:text-slate-600 dark:hover:text-zinc-400">dial *73</a>
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code, wait for tone, hang up.</p>
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-600">To disable: dial *73</p>
+
+                    <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800/80 space-y-1.5">
+                      <a
+                        href={cleanForwardingDigits ? `tel:*71${cleanForwardingDigits}` : '#'}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg text-xs font-semibold shadow-xs transition-colors text-center",
+                          cleanForwardingDigits
+                            ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                            : "bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 pointer-events-none"
+                        )}
+                      >
+                        <PhoneCall className="h-3.5 w-3.5" />
+                        <span>Tap to Dial &amp; Activate</span>
+                      </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyCarrier('att', `*71${cleanForwardingDigits}`)}
+                        disabled={!cleanForwardingDigits}
+                        className="w-full h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300"
+                      >
+                        {copiedCarrier === 'att' ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            <span>Copy Code</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* T-Mobile */}
-                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-1.5">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-300 block">T-Mobile / Sprint</span>
-                    <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center">
-                      **62*{cleanForwardingDigits || 'XXXXXXXXXX'}#
+                  <div className="rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-3.5 space-y-2.5 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 block">T-Mobile / Sprint</span>
+                      <div className="font-mono text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-zinc-900 p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-center select-all">
+                        **62*{cleanForwardingDigits || 'XXXXXXXXXX'}#
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code with # at end, tap call.</p>
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-600">
+                        To disable: <a href="tel:%23%2362%23" className="underline hover:text-slate-600 dark:hover:text-zinc-400">dial ##62#</a>
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-500">Dial code with # at end, tap call.</p>
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-600">To disable: dial ##62#</p>
+
+                    <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800/80 space-y-1.5">
+                      <a
+                        href={cleanForwardingDigits ? `tel:**62*${cleanForwardingDigits}%23` : '#'}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg text-xs font-semibold shadow-xs transition-colors text-center",
+                          cleanForwardingDigits
+                            ? "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                            : "bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 pointer-events-none"
+                        )}
+                      >
+                        <PhoneCall className="h-3.5 w-3.5" />
+                        <span>Tap to Dial &amp; Activate</span>
+                      </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyCarrier('tmobile', `**62*${cleanForwardingDigits}#`)}
+                        disabled={!cleanForwardingDigits}
+                        className="w-full h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300"
+                      >
+                        {copiedCarrier === 'tmobile' ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            <span>Copy Code</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

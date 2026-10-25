@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,8 @@ import {
   ChevronRight,
   AlertTriangle,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  Briefcase
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -255,13 +257,15 @@ function CalendarContent() {
     return () => { isMounted = false }
   }, [showBookModal, bookDate, bookServiceId, orgSlug])
 
-  // Listen to contact_id query param
+  // Listen to contact_id or quick-create query param
   useEffect(() => {
     if (contactIdParam) {
       setBookContactId(contactIdParam)
       setShowBookModal(true)
+    } else if (searchParams.get('create') === 'true' || searchParams.get('book') === 'true' || searchParams.get('new') === 'true') {
+      setShowBookModal(true)
     }
-  }, [contactIdParam])
+  }, [contactIdParam, searchParams])
 
   // Load Contacts for picker
   useEffect(() => {
@@ -743,7 +747,8 @@ function CalendarContent() {
               ) : (
                 <Copy className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
               )}
-              <span>Copy Booking Link</span>
+              <span className="hidden sm:inline">Copy Booking Link</span>
+              <span className="sm:hidden">Copy Link</span>
             </Button>
           )}
 
@@ -755,7 +760,8 @@ function CalendarContent() {
               className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-md text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors shadow-2xs"
             >
               <Globe className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              <span>Public Page</span>
+              <span className="hidden sm:inline">Public Page</span>
+              <span className="sm:hidden">Public</span>
             </a>
           )}
 
@@ -765,13 +771,22 @@ function CalendarContent() {
             className="h-8.5 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 dark:border-zinc-700 shadow-2xs"
           >
             <Sliders className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
-            <span>Booking Rules</span>
+            <span className="hidden sm:inline">Booking Rules</span>
+            <span className="sm:hidden">Rules</span>
           </Button>
         </div>
       </div>
 
       {/* View Switcher */}
-      <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1">
+      <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1 overflow-x-auto max-w-full">
+        <Link
+          href="/client/jobs"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 flex items-center gap-1.5 transition-colors"
+          title="Switch to Jobs & Dispatch List View"
+        >
+          <Briefcase className="h-3.5 w-3.5" />
+          <span>List View</span>
+        </Link>
         <button
           type="button"
           onClick={() => setCalendarView('agenda')}
@@ -782,7 +797,7 @@ function CalendarContent() {
               : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
           )}
         >
-          <CalendarDays className="h-3.5 w-3.5" />
+          <CalendarDays className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
           <span>Agenda View</span>
         </button>
         <button
@@ -796,7 +811,7 @@ function CalendarContent() {
           )}
         >
           <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-          <span>Crew Dispatch Columns</span>
+          <span>Crew Dispatch</span>
           {crews.length > 0 && (
             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold tabular-nums">
               {crews.length}

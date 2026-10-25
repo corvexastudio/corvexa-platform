@@ -436,8 +436,8 @@ function ClientInvoicesContent() {
             className="h-8.5 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
             title="Download full invoices report as CSV"
           >
-            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
-            <span>Export CSV</span>
+            <Download className="h-3.5 w-3.5 sm:mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span className="hidden sm:inline">Export CSV</span>
           </Button>
 
           <Button

@@ -16,6 +16,7 @@ import {
   Search,
   Clock,
   DollarSign,
+  Tag,
   MapPin,
   CheckCircle2,
   XCircle,
@@ -29,6 +30,12 @@ import {
   Info
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  parseServicePricing,
+  cleanServiceDescription,
+  encodeServiceDescription,
+  type PricingModel
+} from '@/lib/services/service-pricing'
 
 export interface ServiceItem {
   id: string
@@ -65,6 +72,7 @@ export default function ServicesPage() {
   // Form Fields
   const [formName, setFormName] = useState('')
   const [formPrice, setFormPrice] = useState('')
+  const [formPricingModel, setFormPricingModel] = useState<PricingModel>('fixed')
   const [formDuration, setFormDuration] = useState<number>(60)
   const [formDescription, setFormDescription] = useState('')
   const [formRequiresAddress, setFormRequiresAddress] = useState(true)
@@ -109,6 +117,7 @@ export default function ServicesPage() {
     setEditingService(null)
     setFormName('')
     setFormPrice('')
+    setFormPricingModel('fixed')
     setFormDuration(60)
     setFormDescription('')
     setFormRequiresAddress(true)
@@ -120,10 +129,12 @@ export default function ServicesPage() {
   // Open Edit Modal
   const handleOpenEdit = (svc: ServiceItem) => {
     setEditingService(svc)
+    const parsed = parseServicePricing(svc.price, svc.description)
     setFormName(svc.name)
-    setFormPrice(svc.price !== null && svc.price !== undefined ? svc.price.toString() : '')
+    setFormPrice(parsed.price !== null ? parsed.price.toString() : '')
+    setFormPricingModel(parsed.model)
     setFormDuration(svc.duration_minutes || 60)
-    setFormDescription(svc.description || '')
+    setFormDescription(parsed.cleanDescription)
     setFormRequiresAddress(svc.requires_address !== false)
     setFormIsActive(svc.is_active !== false)
     setFormError(null)
@@ -147,7 +158,9 @@ export default function ServicesPage() {
     }
 
     let parsedPrice: number | null = null
-    if (formPrice.trim()) {
+    if (formPricingModel === 'free_estimate') {
+      parsedPrice = formPrice.trim() ? Math.round(Number(formPrice.trim()) * 100) / 100 : 0
+    } else if (formPrice.trim()) {
       const p = Number(formPrice.trim())
       if (isNaN(p) || p < 0) {
         setFormError('Please enter a valid non-negative price.')
@@ -155,6 +168,8 @@ export default function ServicesPage() {
       }
       parsedPrice = Math.round(p * 100) / 100
     }
+
+    const encodedDescription = encodeServiceDescription(formDescription.trim() || null, formPricingModel) || null
 
     setSubmitting(true)
     try {
@@ -165,7 +180,7 @@ export default function ServicesPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: trimmedName,
-            description: formDescription.trim() || null,
+            description: encodedDescription,
             duration_minutes: formDuration,
             price: parsedPrice,
             requires_address: formRequiresAddress,
@@ -188,7 +203,7 @@ export default function ServicesPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: trimmedName,
-            description: formDescription.trim() || null,
+            description: encodedDescription,
             duration_minutes: formDuration,
             price: parsedPrice,
             requires_address: formRequiresAddress,
@@ -474,30 +489,31 @@ export default function ServicesPage() {
 
                 {/* Description */}
                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 line-clamp-2 min-h-[32px] leading-relaxed">
-                  {svc.description || <span className="text-slate-400 dark:text-zinc-600 italic">No description provided</span>}
+                  {cleanServiceDescription(svc.description) || <span className="text-slate-400 dark:text-zinc-600 italic">No description provided</span>}
                 </p>
 
                 {/* Attributes: Duration, Price, Address */}
-                <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-xs">
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300">
-                    <Clock className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
-                    <span>{svc.duration_minutes} min</span>
-                  </div>
+                {(() => {
+                  const pricing = parseServicePricing(svc.price, svc.description)
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-xs">
+                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300">
+                        <Clock className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
+                        <span>{svc.duration_minutes} min</span>
+                      </div>
 
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 font-medium text-slate-900 dark:text-zinc-200">
-                    <DollarSign className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
-                    <span>
-                      {svc.price !== null && svc.price !== undefined
-                        ? `$${Number(svc.price).toFixed(2)}`
-                        : 'Custom Quote'}
-                    </span>
-                  </div>
+                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 font-medium text-slate-900 dark:text-zinc-200">
+                        <Tag className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
+                        <span>{pricing.formattedPrice}</span>
+                      </div>
 
-                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400">
-                    <MapPin className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
-                    <span>{svc.requires_address ? 'Address required' : 'Remote / No address'}</span>
-                  </div>
-                </div>
+                      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400">
+                        <MapPin className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
+                        <span>{svc.requires_address ? 'Address required' : 'Remote / No address'}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Action Buttons */}
@@ -563,6 +579,33 @@ export default function ServicesPage() {
             />
           </div>
 
+          {/* Pricing Structure */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-slate-700 dark:text-zinc-200">
+              Pricing Structure
+            </Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {(['fixed', 'starting_at', 'diagnostic_fee', 'free_estimate'] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setFormPricingModel(m)}
+                  className={cn(
+                    "px-2.5 py-1.5 rounded-lg border text-xs font-medium text-center transition-colors cursor-pointer",
+                    formPricingModel === m
+                      ? "bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/50 dark:border-blue-500 dark:text-blue-300 font-semibold"
+                      : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700"
+                  )}
+                >
+                  {m === 'fixed' && 'Fixed Price'}
+                  {m === 'starting_at' && 'Starting At'}
+                  {m === 'diagnostic_fee' && 'Diagnostic Fee'}
+                  {m === 'free_estimate' && 'Free Estimate'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Duration & Price Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Duration */}
@@ -606,7 +649,10 @@ export default function ServicesPage() {
             {/* Price */}
             <div className="space-y-1.5">
               <Label htmlFor="svc-price" className="text-xs text-slate-700 dark:text-zinc-200">
-                Price ($)
+                {formPricingModel === 'fixed' && 'Price ($)'}
+                {formPricingModel === 'starting_at' && 'Starting Price ($)'}
+                {formPricingModel === 'diagnostic_fee' && 'Diagnostic Fee Amount ($)'}
+                {formPricingModel === 'free_estimate' && 'Estimated Price (Optional, $)'}
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 text-xs">$</span>
@@ -617,11 +663,16 @@ export default function ServicesPage() {
                   min="0"
                   value={formPrice}
                   onChange={e => setFormPrice(e.target.value)}
-                  placeholder="89.00 (optional)"
+                  placeholder={formPricingModel === 'free_estimate' ? '0.00 (Free)' : '89.00'}
                   className="pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
                 />
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-500">Leave blank for custom quotes / free</p>
+              <p className="text-[10px] text-slate-500 dark:text-zinc-500">
+                {formPricingModel === 'fixed' && 'Exact price shown to customer and applied on booking'}
+                {formPricingModel === 'starting_at' && 'Minimum price shown as Starting at $X.XX+'}
+                {formPricingModel === 'diagnostic_fee' && 'Shown to customer as $X.XX Diagnostic Fee'}
+                {formPricingModel === 'free_estimate' && 'Shown as Free Estimate / Custom Quote (leave blank or 0)'}
+              </p>
             </div>
           </div>
 

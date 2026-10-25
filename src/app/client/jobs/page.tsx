@@ -160,13 +160,15 @@ function JobsContent() {
     customerPhone?: string | null
   } | null>(null)
 
-  // Listen to contact_id query param
+  // Listen to contact_id or quick-create query param
   useEffect(() => {
     if (contactIdParam) {
       setSelectedContactId(contactIdParam)
       setShowCreateModal(true)
+    } else if (searchParams.get('create') === 'true' || searchParams.get('new') === 'true') {
+      setShowCreateModal(true)
     }
-  }, [contactIdParam])
+  }, [contactIdParam, searchParams])
 
   // Load recurring templates
   const loadRecurringTemplates = useCallback(async () => {
@@ -530,9 +532,22 @@ function JobsContent() {
               {jobs.length}
             </span>
           </div>
+          <div className="flex items-center gap-1.5 mt-2 bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex">
+            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs flex items-center gap-1.5">
+              <Briefcase className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <span>List View</span>
+            </span>
+            <Link
+              href="/client/calendar"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 flex items-center gap-1.5 transition-colors"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Calendar View</span>
+            </Link>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <Button
             onClick={handleExportCsv}
             variant="outline"
@@ -540,15 +555,10 @@ function JobsContent() {
             className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
             title="Download full job history as CSV"
           >
-            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
-            <span>Export CSV</span>
+            <Download className="h-3.5 w-3.5 sm:mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span className="hidden sm:inline">Export CSV</span>
           </Button>
-          <Link href="/client/calendar">
-            <Button variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs">
-              <Calendar className="h-3.5 w-3.5 mr-1.5" />
-              Calendar
-            </Button>
-          </Link>
+
           <Button
             onClick={() => setShowRecurringModal(true)}
             variant="outline"
@@ -556,15 +566,17 @@ function JobsContent() {
             className="h-8 text-xs border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 shadow-xs cursor-pointer"
           >
             <Repeat className="h-3.5 w-3.5 mr-1 text-blue-600 dark:text-blue-400" />
-            <span>Recurring Plan</span>
+            <span className="hidden sm:inline">Recurring Plan</span>
+            <span className="sm:hidden">Plans</span>
           </Button>
+
           <Button
             size="sm"
             onClick={() => setShowCreateModal(true)}
-            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
+            className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs shrink-0"
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
-            Dispatch Job
+            <span>Dispatch Job</span>
           </Button>
         </div>
       </div>

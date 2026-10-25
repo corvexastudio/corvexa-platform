@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -25,7 +26,8 @@ import {
   AlertCircle,
   Filter,
   Sparkles,
-  Check
+  Check,
+  Users
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Modal } from '@/components/ui/modal'
@@ -151,11 +153,28 @@ export default function ReviewsPage() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [sending, setSending] = useState(false)
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone: string }>>([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
 
   const handlePhone = (e: React.ChangeEvent<HTMLInputElement>) => {
     const x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/)
     if (!x) return
     setPhone(!x[2] ? x[1] : `(${x[1]}) ${x[2]}` + (x[3] ? `-${x[3]}` : ''))
+  }
+
+  const handleSelectCustomer = (customerId: string) => {
+    if (!customerId) return
+    const cust = customers.find(c => c.id === customerId)
+    if (cust) {
+      setName(cust.name || '')
+      const digits = (cust.phone || '').replace(/\D/g, '')
+      const match = digits.match(/^1?(\d{3})(\d{3})(\d{4})$/)
+      if (match) {
+        setPhone(`(${match[1]}) ${match[2]}-${match[3]}`)
+      } else {
+        setPhone(cust.phone || '')
+      }
+    }
   }
 
   const loadData = useCallback(async () => {
@@ -201,6 +220,18 @@ export default function ReviewsPage() {
     loadData()
     loadFeedback()
 
+    // Load customers for one-off review invite lookup
+    setLoadingCustomers(true)
+    fetch('/api/client/customers?limit=100')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data?.customers) {
+          setCustomers(data.customers.filter((c: any) => c.phone))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCustomers(false))
+
     // Check if deep linked to private complaints tab
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
@@ -212,6 +243,10 @@ export default function ReviewsPage() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!settings.googleReviewUrl?.trim()) {
+      toast.error('Google Review URL is required before sending review invites. Please configure it in Settings.')
+      return
+    }
     if (!phone || phone.replace(/\D/g, '').length < 10) {
       toast.error('Enter a valid 10-digit phone number.')
       return
@@ -410,9 +445,33 @@ export default function ReviewsPage() {
             </div>
           </div>
 
+          {/* Missing Google Review URL Warning Banner */}
+          {!settings.googleReviewUrl?.trim() && !loading && (
+            <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Google Business Profile Review Link Missing
+                  </h3>
+                  <p className="text-xs text-amber-700 dark:text-amber-300/90 mt-0.5">
+                    Review invitations cannot be sent to customers until your Google Business Profile review URL is configured in settings.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/client/settings?tab=general#reviews"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-2xs transition-colors"
+              >
+                <span>Add Review URL</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
+
           {/* Manual Dispatch Bar */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
-            <div className="mb-3">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs space-y-3">
+            <div>
               <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200">
                 Dispatch One-Off Review Invite
               </h2>
@@ -420,6 +479,28 @@ export default function ReviewsPage() {
                 Send an instant review invitation. Respects customer opt-outs and cooldown windows automatically.
               </p>
             </div>
+
+            {/* Quick Customer Picker */}
+            {customers.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 shrink-0" />
+                <select
+                  aria-label="Select existing customer"
+                  onChange={e => handleSelectCustomer(e.target.value)}
+                  defaultValue=""
+                  className="w-full text-xs bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md py-1.5 px-2.5 text-slate-700 dark:text-zinc-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Select an existing customer to auto-fill details...
+                  </option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name ? `${c.name} (${c.phone})` : c.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <form onSubmit={handleSend} className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <Input
@@ -437,8 +518,9 @@ export default function ReviewsPage() {
               <Button
                 type="submit"
                 size="sm"
-                disabled={sending}
-                className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium"
+                disabled={sending || !settings.googleReviewUrl?.trim()}
+                title={!settings.googleReviewUrl?.trim() ? 'Google review link must be configured in settings' : undefined}
+                className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium disabled:opacity-50"
               >
                 {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
                 <span>Send Invite</span>

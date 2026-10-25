@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
+import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
 
 interface ServiceItem {
   id: string
@@ -382,6 +383,8 @@ export default function PublicBookingPage() {
                 <div className="space-y-3">
                   {services.map((svc) => {
                     const isSelected = selectedService?.id === svc.id
+                    const pricing = parseServicePricing(svc.price, svc.description)
+                    const cleanDesc = cleanServiceDescription(svc.description)
                     return (
                       <button
                         key={svc.id}
@@ -398,9 +401,9 @@ export default function PublicBookingPage() {
                             <div className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
                               {svc.name}
                             </div>
-                            {svc.description && (
+                            {cleanDesc && (
                               <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                                {svc.description}
+                                {cleanDesc}
                               </p>
                             )}
                             <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 mt-2.5">
@@ -408,11 +411,9 @@ export default function PublicBookingPage() {
                                 <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                                 {svc.duration_minutes} mins
                               </span>
-                              {svc.price !== null && svc.price !== undefined && (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                  ${svc.price.toFixed(2)}
-                                </span>
-                              )}
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                {pricing.formattedPrice}
+                              </span>
                             </div>
                           </div>
 
@@ -462,7 +463,14 @@ export default function PublicBookingPage() {
             {/* Selected Service Badge */}
             <div className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs shadow-xs">
               <span className="text-slate-500 dark:text-zinc-400">Service: <strong className="text-slate-900 dark:text-white">{selectedService?.name}</strong></span>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedService?.duration_minutes} mins</span>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedService?.duration_minutes} mins</span>
+                {selectedService && (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                    {parseServicePricing(selectedService.price, selectedService.description).formattedPrice}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Date Pill Scroller */}

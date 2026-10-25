@@ -329,8 +329,8 @@ export default function LeadsPage() {
               size="sm"
               title="Download full leads pipeline as CSV"
             >
-              <Download className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-              <span>Export CSV</span>
+              <Download className="h-3.5 w-3.5 sm:mr-1.5 text-muted-foreground" />
+              <span className="hidden sm:inline">Export CSV</span>
             </Button>
 
             <Button

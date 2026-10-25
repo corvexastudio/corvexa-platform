@@ -4,9 +4,11 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
 import { FilterTabs } from '@/components/ui/filter-tabs'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,7 +30,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Inbox as InboxIcon,
-  Sparkles
+  Sparkles,
+  Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConversationRow } from '@/components/inbox/conversation-row'
@@ -89,6 +92,7 @@ function playMessageChime() {
 export default function InboxPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const searchParams = useSearchParams()
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const activeConvIdRef = useRef<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
@@ -102,6 +106,32 @@ export default function InboxPage() {
   const [oldestCursor, setOldestCursor] = useState<string | null>(null)
   const [mobileViewThread, setMobileViewThread] = useState(false)
   const [leadStatus, setLeadStatus] = useState<string | null>(null)
+
+  // Compose New Message State
+  const [showComposeModal, setShowComposeModal] = useState(false)
+  const [composeContactId, setComposeContactId] = useState('')
+  const [composeCustomPhone, setComposeCustomPhone] = useState('')
+  const [composeCustomName, setComposeCustomName] = useState('')
+  const [composeMessage, setComposeMessage] = useState('')
+  const [composing, setComposing] = useState(false)
+  const [customersList, setCustomersList] = useState<any[]>([])
+
+  // Load customer directory for composer picker
+  useEffect(() => {
+    fetch('/api/client/customers?limit=100')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.customers) setCustomersList(data.customers)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Auto-open compose modal if triggered via quick actions
+  useEffect(() => {
+    if (searchParams.get('compose') === 'true' || searchParams.get('new') === 'true') {
+      setShowComposeModal(true)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     activeConvIdRef.current = activeConvId
@@ -371,6 +401,115 @@ export default function InboxPage() {
     }
   }
 
+  const handleComposeSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!composeMessage.trim() || composing) return
+
+    setComposing(true)
+    try {
+      let resolvedContactId = composeContactId
+      let recipientPhone = ''
+
+      if (resolvedContactId) {
+        const found = customersList.find(c => c.id === resolvedContactId)
+        recipientPhone = found?.phone || ''
+      } else if (composeCustomPhone.trim()) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user?.id).maybeSingle()
+        if (!profile?.org_id) throw new Error('Organization not found')
+
+        const { data: existingContact } = await supabase
+          .from('contacts')
+          .select('id, phone')
+          .eq('org_id', profile.org_id)
+          .eq('phone', composeCustomPhone.trim())
+          .maybeSingle()
+
+        if (existingContact) {
+          resolvedContactId = existingContact.id
+          recipientPhone = existingContact.phone
+        } else {
+          const { data: newContact, error: insertErr } = await supabase
+            .from('contacts')
+            .insert({
+              org_id: profile.org_id,
+              name: composeCustomName.trim() || 'New Customer',
+              phone: composeCustomPhone.trim()
+            })
+            .select('id, phone')
+            .single()
+
+          if (insertErr || !newContact) throw new Error('Failed to create customer record')
+          resolvedContactId = newContact.id
+          recipientPhone = newContact.phone
+        }
+      }
+
+      if (!resolvedContactId || !recipientPhone) {
+        toast.error('Please select an existing customer or enter a valid phone number.')
+        setComposing(false)
+        return
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user?.id).maybeSingle()
+
+      let targetConvId: string | null = null
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('org_id', profile?.org_id)
+        .eq('contact_id', resolvedContactId)
+        .maybeSingle()
+
+      if (existingConv) {
+        targetConvId = existingConv.id
+      } else {
+        const { data: newConv, error: convErr } = await supabase
+          .from('conversations')
+          .insert({
+            org_id: profile?.org_id,
+            contact_id: resolvedContactId,
+            last_message_preview: composeMessage.trim(),
+            last_message_at: new Date().toISOString()
+          })
+          .select('id')
+          .single()
+
+        if (convErr || !newConv) throw new Error('Failed to initialize conversation')
+        targetConvId = newConv.id
+      }
+
+      const res = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: targetConvId,
+          to: recipientPhone,
+          message: composeMessage.trim()
+        })
+      })
+
+      if (res.ok) {
+        toast.success('Message sent!')
+        setShowComposeModal(false)
+        setComposeContactId('')
+        setComposeCustomPhone('')
+        setComposeCustomName('')
+        setComposeMessage('')
+        setActiveConvId(targetConvId)
+        refetchConvs()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Failed to dispatch message.')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error creating conversation')
+    } finally {
+      setComposing(false)
+    }
+  }
+
   const handleStatusChange = async (newStatus: 'new' | 'contacted' | 'booked' | 'lost') => {
     if (!activeConv) return
     const { error } = await supabase.from('leads').update({ status: newStatus }).eq('contact_id', activeConv.contact_id)
@@ -412,6 +551,15 @@ export default function InboxPage() {
               <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold tabular-nums">
                 {conversations.length} total
               </span>
+              <button
+                type="button"
+                onClick={() => setShowComposeModal(true)}
+                className="h-6 w-6 rounded flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                title="Compose new text message"
+                aria-label="Compose new text message"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
               <button
                 type="button"
                 onClick={loadConversations}
@@ -730,6 +878,102 @@ export default function InboxPage() {
           </div>
         </div>
       )}
+
+      {/* Compose New Message Modal */}
+      <Modal
+        open={showComposeModal}
+        onOpenChange={setShowComposeModal}
+        title="Compose New Message"
+      >
+        <form onSubmit={handleComposeSend} className="space-y-4 pt-1">
+          <div>
+            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1.5">
+              Select Customer
+            </label>
+            <select
+              value={composeContactId}
+              onChange={e => {
+                setComposeContactId(e.target.value)
+                if (e.target.value) {
+                  setComposeCustomPhone('')
+                  setComposeCustomName('')
+                }
+              }}
+              className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2 text-slate-900 dark:text-zinc-100"
+            >
+              <option value="">-- Choose existing customer, or enter below --</option>
+              {customersList.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Unnamed'} ({c.phone})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!composeContactId && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800/60">
+              <div>
+                <label className="text-[11px] font-medium text-slate-600 dark:text-zinc-400 block mb-1">
+                  Customer Phone *
+                </label>
+                <Input
+                  placeholder="(555) 000-0000"
+                  value={composeCustomPhone}
+                  onChange={e => setComposeCustomPhone(e.target.value)}
+                  className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-600 dark:text-zinc-400 block mb-1">
+                  Customer Name
+                </label>
+                <Input
+                  placeholder="e.g. John Smith"
+                  value={composeCustomName}
+                  onChange={e => setComposeCustomName(e.target.value)}
+                  className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1.5">
+              Message Text *
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={composeMessage}
+              onChange={e => setComposeMessage(e.target.value)}
+              placeholder="Type your SMS message to the customer..."
+              className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-2.5 text-slate-900 dark:text-zinc-100 resize-none focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowComposeModal(false)}
+              disabled={composing}
+              className="h-8 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={composing || !composeMessage.trim() || (!composeContactId && !composeCustomPhone.trim())}
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
+              {composing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+              <span>Send SMS</span>
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
     </div>
   )

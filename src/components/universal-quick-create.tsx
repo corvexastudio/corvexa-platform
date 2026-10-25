@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/context/workspace-context'
+import { hasPermission, type Action } from '@/lib/security/permissions'
 
 export function UniversalQuickCreate() {
   const [isOpen, setIsOpen] = useState(false)
@@ -40,55 +41,57 @@ export function UniversalQuickCreate() {
     }
   }, [isOpen])
 
-  const quickActions = [
+  const quickActions: Array<{
+    title: string
+    subtitle: string
+    href: string
+    icon: React.ComponentType<{ className?: string }>
+    iconColor: string
+    permission: Action
+  }> = [
     {
       title: 'Schedule Appointment',
-      subtitle: 'Book service slot on calendar',
-      href: '/client/calendar',
+      subtitle: 'Book service visit on calendar',
+      href: '/client/calendar?create=true',
       icon: Calendar,
-      iconColor: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-400'
+      iconColor: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-400',
+      permission: 'appointments:manage'
     },
     {
       title: 'Create Quote',
       subtitle: 'Send estimate or pricing proposal',
-      href: '/client/quotes',
+      href: '/client/quotes?create=true',
       icon: FileText,
-      iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60 dark:text-emerald-400'
+      iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60 dark:text-emerald-400',
+      permission: 'quotes:manage'
     },
     {
-      title: 'Create Job',
+      title: 'Dispatch Job',
       subtitle: 'Track work order and dispatch',
-      href: '/client/jobs',
+      href: '/client/jobs?create=true',
       icon: Briefcase,
-      iconColor: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60 dark:text-amber-400'
+      iconColor: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60 dark:text-amber-400',
+      permission: 'appointments:manage'
     },
     {
       title: 'Send Message',
       subtitle: 'Start 2-way SMS with customer',
-      href: '/client/inbox',
+      href: '/client/inbox?compose=true',
       icon: MessageSquare,
-      iconColor: 'text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:border-purple-900/60 dark:text-purple-400'
+      iconColor: 'text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:border-purple-900/60 dark:text-purple-400',
+      permission: 'messages:send'
     },
     {
       title: 'Add Customer',
       subtitle: 'Save new client profile',
-      href: '/client/customers',
+      href: '/client/customers?create=true',
       icon: Users,
-      iconColor: 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300'
+      iconColor: 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300',
+      permission: 'contacts:manage'
     }
   ]
 
-  const canManageQuotes = role === 'owner' || role === 'admin' || role === 'super_admin'
-
-  const filteredQuickActions = quickActions.filter(action => {
-    if (action.href === '/client/quotes' && !canManageQuotes) {
-      return false
-    }
-    if (role === 'technician') {
-      return action.href === '/client/calendar' || action.href === '/client/inbox'
-    }
-    return true
-  })
+  const filteredQuickActions = quickActions.filter(action => hasPermission(role, action.permission))
 
   return (
     <div className="relative inline-flex items-center" ref={menuRef}>

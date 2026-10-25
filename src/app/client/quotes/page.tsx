@@ -148,13 +148,15 @@ function ClientQuotesContent() {
   const [depositType, setDepositType] = useState<'percentage' | 'fixed'>('percentage')
   const [depositValue, setDepositValue] = useState<number>(30)
 
-  // Listen to contact_id query param
+  // Listen to contact_id or quick-create query param
   useEffect(() => {
     if (contactIdParam) {
       setSelectedContactId(contactIdParam)
       setShowCreateModal(true)
+    } else if (searchParams.get('create') === 'true' || searchParams.get('new') === 'true') {
+      setShowCreateModal(true)
     }
-  }, [contactIdParam])
+  }, [contactIdParam, searchParams])
 
   // Load Quotes
   const loadQuotes = useCallback(async () => {

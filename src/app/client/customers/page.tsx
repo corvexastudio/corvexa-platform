@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -39,6 +39,7 @@ import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
 
 export default function CustomersPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'due' | 'overdue' | 'inactive'>('all')
   const [sortBy, setSortBy] = useState<'last_activity' | 'ltv' | 'last_service' | 'name'>('last_activity')
@@ -46,6 +47,13 @@ export default function CustomersPage() {
 
   // Add Customer Modal State
   const [showAddModal, setShowAddModal] = useState(false)
+
+  // Auto-open modal if triggered via Quick Actions query parameter
+  useEffect(() => {
+    if (searchParams.get('create') === 'true' || searchParams.get('new') === 'true') {
+      setShowAddModal(true)
+    }
+  }, [searchParams])
   const [addName, setAddName] = useState('')
   const [addPhone, setAddPhone] = useState('')
   const [addEmail, setAddEmail] = useState('')
@@ -212,7 +220,7 @@ export default function CustomersPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <Button
             size="sm"
             onClick={() => setShowAddModal(true)}
@@ -229,8 +237,8 @@ export default function CustomersPage() {
             className="h-8 text-xs bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 shadow-xs"
             title="Download full customer directory as CSV"
           >
-            <Download className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
-            <span>Export CSV</span>
+            <Download className="h-3.5 w-3.5 sm:mr-1.5 text-slate-400 dark:text-zinc-400" />
+            <span className="hidden sm:inline">Export CSV</span>
           </Button>
 
           <Button
@@ -243,9 +251,10 @@ export default function CustomersPage() {
             {runningReactivation ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5 text-blue-600 dark:text-blue-400" />
             ) : (
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5 text-slate-400 dark:text-zinc-400" />
+              <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5 text-slate-400 dark:text-zinc-400" />
             )}
-            <span>Run Reactivations</span>
+            <span className="hidden sm:inline">Run Reactivations</span>
+            <span className="sm:hidden">Reactivate</span>
           </Button>
         </div>
       </div>
