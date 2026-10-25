@@ -408,7 +408,7 @@ export async function createBooking(
   // If this is the demo tenant, append the 1-tap live owner dashboard link (no login required)
   const isDemoOrg = orgId === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || org.slug?.includes('demo')
   if (isDemoOrg) {
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.corvexastudio.com').replace(/\/$/, '')
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
     confirmationText += `\n\nExperience the Live Owner Dashboard (no login required): ${appUrl}/demo`
   }
 
@@ -424,7 +424,7 @@ export async function createBooking(
     })
 
     if (compliance.allowed) {
-      await sendTelnyxSms({
+      const smsResult = await sendTelnyxSms({
         to: normalizedPhone.e164,
         from: senderNumber,
         text: compliance.formattedText
@@ -438,6 +438,55 @@ export async function createBooking(
         messageType: 'transactional',
         reason: 'booking_confirmation'
       })
+
+      // LIFECYCLE-001: Sync confirmation SMS into Inbox conversations thread
+      try {
+        if (contactId) {
+          let { data: conversation } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('org_id', orgId)
+            .eq('contact_id', contactId)
+            .maybeSingle()
+
+          if (!conversation) {
+            const { data: newConv } = await supabase
+              .from('conversations')
+              .insert({
+                org_id: orgId,
+                contact_id: contactId,
+                last_message_preview: compliance.formattedText
+              })
+              .select('id')
+              .single()
+            conversation = newConv
+          } else {
+            await supabase
+              .from('conversations')
+              .update({
+                last_message_preview: compliance.formattedText,
+                last_message_at: new Date().toISOString()
+              })
+              .eq('id', conversation.id)
+          }
+
+          if (conversation) {
+            await supabase.from('messages').insert({
+              org_id: orgId,
+              conversation_id: conversation.id,
+              direction: 'outbound',
+              sender_type: 'system',
+              body: compliance.formattedText,
+              delivery_status: smsResult?.success ? 'sent' : 'failed',
+              telnyx_message_id: smsResult?.messageId,
+              automation_source: 'booking_confirmation',
+              failure_reason: smsResult?.error || null
+            })
+          }
+        }
+      } catch (convErr) {
+        console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
+      }
     }
   }
 

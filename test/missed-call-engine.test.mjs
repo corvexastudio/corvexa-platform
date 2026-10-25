@@ -269,7 +269,7 @@ test('Template Engine: Interpolates booking_url when organization slug is provid
   const outcome = { state: 'no_answer', wasAnswered: false, isEligibleForRecovery: true, durationSeconds: 0, description: '' }
   const result = resolveMissedCallTemplate(org, outcome, 'Customer')
   assert.strictEqual(result.templateType, 'after_hours')
-  assert.match(result.renderedText, /https:\/\/app\.corvexastudio\.com\/book\/captodesk-demo-services-rdhr6/)
+  assert.match(result.renderedText, /https:\/\/captodesk\.com\/book\/captodesk-demo-services-rdhr6/)
 })
 
 test('Template Engine: Office closed detection routes to after-hours template with booking URL', () => {
@@ -291,7 +291,7 @@ test('Template Engine: Office closed detection routes to after-hours template wi
   const result = resolveMissedCallTemplate(org, outcome)
   assert.strictEqual(result.templateType, 'after_hours')
   assert.match(result.renderedText, /Our office is currently closed/)
-  assert.match(result.renderedText, /https:\/\/app\.corvexastudio\.com\/book\/captodesk-demo-services-rdhr6/)
+  assert.match(result.renderedText, /https:\/\/captodesk\.com\/book\/captodesk-demo-services-rdhr6/)
 })
 
 test('Template Engine: Gracefully cleans up booking prompt when organization lacks booking URL', () => {

@@ -12,6 +12,7 @@ export interface SuppressionCheckParams {
   isMissedCallActive: boolean
   cooldownHours?: number
   timezone?: string
+  overrideDate?: Date
 }
 
 export interface SuppressionResult {
@@ -64,7 +65,8 @@ export async function evaluateSuppression(
     durationSeconds,
     isMissedCallActive,
     cooldownHours = 24,
-    timezone = 'America/Chicago'
+    timezone = 'America/Chicago',
+    overrideDate
   } = params
 
   // 1. Phone number format validity
@@ -105,7 +107,7 @@ export async function evaluateSuppression(
   }
 
   // 6. TCPA quiet hours curfew (8:00 PM to 8:00 AM)
-  if (isTcpaQuietHours(timezone)) {
+  if (isTcpaQuietHours(timezone, overrideDate)) {
     return { shouldSend: false, suppressionReason: 'tcpa_quiet_hours' }
   }
 

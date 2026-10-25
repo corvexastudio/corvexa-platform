@@ -434,8 +434,9 @@ export async function reassignJobCrew(
   // 6. Notify Customer if requested
   if (notifyCustomer && jobContact?.phone && senderNumber) {
     const crewName = updatedCrew?.name || 'our service team'
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
     const trackingUrl = job.tracking_token
-      ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'}/track/${job.tracking_token}`
+      ? `${appUrl}/t/${job.tracking_token}`
       : ''
 
     const text = `Hi ${jobContact.name || 'there'}! ${crewName} from ${org?.name || 'our team'} has been assigned to your scheduled service.${trackingUrl ? ` Track live updates: ${trackingUrl}` : ''}`
@@ -696,7 +697,7 @@ export async function sendDailyCrewScheduleBroadcast(
       return `${idx + 1}. ${timeStr} - #${j.job_number || ''} ${j.title}${addr}`
     })
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
     const smsBody = `Good morning ${crew.name}! You have ${jobs.length} job${jobs.length > 1 ? 's' : ''} scheduled today:\n${lines.join('\n')}\nOpen field dispatch: ${appUrl}/client/field`
 
     try {

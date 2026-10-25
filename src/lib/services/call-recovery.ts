@@ -19,6 +19,7 @@ export interface InboundCallContext {
   sendSmsFn?: typeof sendTelnyxSms
   sendOwnerSmsFn?: typeof sendTelnyxSms
   webPushSendFn?: any
+  overrideDate?: Date
 }
 
 export interface ProcessCallResult {
@@ -30,6 +31,72 @@ export interface ProcessCallResult {
   orgId?: string
   callId?: string
   ownerAlert?: OwnerNotificationResult
+}
+
+/**
+ * Calculates the next 8:05 AM timestamp in the tenant's local timezone.
+ * TCPA quiet hours run 8:00 PM to 8:00 AM local time.
+ * If called between 8:00 PM (20:00) and midnight, the next 8:05 AM is the following day.
+ * If called between midnight and 8:00 AM, the next 8:05 AM is later that same morning.
+ */
+export function calculateNextMorning805(
+  timezone: string = 'America/Chicago',
+  referenceDate: Date = new Date()
+): { scheduledAt: string; targetDateKey: string } {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+  const parts = formatter.formatToParts(referenceDate)
+  const partMap: Record<string, string> = {}
+  for (const p of parts) partMap[p.type] = p.value
+
+  const year = parseInt(partMap.year, 10)
+  const month = parseInt(partMap.month, 10) // 1-12
+  const day = parseInt(partMap.day, 10)
+  const hour = parseInt(partMap.hour, 10) % 24
+  const minute = parseInt(partMap.minute, 10)
+
+  let targetYear = year
+  let targetMonth = month
+  let targetDay = day
+
+  // If local time is already at or past 08:05, target morning is the next calendar day
+  if (hour > 8 || (hour === 8 && minute >= 5)) {
+    const tempDate = new Date(Date.UTC(year, month - 1, day + 1, 12, 0, 0))
+    targetYear = tempDate.getUTCFullYear()
+    targetMonth = tempDate.getUTCMonth() + 1
+    targetDay = tempDate.getUTCDate()
+  }
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const targetDateKey = `${targetYear}-${pad(targetMonth)}-${pad(targetDay)}`
+
+  // Compute exact UTC timestamp corresponding to targetDateKey at 08:05:00 in target timezone
+  const probe = new Date(Date.UTC(targetYear, targetMonth - 1, targetDay, 8, 5, 0))
+  const probeParts = formatter.formatToParts(probe)
+  const pMap: Record<string, string> = {}
+  for (const p of probeParts) pMap[p.type] = p.value
+  const probeLocalAsUtc = Date.UTC(
+    parseInt(pMap.year, 10),
+    parseInt(pMap.month, 10) - 1,
+    parseInt(pMap.day, 10),
+    parseInt(pMap.hour, 10) % 24,
+    parseInt(pMap.minute, 10),
+    parseInt(pMap.second, 10)
+  )
+  const offsetMs = probeLocalAsUtc - probe.getTime()
+  const desiredLocalAsUtc = Date.UTC(targetYear, targetMonth - 1, targetDay, 8, 5, 0)
+  const targetUtcMs = desiredLocalAsUtc - offsetMs
+  const scheduledAt = new Date(targetUtcMs).toISOString()
+
+  return { scheduledAt, targetDateKey }
 }
 
 /**
@@ -148,7 +215,8 @@ export async function processMissedCall(
     durationSeconds: call.callOutcome.durationSeconds,
     isMissedCallActive: Boolean(org.is_missed_call_active),
     cooldownHours: org.cooldown_hours || 24,
-    timezone: org.timezone || 'America/Chicago'
+    timezone: org.timezone || 'America/Chicago',
+    overrideDate: call.overrideDate
   })
 
   if (!suppression.shouldSend) {
@@ -168,9 +236,68 @@ export async function processMissedCall(
       suppression_reason: suppression.suppressionReason
     })
 
-    // If suppressed due to cooldown window, caller has repeated their attempt:
-    // Update CRM lead missed_call_count and notes so business owner sees the repeat call
-    if (suppression.suppressionReason === 'cooldown_active' && contact?.id) {
+    // TCPA Quiet Hours: Do not drop caller!
+    // 1. Ensure lead record is preserved/updated in leads so contractor sees prospect
+    // 2. Schedule a morning recovery message in automation_runs at 8:05 AM with idempotency
+    if (suppression.suppressionReason === 'tcpa_quiet_hours' && contact?.id) {
+      await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id, { isQuietHours: true })
+
+      const { scheduledAt, targetDateKey } = calculateNextMorning805(
+        org.timezone || 'America/Chicago',
+        call.overrideDate
+      )
+      const idempotencyKey = `tcpa_morning_recovery:${org.id}:${formattedCaller}:${targetDateKey}`
+
+      // Check if a recovery SMS is already pending or scheduled for this morning
+      const { data: existingRun } = await supabase
+        .from('automation_runs')
+        .select('id, status')
+        .eq('org_id', org.id)
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle()
+
+      if (!existingRun) {
+        const { renderedText } = resolveMissedCallTemplate(
+          org,
+          call.callOutcome,
+          contact?.name,
+          formattedCalled
+        )
+
+        const compliantText = formatCompliantOutboundText({
+          businessName: org.name || 'CaptoDesk',
+          text: renderedText,
+          messageType: 'transactional'
+        })
+
+        await supabase.from('automation_runs').insert({
+          org_id: org.id,
+          job_id: `job_${idempotencyKey}`,
+          idempotency_key: idempotencyKey,
+          event_type: 'call.quiet_hours_recovery',
+          action_type: 'send_sms',
+          action_params: {
+            to: formattedCaller,
+            from: formattedCalled,
+            text: compliantText,
+            message: compliantText,
+            flowType: 'missed_call_recovery',
+            messageType: 'transactional'
+          },
+          status: 'scheduled',
+          scheduled_at: scheduledAt,
+          event_payload: {
+            contact_id: contact?.id,
+            caller_number: formattedCaller,
+            called_number: formattedCalled,
+            recovery_type: 'tcpa_morning_recovery',
+            target_date: targetDateKey
+          }
+        })
+      }
+    } else if (suppression.suppressionReason === 'cooldown_active' && contact?.id) {
+      // If suppressed due to cooldown window, caller has repeated their attempt:
+      // Update CRM lead missed_call_count and notes so business owner sees the repeat call
       await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id)
     }
 
@@ -346,10 +473,11 @@ export async function processMissedCall(
  * Ensures repeat missed calls update existing open leads (status IN ('new', 'contacted'))
  * rather than creating duplicate open leads. Closed/won/lost leads result in a new lead.
  */
-async function recordOrUpdateLeadForMissedCall(
+export async function recordOrUpdateLeadForMissedCall(
   supabase: SupabaseClient,
   orgId: string,
-  contactId: string
+  contactId: string,
+  options?: { isQuietHours?: boolean }
 ): Promise<void> {
   let existingOpenLead: any = null
   const baseQuery: any = supabase
@@ -386,7 +514,8 @@ async function recordOrUpdateLeadForMissedCall(
 
   if (existingOpenLead) {
     const updatedCount = (existingOpenLead.missed_call_count || 1) + 1
-    const appendNote = `Repeat missed call at ${new Date().toLocaleTimeString()} (Attempt #${updatedCount})`
+    const noteDetail = options?.isQuietHours ? 'during TCPA quiet hours ' : ''
+    const appendNote = `Repeat missed call ${noteDetail}at ${new Date().toLocaleTimeString()} (Attempt #${updatedCount})`
     const newNotes = existingOpenLead.notes
       ? `${existingOpenLead.notes}\n${appendNote}`
       : appendNote
@@ -405,7 +534,10 @@ async function recordOrUpdateLeadForMissedCall(
       contact_id: contactId,
       source: 'missed_call',
       status: 'new',
-      missed_call_count: 1
+      missed_call_count: 1,
+      notes: options?.isQuietHours
+        ? 'Missed call during TCPA quiet hours (morning recovery scheduled)'
+        : undefined
     })
   }
 }

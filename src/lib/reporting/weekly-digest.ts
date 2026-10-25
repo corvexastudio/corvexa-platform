@@ -79,7 +79,7 @@ export async function computeWeeklyMetrics(
 export async function generateWeeklyDigestForOrg(
   supabase: SupabaseClient,
   orgId: string,
-  baseUrl: string = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+  baseUrl: string = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
 ): Promise<{ success: boolean; metrics?: WeeklyDigestMetrics; error?: string }> {
   try {
     const { data: org, error: orgError } = await supabase

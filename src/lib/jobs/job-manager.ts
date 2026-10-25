@@ -289,9 +289,9 @@ export async function updateJobStatus(
         const techDisplay = technicianName?.trim() || updatedJob.technician_name || 'Your technician'
         const etaVal = typeof etaMinutes === 'number' && etaMinutes > 0 ? etaMinutes : updatedJob.eta_minutes
         const etaPart = etaVal ? ` (ETA: ~${etaVal} mins)` : ''
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+        const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
         const trackingToken = updatedJob.tracking_token || job.tracking_token
-        const trackPart = trackingToken ? ` Live arrival tracker: ${baseUrl}/track/${trackingToken}` : ''
+        const trackPart = trackingToken ? ` Live arrival tracker: ${baseUrl}/t/${trackingToken}` : ''
 
         await sendTelnyxSms({
           to: contact.phone,

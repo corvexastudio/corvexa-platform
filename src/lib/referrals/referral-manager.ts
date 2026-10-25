@@ -49,7 +49,7 @@ export async function getOrCreateReferralLink(
   }
 ): Promise<GetOrCreateReferralResult> {
   const { orgId, contactId, contactName, rewardAmount = 25, discountAmount = 25 } = params
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
 
   try {
     // 1. Look for existing referral link for this contact & org

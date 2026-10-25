@@ -131,7 +131,7 @@ export function validateEnvironment(envSource: NodeJS.ProcessEnv = process.env):
   // 2. Application Base URL
   if (!appUrl) {
     if (tier === 'production') {
-      errors.push('NEXT_PUBLIC_APP_URL is required in production (e.g. https://app.corvexastudio.com).')
+      errors.push('NEXT_PUBLIC_APP_URL is required in production (e.g. https://captodesk.com).')
     } else {
       warnings.push('NEXT_PUBLIC_APP_URL is not set. Defaulting to http://localhost:3000.')
     }

@@ -674,7 +674,7 @@ export async function customerAcceptQuote(
 
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone
   if (senderNumber && contact?.phone) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
     const depositPrompt = depositInvoiceUrl
       ? ` Please secure your scheduled slot by completing your deposit of $${Number(quote.deposit_amount).toFixed(2)}: ${baseUrl}${depositInvoiceUrl}`
       : ' We will reach out shortly to confirm your scheduled service.'

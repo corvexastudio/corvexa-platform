@@ -71,7 +71,10 @@ export function EnRouteModal({
 
   // Live SMS Preview calculation
   const techDisplay = technicianName.trim() || 'Your technician'
-  const smsPreview = `Hi ${customerName}! ${techDisplay} from ${organizationName} is on the way (ETA: ~${effectiveEta} mins). Live arrival tracker: https://app.corvexastudio.com/track/${job.tracking_token || '...'}`
+  const appUrl = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com').replace(/\/$/, '')
+  const smsPreview = `Hi ${customerName}! ${techDisplay} from ${organizationName} is on the way (ETA: ~${effectiveEta} mins). Live arrival tracker: ${appUrl}/t/${job.tracking_token || '...'}`
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()

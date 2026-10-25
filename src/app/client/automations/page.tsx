@@ -112,9 +112,11 @@ export default function AutomationsPage() {
     }
   }
 
+  const fallbackOrigin = (process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com').replace(/\/$/, '')
+  const appOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : fallbackOrigin
   const bookingUrlPreview = settings.slug 
-    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://app.corvexastudio.com'}/book/${settings.slug}`
-    : 'https://app.corvexastudio.com/book/your-link'
+    ? `${appOrigin}/book/${settings.slug}`
+    : `${appOrigin}/book/your-link`
 
   const openPreview = (settings.auto_reply_template || '')
     .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Your Company')
