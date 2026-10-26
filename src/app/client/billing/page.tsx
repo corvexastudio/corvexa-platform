@@ -485,8 +485,97 @@ export default function ClientBillingPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-          {/* ── Card 1: Solo Plan ($99/mo or $990/yr) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          {/* ── Card 1: Free Tier ($0/mo) ── */}
+          <div
+            className={cn(
+              'rounded-3xl border bg-white dark:bg-zinc-950 p-6 sm:p-7 flex flex-col justify-between space-y-6 transition-all shadow-xs dark:shadow-none',
+              isCurrentFree
+                ? 'border-emerald-300 dark:border-emerald-600/50 bg-emerald-50/20 dark:bg-emerald-950/20 ring-1 ring-emerald-300 dark:ring-emerald-600/40'
+                : 'border-slate-200 dark:border-zinc-800'
+            )}
+          >
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                  FREE ORGANIZER
+                </span>
+                {isCurrentFree && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    Current Plan
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <h4 className="text-xl font-bold text-slate-900 dark:text-white">Free Booking Tier</h4>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1">
+                  100% free booking link, unmasked customer leads, visual calendar, and job work orders.
+                </p>
+              </div>
+
+              <div className="flex items-baseline gap-2 pt-2 border-t border-slate-100 dark:border-zinc-850">
+                <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white font-mono">
+                  $0
+                </span>
+                <span className="text-slate-500 dark:text-zinc-400 text-xs font-medium">
+                  / month forever
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-850">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span><strong>Unlimited Public Booking Link</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span><strong>100% Unmasked</strong> customer contacts</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Visual Calendar & Job scheduling</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Customer Directory & Service Catalog</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>In-App & Browser Web Push alerts</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Native 1-tap <code>sms:</code> sharing ($0 carrier cost)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-zinc-850">
+              {isCurrentFree ? (
+                <Button disabled className="w-full bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-400 font-bold text-xs cursor-default">
+                  Current Active Plan
+                </Button>
+              ) : (
+                <Button
+                  onClick={() =>
+                    handleOpenChangePlan({
+                      id: 'free',
+                      name: 'Free Booking Tier',
+                      amount: 0,
+                      interval: 'month'
+                    })
+                  }
+                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 font-bold text-xs border border-slate-200 dark:border-zinc-750 cursor-pointer"
+                >
+                  Downgrade to Free ($0/mo)
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Card 2: Solo Plan ($99/mo or $990/yr) ── */}
           <div
             className={cn(
               'rounded-3xl border bg-white dark:bg-zinc-950 p-6 sm:p-7 flex flex-col justify-between space-y-6 transition-all shadow-xs dark:shadow-none',

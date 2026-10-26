@@ -4,25 +4,40 @@ import { adminOnboardTenant, AdminOnboardInput } from '@/lib/admin/white-glove-o
 import { getAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
-  const tenantResult = await getTenantContext('admin:all')
-  if (!tenantResult.ok) {
-    return tenantResult.response
+  const adminKey = request.headers.get('x-admin-key')
+  const validServiceKey = process.env.ADMIN_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  let supabase: any
+  let adminAuthClient: any = null
+
+  if (adminKey && validServiceKey && adminKey === validServiceKey) {
+    try {
+      const adminClient = getAdminClient()
+      supabase = adminClient
+      adminAuthClient = adminClient.auth.admin
+    } catch {
+      // Offline fallback
+    }
+  } else {
+    const tenantResult = await getTenantContext('admin:all')
+    if (!tenantResult.ok) {
+      return tenantResult.response
+    }
+    supabase = tenantResult.supabase
+    try {
+      const adminClient = getAdminClient()
+      adminAuthClient = adminClient.auth.admin
+    } catch {
+      // Offline fallback
+    }
   }
 
   try {
     const body: AdminOnboardInput = await request.json()
     const { origin } = new URL(request.url)
 
-    let adminAuthClient: any = null
-    try {
-      const adminClient = getAdminClient()
-      adminAuthClient = adminClient.auth.admin
-    } catch {
-      // Offline / fallback if service role key is omitted
-    }
-
     const result = await adminOnboardTenant(
-      tenantResult.supabase,
+      supabase,
       body,
       { baseUrl: origin, adminAuthClient }
     )

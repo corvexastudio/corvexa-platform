@@ -536,8 +536,78 @@ export default function LandingPage() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-          {/* Card 1: Solo Operator ($99/mo or $990/yr) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-stretch">
+          {/* Card 1: Free Tier ($0/mo Forever) */}
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-xl relative flex flex-col justify-between space-y-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  100% FREE FOREVER
+                </span>
+                <span className="text-xs text-zinc-500 font-mono">Solo Tradesman</span>
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-bold text-white">Free Booking Tier</h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Everything you need to book jobs online and organize your trade schedule. Zero contracts or hidden fees.
+                </p>
+              </div>
+
+              <div className="flex items-baseline gap-2 pt-2 border-t border-zinc-850">
+                <span className="text-4xl sm:text-5xl font-extrabold text-white font-mono">
+                  $0
+                </span>
+                <span className="text-zinc-400 text-sm font-medium">/ month</span>
+              </div>
+              <p className="text-[11px] text-emerald-400 font-mono">
+                ✓ $0 Telecom spend risk • No credit card required • Zero setup fee
+              </p>
+
+              <div className="space-y-2.5 text-xs text-zinc-300 pt-2 border-t border-zinc-850">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span><strong>Unlimited Public Booking Link</strong> for your Google Maps & website</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span><strong>100% Unmasked</strong> customer contact names & phone numbers</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Interactive Calendar & Job Scheduling work orders</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>In-App & Browser Web Push instant booking alerts</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Native 1-Tap <code>sms:</code> link sharing directly from your phone</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Customer Directory CRM & Custom Service Catalog</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Before & After Job Photo upload gallery</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-850">
+              <Link
+                href="/client/onboarding"
+                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20"
+              >
+                <span>Get Started Free ($0/mo)</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 2: Solo Operator ($99/mo or $990/yr) */}
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 shadow-xl relative flex flex-col justify-between space-y-6">
             <div className="space-y-6">
               <div className="flex items-center justify-between">

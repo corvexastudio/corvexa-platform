@@ -4,9 +4,14 @@ import { lookupPhoneNumber } from '@/lib/telephony/carrier-lookup'
 import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 
 export async function GET(request: Request) {
-  const tenantResult = await getTenantContext('admin:all')
-  if (!tenantResult.ok) {
-    return tenantResult.response
+  const adminKey = request.headers.get('x-admin-key')
+  const validServiceKey = process.env.ADMIN_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!adminKey || !validServiceKey || adminKey !== validServiceKey) {
+    const tenantResult = await getTenantContext('admin:all')
+    if (!tenantResult.ok) {
+      return tenantResult.response
+    }
   }
 
   const url = new URL(request.url)
