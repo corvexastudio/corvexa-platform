@@ -55,14 +55,35 @@ export async function POST(request: Request) {
     console.warn('[Account Claim Auth Update Warning]', err.message)
   }
 
-  // Update Profile Row
+  // Update Profile & Organization Rows
   try {
     await supabase
       .from('profiles')
-      .update({ email: rawEmail })
+      .update({
+        email: rawEmail,
+        is_placeholder_email: false
+      })
       .eq('id', user.id)
   } catch (profileErr: any) {
-    console.warn('[Account Claim Profile Update Warning]', profileErr.message)
+    try {
+      await supabase
+        .from('profiles')
+        .update({ email: rawEmail })
+        .eq('id', user.id)
+    } catch {
+      console.warn('[Account Claim Profile Update Warning]', profileErr.message)
+    }
+  }
+
+  try {
+    await supabase
+      .from('organizations')
+      .update({
+        account_claimed_at: new Date().toISOString()
+      })
+      .eq('id', orgId)
+  } catch {
+    // Non-blocking
   }
 
   // Audit Logging

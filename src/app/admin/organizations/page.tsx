@@ -25,7 +25,13 @@ import {
   Sparkles,
   Key,
   Copy,
-  Check
+  Check,
+  Globe,
+  MapPin,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Share2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { TenantHealthSummary } from '@/lib/admin/admin-service'
@@ -36,6 +42,8 @@ export default function AdminOrganizationsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [claimFilter, setClaimFilter] = useState<'all' | 'password_set' | 'opened' | 'unclaimed'>('all')
+  const [copyingClaimOrgId, setCopyingClaimOrgId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [activating10DlcId, setActivating10DlcId] = useState<string | null>(null)
   const [batchActivating, setBatchActivating] = useState(false)
@@ -260,6 +268,24 @@ export default function AdminOrganizationsPage() {
       toast.error('Network error generating claim link')
     } finally {
       setLoadingHandOffKitId(null)
+    }
+  }
+
+  const handleQuickCopyClaim = async (tenant: TenantHealthSummary) => {
+    setCopyingClaimOrgId(tenant.id)
+    try {
+      const res = await fetch(`/api/admin/organizations/${tenant.id}/claim`)
+      const data = await res.json()
+      if (res.ok && data.claimUrl) {
+        await navigator.clipboard.writeText(data.claimUrl)
+        toast.success(`Copied 1-tap claim link for ${tenant.name}!`)
+      } else {
+        toast.error(data.error || 'Failed to generate claim link')
+      }
+    } catch {
+      toast.error('Network error copying claim link')
+    } finally {
+      setCopyingClaimOrgId(null)
     }
   }
 
@@ -591,16 +617,36 @@ export default function AdminOrganizationsPage() {
 
   const pending10DlcCount = tenants.filter(t => t.carrierRegistrationStatus === 'pending' || (t.carrierRegistrationStatus === 'unregistered' && t.legalBusinessName)).length
 
+  // Aggregate Funnel & Traffic Metrics across all loaded organizations
+  const totalTenantsCount = tenants.length
+  const claimedCount = tenants.filter(t => t.claimStatus === 'password_set').length
+  const openedCount = tenants.filter(t => t.claimStatus === 'opened').length
+  const unclaimedCount = tenants.filter(t => t.claimStatus === 'unclaimed').length
+  const claimRatePercent = totalTenantsCount > 0 ? Math.round((claimedCount / totalTenantsCount) * 100) : 0
+  const totalBookingViews = tenants.reduce((acc, t) => acc + (t.bookingViewsCount || 0), 0)
+  const totalBookings = tenants.reduce((acc, t) => acc + (t.bookingsCount || 0), 0)
+  const avgConversion = totalBookingViews > 0 ? (Math.round((totalBookings / totalBookingViews) * 1000) / 10) : 0
+  const totalMaps = tenants.reduce((acc, t) => acc + (t.viewsBySource?.google_maps || 0), 0)
+  const totalWeb = tenants.reduce((acc, t) => acc + (t.viewsBySource?.website || 0), 0)
+  const totalSms = tenants.reduce((acc, t) => acc + (t.viewsBySource?.sms || 0), 0)
+  const totalDirect = tenants.reduce((acc, t) => acc + (t.viewsBySource?.direct || 0) + (t.viewsBySource?.other || 0), 0)
+
+  // Filter organizations by search, sub status, and claim status
+  const filteredTenants = tenants.filter(t => {
+    if (claimFilter !== 'all' && t.claimStatus !== claimFilter) return false
+    return true
+  })
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800/80 pb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Tenant Health & Organizations
+            Tenant Health &amp; Organizations
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Real-time multi-tenant health grades, message delivery integrity, and subscription lifecycles.
+            Real-time multi-tenant health grades, account claim lifecycles, and booking link traffic attribution.
           </p>
         </div>
 
@@ -640,9 +686,79 @@ export default function AdminOrganizationsPage() {
         </div>
       </div>
 
+      {/* Real-time Acquisition & Conversion KPI Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Organizations</span>
+            <Building2 className="h-4 w-4 text-amber-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-white">{totalTenantsCount}</span>
+            <span className="text-xs text-zinc-400">Total Workspaces</span>
+          </div>
+          <div className="mt-2 text-[10px] text-zinc-500 flex items-center gap-1.5">
+            <span>{tenants.filter(t => t.planId === 'free').length} Free</span>
+            <span>•</span>
+            <span>{tenants.filter(t => t.planId?.startsWith('solo')).length} Solo</span>
+            <span>•</span>
+            <span>{tenants.filter(t => t.planId?.startsWith('multi') || t.planId === 'fleet').length} Fleet</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Account Claims</span>
+            <UserCheck className="h-4 w-4 text-emerald-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-emerald-400">{claimRatePercent}%</span>
+            <span className="text-xs text-zinc-400">Claimed ({claimedCount}/{totalTenantsCount})</span>
+          </div>
+          <div className="mt-2 text-[10px] flex items-center gap-1.5 flex-wrap">
+            <span className="text-emerald-400 font-medium">{claimedCount} Active</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-amber-400 font-medium">{openedCount} In-Flight</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-400">{unclaimedCount} Unclaimed</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Booking Link Views</span>
+            <TrendingUp className="h-4 w-4 text-blue-400" />
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-white">{totalBookingViews}</span>
+            <span className="text-xs text-zinc-400">Total Page Views</span>
+          </div>
+          <div className="mt-2 text-[10px] text-zinc-400 flex items-center gap-1.5">
+            <span className="text-emerald-400 font-semibold">{totalBookings} booked</span>
+            <span>({avgConversion}% conversion)</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Traffic Channels</span>
+            <Globe className="h-4 w-4 text-purple-400" />
+          </div>
+          <div className="mt-2 flex items-center gap-1 flex-wrap">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium">📍 Maps: {totalMaps}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium">🌐 Web: {totalWeb}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium">📱 SMS: {totalSms}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-zinc-800 text-zinc-400 border border-zinc-700 font-medium">Direct: {totalDirect}</span>
+          </div>
+          <div className="mt-2 text-[10px] text-zinc-500">
+            Real-time attribution across GBP, web &amp; SMS
+          </div>
+        </div>
+      </div>
+
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-900/60 border border-zinc-800 p-3 rounded-2xl">
-        <div className="relative w-full sm:w-80">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <input
             type="text"
@@ -653,21 +769,47 @@ export default function AdminOrganizationsPage() {
           />
         </div>
 
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto p-1 bg-zinc-950 rounded-xl border border-zinc-800">
-          {['all', 'active', 'trial', 'suspended', 'churned'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${
-                statusFilter === st
-                  ? 'bg-amber-500 text-black shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          {/* Claim Status Filter */}
+          <div className="flex items-center gap-1 overflow-x-auto p-1 bg-zinc-950 rounded-xl border border-zinc-800 text-xs">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase px-2">Claim:</span>
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'password_set', label: '✓ Claimed' },
+              { id: 'opened', label: '⚡ In-Flight' },
+              { id: 'unclaimed', label: '⏳ Unclaimed' }
+            ].map((cf) => (
+              <button
+                key={cf.id}
+                onClick={() => setClaimFilter(cf.id as any)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors ${
+                  claimFilter === cf.id
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {cf.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto p-1 bg-zinc-950 rounded-xl border border-zinc-800 text-xs">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase px-2">Sub:</span>
+            {['all', 'active', 'trial', 'suspended', 'churned'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg capitalize transition-colors ${
+                  statusFilter === st
+                    ? 'bg-amber-500 text-black shadow-sm font-bold'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -678,27 +820,25 @@ export default function AdminOrganizationsPage() {
             <thead className="bg-zinc-950/80 text-zinc-400 uppercase tracking-wider font-mono text-[10px] border-b border-zinc-800">
               <tr>
                 <th className="py-3.5 px-4">Organization</th>
-                <th className="py-3.5 px-4">Health Grade</th>
-                <th className="py-3.5 px-4">Subscription</th>
-                <th className="py-3.5 px-4">10DLC Carrier Brand</th>
-                <th className="py-3.5 px-4">Last Activity</th>
-                <th className="py-3.5 px-4">Messaging Failures</th>
-                <th className="py-3.5 px-4">Automation / Webhooks</th>
-                <th className="py-3.5 px-4">Telnyx Config</th>
+                <th className="py-3.5 px-4">Subscription &amp; Plan</th>
+                <th className="py-3.5 px-4">Account Claim</th>
+                <th className="py-3.5 px-4">Booking Link &amp; Traffic</th>
+                <th className="py-3.5 px-4">10DLC &amp; Telephony</th>
+                <th className="py-3.5 px-4">Health &amp; Activity</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/80 text-zinc-300">
-              {tenants.length === 0 ? (
+              {filteredTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-zinc-500">
+                  <td colSpan={7} className="py-12 text-center text-zinc-500">
                     No tenant organizations match the current filters.
                   </td>
                 </tr>
               ) : (
-                tenants.map((t) => (
+                filteredTenants.map((t) => (
                   <tr key={t.id} className="hover:bg-zinc-800/30 transition-colors">
-                    {/* Name & Slug */}
+                    {/* 1. Name & Slug */}
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-white flex items-center gap-2">
                         <span>{t.name}</span>
@@ -708,47 +848,172 @@ export default function AdminOrganizationsPage() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-zinc-400">/{t.slug} • ${t.monthlyRate}/mo</div>
+                      <div className="text-[11px] text-zinc-400 font-mono">/{t.slug}</div>
+                      <div className="text-[10px] text-zinc-500 mt-0.5">
+                        Added {new Date(t.createdAt).toLocaleDateString()}
+                      </div>
                     </td>
 
-                    {/* Health Grade */}
+                    {/* 2. Subscription & Plan */}
                     <td className="py-3.5 px-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize ${
-                        t.healthGrade === 'healthy'
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                          : t.healthGrade === 'warning'
-                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                          : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
-                      }`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${
-                          t.healthGrade === 'healthy' ? 'bg-emerald-400' : t.healthGrade === 'warning' ? 'bg-amber-400' : 'bg-rose-400'
-                        }`} />
-                        {t.healthGrade}
-                      </span>
+                      <div className="space-y-1.5">
+                        <div>
+                          {t.planId === 'free' ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+                              Free ($0/mo)
+                            </span>
+                          ) : t.planId?.startsWith('solo') ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                              Solo (${t.monthlyRate}/mo)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                              Multi-Crew (${t.monthlyRate}/mo)
+                            </span>
+                          )}
+                        </div>
+
+                        <select
+                          value={t.subscriptionStatus}
+                          disabled={updatingId === t.id}
+                          onChange={(e) => handleStatusChange(t.id, e.target.value)}
+                          className={`text-xs font-semibold rounded-lg px-2.5 py-1 bg-zinc-950 border border-zinc-800 focus:outline-none focus:border-amber-500 transition-colors capitalize ${
+                            t.subscriptionStatus === 'active' ? 'text-emerald-400' :
+                            t.subscriptionStatus === 'trial' ? 'text-blue-400' :
+                            t.subscriptionStatus === 'suspended' ? 'text-amber-400' : 'text-zinc-400'
+                          }`}
+                        >
+                          <option value="active">Active</option>
+                          <option value="trial">Trial</option>
+                          <option value="suspended">Suspended</option>
+                          <option value="churned">Churned</option>
+                        </select>
+                      </div>
                     </td>
 
-                    {/* Subscription Status Selector */}
+                    {/* 3. Account Claim */}
                     <td className="py-3.5 px-4">
-                      <select
-                        value={t.subscriptionStatus}
-                        disabled={updatingId === t.id}
-                        onChange={(e) => handleStatusChange(t.id, e.target.value)}
-                        className={`text-xs font-semibold rounded-lg px-2.5 py-1 bg-zinc-950 border border-zinc-800 focus:outline-none focus:border-amber-500 transition-colors capitalize ${
-                          t.subscriptionStatus === 'active' ? 'text-emerald-400' :
-                          t.subscriptionStatus === 'trial' ? 'text-blue-400' :
-                          t.subscriptionStatus === 'suspended' ? 'text-amber-400' : 'text-zinc-400'
-                        }`}
-                      >
-                        <option value="active">Active</option>
-                        <option value="trial">Trial</option>
-                        <option value="suspended">Suspended</option>
-                        <option value="churned">Churned</option>
-                      </select>
+                      {t.claimStatus === 'password_set' ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            Password Set
+                          </span>
+                          <div className="text-[10px] text-zinc-400">
+                            {t.accountClaimedAt ? `Claimed ${new Date(t.accountClaimedAt).toLocaleDateString()}` : 'Live Account'}
+                          </div>
+                          {(t.ownerPhone || t.ownerEmail) && (
+                            <div className="text-[10px] font-mono text-zinc-300 truncate max-w-[150px]" title={t.ownerPhone || t.ownerEmail || ''}>
+                              {t.ownerPhone || t.ownerEmail}
+                            </div>
+                          )}
+                        </div>
+                      ) : t.claimStatus === 'opened' ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            Claim Opened
+                          </span>
+                          <div className="text-[10px] text-zinc-400">
+                            {t.claimedAt ? `Opened ${new Date(t.claimedAt).toLocaleDateString()}` : 'Link opened'}
+                          </div>
+                          {t.ownerPhone && (
+                            <div className="text-[10px] font-mono text-zinc-300">
+                              {t.ownerPhone}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-400 bg-zinc-800/80 border border-zinc-700/60 px-2 py-0.5 rounded-md">
+                            ⏳ Unclaimed
+                          </span>
+                          {t.ownerPhone && (
+                            <div className="text-[10px] font-mono text-zinc-400">
+                              {t.ownerPhone}
+                            </div>
+                          )}
+                          <div>
+                            <button
+                              onClick={() => handleQuickCopyClaim(t)}
+                              disabled={copyingClaimOrgId === t.id}
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2 py-0.5 rounded border border-sky-500/20 transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Copy 1-tap claim SMS link"
+                            >
+                              {copyingClaimOrgId === t.id ? (
+                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              ) : (
+                                <Copy className="h-2.5 w-2.5" />
+                              )}
+                              <span>{copyingClaimOrgId === t.id ? 'Copying...' : 'Copy Claim Link'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </td>
 
-                    {/* 10DLC Carrier Brand */}
+                    {/* 4. Booking Link & Traffic */}
                     <td className="py-3.5 px-4">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`/book/${t.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-amber-400 hover:text-amber-300 hover:underline"
+                            title="Open live public booking page"
+                          >
+                            <span>/book/{t.slug}</span>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </a>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="font-bold text-white">{t.bookingViewsCount || 0}</span>
+                          <span className="text-[10px] text-zinc-400">views</span>
+                          <span className="text-zinc-600">•</span>
+                          <span className="font-bold text-emerald-400">{t.bookingsCount || 0}</span>
+                          <span className="text-[10px] text-zinc-400">booked</span>
+                          {(t.conversionRate || 0) > 0 && (
+                            <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                              {t.conversionRate}%
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {(t.viewsBySource?.google_maps || 0) > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/20 font-medium" title="Visits from Google Maps / Google Profile">
+                              <MapPin className="h-2 w-2" />
+                              Maps: {t.viewsBySource.google_maps}
+                            </span>
+                          )}
+                          {(t.viewsBySource?.website || 0) > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/20 font-medium" title="Visits from Contractor Website">
+                              <Globe className="h-2 w-2" />
+                              Web: {t.viewsBySource.website}
+                            </span>
+                          )}
+                          {(t.viewsBySource?.sms || 0) > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-medium" title="Visits from SMS Text Back">
+                              📱 SMS: {t.viewsBySource.sms}
+                            </span>
+                          )}
+                          {((t.viewsBySource?.direct || 0) + (t.viewsBySource?.other || 0)) > 0 && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 font-medium" title="Direct visits">
+                              Direct: {(t.viewsBySource?.direct || 0) + (t.viewsBySource?.other || 0)}
+                            </span>
+                          )}
+                          {(t.bookingViewsCount || 0) === 0 && (
+                            <span className="text-[9px] text-zinc-500 italic">No views yet</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 5. 10DLC & Telephony */}
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {t.carrierRegistrationStatus === 'verified' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-md">
@@ -791,58 +1056,9 @@ export default function AdminOrganizationsPage() {
                           )}
                         </div>
 
-                        {t.legalBusinessName && (
-                          <div className="text-[10px] text-zinc-400 truncate max-w-[170px]" title={t.legalBusinessName}>
-                            {t.legalBusinessName} {t.ein ? `• EIN: ${t.ein}` : t.isSoleProprietor ? '• Sole Prop' : ''}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Last Activity */}
-                    <td className="py-3.5 px-4 text-zinc-400">
-                      {t.lastActivity ? (
-                        <div>
-                          <p className="text-zinc-200">{new Date(t.lastActivity).toLocaleDateString()}</p>
-                          <p className="text-[10px] text-zinc-400">{new Date(t.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                      ) : (
-                        <span className="text-zinc-400 italic">No activity</span>
-                      )}
-                    </td>
-
-                    {/* Messaging Failures */}
-                    <td className="py-3.5 px-4">
-                      <span className="text-zinc-200 font-medium">{t.messagesCount} sent</span>
-                      {t.failedMessagesCount > 0 ? (
-                        <span className="text-rose-400 font-bold ml-1.5">({t.failedMessagesCount} failed)</span>
-                      ) : (
-                        <span className="text-emerald-400/80 text-[10px] ml-1.5 font-bold">100% OK</span>
-                      )}
-                    </td>
-
-                    {/* Automation / Webhooks */}
-                    <td className="py-3.5 px-4">
-                      <div className="space-y-0.5">
-                        <span className={t.automationFailuresCount > 0 ? 'text-rose-400 font-bold' : 'text-zinc-400'}>
-                          {t.automationFailuresCount} auto failures
-                        </span>
-                        {t.webhookFailuresCount > 0 && (
-                          <p className="text-purple-400 font-semibold">{t.webhookFailuresCount} webhook errors</p>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Telnyx Config & DID Provisioning */}
-                    <td className="py-3.5 px-4">
-                      <div className="space-y-1.5">
                         {t.phoneProvisioningStatus === 'active' || (t.telnyxNumber && t.phoneProvisioningStatus !== 'failed' && t.phoneProvisioningStatus !== 'provisioning') ? (
                           <div>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                              <CheckCircle2 className="h-2.5 w-2.5" />
-                              DID Active
-                            </span>
-                            <div className="font-mono text-[11px] text-zinc-200 mt-0.5">
+                            <div className="font-mono text-[11px] text-zinc-200">
                               {t.telnyxNumber}
                             </div>
                           </div>
@@ -850,53 +1066,62 @@ export default function AdminOrganizationsPage() {
                           <div>
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-500/15 border border-blue-500/20 px-2 py-0.5 rounded-md">
                               <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                              Provisioning...
+                              Provisioning DID...
                             </span>
-                            <div className="text-[10px] text-zinc-400 mt-0.5">Order in-flight</div>
-                          </div>
-                        ) : t.phoneProvisioningStatus === 'failed' ? (
-                          <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/20 px-2 py-0.5 rounded-md">
-                              <AlertTriangle className="h-2.5 w-2.5" />
-                              DID Failed
-                            </span>
-                            <div>
-                              <button
-                                onClick={() => handleOpenProvisionModal(t)}
-                                disabled={isProvisioning}
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20 transition-colors disabled:opacity-50"
-                                title="Retry phone provisioning"
-                              >
-                                <RefreshCw className="h-2.5 w-2.5" />
-                                <span>Retry DID Provisioning</span>
-                              </button>
-                            </div>
                           </div>
                         ) : (
-                          <div className="space-y-1">
-                            <span className="text-[10px] text-zinc-500 bg-zinc-800/80 px-2 py-0.5 rounded-md inline-block">
-                              Pending Number
-                            </span>
-                            <div>
-                              <button
-                                onClick={() => handleOpenProvisionModal(t)}
-                                disabled={isProvisioning}
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors disabled:opacity-50"
-                                title="Order dedicated Telnyx phone number"
-                              >
-                                <PhoneCall className="h-2.5 w-2.5" />
-                                <span>Order & Provision DID</span>
-                              </button>
-                            </div>
+                          <div>
+                            <button
+                              onClick={() => handleOpenProvisionModal(t)}
+                              disabled={isProvisioning}
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors disabled:opacity-50"
+                              title="Order dedicated Telnyx phone number"
+                            >
+                              <PhoneCall className="h-2.5 w-2.5" />
+                              <span>Order &amp; Provision DID</span>
+                            </button>
                           </div>
                         )}
 
-                        <div className="text-[10px] text-zinc-400">
+                        <div className="text-[10px]">
                           {t.isMissedCallActive ? (
-                            <span className="text-emerald-400/80">Safety Net Active</span>
+                            <span className="text-emerald-400/80 font-medium">Safety Net Active</span>
                           ) : (
                             <span className="text-zinc-500">Engine Paused</span>
                           )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* 6. Health & Activity */}
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-1">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                          t.healthGrade === 'healthy'
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                            : t.healthGrade === 'warning'
+                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                            : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            t.healthGrade === 'healthy' ? 'bg-emerald-400' : t.healthGrade === 'warning' ? 'bg-amber-400' : 'bg-rose-400'
+                          }`} />
+                          {t.healthGrade}
+                        </span>
+
+                        <div className="text-[10px] text-zinc-400">
+                          {t.lastActivity ? (
+                            <span>Active {new Date(t.lastActivity).toLocaleDateString()}</span>
+                          ) : (
+                            <span className="italic">No activity</span>
+                          )}
+                        </div>
+
+                        <div className="text-[10px] text-zinc-400">
+                          <span className="text-zinc-300 font-medium">{t.messagesCount} sent</span>
+                          {t.failedMessagesCount > 0 ? (
+                            <span className="text-rose-400 font-bold ml-1">({t.failedMessagesCount} fail)</span>
+                          ) : null}
                         </div>
                       </div>
                     </td>

@@ -284,7 +284,13 @@ export async function createBooking(
   const manageToken = randomBytes(24).toString('hex')
   const manageUrl = `${appBaseUrl}/book/manage/${manageToken}`
 
-  // 8. Insert Appointment
+  // 8. Insert Appointment with source attribution
+  let effectiveNotes = notes || null
+  if (input.referralCode) {
+    const cleanRef = input.referralCode.trim().toLowerCase()
+    effectiveNotes = effectiveNotes ? `${effectiveNotes}\n[ref:${cleanRef}]` : `[ref:${cleanRef}]`
+  }
+
   const appointmentPayload: Record<string, any> = {
     org_id: orgId,
     contact_id: contactId,
@@ -296,7 +302,7 @@ export async function createBooking(
     status: initialStatus,
     source,
     manage_token: manageToken,
-    notes: notes || null,
+    notes: effectiveNotes,
     confirmed_at: isInstant ? new Date().toISOString() : null
   }
 

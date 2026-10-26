@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateBookingToken } from '@/lib/booking/origin-validator'
+import { recordBookingPageView } from '@/lib/booking/attribution'
 
 export async function GET(
   request: Request,
@@ -35,6 +36,13 @@ export async function GET(
       console.warn('[BOOKING_GET_ORG_NOT_FOUND]', { slug, error: orgError?.message })
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
+
+    // Record page view with traffic source attribution asynchronously (non-blocking)
+    recordBookingPageView(supabase, {
+      orgId: org.id,
+      slug: org.slug,
+      request
+    }).catch(() => {})
 
     // 2. Fetch Active Services
     const { data: services } = await supabase

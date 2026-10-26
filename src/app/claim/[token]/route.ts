@@ -79,6 +79,30 @@ export async function GET(
       })
 
       if (!otpError) {
+        // Record claim milestone timestamp and audit log
+        try {
+          await adminClient
+            .from('organizations')
+            .update({
+              claimed_at: new Date().toISOString()
+            })
+            .eq('id', payload.orgId)
+            .is('claimed_at', null)
+
+          await adminClient.from('activity_logs').insert({
+            org_id: payload.orgId,
+            event_type: 'security.claim_link_opened',
+            description: `Workspace owner opened 1-tap claim link (${payload.email})`,
+            metadata: {
+              user_id: payload.userId,
+              email: payload.email,
+              timestamp: new Date().toISOString()
+            }
+          })
+        } catch (claimLogErr: any) {
+          console.warn('[Claim Log Non-fatal Warning]', claimLogErr?.message)
+        }
+
         const redirectResponse = NextResponse.redirect(new URL('/client/dashboard', origin))
         cookiesToSetOnRedirect.forEach(({ name, value, options }) => {
           redirectResponse.cookies.set(name, value, options)

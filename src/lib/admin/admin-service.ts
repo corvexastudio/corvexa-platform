@@ -57,6 +57,7 @@ export interface TenantHealthSummary {
   name: string
   slug: string
   subscriptionStatus: 'active' | 'trial' | 'suspended' | 'churned'
+  planId?: string
   monthlyRate: number
   telnyxNumber: string | null
   phoneProvisioningStatus?: 'pending_number' | 'provisioning' | 'active' | 'failed' | null
@@ -75,6 +76,23 @@ export interface TenantHealthSummary {
   tcrBrandId: string | null
   tcrCampaignId: string | null
   createdAt: string
+
+  // Claim Tracking & Attribution Fields
+  ownerPhone?: string | null
+  ownerEmail?: string | null
+  claimStatus: 'unclaimed' | 'opened' | 'password_set'
+  claimedAt?: string | null
+  accountClaimedAt?: string | null
+  bookingViewsCount: number
+  bookingsCount: number
+  conversionRate: number
+  viewsBySource: {
+    google_maps: number
+    website: number
+    sms: number
+    direct: number
+    other: number
+  }
 }
 
 export interface EventTimelineItem {
@@ -359,11 +377,14 @@ export async function getTenantHealthList(
   if (!orgs || orgs.length === 0) return []
 
   let msgs: any[] = []
-  const [callsRes, msgsRes, logsRes, runsRes] = await Promise.all([
+  const [callsRes, msgsRes, logsRes, runsRes, apptsRes, profilesRes, viewsRes] = await Promise.all([
     supabase.from('calls').select('org_id, created_at').limit(5000),
     supabase.from('messages').select('org_id, delivery_status, created_at').limit(5000),
-    supabase.from('activity_logs').select('org_id, event_type, created_at').limit(5000),
-    supabase.from('automation_runs').select('org_id, status, created_at').limit(5000)
+    supabase.from('activity_logs').select('org_id, event_type, metadata, created_at').limit(5000),
+    supabase.from('automation_runs').select('org_id, status, created_at').limit(5000),
+    supabase.from('appointments').select('id, org_id, source, notes, created_at').limit(5000),
+    supabase.from('profiles').select('id, org_id, email, phone, role, full_name, is_placeholder_email').limit(2000),
+    supabase.from('booking_link_views').select('id, org_id, source, created_at').limit(10000)
   ])
 
   if (!msgsRes.error && msgsRes.data && msgsRes.data.length > 0) {
@@ -379,6 +400,9 @@ export async function getTenantHealthList(
   const calls = callsRes.data || []
   const logs = logsRes.data || []
   const runs = runsRes.data || []
+  const appts = apptsRes.data || []
+  const profiles = profilesRes.data || []
+  const views = Array.isArray(viewsRes?.data) ? viewsRes.data : []
 
   const results: TenantHealthSummary[] = []
 
@@ -407,20 +431,70 @@ export async function getTenantHealthList(
     }).length
 
     // Aggregate tenant webhook failures
-    const orgLogs = logs.filter((l) => l.org_id === org.id)
-    const webhookFailures = orgLogs.filter((l) =>
+    const orgLogs = logs.filter((l: any) => l.org_id === org.id)
+    const webhookFailures = orgLogs.filter((l: any) =>
       ['webhook.failed', 'telnyx.webhook_error', 'stripe.webhook_error'].includes(l.event_type)
     ).length
 
     // Aggregate tenant automation failures
-    const orgRuns = runs.filter((r) => r.org_id === org.id)
-    const autoFailures = orgRuns.filter((r) => r.status === 'failed' || r.status === 'dead_letter').length
+    const orgRuns = runs.filter((r: any) => r.org_id === org.id)
+    const autoFailures = orgRuns.filter((r: any) => r.status === 'failed' || r.status === 'dead_letter').length
+
+    // Resolve owner profile & claim status
+    const ownerProfile = profiles.find((p: any) => p.org_id === org.id && (p.role === 'owner' || p.role === 'admin')) || profiles.find((p: any) => p.org_id === org.id)
+    const hasAccountClaimed = Boolean(
+      org.account_claimed_at ||
+      orgLogs.some((l: any) => l.event_type === 'security.account_claimed') ||
+      (ownerProfile?.email && !ownerProfile.email.endsWith('@claim.captodesk.com') && ownerProfile.is_placeholder_email === false)
+    )
+    const hasClaimOpened = Boolean(
+      hasAccountClaimed ||
+      org.claimed_at ||
+      orgLogs.some((l: any) => l.event_type === 'security.claim_link_opened')
+    )
+    const claimStatus: 'unclaimed' | 'opened' | 'password_set' = hasAccountClaimed
+      ? 'password_set'
+      : hasClaimOpened
+      ? 'opened'
+      : 'unclaimed'
+
+    // Aggregate booking views & attribution
+    const orgViews = views.filter((v: any) => v.org_id === org.id)
+    const orgLogViews = orgLogs.filter((l: any) => l.event_type === 'booking.page_view')
+    const totalViewsCount = orgViews.length > 0 ? orgViews.length : orgLogViews.length
+
+    const viewsBySource = {
+      google_maps: 0,
+      website: 0,
+      sms: 0,
+      direct: 0,
+      other: 0
+    }
+
+    if (orgViews.length > 0) {
+      for (const v of orgViews) {
+        const s = (v.source || 'other') as keyof typeof viewsBySource
+        if (s in viewsBySource) viewsBySource[s]++
+        else viewsBySource.other++
+      }
+    } else {
+      for (const l of orgLogViews) {
+        const s = (l.metadata?.source || 'other') as keyof typeof viewsBySource
+        if (s in viewsBySource) viewsBySource[s]++
+        else viewsBySource.other++
+      }
+    }
+
+    // Aggregate bookings for this org
+    const orgAppts = appts.filter((a: any) => a.org_id === org.id)
+    const bookingsCount = orgAppts.length
+    const conversionRate = totalViewsCount > 0 ? Math.round((bookingsCount / totalViewsCount) * 1000) / 10 : 0
 
     // Last activity across calls, messages, logs
     const timestamps = [
-      ...calls.filter((c) => c.org_id === org.id).map((c) => c.created_at),
-      ...orgMsgs.map((m) => m.created_at),
-      ...orgLogs.map((l) => l.created_at)
+      ...calls.filter((c: any) => c.org_id === org.id).map((c: any) => c.created_at),
+      ...orgMsgs.map((m: any) => m.created_at),
+      ...orgLogs.map((l: any) => l.created_at)
     ].filter(Boolean)
 
     let lastActivity: string | null = null
@@ -442,6 +516,7 @@ export async function getTenantHealthList(
       name: org.name,
       slug: org.slug,
       subscriptionStatus: normStatus,
+      planId: org.plan_id || 'free',
       monthlyRate: Number(org.monthly_rate) || 99,
       telnyxNumber: org.telnyx_phone_number || null,
       phoneProvisioningStatus: (org.phone_provisioning_status as any) || (org.telnyx_phone_number ? 'active' : 'pending_number'),
@@ -459,7 +534,18 @@ export async function getTenantHealthList(
       isSoleProprietor: Boolean(org.is_sole_proprietor),
       tcrBrandId: org.tcr_brand_id || null,
       tcrCampaignId: org.tcr_campaign_id || null,
-      createdAt: org.created_at
+      createdAt: org.created_at,
+
+      // Attribution & Claim Tracking
+      ownerPhone: org.owner_phone || ownerProfile?.phone || org.phone_number || null,
+      ownerEmail: ownerProfile?.email || null,
+      claimStatus,
+      claimedAt: org.claimed_at || null,
+      accountClaimedAt: org.account_claimed_at || null,
+      bookingViewsCount: totalViewsCount,
+      bookingsCount,
+      conversionRate,
+      viewsBySource
     })
   }
 
