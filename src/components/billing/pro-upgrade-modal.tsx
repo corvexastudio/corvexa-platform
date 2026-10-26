@@ -151,6 +151,12 @@ export function ProUpgradeModal({
               </li>
             </ul>
 
+            {/* Setup Fee Waiver Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>One-Time Setup: <span className="line-through text-slate-400 dark:text-zinc-500">$199.00</span> <strong className="text-emerald-600 dark:text-emerald-400">$0.00 (Waived!)</strong></span>
+            </div>
+
             <Button
               onClick={handleUpgrade}
               disabled={loading}
@@ -208,6 +214,12 @@ export function ProUpgradeModal({
                 <span><strong>Multi-Crew Calendar Dispatch:</strong> Assign jobs by van/crew with automated 7 AM daily routes</span>
               </li>
             </ul>
+
+            {/* Setup Fee Waiver Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>One-Time Setup: <span className="line-through text-slate-400 dark:text-zinc-500">$299.00</span> <strong className="text-emerald-600 dark:text-emerald-400">$0.00 (Waived!)</strong></span>
+            </div>
 
             <Button
               onClick={handleUpgrade}

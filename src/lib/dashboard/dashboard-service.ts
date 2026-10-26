@@ -351,13 +351,17 @@ export async function getAttentionQueue(
     }
   }
 
-  // Process 7: 10DLC Carrier Registration for Paying Members (Missed-Call Text-Back)
+  // Process 7: 10DLC Carrier Registration for Paying Members Only (Missed-Call Text-Back)
+  // Strictly suppressed for Free Booking Link tier ($0/mo) users who do not have a dedicated carrier number.
   if (orgData) {
-    const isPaying = orgData.subscription_status === 'active' || 
-      ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly'].includes(orgData.plan_id || '') ||
-      (Number(orgData.monthly_rate) > 0)
+    const planId = (orgData.plan_id || '').toLowerCase()
+    const isPayingProPlan = 
+      ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly', 'captodesk_standard'].includes(planId) &&
+      ['active', 'trialing'].includes((orgData.subscription_status || '').toLowerCase()) &&
+      planId !== 'free'
+
     const isIncomplete = !orgData.legal_business_name || (!orgData.is_sole_proprietor && !orgData.ein) || !orgData.address_street || orgData.carrier_registration_status === 'unregistered'
-    if (isPaying && isIncomplete) {
+    if (isPayingProPlan && isIncomplete) {
       items.push({
         id: `10dlc-${orgId}`,
         category: 'retention',

@@ -263,7 +263,7 @@ export default function ClientBillingPage() {
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        if (data.checkoutUrl && !data.simulated) {
+        if (data.checkoutUrl) {
           window.location.href = data.checkoutUrl
           return
         }
@@ -388,7 +388,7 @@ export default function ClientBillingPage() {
             </div>
 
             {/* 10DLC Carrier Status Banner for Paying Clients */}
-            {billingData.organization?.carrier_registration_status !== 'verified' && (
+            {!isCurrentFree && billingData.organization?.carrier_registration_status !== 'verified' && (
               <div className="mt-4 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-start gap-2.5">
                   <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
@@ -436,7 +436,9 @@ export default function ClientBillingPage() {
               </div>
               <div className="flex justify-between">
                 <span>Payment Method:</span>
-                <span className="text-slate-900 dark:text-white font-medium">PayPal Subscription</span>
+                <span className="text-slate-900 dark:text-white font-medium">
+                  {sub?.provider === 'stripe' ? 'Stripe (Card / Auto-Renew)' : 'PayPal Subscription (Card or PayPal)'}
+                </span>
               </div>
             </div>
           </div>
@@ -604,13 +606,18 @@ export default function ClientBillingPage() {
                 </p>
               </div>
 
-              <div className="flex items-baseline gap-2 pt-2 border-t border-slate-100 dark:border-zinc-850">
+              <div className="flex items-baseline gap-2 pt-2 border-t border-slate-100 dark:border-zinc-855">
                 <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white font-mono">
                   ${billingCycleToggle === 'monthly' ? '99' : '990'}
                 </span>
                 <span className="text-slate-500 dark:text-zinc-400 text-xs font-medium">
                   / {billingCycleToggle === 'monthly' ? 'month' : 'year (2 Mo Free)'}
                 </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Setup &amp; Carrier Reg: <span className="line-through text-slate-400 dark:text-zinc-500">$199.00</span> <strong className="text-emerald-600 dark:text-emerald-400">$0.00 (Waived!)</strong></span>
               </div>
 
               <div className="space-y-2 text-xs text-slate-700 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-850">
@@ -713,6 +720,11 @@ export default function ClientBillingPage() {
                 <span className="text-slate-500 dark:text-zinc-400 text-xs font-medium">
                   / {billingCycleToggle === 'monthly' ? 'month' : 'year (2 Mo Free)'}
                 </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Setup &amp; Carrier Reg: <span className="line-through text-slate-400 dark:text-zinc-500">$299.00</span> <strong className="text-emerald-600 dark:text-emerald-400">$0.00 (Waived!)</strong></span>
               </div>
 
               <div className="space-y-2 text-xs text-slate-700 dark:text-zinc-200 pt-2 border-t border-slate-100 dark:border-zinc-850">

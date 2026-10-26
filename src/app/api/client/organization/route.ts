@@ -72,16 +72,76 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       weekly_digest_day_of_week,
       weekly_digest_hour,
       last_weekly_digest_sent_at,
+      billing_provider,
+      paypal_subscription_id,
+      paypal_plan_id,
+      external_payment_url,
+      payment_instructions,
+      waive_setup_fee,
       created_at
     `)
     .eq('id', orgId)
     .single()
 
-  if (error || !org) {
-    return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+  let finalOrg: any = org
+  if (error) {
+    // Graceful fallback if migration 53 columns are not yet in remote schema cache
+    const fallbackRes = await supabase
+      .from('organizations')
+      .select(`
+        id,
+        name,
+        slug,
+        owner_phone,
+        telnyx_phone_number,
+        carrier,
+        timezone,
+        google_review_url,
+        auto_reply_template,
+        reactivation_enabled,
+        default_reactivation_interval_days,
+        reactivation_cooldown_days,
+        reactivation_template,
+        reactivation_quiet_hours,
+        reactivation_max_daily,
+        booking_mode,
+        default_duration_minutes,
+        buffer_minutes,
+        minimum_notice_hours,
+        max_booking_days_ahead,
+        blocked_dates,
+        subscription_status,
+        monthly_rate,
+        industry,
+        legal_business_name,
+        business_type,
+        ein,
+        is_sole_proprietor,
+        address_street,
+        address_city,
+        address_state,
+        address_postal_code,
+        website_url,
+        carrier_registration_status,
+        tcr_brand_id,
+        tcr_campaign_id,
+        weekly_digest_enabled,
+        weekly_digest_channels,
+        weekly_digest_day_of_week,
+        weekly_digest_hour,
+        last_weekly_digest_sent_at,
+        created_at
+      `)
+      .eq('id', orgId)
+      .single()
+
+    if (fallbackRes.error || !fallbackRes.data) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+    }
+    finalOrg = fallbackRes.data
   }
 
-  return NextResponse.json({ organization: org })
+  return NextResponse.json({ organization: finalOrg })
 }
 
 export async function PATCH(request: Request, context?: OrganizationRouteContext) {
@@ -121,7 +181,12 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       'tcr_brand_id',
       'tcr_campaign_id',
       'requestedNumber',
-      'telnyxPhoneNumber'
+      'telnyxPhoneNumber',
+      'billing_provider',
+      'paypal_subscription_id',
+      'paypal_plan_id',
+      'paypal_payer_id',
+      'waive_setup_fee'
     ] as const
 
     const attemptedForbiddenKey = FORBIDDEN_BILLING_KEYS.find(k => k in body)
@@ -320,6 +385,19 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       }
     }
 
+    // Direct Homeowner Invoice External Payment URL & Instructions
+    if (typeof body.external_payment_url === 'string') {
+      allowedUpdates.external_payment_url = body.external_payment_url.trim().slice(0, 500) || null
+    } else if (body.external_payment_url === null) {
+      allowedUpdates.external_payment_url = null
+    }
+
+    if (typeof body.payment_instructions === 'string') {
+      allowedUpdates.payment_instructions = body.payment_instructions.trim().slice(0, 2000) || null
+    } else if (body.payment_instructions === null) {
+      allowedUpdates.payment_instructions = null
+    }
+
     // If client submits updated carrier verification fields, update status to pending review
     if (
       body.submit_carrier_verification === true ||
@@ -340,18 +418,20 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       .select()
       .single()
 
-    // Fallback: If column "industry" does not exist in schema (error 42703), retry without it
+    // Fallback: If newer columns do not exist in schema (error 42703), retry without them
     if (
       updateError &&
       (updateError.code === '42703' ||
-        (updateError.message?.toLowerCase().includes('industry') &&
-          updateError.message?.toLowerCase().includes('does not exist')))
+        updateError.message?.toLowerCase().includes('does not exist'))
     ) {
-      const updatesWithoutIndustry = { ...allowedUpdates }
-      delete updatesWithoutIndustry.industry
+      const sanitizedUpdates = { ...allowedUpdates }
+      if (updateError.message?.toLowerCase().includes('industry')) delete sanitizedUpdates.industry
+      if (updateError.message?.toLowerCase().includes('external_payment_url')) delete sanitizedUpdates.external_payment_url
+      if (updateError.message?.toLowerCase().includes('payment_instructions')) delete sanitizedUpdates.payment_instructions
+      
       const retryRes = await supabase
         .from('organizations')
-        .update(updatesWithoutIndustry)
+        .update(sanitizedUpdates)
         .eq('id', orgId)
         .select()
         .single()

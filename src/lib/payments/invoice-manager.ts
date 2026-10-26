@@ -680,7 +680,7 @@ export async function customerViewInvoice(
 ): Promise<{ success: boolean; invoice?: any; items?: any[]; org?: any; error?: string }> {
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
-    .select('*, invoice_items(*), organizations(id, name, owner_phone, timezone)')
+    .select('*, invoice_items(*), organizations(id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions)')
     .eq('manage_token', manageToken)
     .single()
 
@@ -690,8 +690,21 @@ export async function customerViewInvoice(
 
   let org = invoice.organizations
   if (!org && invoice.org_id) {
-    const { data: o } = await supabase.from('organizations').select('id, name, owner_phone, timezone').eq('id', invoice.org_id).single()
-    org = o
+    const { data: o, error: oErr } = await supabase
+      .from('organizations')
+      .select('id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions')
+      .eq('id', invoice.org_id)
+      .single()
+    if (oErr) {
+      const fallback = await supabase
+        .from('organizations')
+        .select('id, name, owner_phone, timezone')
+        .eq('id', invoice.org_id)
+        .single()
+      org = fallback.data
+    } else {
+      org = o
+    }
   }
 
   // Update status to viewed if currently sent

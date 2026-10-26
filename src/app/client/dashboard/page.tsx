@@ -46,15 +46,17 @@ import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { BookingShareBar } from '@/components/booking/booking-share-bar'
 import { PracticeJobCard } from '@/components/jobs/practice-job-card'
+import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgName, orgSlug, subscriptionStatus, planId, role } = useWorkspace()
+  const { orgId, orgName, orgSlug, subscriptionStatus, planId, role } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
   const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
+  const [showFirstBookingModal, setShowFirstBookingModal] = useState(false)
 
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['dashboard', period],
@@ -100,6 +102,36 @@ export default function DashboardPage() {
   const canViewFinancials = data?.permissions?.canViewFinancials ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
   const canViewInvoices = data?.permissions?.canViewInvoices ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
   const canViewQuotes = data?.permissions?.canViewQuotes ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
+
+  // Trigger A: Milestone — Automatically celebrate first customer booking on free tier
+  useEffect(() => {
+    if (isLoading || !data) return
+    const isFree = (planId || '').toLowerCase() === 'free' || (subscriptionStatus || '').toLowerCase() === 'free'
+    if (!isFree) return
+
+    const totalBookings = outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0
+    const bookedCount = data?.trialStatus?.bookedCount ?? 0
+    const effectiveBookings = Math.max(totalBookings, bookedCount)
+
+    if (effectiveBookings >= 1 && orgId) {
+      const storageKey = `captodesk_first_booking_milestone_seen_${orgId}`
+      const hasSeen = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : 'true'
+      if (!hasSeen) {
+        // Subtle 750ms delay to let the dashboard render smoothly before opening
+        const timer = setTimeout(() => {
+          setShowFirstBookingModal(true)
+        }, 750)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [isLoading, data, planId, subscriptionStatus, outcomes, orgId])
+
+  const handleCloseFirstBookingModal = () => {
+    if (orgId && typeof window !== 'undefined') {
+      localStorage.setItem(`captodesk_first_booking_milestone_seen_${orgId}`, 'true')
+    }
+    setShowFirstBookingModal(false)
+  }
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -225,39 +257,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Day-1 Native SMS & Quick Share Booking Link Bar */}
-      <BookingShareBar slug={orgSlug} />
-
-      {/* Free Plan Status & Upgrade Banner */}
-      {(planId === 'free' || subscriptionStatus === 'free') && (
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  Active Plan: Free Booking &amp; Field Organizer ($0/mo)
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/30">
-                  Unlimited Booking
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
-                Your public booking link is 100% free with unmasked customer details. Upgrade to <strong>Solo Pro ($99/mo)</strong> anytime for instant 3-second missed-call text-back and live GPS tracking.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/client/billing"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-bold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer border border-slate-700 dark:border-zinc-700"
-          >
-            <span>View Pricing &amp; Upgrade</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      )}
+      {/* Day-1 Native SMS & Quick Share Booking Link Bar (Unified Command Hub) */}
+      <BookingShareBar
+        slug={orgSlug}
+        showUpgradeCallout={planId === 'free' || subscriptionStatus === 'free'}
+      />
 
       {/* ── Section 1: Needs Attention (Action-First Queue) ── */}
       <section className="space-y-3.5">
@@ -683,6 +687,12 @@ export default function DashboardPage() {
         )}
       </section>
 
+      {/* First Booking Milestone Celebratory Modal */}
+      <FirstBookingCelebrationModal
+        isOpen={showFirstBookingModal}
+        onClose={handleCloseFirstBookingModal}
+        bookingCount={Math.max(outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0, data?.trialStatus?.bookedCount ?? 0, 1)}
+      />
     </div>
   )
 }

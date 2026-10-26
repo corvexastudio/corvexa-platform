@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Link2, Smartphone, PhoneCall, Check, ExternalLink, MapPin, Globe, Share2 } from 'lucide-react'
+import Link from 'next/link'
+import { Link2, Smartphone, PhoneCall, Check, ExternalLink, MapPin, Globe, Share2, Sparkles, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/lib/context/workspace-context'
 
 export interface BookingShareBarProps {
   slug?: string
   className?: string
+  showUpgradeCallout?: boolean
 }
 
-export function BookingShareBar({ slug: propSlug, className = '' }: BookingShareBarProps) {
+export function BookingShareBar({ slug: propSlug, className = '', showUpgradeCallout = false }: BookingShareBarProps) {
   const { orgSlug, orgName } = useWorkspace()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [showChannels, setShowChannels] = useState(false)
@@ -165,6 +167,27 @@ export function BookingShareBar({ slug: propSlug, className = '' }: BookingShare
               <span>{copiedKey === 'website' ? 'Copied' : 'Copy Tagged'}</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {showUpgradeCallout && (
+        <div className="pt-2.5 border-t border-blue-200/60 dark:border-blue-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 items-center justify-center font-bold text-xs shrink-0">
+              <Sparkles className="w-3 h-3" />
+            </span>
+            <p className="text-slate-700 dark:text-zinc-300">
+              <span className="font-semibold text-slate-900 dark:text-white">Active Plan: Free Booking &amp; Field Organizer ($0/mo).</span>{' '}
+              Want automated 3-second text-back when you miss calls in the field?
+            </p>
+          </div>
+          <Link
+            href="/client/billing"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-bold transition-colors shrink-0 self-start sm:self-auto shadow-2xs border border-slate-700 dark:border-zinc-700 cursor-pointer"
+          >
+            <span>Upgrade to Solo Pro ($99/mo)</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       )}
     </div>

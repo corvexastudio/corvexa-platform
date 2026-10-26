@@ -14,7 +14,8 @@ import {
   Calendar,
   DollarSign,
   ArrowRight,
-  Loader2
+  Loader2,
+  ExternalLink
 } from 'lucide-react'
 
 interface InvoiceItem {
@@ -346,38 +347,88 @@ export default function CustomerInvoicePage() {
             </div>
           </div>
 
+          {/* Payment Instructions Card (Zelle / Venmo / Check / Direct) */}
+          {org?.payment_instructions && (
+            <div className="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                <Receipt className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>Payment Instructions</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                {org.payment_instructions}
+              </p>
+            </div>
+          )}
+
           {/* Pay Button / Actions */}
           {!isPaid && !isVoid && (
-            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
+            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
               {payError && (
                 <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 p-3 rounded-lg border border-red-200 dark:border-red-900 text-center">
                   {payError}
                 </p>
               )}
 
-              <button
-                onClick={handlePay}
-                disabled={paying}
-                className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black rounded-xl text-lg flex items-center justify-center gap-3 transition shadow-lg shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
-              >
-                {paying ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Connecting to Stripe...</span>
-                  </>
-                ) : (
-                  <>
+              {/* Option A: Contractor has External Payment Link configured (Square, Venmo, PayPal, etc.) */}
+              {org?.external_payment_url ? (
+                <>
+                  <a
+                    href={org.external_payment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black rounded-xl text-lg flex items-center justify-center gap-3 transition shadow-lg shadow-blue-500/20 cursor-pointer"
+                  >
                     <CreditCard className="w-5 h-5" />
-                    <span>Pay Online with Card / Apple Pay (${Number(invoice.amount_due).toFixed(2)})</span>
+                    <span>Pay Online Now (${Number(invoice.amount_due).toFixed(2)})</span>
                     <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
+                  </a>
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mt-1">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Opens contractor payment checkout in a secure tab</span>
+                  </div>
+                </>
+              ) : org?.stripe_charges_enabled || invoice.stripe_payment_link_url ? (
+                /* Option B: Stripe Connect is active */
+                <>
+                  <button
+                    onClick={handlePay}
+                    disabled={paying}
+                    className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black rounded-xl text-lg flex items-center justify-center gap-3 transition shadow-lg shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+                  >
+                    {paying ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Connecting to Stripe...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-5 h-5" />
+                        <span>Pay Online with Card / Apple Pay (${Number(invoice.amount_due).toFixed(2)})</span>
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
 
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-400 mt-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>Secure 256-bit SSL encrypted checkout powered by Stripe</span>
-              </div>
+                  <div className="flex items-center justify-center gap-2 text-xs text-slate-400 mt-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    <span>Secure 256-bit SSL encrypted checkout powered by Stripe</span>
+                  </div>
+                </>
+              ) : (
+                /* Option C: Direct Offline / Custom Settlement instructions */
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-center space-y-1">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    Payment Upon Service Completion
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    To settle this invoice, please contact {org?.name || 'the service provider'} at{' '}
+                    <a href={`tel:${org?.owner_phone}`} className="underline font-semibold text-blue-600 dark:text-blue-400">
+                      {org?.owner_phone || 'their phone number'}
+                    </a>{' '}
+                    for payment details (Cash, Check, or Direct Transfer).
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

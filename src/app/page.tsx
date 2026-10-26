@@ -528,9 +528,9 @@ export default function LandingPage() {
 
           {/* Setup Fee Transparency Pill */}
           <div className="pt-2">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200">
-              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-              <span><strong>One-Time $199 White-Glove Setup Fee:</strong> Includes custom business DID provisioning, carrier 10DLC TCR compliance registration, and 1-on-1 Zoom call-forwarding setup.</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span><strong>Limited Time Launch Special:</strong> White-glove carrier 10DLC registration &amp; dedicated number setup fee (<span className="line-through text-zinc-400">$199 - $299</span>) is <strong>100% WAIVED ($0.00)</strong> with any Pro plan!</span>
             </div>
           </div>
         </div>
@@ -598,10 +598,10 @@ export default function LandingPage() {
 
             <div className="pt-4 border-t border-zinc-850">
               <Link
-                href="/client/onboarding"
+                href="/client/login?mode=signup&plan=free"
                 className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20"
               >
-                <span>Get Started Free ($0/mo)</span>
+                <span>Start Free — No Card Needed</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -633,11 +633,17 @@ export default function LandingPage() {
                 </span>
                 <span className="text-zinc-400 text-sm font-medium">/ month</span>
               </div>
-              <p className="text-[11px] text-emerald-400 font-mono">
-                {billingCycle === 'monthly'
-                  ? '✓ Standard monthly ($99/mo) + $199 one-time setup'
-                  : '✓ $990 billed yearly (Pay for 10 months, get 2 FREE) + $199 setup'}
-              </p>
+              <div className="flex flex-col gap-1 text-[11px] font-mono">
+                <span className="text-emerald-400">
+                  {billingCycle === 'monthly'
+                    ? '✓ Standard monthly ($99/mo) • Cancel anytime'
+                    : '✓ $990 billed yearly (Pay for 10 months, get 2 FREE)'}
+                </span>
+                <span className="text-emerald-300 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 inline" />
+                  <span>Setup &amp; Carrier Reg: <span className="line-through text-zinc-400">$199.00</span> <strong>$0.00 (Waived!)</strong></span>
+                </span>
+              </div>
 
               <div className="space-y-2.5 text-xs text-zinc-300 pt-2 border-t border-zinc-850">
                 <div className="flex items-center gap-2">
@@ -677,13 +683,13 @@ export default function LandingPage() {
 
             <div className="pt-4 border-t border-zinc-850">
               <Link
-                href="/client/login"
-                className="w-full py-3.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all border border-zinc-700"
+                href={`/client/login?mode=signup&plan=solo&interval=${billingCycle}`}
+                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/20"
               >
                 <span>
                   {billingCycle === 'monthly'
-                    ? 'Get Started with Solo ($99/mo)'
-                    : 'Get Started with Solo ($990/yr — 2 Mo Free)'}
+                    ? 'Subscribe with PayPal or Card — $99/mo'
+                    : 'Subscribe with PayPal or Card — $990/yr'}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
@@ -720,11 +726,17 @@ export default function LandingPage() {
                 </span>
                 <span className="text-zinc-400 text-sm font-medium">/ month</span>
               </div>
-              <p className="text-[11px] text-emerald-400 font-mono">
-                {billingCycle === 'monthly'
-                  ? '✓ Standard monthly ($199/mo) + $199 one-time setup'
-                  : '✓ $1,990 billed yearly (Pay for 10 months, get 2 FREE) + $199 setup'}
-              </p>
+              <div className="flex flex-col gap-1 text-[11px] font-mono">
+                <span className="text-emerald-400">
+                  {billingCycle === 'monthly'
+                    ? '✓ Standard monthly ($199/mo) • Up to 5 Techs'
+                    : '✓ $1,990 billed yearly (Pay for 10 months, get 2 FREE)'}
+                </span>
+                <span className="text-emerald-300 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 inline" />
+                  <span>Setup &amp; Carrier Reg: <span className="line-through text-zinc-400">$299.00</span> <strong>$0.00 (Waived!)</strong></span>
+                </span>
+              </div>
 
               <div className="space-y-2.5 text-xs text-zinc-200 pt-2 border-t border-zinc-850">
                 <div className="flex items-center gap-2">
@@ -764,13 +776,13 @@ export default function LandingPage() {
 
             <div className="pt-4 border-t border-zinc-850">
               <Link
-                href="/client/login"
+                href={`/client/login?mode=signup&plan=fleet&interval=${billingCycle}`}
                 className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
               >
                 <span>
                   {billingCycle === 'monthly'
-                    ? 'Get Started with Multi-Crew ($199/mo)'
-                    : 'Get Started with Multi-Crew ($1,990/yr — 2 Mo Free)'}
+                    ? 'Subscribe with PayPal or Card — $199/mo'
+                    : 'Subscribe with PayPal or Card — $1,990/yr'}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
@@ -779,7 +791,7 @@ export default function LandingPage() {
         </div>
 
         <p className="text-center text-xs text-zinc-500">
-          All plans include 30-day money-back guarantee • $199 one-time setup fee • Keep your existing phone number
+          All plans include 30-day money-back guarantee • Carrier setup fee 100% waived • Keep your existing phone number
         </p>
       </section>
 

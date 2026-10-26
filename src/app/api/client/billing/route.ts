@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
 import { SubscriptionService } from '../../../../lib/billing/subscription-service.ts'
-import { getSaasPlan, SAAS_PLAN_LIST, DEFAULT_SAAS_PLAN_ID } from '../../../../lib/billing/plans.ts'
+import {
+  getSaasPlan,
+  SAAS_PLAN_LIST,
+  DEFAULT_SAAS_PLAN_ID,
+  getStandardSetupFee,
+  getEffectiveSetupFee,
+  getActiveBillingProvider
+} from '../../../../lib/billing/plans.ts'
 import { StripeService } from '../../../../lib/services/stripe-service.ts'
+import { PayPalService } from '../../../../lib/services/paypal-service.ts'
 import { logAuditEvent } from '../../../../lib/security/audit-logger.ts'
 
 export const dynamic = 'force-dynamic'
@@ -24,12 +32,34 @@ export async function GET(request?: Request, context?: BillingRouteContext) {
   let org: any = null
   const { data: orgData, error: orgErr } = await supabase
     .from('organizations')
-    .select('id, name, slug, subscription_status, plan_id, monthly_rate, telnyx_phone_number, carrier_registration_status, legal_business_name, ein, is_sole_proprietor, address_street, address_city, address_state, address_postal_code')
+    .select(`
+      id,
+      name,
+      slug,
+      subscription_status,
+      plan_id,
+      monthly_rate,
+      telnyx_phone_number,
+      carrier_registration_status,
+      legal_business_name,
+      ein,
+      is_sole_proprietor,
+      address_street,
+      address_city,
+      address_state,
+      address_postal_code,
+      billing_provider,
+      paypal_subscription_id,
+      paypal_plan_id,
+      waive_setup_fee,
+      external_payment_url,
+      payment_instructions
+    `)
     .eq('id', orgId)
     .maybeSingle()
 
-  if (orgErr && orgErr.code === '42703') {
-    // Schema fallback if plan_id does not exist in organizations table yet
+  if (orgErr && (orgErr.code === '42703' || orgErr.message?.includes('does not exist'))) {
+    // Schema fallback if newer migration columns are pending
     const retryOrg = await supabase
       .from('organizations')
       .select('id, name, slug, subscription_status, monthly_rate, telnyx_phone_number, carrier_registration_status, legal_business_name, ein, is_sole_proprietor, address_street, address_city, address_state, address_postal_code')
@@ -51,13 +81,26 @@ export async function GET(request?: Request, context?: BillingRouteContext) {
   const currentPlan = getSaasPlan(effectivePlanId)
   const payments = await SubscriptionService.getPaymentHistory(supabase, orgId)
 
+  const activeProvider = org?.billing_provider || getActiveBillingProvider()
+
+  const availablePlansWithFees = SAAS_PLAN_LIST.map((p) => ({
+    ...p,
+    standardSetupFee: getStandardSetupFee(p.id),
+    effectiveSetupFee: getEffectiveSetupFee(p.id, org)
+  }))
+
   return NextResponse.json({
     organization: org,
     subscription,
     entitlement,
-    currentPlan,
-    availablePlans: SAAS_PLAN_LIST,
+    currentPlan: {
+      ...currentPlan,
+      standardSetupFee: getStandardSetupFee(currentPlan.id),
+      effectiveSetupFee: getEffectiveSetupFee(currentPlan.id, org)
+    },
+    availablePlans: availablePlansWithFees,
     payments: payments.slice(0, 20),
+    billingProvider: activeProvider,
     canManageBilling: role === 'owner' || role === 'super_admin'
   })
 }
@@ -73,8 +116,53 @@ export async function POST(request: Request, context?: BillingRouteContext) {
   const action = body.action
 
   if (action === 'cancel') {
-    // Schedule cancellation at end of current period
     const reason = typeof body.reason === 'string' ? body.reason.trim() : 'Customer requested cancellation via portal'
+    
+    // Check if organization is billed through PayPal
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, paypal_subscription_id, billing_provider')
+      .eq('id', orgId)
+      .maybeSingle()
+
+    if (org?.paypal_subscription_id) {
+      await PayPalService.cancelPayPalSubscription(org.paypal_subscription_id, reason)
+
+      // Gracefully transition organization back to Free Booking Link tier
+      const now = new Date().toISOString()
+      await supabase
+        .from('organizations')
+        .update({
+          subscription_status: 'free',
+          plan_id: 'free',
+          monthly_rate: 0,
+          updated_at: now
+        })
+        .eq('id', orgId)
+
+      await supabase
+        .from('saas_subscriptions')
+        .update({
+          status: 'canceled',
+          canceled_at: now,
+          updated_at: now
+        })
+        .eq('org_id', orgId)
+
+      await logAuditEvent(supabase, {
+        org_id: orgId,
+        event_type: 'billing.subscription_canceled',
+        description: `PayPal subscription ${org.paypal_subscription_id} canceled by customer. Returned to Free tier.`,
+        metadata: { actor_id: user.id, reason }
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Your subscription has been canceled. Your account and public booking link remain active on the Free tier.'
+      })
+    }
+
+    // Default Stripe cancellation
     const subscription = await SubscriptionService.cancelSubscription(
       supabase,
       { id: user.id, email: user.email, role: 'owner' },
@@ -106,22 +194,72 @@ export async function POST(request: Request, context?: BillingRouteContext) {
   if (action === 'upgrade_plan' || action === 'switch_tier') {
     const rawTarget = body.targetPlanId || body.tier || 'solo'
     const targetPlan = getSaasPlan(rawTarget)
-    const targetPlanId = targetPlan.id as 'solo' | 'fleet' | 'multi_crew'
+    const targetPlanId = (targetPlan.tier === 'multi_crew' || targetPlan.tier === 'fleet') ? 'multi_crew' : 'solo'
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('id, name, slug')
+      .select('id, name, slug, billing_provider, paypal_subscription_id, waive_setup_fee')
       .eq('id', orgId)
       .maybeSingle()
 
     const subscription = await SubscriptionService.getSubscription(supabase, orgId)
     const stripeSubId = (subscription as any)?.stripe_subscription_id
+    const paypalSubId = org?.paypal_subscription_id || (subscription as any)?.paypal_subscription_id
+    const activeProvider = org?.billing_provider || getActiveBillingProvider()
 
     const reqUrl = new URL(request.url)
     const baseUrl = reqUrl.origin
 
+    // ── PRIMARY FLOW: PayPal Subscriptions (when active provider is PayPal, or PayPal sub exists, or Stripe keys are dormant) ──
+    if (activeProvider === 'paypal' || paypalSubId || (!stripeSubId && !StripeService.isConfigured())) {
+      const returnUrl = `${baseUrl}/client/billing?checkout=paypal_return&plan=${targetPlanId}`
+      const cancelUrl = `${baseUrl}/client/billing?checkout=cancel`
+
+      const payPalResult = await PayPalService.createOrRevisePayPalSubscription({
+        orgId,
+        planTier: targetPlanId,
+        returnUrl,
+        cancelUrl,
+        existingSubscriptionId: paypalSubId,
+        waiveSetupFee: org?.waive_setup_fee !== false
+      })
+
+      if (!payPalResult.success) {
+        return NextResponse.json({ error: payPalResult.error || 'Failed to initialize PayPal subscription checkout.' }, { status: 500 })
+      }
+
+      if (payPalResult.revisedImmediately || payPalResult.simulated) {
+        // Automatically activate locally if revised immediately or simulated
+        await PayPalService.verifyAndActivateSubscription(supabase, {
+          subscriptionId: payPalResult.subscriptionId,
+          orgId,
+          planTier: targetPlanId
+        })
+
+        return NextResponse.json({
+          success: true,
+          upgraded: true,
+          revised: true,
+          simulated: payPalResult.simulated,
+          planId: targetPlan.id,
+          message: `✨ Successfully updated to ${targetPlan.name}!`
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        upgraded: false,
+        approvalUrl: payPalResult.approvalUrl,
+        checkoutUrl: payPalResult.approvalUrl,
+        subscriptionId: payPalResult.subscriptionId,
+        revised: payPalResult.revised,
+        simulated: payPalResult.simulated,
+        planId: targetPlan.id
+      })
+    }
+
+    // ── DORMANT STRIPE FLOW (preserved for later activation without refactoring) ──
     if (stripeSubId) {
-      // Safe in-place Stripe subscription update with proration (no double-billing)
       const updateResult = await StripeService.updateSubscriptionPlan({
         stripeSubscriptionId: stripeSubId,
         targetPlanId,
@@ -168,7 +306,7 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       })
     }
 
-    // Free tier / No Stripe subscription yet -> create Stripe Checkout Session
+    // Stripe Checkout Session fallback
     const checkoutResult = await StripeService.createSaaSCheckoutSession({
       orgId,
       orgSlug: org?.slug || 'contractor',
@@ -179,7 +317,6 @@ export async function POST(request: Request, context?: BillingRouteContext) {
     })
 
     if (checkoutResult.simulated) {
-      // If Stripe keys are not configured or in test simulation mode, auto-activate plan locally
       await supabase.from('saas_subscriptions').upsert({
         org_id: orgId,
         plan_id: targetPlan.id,

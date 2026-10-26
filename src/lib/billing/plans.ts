@@ -10,7 +10,8 @@ export interface SaasPlan {
   amount: number // in currency units (e.g. 99.00 USD)
   currency: string
   billingInterval: 'month' | 'year'
-  setupFee: number // one-time setup and carrier registration fee (e.g. 199.00 USD)
+  setupFee: number // for backwards compatibility
+  standardSetupFee: number // one-time setup and carrier registration fee ($199.00 Solo, $299.00 Fleet)
   maxUsers: number
   tier: 'free' | 'solo' | 'multi_crew' | 'fleet'
   features: string[]
@@ -30,6 +31,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     currency: 'USD',
     billingInterval: 'month',
     setupFee: 0,
+    standardSetupFee: 0,
     maxUsers: 1,
     tier: 'free',
     features: [
@@ -50,6 +52,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     currency: 'USD',
     billingInterval: 'month',
     setupFee: 199.00,
+    standardSetupFee: 199.00,
     maxUsers: 1,
     tier: 'solo',
     features: [
@@ -71,6 +74,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     currency: 'USD',
     billingInterval: 'year',
     setupFee: 199.00,
+    standardSetupFee: 199.00,
     maxUsers: 1,
     tier: 'solo',
     features: [
@@ -92,7 +96,8 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     amount: 199.00,
     currency: 'USD',
     billingInterval: 'month',
-    setupFee: 199.00,
+    setupFee: 299.00,
+    standardSetupFee: 299.00,
     maxUsers: 5,
     tier: 'multi_crew',
     features: [
@@ -113,7 +118,8 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     amount: 1990.00, // 10 months * $199
     currency: 'USD',
     billingInterval: 'year',
-    setupFee: 199.00,
+    setupFee: 299.00,
+    standardSetupFee: 299.00,
     maxUsers: 5,
     tier: 'multi_crew',
     features: [
@@ -137,6 +143,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     currency: 'USD',
     billingInterval: 'month',
     setupFee: 199.00,
+    standardSetupFee: 199.00,
     maxUsers: 1,
     tier: 'solo',
     features: [
@@ -242,4 +249,69 @@ export function calculatePeriodEnd(startDate: Date, intervalMonths: number = 1):
   const end = new Date(startDate.getTime())
   end.setMonth(end.getMonth() + intervalMonths)
   return end
+}
+
+/**
+ * Resolves standard one-time setup fee for a given plan
+ */
+export function getStandardSetupFee(planId: string = 'solo'): number {
+  const plan = getSaasPlan(planId)
+  return plan.standardSetupFee ?? plan.setupFee ?? (plan.tier === 'multi_crew' || plan.tier === 'fleet' ? 299.00 : 199.00)
+}
+
+/**
+ * Returns active system-wide setup fee if enabled via environment flag
+ */
+export function getActiveSetupFee(planId: string = 'solo'): number {
+  const enabled = process.env.NEXT_PUBLIC_ENABLE_SETUP_FEE === 'true'
+  if (!enabled) return 0
+  const plan = getSaasPlan(planId)
+  if (plan.tier === 'free') return 0
+  if (plan.tier === 'multi_crew' || plan.tier === 'fleet') {
+    return Number(process.env.NEXT_PUBLIC_FLEET_SETUP_FEE || 299)
+  }
+  return Number(process.env.NEXT_PUBLIC_SOLO_SETUP_FEE || 199)
+}
+
+/**
+ * Resolves the effective setup fee, evaluating per-organization waivers and upgrade exemptions
+ */
+export function getEffectiveSetupFee(
+  planId: string = 'solo',
+  org?: { waive_setup_fee?: boolean | null; isUpgrade?: boolean; isWaived?: boolean } | null
+): number {
+  const plan = getSaasPlan(planId)
+  if (plan.tier === 'free') return 0
+  if (org?.isUpgrade === true || org?.isWaived === true || org?.waive_setup_fee === true) {
+    return 0
+  }
+  // If explicitly not waived on the organization, apply standard or active setup fee
+  if (org && org.waive_setup_fee === false) {
+    return getActiveSetupFee(planId) || getStandardSetupFee(planId)
+  }
+  // Default: waived to 0 unless NEXT_PUBLIC_ENABLE_SETUP_FEE is explicitly 'true'
+  return getActiveSetupFee(planId)
+}
+
+/**
+ * Resolves the configured PayPal Plan ID for a given tier
+ */
+export function getPayPalPlanId(planTier: 'solo' | 'fleet' | 'multi_crew' | string = 'solo'): string {
+  const normalized = (planTier || '').toLowerCase()
+  if (normalized === 'fleet' || normalized === 'multi_crew' || normalized === 'fleet_monthly' || normalized === 'captodesk_multi_crew') {
+    return process.env.NEXT_PUBLIC_PAYPAL_FLEET_PLAN_ID || 'P-FLEET-199'
+  }
+  return process.env.NEXT_PUBLIC_PAYPAL_SOLO_PLAN_ID || 'P-SOLO-99'
+}
+
+/**
+ * Returns the currently active SaaS billing provider
+ */
+export function getActiveBillingProvider(): 'paypal' | 'stripe' | 'both' {
+  const explicit = (process.env.NEXT_PUBLIC_BILLING_PROVIDER || '').toLowerCase()
+  if (explicit === 'stripe' || explicit === 'both') {
+    return explicit as 'stripe' | 'both'
+  }
+  // Default to PayPal whenever PayPal env vars are present or Stripe keys are absent
+  return 'paypal'
 }

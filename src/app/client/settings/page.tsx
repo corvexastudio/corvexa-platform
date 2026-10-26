@@ -96,7 +96,9 @@ export default function SettingsPage() {
     tcr_campaign_id: '',
     weekly_digest_enabled: true,
     weekly_digest_day_of_week: 1,
-    weekly_digest_hour: 8
+    weekly_digest_hour: 8,
+    external_payment_url: '',
+    payment_instructions: ''
   })
 
   const loadSettings = useCallback(async () => {
@@ -160,7 +162,9 @@ export default function SettingsPage() {
           tcr_campaign_id: org.tcr_campaign_id || '',
           weekly_digest_enabled: org.weekly_digest_enabled ?? true,
           weekly_digest_day_of_week: org.weekly_digest_day_of_week ?? 1,
-          weekly_digest_hour: org.weekly_digest_hour ?? 8
+          weekly_digest_hour: org.weekly_digest_hour ?? 8,
+          external_payment_url: org.external_payment_url || '',
+          payment_instructions: org.payment_instructions || ''
         })
       }
     } catch {
@@ -293,6 +297,8 @@ export default function SettingsPage() {
           weekly_digest_enabled: formData.weekly_digest_enabled,
           weekly_digest_day_of_week: formData.weekly_digest_day_of_week,
           weekly_digest_hour: formData.weekly_digest_hour,
+          external_payment_url: formData.external_payment_url,
+          payment_instructions: formData.payment_instructions,
           submit_carrier_verification: true
         })
       })
@@ -1051,9 +1057,78 @@ export default function SettingsPage() {
             </form>
           )}
 
-          {/* ── Tab 5: Online Payments & Payouts (Stripe Connect) ── */}
+          {/* ── Tab 5: Online Payments & Payouts (Direct Links + Stripe Connect) ── */}
           {settingsTab === 'payments' && (
-            <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+            <div className="space-y-6">
+              {/* Card 1: Direct Homeowner Payment Links & Instructions (Instant setup - no merchant wait) */}
+              <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      Direct Homeowner Payment Links &amp; Instructions
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Get paid immediately by homeowners via Square, Venmo, PayPal, or Zelle on your invoice links without waiting for merchant approval.
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2.5 py-1 rounded-full self-start sm:self-center">
+                    Instant Setup
+                  </span>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      External Payment URL (Square, Venmo, PayPal.me, or Custom Link)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://square.link/u/... or https://paypal.me/yourbusiness"
+                      value={formData.external_payment_url}
+                      onChange={(e) => setFormData({ ...formData, external_payment_url: e.target.value })}
+                      disabled={!canEditSettings}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-850 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                      When provided, customers opening your invoice at <code>/invoice/[token]</code> will see a prominent &ldquo;Pay Online Now&rdquo; button linking directly here.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Direct Payment Instructions (Zelle, Check, Cash, Wire)
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="e.g., Zelle to (512) 555-0199 or billing@yourbiz.com. Checks payable to Your Business LLC. Cash accepted on job site."
+                      value={formData.payment_instructions}
+                      onChange={(e) => setFormData({ ...formData, payment_instructions: e.target.value })}
+                      disabled={!canEditSettings}
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-850 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                      Displayed clearly on the customer&apos;s invoice and tracking screen so homeowners know exactly how to settle their bill.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving || !canEditSettings}
+                      size="sm"
+                      className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold flex items-center gap-1.5 shadow-xs"
+                    >
+                      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      <span>Save Direct Payment Settings</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Stripe Connect (Automated Payouts) */}
+              <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
@@ -1152,7 +1227,8 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
           {/* ── Tab 6: Alerts & Push Notifications ── */}
           {settingsTab === 'notifications' && (
