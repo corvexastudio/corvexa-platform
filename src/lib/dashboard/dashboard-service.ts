@@ -214,9 +214,19 @@ export async function getAttentionQueue(
     Promise.resolve(orgQuery).catch(() => ({ data: null }))
   ])
 
-  const orgData = Array.isArray((rawOrgResult as any)?.data)
+  let orgData = Array.isArray((rawOrgResult as any)?.data)
     ? (rawOrgResult as any).data[0]
     : (rawOrgResult as any)?.data
+
+  // Graceful fallback if migration 51 (plan_id column) is not applied yet
+  if (!orgData && (rawOrgResult as any)?.error?.code === '42703') {
+    const fallbackOrg = await supabase
+      .from('organizations')
+      .select('id, subscription_status, monthly_rate, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+      .eq('id', orgId)
+      .maybeSingle()
+    orgData = fallbackOrg.data
+  }
 
   // Process 1: New Unhandled Leads
   const newLeads = (rawLeads || []).filter((lead: any) => {

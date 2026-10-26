@@ -163,6 +163,7 @@ export async function adminOnboardTenant(
     timezone: input.timezone || 'America/Chicago',
     owner_phone: normCell.e164,
     phone_number: normalizedShopPhone,
+    carrier: input.primaryCarrier || 'other',
     primary_carrier: input.primaryCarrier || 'other',
     google_review_url: input.googleReviewUrl?.trim() || null,
     subscription_status: subscriptionStatus,

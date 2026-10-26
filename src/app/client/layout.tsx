@@ -349,7 +349,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
         // Non-fatal parallel enrichment: organization metadata and unread counts
         try {
-          const [{ data: org }, { count }] = await Promise.all([
+          const [orgRes, { count }] = await Promise.all([
             supabase
               .from('organizations')
               .select('name, slug, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
@@ -361,6 +361,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               .eq('org_id', profile.org_id)
               .gt('unread_count', 0)
           ])
+
+          let org = orgRes.data
+          // Graceful fallback if migration 51 (plan_id column) has not been run yet
+          if (orgRes.error && orgRes.error.code === '42703') {
+            const fallbackRes = await supabase
+              .from('organizations')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+              .eq('id', profile.org_id)
+              .maybeSingle()
+            org = fallbackRes.data
+          }
 
           if (org && isMounted) {
             setOrgName(org.name || 'My Business')
