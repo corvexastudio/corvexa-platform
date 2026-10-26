@@ -29,6 +29,7 @@ export type AuditEventType =
   | 'billing.subscription_canceled'
   | 'billing.subscription_reactivated'
   | 'billing.plan_change_requested'
+  | 'billing.plan_upgraded'
   | 'billing.payment_recorded'
   | 'billing.subscription_expired'
   | 'admin.action_performed'

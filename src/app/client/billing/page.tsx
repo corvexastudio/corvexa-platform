@@ -22,7 +22,9 @@ import {
   MessageSquare,
   DollarSign,
   Loader2,
-  X
+  X,
+  Zap,
+  Truck
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -244,8 +246,38 @@ export default function ClientBillingPage() {
     : null
 
   // Plan matching helper
-  const isCurrentSolo = currentPlanId === 'solo' || currentPlanId === 'solo_yearly' || currentPlanId === 'captodesk_standard'
-  const isCurrentMultiCrew = currentPlanId === 'multi_crew' || currentPlanId === 'multi_crew_yearly'
+  const isCurrentSolo = (currentPlanId === 'solo' || currentPlanId === 'solo_yearly' || currentPlanId === 'captodesk_standard') && billingData.organization.subscription_status === 'active'
+  const isCurrentMultiCrew = (currentPlanId === 'multi_crew' || currentPlanId === 'multi_crew_yearly' || currentPlanId === 'fleet') && billingData.organization.subscription_status === 'active'
+  const isCurrentFree = !isCurrentSolo && !isCurrentMultiCrew
+
+  const handleDirectUpgrade = async (targetPlanId: string) => {
+    setSubmittingChange(true)
+    try {
+      const res = await fetch('/api/client/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upgrade_plan',
+          targetPlanId
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        if (data.checkoutUrl && !data.simulated) {
+          window.location.href = data.checkoutUrl
+          return
+        }
+        toast.success(data.message || '✨ Plan upgraded successfully!')
+        void fetchBilling()
+      } else {
+        toast.error(data.error || 'Failed to update plan.')
+      }
+    } catch {
+      toast.error('Network error upgrading plan.')
+    } finally {
+      setSubmittingChange(false)
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-10 p-4 sm:p-6 lg:p-8 pb-20">
@@ -525,7 +557,7 @@ export default function ClientBillingPage() {
                 <Button disabled className="w-full bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-400 font-bold text-xs cursor-default">
                   Current Plan
                 </Button>
-              ) : (
+              ) : isCurrentMultiCrew ? (
                 <Button
                   onClick={() =>
                     handleOpenChangePlan({
@@ -538,6 +570,15 @@ export default function ClientBillingPage() {
                   className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-xs border border-slate-800 dark:border-zinc-700 shadow-xs cursor-pointer"
                 >
                   Downgrade to Solo (${billingCycleToggle === 'monthly' ? '99/mo' : '990/yr'})
+                </Button>
+              ) : (
+                <Button
+                  disabled={submittingChange}
+                  onClick={() => handleDirectUpgrade(billingCycleToggle === 'monthly' ? 'solo' : 'solo_yearly')}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-600/20 cursor-pointer"
+                >
+                  {submittingChange ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Zap className="w-3.5 h-3.5 mr-1.5 fill-current" />}
+                  <span>⚡ Upgrade to Solo Pro (${billingCycleToggle === 'monthly' ? '99/mo' : '990/yr'})</span>
                 </Button>
               )}
             </div>
@@ -559,7 +600,7 @@ export default function ClientBillingPage() {
                 </span>
                 {isCurrentMultiCrew ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     Current Plan
                   </span>
                 ) : (
@@ -618,19 +659,23 @@ export default function ClientBillingPage() {
                 <Button disabled className="w-full bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-400 font-bold text-xs cursor-default">
                   Current Plan
                 </Button>
-              ) : (
+              ) : isCurrentSolo ? (
                 <Button
-                  onClick={() =>
-                    handleOpenChangePlan({
-                      id: billingCycleToggle === 'monthly' ? 'multi_crew' : 'multi_crew_yearly',
-                      name: 'CaptoDesk Multi-Crew',
-                      amount: billingCycleToggle === 'monthly' ? 199 : 1990,
-                      interval: billingCycleToggle
-                    })
-                  }
+                  disabled={submittingChange}
+                  onClick={() => handleDirectUpgrade(billingCycleToggle === 'monthly' ? 'multi_crew' : 'multi_crew_yearly')}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 cursor-pointer"
                 >
-                  Upgrade to Multi-Crew (${billingCycleToggle === 'monthly' ? '199/mo' : '1,990/yr'})
+                  {submittingChange ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Truck className="w-3.5 h-3.5 mr-1.5" />}
+                  <span>🚀 Upgrade to Fleet — +$100/mo (Prorated)</span>
+                </Button>
+              ) : (
+                <Button
+                  disabled={submittingChange}
+                  onClick={() => handleDirectUpgrade(billingCycleToggle === 'monthly' ? 'multi_crew' : 'multi_crew_yearly')}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 cursor-pointer"
+                >
+                  {submittingChange ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Truck className="w-3.5 h-3.5 mr-1.5" />}
+                  <span>🚀 Upgrade to Team &amp; Fleet Pro (${billingCycleToggle === 'monthly' ? '199/mo' : '1,990/yr'})</span>
                 </Button>
               )}
             </div>

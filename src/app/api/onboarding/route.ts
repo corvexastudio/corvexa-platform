@@ -5,6 +5,7 @@ import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp 
 import { logAuditEvent } from '../../../lib/security/audit-logger.ts'
 import { normalizePhoneToE164 } from '../../../lib/telephony/phone-normalizer.ts'
 import { getIndustryPreset } from '../../../lib/constants/industries.ts'
+import { seedPracticeJobIfMissing } from '../../../lib/jobs/practice-job.ts'
 
 export interface OnboardingRouteContext {
   params?: Promise<Record<string, string | string[] | undefined>>
@@ -365,6 +366,16 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       }
     } catch (svcErr: any) {
       console.warn('[ONBOARDING] Service seeding error:', svcErr?.message)
+    }
+
+    // 5. Seed Sandbox Practice Job (Phase 3.7)
+    try {
+      await seedPracticeJobIfMissing(dbClient, orgId, {
+        ownerPhone: normalizedOwnerPhone,
+        ownerName: businessName
+      })
+    } catch (practiceErr: any) {
+      console.warn('[ONBOARDING] Practice job seeding warning:', practiceErr?.message)
     }
 
     // Requirement 10: Audit Logging

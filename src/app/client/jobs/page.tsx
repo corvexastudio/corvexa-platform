@@ -45,6 +45,12 @@ import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
 import { RecurringPlanModal } from '@/components/jobs/recurring-plan-modal'
 import type { Crew } from '@/lib/crews/crew-manager'
 import { ReassignCrewModal } from '@/components/crews/reassign-crew-modal'
+import { BookingShareBar } from '@/components/booking/booking-share-bar'
+import { PracticeJobCard } from '@/components/jobs/practice-job-card'
+import { isPracticeJob } from '@/lib/jobs/practice-job'
+import { ProUpgradeModal } from '@/components/billing/pro-upgrade-modal'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { isProAutomationEntitled } from '@/lib/billing/plans'
 
 interface JobItem {
   id: string
@@ -122,11 +128,29 @@ function JobsContent() {
   const searchParams = useSearchParams()
   const contactIdParam = searchParams.get('contact_id')
 
+  const { orgName, orgSlug, subscriptionStatus, planId } = useWorkspace()
+  const isProEntitled = isProAutomationEntitled({ subscription_status: subscriptionStatus, plan_id: planId })
+
   const [jobs, setJobs] = useState<JobItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'today' | 'active' | 'completed' | 'all' | 'recurring'>('today')
   const [search, setSearch] = useState('')
+
+  // Pro Upgrade & Practice Job State
+  const [upgradeModalState, setUpgradeModalState] = useState<{
+    isOpen: boolean
+    featureName: string
+    requiredTier: 'solo' | 'fleet'
+    customerPhone?: string | null
+    customerName?: string | null
+    fallbackNativeSmsText?: string | null
+  }>({
+    isOpen: false,
+    featureName: '',
+    requiredTier: 'solo'
+  })
+  const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
 
   // Phase 3 State: Field Photos & Recurring Plans
   const [photoJob, setPhotoJob] = useState<JobItem | null>(null)
@@ -581,6 +605,9 @@ function JobsContent() {
         </div>
       </div>
 
+      {/* Day-1 Native SMS & Quick Share Booking Link Bar */}
+      <BookingShareBar slug={orgSlug} />
+
       {/* Filter Bar & Tabs */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Tabs */}
@@ -797,6 +824,23 @@ function JobsContent() {
       ) : (
         <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800 shadow-xs">
           {filteredJobs.map((job) => {
+            // Handle Sandbox Practice Job Card
+            if (isPracticeJob(job)) {
+              const realJobsCount = jobs.filter(j => !isPracticeJob(j)).length
+              if (realJobsCount > 0 || dismissedPracticeIds.includes(job.id)) {
+                return null
+              }
+              return (
+                <div key={job.id} className="p-3">
+                  <PracticeJobCard
+                    job={job}
+                    currentPlanId={planId}
+                    onDismiss={(id) => setDismissedPracticeIds(prev => [...prev, id])}
+                  />
+                </div>
+              )
+            }
+
             const startDate = new Date(job.scheduled_start)
             const isEnRoute = job.status === 'en_route'
             const isInProgress = job.status === 'in_progress'
@@ -828,6 +872,23 @@ function JobsContent() {
                         {job.title}
                       </h2>
                       {getJobStatusBadge(job.status)}
+
+                      {/* Free Tier Confirmation Only Chip */}
+                      {!isProEntitled && (
+                        <button
+                          type="button"
+                          onClick={() => setUpgradeModalState({
+                            isOpen: true,
+                            featureName: 'Automated 24h SMS Reminders',
+                            requiredTier: 'solo'
+                          })}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                          title="Click to upgrade to automated SMS reminders"
+                        >
+                          <span>⚠️ Web confirmation only</span>
+                          <span className="font-bold text-blue-600 dark:text-blue-400 hidden sm:inline">— [⚡ Auto-Send 24h SMS (Pro)]</span>
+                        </button>
+                      )}
 
                       {/* Crew Badge or Assign Button */}
                       {(() => {
@@ -869,17 +930,27 @@ function JobsContent() {
                         return (
                           <button
                             type="button"
-                            onClick={() => setReassignJobItem({
-                              id: job.id,
-                              type: 'job',
-                              title: job.title,
-                              jobNumber: job.job_number,
-                              startTime: job.scheduled_start,
-                              endTime: job.scheduled_end,
-                              crewId: null,
-                              customerName: job.contact?.name,
-                              customerPhone: job.contact?.phone
-                            })}
+                            onClick={() => {
+                              if (!isProEntitled || planId === 'solo' || planId === 'free') {
+                                setUpgradeModalState({
+                                  isOpen: true,
+                                  featureName: 'Multi-Crew Dispatching & Van Assignment',
+                                  requiredTier: 'fleet'
+                                })
+                              } else {
+                                setReassignJobItem({
+                                  id: job.id,
+                                  type: 'job',
+                                  title: job.title,
+                                  jobNumber: job.job_number,
+                                  startTime: job.scheduled_start,
+                                  endTime: job.scheduled_end,
+                                  crewId: null,
+                                  customerName: job.contact?.name,
+                                  customerPhone: job.contact?.phone
+                                })
+                              }
+                            }}
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 hover:text-blue-600 hover:border-blue-400 transition-colors cursor-pointer"
                             title="Assign crew to this job"
                           >
@@ -935,8 +1006,21 @@ function JobsContent() {
                     {(job.status === 'scheduled' || job.status === 'confirmed') && (
                       <Button
                         size="sm"
-                        onClick={() => setEnRouteJob(job)}
-                        className="h-7.5 px-3 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium shadow-xs"
+                        onClick={() => {
+                          if (!isProEntitled) {
+                            setUpgradeModalState({
+                              isOpen: true,
+                              featureName: "Live 'On My Way' ETA Tracker",
+                              requiredTier: 'solo',
+                              customerPhone: job.contact?.phone,
+                              customerName: job.contact?.name,
+                              fallbackNativeSmsText: `Hi ${job.contact?.name || 'there'}! I'm on my way to your property (ETA: ~25 mins).`
+                            })
+                          } else {
+                            setEnRouteJob(job)
+                          }
+                        }}
+                        className="h-7.5 px-3 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium shadow-xs cursor-pointer"
                       >
                         <Navigation className="h-3 w-3 mr-1" />
                         En Route
@@ -1227,6 +1311,18 @@ function JobsContent() {
         onSuccess={() => {
           loadJobs()
         }}
+      />
+
+      {/* Contextual Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={upgradeModalState.isOpen}
+        onClose={() => setUpgradeModalState(prev => ({ ...prev, isOpen: false }))}
+        featureName={upgradeModalState.featureName}
+        requiredTier={upgradeModalState.requiredTier}
+        customerPhone={upgradeModalState.customerPhone}
+        customerName={upgradeModalState.customerName}
+        fallbackNativeSmsText={upgradeModalState.fallbackNativeSmsText}
+        currentPlanId={planId}
       />
 
     </div>

@@ -8,7 +8,7 @@ import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
 import { formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import type { OwnerNotificationResult } from '../telephony/owner-notifier.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
-import { SubscriptionService } from '../billing/subscription-service.ts'
+import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted } from '../billing/subscription-service.ts'
 
 export interface InboundCallContext {
   callerNumber: string
@@ -204,6 +204,70 @@ export async function processMissedCall(
       console.error('[CONTACT INSERT ERROR]', contactInsertError)
     }
     contact = newContact
+  }
+
+  // 3.4. Strict $0 Free Tier Telecom Guard & TFN Isolation Guard
+  if (!isProAutomationEntitled(org)) {
+    const { data: freeCall } = await supabase.from('calls').insert({
+      org_id: org.id,
+      contact_id: contact?.id,
+      caller_number: formattedCaller,
+      called_number: formattedCalled,
+      status: call.callOutcome.state,
+      duration_seconds: call.callOutcome.durationSeconds,
+      telnyx_call_control_id: call.callControlId,
+      call_session_id: call.callSessionId,
+      call_leg_id: call.callLegId,
+      hangup_cause: call.callOutcome.hangupCause,
+      auto_reply_sent: false,
+      suppression_reason: 'free_tier_no_telecom'
+    }).select('id').maybeSingle()
+
+    if (contact?.id) {
+      await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id, {
+        notes: `Missed call received on Free tier. Phone: ${formattedCaller}. Automated SMS text-back is available on Solo Pro ($99/mo).`
+      })
+    }
+
+    try {
+      await supabase.from('notifications').insert({
+        org_id: org.id,
+        title: 'Missed Call Received (Free Tier)',
+        message: `You missed a call from ${formattedCaller}. Customer details saved in Leads. Upgrade to Solo Pro ($99/mo) to enable instant 8-second AI missed-call recovery text-back.`,
+        link: '/client/leads'
+      })
+    } catch {
+      // Non-fatal
+    }
+
+    await notifyOwner(supabase, {
+      event: 'missed_call_recovered',
+      organizationId: org.id,
+      data: {
+        title: 'Missed Call Received',
+        body: `You missed a call from ${formattedCaller}. Customer contact saved to Leads.`,
+        targetUrl: '/client/leads',
+        callerPhone: formattedCaller,
+        calledPhone: formattedCalled
+      }
+    }).catch(() => {})
+
+    return {
+      success: true,
+      action: 'suppressed_free_tier',
+      suppressionReason: 'free_tier_no_telecom',
+      orgId: org.id,
+      callId: freeCall?.id
+    }
+  }
+
+  if (!call.sendSmsFn && isTollFreeNumberRestricted(formattedCalled, org)) {
+    return {
+      success: true,
+      action: 'suppressed_tfn_demo_isolation',
+      suppressionReason: 'tfn_demo_isolation',
+      orgId: org.id
+    }
   }
 
   // 3.5. Evaluate Trial Quota & Outbound Safety Limits (BILL-001)

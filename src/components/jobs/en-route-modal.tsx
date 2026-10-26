@@ -227,6 +227,18 @@ export function EnRouteModal({
             <div className="p-2.5 rounded-lg bg-slate-100/80 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-700 dark:text-zinc-300 font-mono leading-relaxed break-all break-words max-h-24 overflow-y-auto select-all">
               "{smsPreview}"
             </div>
+            {job.contact?.phone && (
+              <div className="pt-1 flex justify-end">
+                <a
+                  href={`sms:${job.contact.phone.replace(/\D/g, '')}?&body=${encodeURIComponent(smsPreview)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                >
+                  <span>📱 Or send free native SMS from your phone</span>
+                </a>
+              </div>
+            )}
           </div>
         )}
       </form>

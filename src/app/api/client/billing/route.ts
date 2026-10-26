@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
 import { SubscriptionService } from '../../../../lib/billing/subscription-service.ts'
 import { getSaasPlan, SAAS_PLAN_LIST, DEFAULT_SAAS_PLAN_ID } from '../../../../lib/billing/plans.ts'
+import { StripeService } from '../../../../lib/services/stripe-service.ts'
 import { logAuditEvent } from '../../../../lib/security/audit-logger.ts'
 
 export const dynamic = 'force-dynamic'
@@ -85,6 +86,108 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       success: true,
       message: 'Subscription successfully reactivated. Your recurring plan remains active.',
       subscription
+    })
+  }
+
+  if (action === 'upgrade_plan' || action === 'switch_tier') {
+    const rawTarget = body.targetPlanId || body.tier || 'solo'
+    const targetPlan = getSaasPlan(rawTarget)
+    const targetPlanId = targetPlan.id as 'solo' | 'fleet' | 'multi_crew'
+
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, name, slug')
+      .eq('id', orgId)
+      .maybeSingle()
+
+    const subscription = await SubscriptionService.getSubscription(supabase, orgId)
+    const stripeSubId = (subscription as any)?.stripe_subscription_id
+
+    const reqUrl = new URL(request.url)
+    const baseUrl = reqUrl.origin
+
+    if (stripeSubId) {
+      // Safe in-place Stripe subscription update with proration (no double-billing)
+      const updateResult = await StripeService.updateSubscriptionPlan({
+        stripeSubscriptionId: stripeSubId,
+        targetPlanId,
+        customStripeClient: (context?.customSupabase as any)?.stripeClient
+      })
+
+      if (!updateResult.success && !updateResult.simulated) {
+        return NextResponse.json({ error: updateResult.error || 'Failed to update subscription in Stripe' }, { status: 500 })
+      }
+
+      await supabase.from('saas_subscriptions').upsert({
+        org_id: orgId,
+        plan_id: targetPlan.id,
+        amount: targetPlan.amount,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'org_id' })
+
+      await supabase.from('organizations').update({
+        plan_id: targetPlan.id,
+        subscription_status: 'active',
+        monthly_rate: targetPlan.amount,
+        updated_at: new Date().toISOString()
+      }).eq('id', orgId)
+
+      await logAuditEvent(supabase, {
+        org_id: orgId,
+        event_type: 'billing.plan_upgraded',
+        description: `Plan upgraded to ${targetPlan.name} with proration`,
+        metadata: {
+          actor_id: user.id,
+          stripe_subscription_id: stripeSubId,
+          target_plan_id: targetPlan.id,
+          amount: targetPlan.amount
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        upgraded: true,
+        proration: true,
+        planId: targetPlan.id,
+        message: `Your subscription has been prorated and upgraded to ${targetPlan.name}!`
+      })
+    }
+
+    // Free tier / No Stripe subscription yet -> create Stripe Checkout Session
+    const checkoutResult = await StripeService.createSaaSCheckoutSession({
+      orgId,
+      orgSlug: org?.slug || 'contractor',
+      customerEmail: user.email || undefined,
+      planId: targetPlanId,
+      baseUrl,
+      customStripeClient: (context?.customSupabase as any)?.stripeClient
+    })
+
+    if (checkoutResult.simulated) {
+      // If Stripe keys are not configured or in test simulation mode, auto-activate plan locally
+      await supabase.from('saas_subscriptions').upsert({
+        org_id: orgId,
+        plan_id: targetPlan.id,
+        amount: targetPlan.amount,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'org_id' })
+
+      await supabase.from('organizations').update({
+        plan_id: targetPlan.id,
+        subscription_status: 'active',
+        monthly_rate: targetPlan.amount,
+        updated_at: new Date().toISOString()
+      }).eq('id', orgId)
+    }
+
+    return NextResponse.json({
+      success: true,
+      upgraded: Boolean(checkoutResult.simulated),
+      checkoutUrl: checkoutResult.checkoutUrl,
+      simulated: checkoutResult.simulated,
+      planId: targetPlan.id
     })
   }
 

@@ -44,13 +44,17 @@ import {
 } from '@/lib/dashboard/dashboard-service'
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
+import { BookingShareBar } from '@/components/booking/booking-share-bar'
+import { PracticeJobCard } from '@/components/jobs/practice-job-card'
+import { isPracticeJob } from '@/lib/jobs/practice-job'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgName, role } = useWorkspace()
+  const { orgName, orgSlug, subscriptionStatus, planId, role } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
+  const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
 
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['dashboard', period],
@@ -221,6 +225,9 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Day-1 Native SMS & Quick Share Booking Link Bar */}
+      <BookingShareBar slug={orgSlug} />
+
       {/* ── Section 1: Needs Attention (Action-First Queue) ── */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between">
@@ -351,7 +358,32 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-2.5">
-              {jobsToday.map((job) => (
+              {jobsToday.map((job) => {
+                if (isPracticeJob(job)) {
+                  const realJobsCount = jobsToday.filter(j => !isPracticeJob(j)).length
+                  if (realJobsCount > 0 || dismissedPracticeIds.includes(job.id)) {
+                    return null
+                  }
+                  return (
+                    <PracticeJobCard
+                      key={job.id}
+                      job={{
+                        id: job.id,
+                        title: job.title,
+                        status: job.status,
+                        contact: {
+                          name: job.customerName,
+                          phone: '+1 (555) 019-9999',
+                          address: job.address
+                        }
+                      }}
+                      currentPlanId={planId}
+                      onDismiss={(id) => setDismissedPracticeIds(prev => [...prev, id])}
+                    />
+                  )
+                }
+
+                return (
                 <div
                   key={job.id}
                   className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-zinc-700 transition-all"
@@ -400,7 +432,8 @@ export default function DashboardPage() {
                     </Link>
                   </div>
                 </div>
-              ))}
+              )
+            })}
             </div>
           )}
         </div>

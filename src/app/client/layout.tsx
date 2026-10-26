@@ -162,8 +162,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = rawPathname || ''
   const [unreadTotal, setUnreadTotal] = useState(0)
   const [orgName, setOrgName] = useState<string>('')
+  const [orgSlug, setOrgSlug] = useState<string>('')
   const [orgPhone, setOrgPhone] = useState<string>('')
   const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>('free')
+  const [planId, setPlanId] = useState<string | null>('free')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [orgId, setOrgId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -349,7 +352,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           const [{ data: org }, { count }] = await Promise.all([
             supabase
               .from('organizations')
-              .select('name, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
               .eq('id', profile.org_id)
               .maybeSingle(),
             supabase
@@ -361,8 +364,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           if (org && isMounted) {
             setOrgName(org.name || 'My Business')
+            if (org.slug) setOrgSlug(org.slug)
             setOrgPhone(org.telnyx_phone_number || '')
             if (org.timezone) setOrgTimezone(org.timezone)
+            if (org.subscription_status) setSubscriptionStatus(org.subscription_status)
+            if (org.plan_id) setPlanId(org.plan_id)
 
             const isPaying = org.subscription_status === 'active' || ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly'].includes(org.plan_id || '')
             const isIncomplete10Dlc = !org.legal_business_name || (!org.is_sole_proprietor && !org.ein) || !org.address_street || org.carrier_registration_status === 'unregistered'
@@ -464,8 +470,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const workspaceValue: WorkspaceContextValue = {
     orgId,
     orgName,
+    orgSlug,
     orgPhone,
     orgTimezone,
+    subscriptionStatus,
+    planId,
     isSuperAdmin,
     role,
     userId,

@@ -32,10 +32,17 @@ import {
 import { toast } from 'sonner'
 import { CrewModal } from '@/components/crews/crew-modal'
 import type { Crew, CrewPerformanceMetric } from '@/lib/crews/crew-manager'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { ProUpgradeModal } from '@/components/billing/pro-upgrade-modal'
 import { cn } from '@/lib/utils'
 
 export default function TeamPage() {
   const supabase = createClient()
+  const { planId, subscriptionStatus } = useWorkspace()
+  const isFleetEntitled = ['fleet', 'multi_crew', 'multi_crew_yearly', 'fleet_monthly', 'fleet_yearly'].includes((planId || '').toLowerCase()) && subscriptionStatus === 'active'
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeFeature, setUpgradeFeature] = useState('Staff & Crew Management')
+
   const [activeTab, setActiveTab] = useState<'members' | 'crews'>('members')
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -309,14 +316,30 @@ export default function TeamPage() {
               <Button
                 size="sm"
                 onClick={() => {
+                  if (!isFleetEntitled) {
+                    setUpgradeFeature('Multi-Crew Dispatch & Van Assignment')
+                    setShowUpgradeModal(true)
+                    return
+                  }
                   setEditingCrew(null)
                   setShowCrewModal(true)
                 }}
-                className="h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs"
+                className="h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs cursor-pointer"
               >
                 <Plus className="mr-1.5 h-4 w-4" /> Add Crew / Van
               </Button>
             </>
+          ) : !isFleetEntitled ? (
+            <Button
+              size="sm"
+              onClick={() => {
+                setUpgradeFeature('Staff & Dispatcher Seats')
+                setShowUpgradeModal(true)
+              }}
+              className="h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs w-full sm:w-auto cursor-pointer"
+            >
+              <UserPlus className="mr-2 h-4 w-4" /> Invite Member
+            </Button>
           ) : (
             <Dialog open={open} onOpenChange={setOpen}>
               {/* @ts-ignore */}
@@ -885,6 +908,15 @@ export default function TeamPage() {
         onSuccess={() => {
           fetchCrews()
         }}
+      />
+
+      {/* Contextual Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName={upgradeFeature}
+        requiredTier="fleet"
+        currentPlanId={planId}
       />
     </div>
   )

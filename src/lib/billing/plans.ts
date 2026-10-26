@@ -12,14 +12,36 @@ export interface SaasPlan {
   billingInterval: 'month' | 'year'
   setupFee: number // one-time setup and carrier registration fee (e.g. 199.00 USD)
   maxUsers: number
-  tier: 'solo' | 'multi_crew'
+  tier: 'free' | 'solo' | 'multi_crew' | 'fleet'
   features: string[]
 }
 
 export const DEFAULT_SAAS_PLAN_ID = 'captodesk_standard'
 export const DEFAULT_SETUP_FEE = 199.00
+export const DEMO_TOLL_FREE_NUMBER = '+18777713802'
+export const DEMO_ORG_ID = '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7'
 
 export const SAAS_PLANS: Record<string, SaasPlan> = {
+  free: {
+    id: 'free',
+    name: 'CaptoDesk Free',
+    description: 'Free Online Booking & Field Organizer. Unlimited customer bookings, scheduling & customer management.',
+    amount: 0,
+    currency: 'USD',
+    billingInterval: 'month',
+    setupFee: 0,
+    maxUsers: 1,
+    tier: 'free',
+    features: [
+      'Unlimited public web bookings (/book/[slug])',
+      'Full unmasked customer contact info',
+      'Calendar & Job scheduling',
+      'Customer CRM & Service catalog',
+      'Before & After job photos',
+      'Browser web push & in-app alerts',
+      'Native 1-tap phone SMS sharing (free)'
+    ]
+  },
   solo: {
     id: 'solo',
     name: 'CaptoDesk Solo',
@@ -129,6 +151,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
 }
 
 export const SAAS_PLAN_LIST: SaasPlan[] = [
+  SAAS_PLANS.free,
   SAAS_PLANS.solo,
   SAAS_PLANS.solo_yearly,
   SAAS_PLANS.multi_crew,
@@ -136,19 +159,23 @@ export const SAAS_PLAN_LIST: SaasPlan[] = [
 ]
 
 /**
- * Resolves a plan by identifier, falling back to default standard/solo plan.
+ * Resolves a plan by identifier, falling back to default plan.
  */
 export function getSaasPlan(planId: string = DEFAULT_SAAS_PLAN_ID): SaasPlan {
-  if (planId === 'solo' || planId === 'captodesk_solo') {
+  const normalized = (planId || '').toLowerCase()
+  if (normalized === 'free' || normalized === 'trial_free' || normalized === 'standard_free') {
+    return SAAS_PLANS.free
+  }
+  if (normalized === 'solo' || normalized === 'captodesk_solo') {
     return SAAS_PLANS.solo
   }
-  if (planId === 'solo_yearly' || planId === 'captodesk_solo_yearly') {
+  if (normalized === 'solo_yearly' || normalized === 'captodesk_solo_yearly') {
     return SAAS_PLANS.solo_yearly
   }
-  if (planId === 'multi_crew' || planId === 'captodesk_multi_crew' || planId === 'fleet') {
+  if (normalized === 'multi_crew' || normalized === 'captodesk_multi_crew' || normalized === 'fleet' || normalized === 'fleet_monthly') {
     return SAAS_PLANS.multi_crew
   }
-  if (planId === 'multi_crew_yearly' || planId === 'captodesk_multi_crew_yearly') {
+  if (normalized === 'multi_crew_yearly' || normalized === 'captodesk_multi_crew_yearly' || normalized === 'fleet_yearly') {
     return SAAS_PLANS.multi_crew_yearly
   }
   const plan = SAAS_PLANS[planId]
@@ -156,6 +183,47 @@ export function getSaasPlan(planId: string = DEFAULT_SAAS_PLAN_ID): SaasPlan {
     return SAAS_PLANS.captodesk_standard
   }
   return plan
+}
+
+/**
+ * Checks whether an organization is entitled to Pro outbound telecom automation
+ * (missed-call recovery text-back, automated SMS confirmations, 24h SMS reminders, en route ETA SMS, review SMS).
+ * Returns false on the free tier ($0/mo) and expired/inactive accounts.
+ */
+export function isProAutomationEntitled(org: {
+  subscription_status?: string | null
+  plan_id?: string | null
+} | null | undefined): boolean {
+  if (!org) return false
+  const planId = (org.plan_id || '').toLowerCase()
+  if (planId === 'free' || planId === 'trial_free' || planId === 'standard_free') {
+    return false
+  }
+  const status = (org.subscription_status ?? 'active').toLowerCase()
+  if (status === 'free' || status === 'canceled' || status === 'expired' || status === 'past_due') {
+    return false
+  }
+  return status === 'active' || status === 'trial'
+}
+
+/**
+ * Demo Toll-Free Number Isolation Guard
+ * The platform demo TFN (+18777713802) must NEVER be used to send real customer SMS for client orgs.
+ * It is strictly isolated to the Demo tenant (org.slug === 'demo' or DEMO_ORG_ID).
+ */
+export function isTollFreeNumberRestricted(
+  senderPhone: string,
+  org: { id?: string | null; slug?: string | null } | null | undefined
+): boolean {
+  if (!senderPhone) return false
+  const cleanSender = senderPhone.replace(/\D/g, '')
+  const cleanTfn = DEMO_TOLL_FREE_NUMBER.replace(/\D/g, '')
+  if (cleanSender === cleanTfn || cleanSender === '8777713802') {
+    if (!org) return true
+    const isDemo = org.id === DEMO_ORG_ID || (typeof org.slug === 'string' && org.slug.toLowerCase().includes('demo'))
+    return !isDemo
+  }
+  return false
 }
 
 /**

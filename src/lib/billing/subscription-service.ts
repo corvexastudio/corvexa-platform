@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getSaasPlan, calculatePeriodEnd, DEFAULT_SAAS_PLAN_ID } from './plans.ts'
+import { getSaasPlan, calculatePeriodEnd, DEFAULT_SAAS_PLAN_ID, isProAutomationEntitled, isTollFreeNumberRestricted } from './plans.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
 import type { SaasSubscription, SaasPayment, SaasSubscriptionStatus } from '../types/database.ts'
 
@@ -897,3 +897,5 @@ export async function evaluateTrialQuota(
 ): Promise<TrialQuotaResult> {
   return SubscriptionService.evaluateTrialQuota(supabase, orgId)
 }
+
+export { isProAutomationEntitled, isTollFreeNumberRestricted }

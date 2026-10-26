@@ -5,8 +5,11 @@ import React, { createContext, useContext } from 'react'
 export interface WorkspaceContextValue {
   orgId: string | null
   orgName: string
+  orgSlug: string
   orgPhone: string
   orgTimezone: string
+  subscriptionStatus: string | null
+  planId: string | null
   isSuperAdmin: boolean
   role: string | null
   userId: string | null
@@ -18,8 +21,11 @@ export interface WorkspaceContextValue {
 export const WorkspaceContext = createContext<WorkspaceContextValue>({
   orgId: null,
   orgName: '',
+  orgSlug: '',
   orgPhone: '',
   orgTimezone: 'America/Chicago',
+  subscriptionStatus: 'free',
+  planId: 'free',
   isSuperAdmin: false,
   role: null,
   userId: null,

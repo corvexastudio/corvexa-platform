@@ -16,7 +16,7 @@ import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
 import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
-import { SubscriptionService } from '../billing/subscription-service.ts'
+import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted } from '../billing/subscription-service.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -432,46 +432,96 @@ export async function createBooking(
     confirmationText += `\n\nExperience the Live Owner Dashboard (no login required): ${appUrl}/demo`
   }
 
-  // 10. Check Trial Quota Safety: evaluate if outbound SMS should be paused (BILL-001)
-  const trialQuota = await SubscriptionService.evaluateTrialQuota(supabase, orgId)
-  const isTrialLimitReached = trialQuota.isTrial && trialQuota.isExceeded
+  // 10. Check Telecom Entitlement ($0 Free Tier Guard & BILL-001 Trial Limits)
+  const isEntitled = isProAutomationEntitled(org)
+  const isTfnRestricted = senderNumber ? isTollFreeNumberRestricted(senderNumber, org) : false
 
-  if (isTrialLimitReached) {
-    // Log suppression audit
+  if (!isEntitled) {
+    // Free Tier Guard: strictly $0 telecom cost. Skip Telnyx SMS confirmation.
     await logComplianceAudit(supabase, {
       orgId,
       phone: normalizedPhone.e164,
       contactId: contactId || undefined,
       action: 'message_suppressed',
       messageType: 'transactional',
-      reason: 'trial_limit_reached'
+      reason: 'free_tier_no_telecom'
     })
 
-    // Surface contractor in-app warning notification
+    // Surface contractor in-app notification with unmasked customer details
     try {
       await supabase.from('notifications').insert({
         org_id: orgId,
-        title: 'Trial Quota Reached — Outbound SMS Paused',
-        message: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
-        link: '/client/billing'
+        title: 'New Online Booking Received',
+        message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. Automated SMS confirmation is a Pro feature ($99/mo).`,
+        link: '/client/jobs'
       })
     } catch {
       // Non-fatal
     }
 
     await notifyOwner(supabase, {
-      event: 'system_action_required',
+      event: 'new_booking',
       organizationId: orgId,
       data: {
-        title: 'Trial Quota Reached — Outbound SMS Paused',
-        body: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
-        targetUrl: '/client/billing',
+        title: 'New Online Booking Received',
+        body: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}.`,
+        targetUrl: '/client/jobs',
         customerName,
         customerPhone: normalizedPhone.e164,
         appointmentId: appointment.id
       }
     }).catch(() => {})
-  } else if (senderNumber) {
+  } else if (isTfnRestricted) {
+    // Toll-Free Number (+18777713802) is strictly isolated to Demo tenant
+    await logComplianceAudit(supabase, {
+      orgId,
+      phone: normalizedPhone.e164,
+      contactId: contactId || undefined,
+      action: 'message_suppressed',
+      messageType: 'transactional',
+      reason: 'tfn_demo_isolation'
+    })
+  } else {
+    // Check Trial Quota Safety: evaluate if outbound SMS should be paused (BILL-001)
+    const trialQuota = await SubscriptionService.evaluateTrialQuota(supabase, orgId)
+    const isTrialLimitReached = trialQuota.isTrial && trialQuota.isExceeded
+
+    if (isTrialLimitReached) {
+      // Log suppression audit
+      await logComplianceAudit(supabase, {
+        orgId,
+        phone: normalizedPhone.e164,
+        contactId: contactId || undefined,
+        action: 'message_suppressed',
+        messageType: 'transactional',
+        reason: 'trial_limit_reached'
+      })
+
+      // Surface contractor in-app warning notification
+      try {
+        await supabase.from('notifications').insert({
+          org_id: orgId,
+          title: 'Trial Quota Reached — Outbound SMS Paused',
+          message: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
+          link: '/client/billing'
+        })
+      } catch {
+        // Non-fatal
+      }
+
+      await notifyOwner(supabase, {
+        event: 'system_action_required',
+        organizationId: orgId,
+        data: {
+          title: 'Trial Quota Reached — Outbound SMS Paused',
+          body: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
+          targetUrl: '/client/billing',
+          customerName,
+          customerPhone: normalizedPhone.e164,
+          appointmentId: appointment.id
+        }
+      }).catch(() => {})
+    } else if (senderNumber) {
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,
       toPhone: normalizedPhone.e164,
@@ -549,19 +599,20 @@ export async function createBooking(
     }
   }
 
-  // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed
-  if (isInstant && senderNumber && !isTrialLimitReached) {
-    await scheduleAppointmentReminders(supabase, {
-      appointmentId: appointment.id,
-      orgId,
-      orgName: org.name,
-      senderNumber: senderNumber,
-      customerPhone: normalizedPhone.e164,
-      serviceName: activeService.name,
-      startTime,
-      displayTime,
-      manageUrl
-    })
+    // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed
+    if (isInstant && senderNumber && !isTrialLimitReached) {
+      await scheduleAppointmentReminders(supabase, {
+        appointmentId: appointment.id,
+        orgId,
+        orgName: org.name,
+        senderNumber: senderNumber,
+        customerPhone: normalizedPhone.e164,
+        serviceName: activeService.name,
+        startTime,
+        displayTime,
+        manageUrl
+      })
+    }
   }
 
   // 12. Dispatch Owner Notification (Push + SMS via Notification Platform)

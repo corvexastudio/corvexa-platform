@@ -23,9 +23,17 @@ import {
   Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { ProUpgradeModal } from '@/components/billing/pro-upgrade-modal'
+import { isProAutomationEntitled } from '@/lib/billing/plans'
 
 export default function AutomationsPage() {
   const supabase = createClient()
+  const { planId, subscriptionStatus } = useWorkspace()
+  const isProEntitled = isProAutomationEntitled({ subscription_status: subscriptionStatus, plan_id: planId })
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeFeature, setUpgradeFeature] = useState('Missed-Call Instant Text-Back')
+
   const [orgId, setOrgId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -190,7 +198,14 @@ export default function AutomationsPage() {
             {/* Toggle */}
             <button
               type="button"
-              onClick={() => setSettings(s => ({ ...s, is_missed_call_active: !s.is_missed_call_active }))}
+              onClick={() => {
+                if (!isProEntitled) {
+                  setUpgradeFeature('Missed-Call Instant Text-Back')
+                  setShowUpgradeModal(true)
+                  return
+                }
+                setSettings(s => ({ ...s, is_missed_call_active: !s.is_missed_call_active }))
+              }}
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer",
                 settings.is_missed_call_active ? "bg-blue-600" : "bg-slate-200 dark:bg-zinc-800"
@@ -321,7 +336,14 @@ export default function AutomationsPage() {
 
             <button
               type="button"
-              onClick={() => setSettings(s => ({ ...s, is_review_engine_active: !s.is_review_engine_active }))}
+              onClick={() => {
+                if (!isProEntitled) {
+                  setUpgradeFeature('Google Review Booster SMS')
+                  setShowUpgradeModal(true)
+                  return
+                }
+                setSettings(s => ({ ...s, is_review_engine_active: !s.is_review_engine_active }))
+              }}
               className={cn(
                 "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer",
                 settings.is_review_engine_active ? "bg-blue-600" : "bg-slate-200 dark:bg-zinc-800"
@@ -460,6 +482,14 @@ export default function AutomationsPage() {
 
       </div>
 
+      {/* Contextual Pro Upgrade Modal */}
+      <ProUpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        featureName={upgradeFeature}
+        requiredTier="solo"
+        currentPlanId={planId}
+      />
     </div>
   )
 }
