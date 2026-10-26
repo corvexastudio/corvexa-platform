@@ -191,10 +191,18 @@ export function getSaasPlan(planId: string = DEFAULT_SAAS_PLAN_ID): SaasPlan {
  * Returns false on the free tier ($0/mo) and expired/inactive accounts.
  */
 export function isProAutomationEntitled(org: {
+  id?: string | null
+  slug?: string | null
   subscription_status?: string | null
   plan_id?: string | null
 } | null | undefined): boolean {
   if (!org) return false
+
+  // Demo tenant exception: Always entitled so cold call prospects can test the 877 demo line
+  if (org.id === DEMO_ORG_ID || (typeof org.slug === 'string' && org.slug.toLowerCase().includes('demo'))) {
+    return true
+  }
+
   const planId = (org.plan_id || '').toLowerCase()
   if (planId === 'free' || planId === 'trial_free' || planId === 'standard_free') {
     return false

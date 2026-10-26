@@ -21,20 +21,34 @@ export async function GET(request?: Request, context?: BillingRouteContext) {
   const { orgId, user, supabase, role } = tenantResult
 
   // 1. Fetch organization
-  const { data: org, error: orgErr } = await supabase
+  let org: any = null
+  const { data: orgData, error: orgErr } = await supabase
     .from('organizations')
-    .select('id, name, slug, subscription_status, monthly_rate, telnyx_phone_number, carrier_registration_status, legal_business_name, ein, is_sole_proprietor, address_street, address_city, address_state, address_postal_code')
+    .select('id, name, slug, subscription_status, plan_id, monthly_rate, telnyx_phone_number, carrier_registration_status, legal_business_name, ein, is_sole_proprietor, address_street, address_city, address_state, address_postal_code')
     .eq('id', orgId)
     .maybeSingle()
 
-  if (orgErr || !org) {
+  if (orgErr && orgErr.code === '42703') {
+    // Schema fallback if plan_id does not exist in organizations table yet
+    const retryOrg = await supabase
+      .from('organizations')
+      .select('id, name, slug, subscription_status, monthly_rate, telnyx_phone_number, carrier_registration_status, legal_business_name, ein, is_sole_proprietor, address_street, address_city, address_state, address_postal_code')
+      .eq('id', orgId)
+      .maybeSingle()
+    org = retryOrg.data
+  } else {
+    org = orgData
+  }
+
+  if (!org) {
     return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
   }
 
   // 2. Fetch subscription and entitlement
   const subscription = await SubscriptionService.getSubscription(supabase, orgId)
   const entitlement = await SubscriptionService.getEntitlement(supabase, orgId)
-  const currentPlan = getSaasPlan(subscription?.plan_id || DEFAULT_SAAS_PLAN_ID)
+  const effectivePlanId = subscription?.plan_id || org?.plan_id || (org?.subscription_status === 'free' ? 'free' : DEFAULT_SAAS_PLAN_ID)
+  const currentPlan = getSaasPlan(effectivePlanId)
   const payments = await SubscriptionService.getPaymentHistory(supabase, orgId)
 
   return NextResponse.json({

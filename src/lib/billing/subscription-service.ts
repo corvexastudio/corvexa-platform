@@ -222,14 +222,25 @@ export class SubscriptionService {
     }
 
     // Fallback: If no dedicated SaaS subscription record exists yet,
-    // inspect organizations.subscription_status for trial or baseline state.
+    // inspect organizations.subscription_status and plan_id for trial, free, or baseline state.
     const { data: org } = await supabase
       .from('organizations')
-      .select('subscription_status')
+      .select('subscription_status, plan_id')
       .eq('id', orgId)
       .maybeSingle()
 
     const orgStatus = org?.subscription_status || 'pending'
+    const planId = (org?.plan_id || '').toLowerCase()
+
+    if (orgStatus === 'free' || planId === 'free' || planId === 'trial_free' || planId === 'standard_free') {
+      return {
+        isEntitled: true,
+        status: 'free',
+        planId: 'free',
+        reason: 'Free Forever Booking & Field Organizer ($0/mo)'
+      }
+    }
+
     if (orgStatus === 'trial' || orgStatus === 'active') {
       return {
         isEntitled: true,

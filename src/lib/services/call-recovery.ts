@@ -207,7 +207,8 @@ export async function processMissedCall(
   }
 
   // 3.4. Strict $0 Free Tier Telecom Guard & TFN Isolation Guard
-  if (!isProAutomationEntitled(org)) {
+  const isDemoCall = org.id === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || org.slug?.includes('demo') || formattedCalled === '+18777713802'
+  if (!isDemoCall && !isProAutomationEntitled(org)) {
     const { data: freeCall } = await supabase.from('calls').insert({
       org_id: org.id,
       contact_id: contact?.id,

@@ -142,7 +142,7 @@ export function resolveMissedCallTemplate(
     rawTemplate = DEFAULT_BUSY_TEMPLATE
   }
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.corvexastudio.com').replace(/\/$/, '')
   const bookingUrl = org.booking_url || (org.slug ? `${appUrl}/book/${org.slug}` : '')
 
   const renderedText = renderTemplate(rawTemplate, {

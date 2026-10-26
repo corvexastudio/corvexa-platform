@@ -75,8 +75,15 @@ const ALLOWED_ROUTE_PREFIXES = [
   '/client/calendar',
   '/client/dashboard',
   '/client/customers',
+  '/client/jobs',
+  '/client/leads',
+  '/client/field',
+  '/client/billing',
+  '/client/quotes',
   '/client/invoices',
   '/client/reviews',
+  '/client/services',
+  '/client/team',
   '/client/settings',
   '/client/activity'
 ]

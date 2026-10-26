@@ -18,10 +18,39 @@ export async function GET(
   // Attempt to establish authoritative authenticated Supabase session
   try {
     const adminClient = getAdminClient()
-    const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
+    let linkRes = await adminClient.auth.admin.generateLink({
       type: 'magiclink',
-      email: payload.email
+      email: payload.email,
+      options: {
+        redirectTo: `${origin}/client/dashboard`
+      }
     })
+
+    // If user was not found, create user and retry generateLink
+    if (linkRes.error?.message?.toLowerCase().includes('not found')) {
+      try {
+        await adminClient.auth.admin.createUser({
+          id: payload.userId,
+          email: payload.email,
+          email_confirm: true,
+          user_metadata: {
+            org_id: payload.orgId,
+            is_placeholder_email: payload.email.endsWith('@claim.captodesk.com')
+          }
+        })
+        linkRes = await adminClient.auth.admin.generateLink({
+          type: 'magiclink',
+          email: payload.email,
+          options: {
+            redirectTo: `${origin}/client/dashboard`
+          }
+        })
+      } catch (createErr: any) {
+        console.warn('[Claim User Provision Warning]', createErr.message)
+      }
+    }
+
+    const { data: linkData, error: linkErr } = linkRes
 
     if (!linkErr && linkData?.properties?.hashed_token) {
       const cookiesToSetOnRedirect: { name: string; value: string; options?: any }[] = []
@@ -43,9 +72,10 @@ export async function GET(
         }
       )
 
+      const otpType = (linkData.properties.verification_type as any) || 'magiclink'
       const { error: otpError } = await ssrClient.auth.verifyOtp({
         token_hash: linkData.properties.hashed_token,
-        type: 'magiclink'
+        type: otpType
       })
 
       if (!otpError) {
@@ -64,6 +94,6 @@ export async function GET(
     console.warn('[Claim Auth Warning]', err.message)
   }
 
-  // Fallback: direct redirect to client dashboard
-  return NextResponse.redirect(new URL('/client/dashboard', origin))
+  // Fallback: redirect to login if session could not be established
+  return NextResponse.redirect(new URL('/client/login?error=claim_auth_failed', origin))
 }
