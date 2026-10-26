@@ -173,6 +173,46 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const [resettingDemo, setResettingDemo] = useState(false)
 
+  // White-Glove Phone-First Account Claim Banner State
+  const [claimEmailInput, setClaimEmailInput] = useState('')
+  const [claimPasswordInput, setClaimPasswordInput] = useState('')
+  const [savingClaimAccount, setSavingClaimAccount] = useState(false)
+
+  // 10DLC Carrier Registration Prompt for Paying Users
+  const [needs10DlcPrompt, setNeeds10DlcPrompt] = useState(false)
+  const [dismissed10Dlc, setDismissed10Dlc] = useState(false)
+
+  const handleSaveRealAccount = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!claimEmailInput.trim() || !claimPasswordInput.trim()) return
+
+    setSavingClaimAccount(true)
+    try {
+      const res = await fetch('/api/client/account/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: claimEmailInput.trim(),
+          password: claimPasswordInput
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('✨ Your login has been saved! You can now sign in with this email and password anytime.')
+        setUserEmail(data.email)
+        setClaimEmailInput('')
+        setClaimPasswordInput('')
+      } else {
+        toast.error(data.error || 'Failed to save login credentials.')
+      }
+    } catch {
+      toast.error('Network error saving login credentials.')
+    } finally {
+      setSavingClaimAccount(false)
+    }
+  }
+
   const isDemoOrg = orgId === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || orgName?.toLowerCase().includes('demo')
 
   const [confirmingClientReset, setConfirmingClientReset] = useState(false)
@@ -309,7 +349,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           const [{ data: org }, { count }] = await Promise.all([
             supabase
               .from('organizations')
-              .select('name, telnyx_phone_number, timezone')
+              .select('name, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
               .eq('id', profile.org_id)
               .maybeSingle(),
             supabase
@@ -323,6 +363,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             setOrgName(org.name || 'My Business')
             setOrgPhone(org.telnyx_phone_number || '')
             if (org.timezone) setOrgTimezone(org.timezone)
+
+            const isPaying = org.subscription_status === 'active' || ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly'].includes(org.plan_id || '')
+            const isIncomplete10Dlc = !org.legal_business_name || (!org.is_sole_proprietor && !org.ein) || !org.address_street || org.carrier_registration_status === 'unregistered'
+            const isOwnerOrAdmin = profile.role === 'owner' || profile.role === 'admin' || profile.role === 'super_admin'
+
+            if (isPaying && isIncomplete10Dlc && isOwnerOrAdmin) {
+              setNeeds10DlcPrompt(true)
+            }
           }
 
           if (isMounted) {
@@ -647,6 +695,93 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             ? "p-0 pb-16 md:p-6 md:pb-6 max-w-7xl"
             : "p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl"
         )}>
+          {/* White-Glove Phone-First Claim Welcome Banner */}
+          {userEmail?.endsWith('@claim.captodesk.com') && (
+            <div className="mb-6 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 p-4 sm:p-5 shadow-xs">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 rounded-full bg-amber-500 text-black items-center justify-center text-xs font-bold shrink-0">⚡</span>
+                    <h2 className="text-sm font-bold text-amber-950 dark:text-amber-100">
+                      Welcome to your pre-built CaptoDesk workspace!
+                    </h2>
+                  </div>
+                  <p className="text-xs text-amber-800 dark:text-amber-300/90 pl-8">
+                    Tap below to save your real email & password for future logins:
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveRealAccount} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                  <input
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    required
+                    placeholder="Tap to auto-fill your email"
+                    value={claimEmailInput}
+                    onChange={e => setClaimEmailInput(e.target.value)}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500 min-w-48"
+                  />
+                  <input
+                    type="password"
+                    name="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    placeholder="Create password (6+ chars)"
+                    value={claimPasswordInput}
+                    onChange={e => setClaimPasswordInput(e.target.value)}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500 min-w-40"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingClaimAccount}
+                    className="text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-black shadow-2xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {savingClaimAccount ? 'Saving...' : 'Save My Login'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 10DLC Carrier Registration Prompt for Paying Users */}
+          {needs10DlcPrompt && !dismissed10Dlc && !pathname.includes('/client/settings') && (
+            <div className="mb-6 rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/30 p-4 sm:p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      Action Required: Register for US Carrier 10DLC (Missed-Call Text-Back)
+                    </h3>
+                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
+                      US wireless carriers (Verizon, AT&amp;T, T-Mobile) require all automated business text messages to be pre-registered under A2P 10DLC. Complete your legal entity name, EIN, and address so your missed-call text-backs are verified and never filtered.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <Link
+                    href="/client/settings?tab=retention"
+                    className="text-xs font-semibold px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-2xs transition-colors"
+                  >
+                    Complete 10DLC Details →
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setDismissed10Dlc(true)}
+                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-2 rounded-lg cursor-pointer"
+                    title="Dismiss for now"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <ErrorBoundary>
             {children}
           </ErrorBoundary>

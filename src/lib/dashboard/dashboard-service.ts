@@ -185,22 +185,38 @@ export async function getAttentionQueue(
     custQuery = (custQuery as any).is('deleted_at', null)
   }
 
-  // Execute all 6 queries concurrently in parallel to eliminate sequential latency
+  // 7. Organization 10DLC & Subscription Status
+  let orgQuery: any = supabase
+    .from('organizations')
+    .select('id, subscription_status, plan_id, monthly_rate, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+    .eq('id', orgId)
+
+  if (typeof orgQuery.maybeSingle === 'function') {
+    orgQuery = orgQuery.maybeSingle()
+  }
+
+  // Execute all queries concurrently in parallel to eliminate sequential latency
   const [
     { data: rawLeads },
     { data: unreadConvs },
     { data: rawExpiringQuotes },
     { data: requestedAppts },
     { data: rawOverdueInvoices },
-    { data: rawDueCustomers }
+    { data: rawDueCustomers },
+    rawOrgResult
   ] = await Promise.all([
     leadsQuery,
     convQuery,
     quotesQuery,
     apptsQuery,
     invQuery,
-    custQuery
+    custQuery,
+    Promise.resolve(orgQuery).catch(() => ({ data: null }))
   ])
+
+  const orgData = Array.isArray((rawOrgResult as any)?.data)
+    ? (rawOrgResult as any).data[0]
+    : (rawOrgResult as any)?.data
 
   // Process 1: New Unhandled Leads
   const newLeads = (rawLeads || []).filter((lead: any) => {
@@ -321,6 +337,27 @@ export async function getAttentionQueue(
         actionLabel: 'Reactivate',
         actionHref: `/client/customers/${cust.id}`,
         metadata: { contactId: cust.id }
+      })
+    }
+  }
+
+  // Process 7: 10DLC Carrier Registration for Paying Members (Missed-Call Text-Back)
+  if (orgData) {
+    const isPaying = orgData.subscription_status === 'active' || 
+      ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly'].includes(orgData.plan_id || '') ||
+      (Number(orgData.monthly_rate) > 0)
+    const isIncomplete = !orgData.legal_business_name || (!orgData.is_sole_proprietor && !orgData.ein) || !orgData.address_street || orgData.carrier_registration_status === 'unregistered'
+    if (isPaying && isIncomplete) {
+      items.push({
+        id: `10dlc-${orgId}`,
+        category: 'retention',
+        urgency: 'warning',
+        title: 'Action Required: Complete 10DLC Registration',
+        subtitle: 'Required by US wireless carriers (Verizon, AT&T, T-Mobile) to send automated missed-call text-backs.',
+        timestamp: now.toISOString(),
+        actionLabel: 'Complete in Settings',
+        actionHref: '/client/settings?tab=retention',
+        metadata: { type: '10dlc_required' }
       })
     }
   }

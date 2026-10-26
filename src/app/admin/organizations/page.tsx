@@ -21,10 +21,15 @@ import {
   Calendar,
   DollarSign,
   Receipt,
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  Key,
+  Copy,
+  Check
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { TenantHealthSummary } from '@/lib/admin/admin-service'
+import { INDUSTRY_LIST } from '@/lib/constants/industries'
 
 export default function AdminOrganizationsPage() {
   const [tenants, setTenants] = useState<TenantHealthSummary[]>([])
@@ -85,6 +90,178 @@ export default function AdminOrganizationsPage() {
   const [billingPeriodMonths, setBillingPeriodMonths] = useState(1)
   const [selectedPlanId, setSelectedPlanId] = useState<'solo' | 'solo_yearly' | 'multi_crew' | 'multi_crew_yearly'>('solo')
   const [cancelImmediate, setCancelImmediate] = useState(false)
+
+  // Super Admin 90-Sec White-Glove Onboarding Modal State (Phase 3.6)
+  const [onboardModalOpen, setOnboardModalOpen] = useState(false)
+  const [onboardBusinessName, setOnboardBusinessName] = useState('')
+  const [onboardCustomSlug, setOnboardCustomSlug] = useState('')
+  const [onboardIndustry, setOnboardIndustry] = useState('hvac')
+  const [onboardOwnerCell, setOnboardOwnerCell] = useState('')
+  const [onboardShopPhone, setOnboardShopPhone] = useState('')
+  const [onboardOwnerName, setOnboardOwnerName] = useState('')
+  const [onboardOwnerEmail, setOnboardOwnerEmail] = useState('')
+  const [onboardCarrier, setOnboardCarrier] = useState<'verizon' | 'att' | 'tmobile' | 'other'>('verizon')
+  const [onboardTimezone, setOnboardTimezone] = useState('America/Chicago')
+  const [onboardGoogleReviewUrl, setOnboardGoogleReviewUrl] = useState('')
+  const [onboardPlanStatus, setOnboardPlanStatus] = useState<'free' | 'solo' | 'fleet'>('solo')
+  const [onboardSubmitting, setOnboardSubmitting] = useState(false)
+
+  // Phone Lookup State
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupResult, setLookupResult] = useState<{
+    e164Phone: string
+    lineType: 'mobile' | 'voip' | 'landline' | 'unknown'
+    carrierName: string | null
+    detectedCarrierPreset: 'verizon' | 'att' | 'tmobile' | 'other'
+    canReceiveSms: boolean
+    warning: string | null
+  } | null>(null)
+
+  // Hand-Off Kit Modal State
+  const [handOffModalOpen, setHandOffModalOpen] = useState(false)
+  const [handOffKit, setHandOffKit] = useState<{
+    businessName: string
+    slug: string
+    ownerName?: string
+    ownerEmail?: string
+    claimUrl: string
+    publicBookingUrl: string
+    welcomeSmsText: string
+  } | null>(null)
+  const [loadingHandOffKitId, setLoadingHandOffKitId] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  const handleCopyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    toast.success('Copied to clipboard!')
+    setTimeout(() => setCopiedKey(null), 2500)
+  }
+
+  const handleCheckPhone = async () => {
+    const raw = onboardOwnerCell.trim()
+    if (!raw) {
+      toast.error('Enter an owner cell phone first to check line type')
+      return
+    }
+
+    setLookupLoading(true)
+    try {
+      const res = await fetch(`/api/admin/phone-lookup?phone=${encodeURIComponent(raw)}`)
+      const data = await res.json()
+      if (res.ok) {
+        setLookupResult(data)
+        if (data.detectedCarrierPreset && data.detectedCarrierPreset !== 'other') {
+          setOnboardCarrier(data.detectedCarrierPreset)
+        }
+        if (data.lineType === 'landline') {
+          toast.warning('⚠️ Landline detected! Ask owner for their mobile cell phone for claim link & SMS notifications.')
+        } else if (data.lineType === 'mobile') {
+          toast.success(`Mobile cell verified (${data.carrierName || 'Carrier detected'})`)
+        } else {
+          toast.info(`Number formatted: ${data.e164Phone} (${data.lineType})`)
+        }
+      } else {
+        toast.error(data.error || 'Failed to check phone number')
+      }
+    } catch {
+      toast.error('Network error during phone lookup')
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  const handleCreateTenantOnboarding = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!onboardBusinessName.trim()) {
+      toast.error('Business name is required')
+      return
+    }
+    if (!onboardOwnerCell.trim()) {
+      toast.error('Owner cell phone is required for 1-tap claim')
+      return
+    }
+
+    setOnboardSubmitting(true)
+    try {
+      const res = await fetch('/api/admin/organizations/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: onboardBusinessName.trim(),
+          slug: onboardCustomSlug.trim() || undefined,
+          industry: onboardIndustry,
+          ownerName: onboardOwnerName.trim() || undefined,
+          ownerCellPhone: onboardOwnerCell.trim(),
+          shopPhone: onboardShopPhone.trim() || undefined,
+          ownerEmail: onboardOwnerEmail.trim() || undefined,
+          primaryCarrier: onboardCarrier,
+          timezone: onboardTimezone,
+          googleReviewUrl: onboardGoogleReviewUrl.trim() || undefined,
+          initialPlanStatus: onboardPlanStatus
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        toast.success(`🎉 ${data.organization.name} successfully created & primed!`)
+        setHandOffKit({
+          businessName: data.organization.name,
+          slug: data.organization.slug,
+          ownerName: data.owner.fullName,
+          ownerEmail: data.owner.email,
+          claimUrl: data.claimUrl,
+          publicBookingUrl: data.publicBookingUrl,
+          welcomeSmsText: data.welcomeSmsText
+        })
+        setOnboardModalOpen(false)
+        setHandOffModalOpen(true)
+        // Reset form
+        setOnboardBusinessName('')
+        setOnboardCustomSlug('')
+        setOnboardOwnerCell('')
+        setOnboardShopPhone('')
+        setOnboardOwnerName('')
+        setOnboardOwnerEmail('')
+        setOnboardGoogleReviewUrl('')
+        setLookupResult(null)
+        fetchTenants()
+      } else {
+        toast.error(data.error || 'Failed to onboard organization')
+      }
+    } catch {
+      toast.error('Network error during white-glove onboarding')
+    } finally {
+      setOnboardSubmitting(false)
+    }
+  }
+
+  const handleOpenExistingClaimKit = async (tenant: TenantHealthSummary) => {
+    setLoadingHandOffKitId(tenant.id)
+    try {
+      const res = await fetch(`/api/admin/organizations/${tenant.id}/claim`)
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setHandOffKit({
+          businessName: data.organization.name,
+          slug: data.organization.slug,
+          ownerName: data.owner?.fullName,
+          ownerEmail: data.owner?.email,
+          claimUrl: data.claimUrl,
+          publicBookingUrl: data.publicBookingUrl,
+          welcomeSmsText: data.welcomeSmsText
+        })
+        setHandOffModalOpen(true)
+      } else {
+        toast.error(data.error || 'Failed to generate claim link')
+      }
+    } catch {
+      toast.error('Network error generating claim link')
+    } finally {
+      setLoadingHandOffKitId(null)
+    }
+  }
 
   const handleOpenProvisionModal = (tenant: TenantHealthSummary) => {
     setSelectedOrgForProvision(tenant)
@@ -428,6 +605,14 @@ export default function AdminOrganizationsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setOnboardModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-all shadow-lg shadow-amber-500/20"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>+ Onboard New Owner (90-Sec White-Glove)</span>
+          </button>
+
           {pending10DlcCount > 0 && (
             <button
               onClick={handleBatchActivate10Dlc}
@@ -738,6 +923,19 @@ export default function AdminOrganizationsPage() {
                             <span>{confirmingDemoReset ? 'Confirm Wipe?' : 'Reset Demo'}</span>
                           </button>
                         )}
+                        <button
+                          onClick={() => handleOpenExistingClaimKit(t)}
+                          disabled={loadingHandOffKitId === t.id}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg border border-sky-500/20 transition-colors disabled:opacity-50"
+                          title="Generate 1-Tap Claim Link & Welcome SMS Kit"
+                        >
+                          {loadingHandOffKitId === t.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Key className="h-3 w-3" />
+                          )}
+                          <span>Claim Kit</span>
+                        </button>
                         <button
                           onClick={() => handleOpenBillingModal(t)}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1.5 rounded-lg border border-emerald-500/20 transition-colors"
@@ -1191,6 +1389,511 @@ export default function AdminOrganizationsPage() {
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors disabled:opacity-50"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 90-Sec White-Glove Concierge Onboarding Modal (Phase 3.6) */}
+      {onboardModalOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-zinc-800/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">90-Sec White-Glove Concierge Onboarding</h3>
+                  <p className="text-xs text-zinc-400">
+                    Pre-build & prime a contractor organization live during a cold call. Phone-first with 1-tap claim links.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !onboardSubmitting && setOnboardModalOpen(false)}
+                disabled={onboardSubmitting}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800/60 transition-colors disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTenantOnboarding} className="space-y-5 text-xs">
+              {/* Business Name & Live Slug Preview */}
+              <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                <div>
+                  <label className="block text-zinc-300 font-semibold mb-1">
+                    Contractor Business Name <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Apex Air Solutions"
+                    value={onboardBusinessName}
+                    onChange={(e) => setOnboardBusinessName(e.target.value)}
+                    disabled={onboardSubmitting}
+                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] text-zinc-400 font-medium">
+                      Public Booking Slug Preview:
+                    </label>
+                    <span className="font-mono text-xs text-amber-400">
+                      /book/{((onboardCustomSlug || onboardBusinessName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || 'apex-air-solutions'}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Custom slug (leave empty to auto-slugify business name)"
+                    value={onboardCustomSlug}
+                    onChange={(e) => setOnboardCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    disabled={onboardSubmitting}
+                    className="w-full px-2.5 py-1.5 bg-zinc-950 border border-zinc-800/80 rounded-lg text-zinc-300 font-mono text-xs placeholder-zinc-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Trade Catalog Selection */}
+              <div className="space-y-1.5 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                <label className="block text-zinc-300 font-semibold">
+                  Trade / Industry Catalog <span className="text-amber-400">*</span>
+                </label>
+                <select
+                  value={onboardIndustry}
+                  onChange={(e) => setOnboardIndustry(e.target.value)}
+                  disabled={onboardSubmitting}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-medium text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                >
+                  {INDUSTRY_LIST.map((ind) => (
+                    <option key={ind.id} value={ind.id}>
+                      {ind.name} ({ind.badge})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-zinc-500">
+                  ✨ Automatically seeds 3 industry-standard trade services with market rates & sets custom missed-call auto-replies.
+                </p>
+              </div>
+
+              {/* Owner Cell Phone & Mobile/Landline Detection */}
+              <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-zinc-300 font-semibold">
+                      Owner Mobile Cell Phone <span className="text-amber-400">*</span>
+                    </label>
+                    <span className="text-[10px] text-zinc-500">
+                      Receives 1-tap claim link & client alerts
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. (214) 555-0199 or 2145550199"
+                      value={onboardOwnerCell}
+                      onChange={(e) => {
+                        setOnboardOwnerCell(e.target.value)
+                        setLookupResult(null)
+                      }}
+                      disabled={onboardSubmitting}
+                      className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-mono placeholder-zinc-500 text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCheckPhone}
+                      disabled={lookupLoading || !onboardOwnerCell.trim() || onboardSubmitting}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs border border-zinc-700 transition-colors disabled:opacity-50"
+                    >
+                      {lookupLoading ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                          <span>Checking...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-3.5 w-3.5 text-zinc-400" />
+                          <span>Check Mobile/Landline</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lookup Detection Badges */}
+                {lookupResult && (
+                  <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold capitalize ${
+                          lookupResult.lineType === 'mobile'
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            : lookupResult.lineType === 'landline'
+                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30 font-extrabold'
+                            : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                        }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${
+                            lookupResult.lineType === 'mobile' ? 'bg-emerald-400' : lookupResult.lineType === 'landline' ? 'bg-rose-400' : 'bg-amber-400'
+                          }`} />
+                          {lookupResult.lineType} {lookupResult.lineType === 'mobile' ? 'Cell' : 'Line'}
+                        </span>
+
+                        {lookupResult.carrierName && (
+                          <span className="text-[11px] text-zinc-400 font-mono">
+                            {lookupResult.carrierName}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="font-mono text-xs text-zinc-400">
+                        {lookupResult.e164Phone}
+                      </span>
+                    </div>
+
+                    {lookupResult.lineType === 'landline' ? (
+                      <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px]">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+                        <div>
+                          <p className="font-bold">⚠️ Landline Detected!</p>
+                          <p className="text-rose-300/90 mt-0.5">
+                            Contractor cannot receive SMS on this number. Ask the owner for their personal mobile cell phone number to receive the 1-tap claim link!
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-emerald-400/90">
+                        ✓ Verified capable of receiving instant SMS claim link and customer lead alerts.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Carrier Preset Selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-1">
+                      Carrier Preset (Call Forwarding)
+                    </label>
+                    <select
+                      value={onboardCarrier}
+                      onChange={(e) => setOnboardCarrier(e.target.value as any)}
+                      disabled={onboardSubmitting}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-medium text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    >
+                      <option value="verizon">Verizon Wireless (*71 forwarding)</option>
+                      <option value="att">AT&T Mobility (*61* forwarding)</option>
+                      <option value="tmobile">T-Mobile / Sprint (**62* forwarding)</option>
+                      <option value="other">Other / Regional MVNO</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-1">
+                      Shop / Dispatch Phone (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="Optional shop or landline"
+                      value={onboardShopPhone}
+                      onChange={(e) => setOnboardShopPhone(e.target.value)}
+                      disabled={onboardSubmitting}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-mono placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Owner Info & Friction-Free Email */}
+              <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">
+                      Owner Full Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mike Vance"
+                      value={onboardOwnerName}
+                      onChange={(e) => setOnboardOwnerName(e.target.value)}
+                      disabled={onboardSubmitting}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-300 font-semibold mb-1">
+                      Timezone
+                    </label>
+                    <select
+                      value={onboardTimezone}
+                      onChange={(e) => setOnboardTimezone(e.target.value)}
+                      disabled={onboardSubmitting}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-medium text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    >
+                      <option value="America/Chicago">Central Time (US/Canada)</option>
+                      <option value="America/New_York">Eastern Time (US/Canada)</option>
+                      <option value="America/Denver">Mountain Time (US/Canada)</option>
+                      <option value="America/Los_Angeles">Pacific Time (US/Canada)</option>
+                      <option value="America/Phoenix">Arizona (MST - no DST)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-zinc-300 font-semibold">
+                      Owner Email Address (Optional — Leave Blank for 1-Tap Link)
+                    </label>
+                    <span className="text-[10px] text-amber-400 font-medium">
+                      Phone-First Recommended
+                    </span>
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="Leave blank to auto-generate phone.1234567890@claim.captodesk.com"
+                    value={onboardOwnerEmail}
+                    onChange={(e) => setOnboardOwnerEmail(e.target.value)}
+                    disabled={onboardSubmitting}
+                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    💡 If blank, the owner claims the account directly via mobile claim link. An in-app banner lets them save their real email & password with 1 tap via mobile keyboard auto-fill.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-1">
+                      Google Review Link (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://g.page/r/..."
+                      value={onboardGoogleReviewUrl}
+                      onChange={(e) => setOnboardGoogleReviewUrl(e.target.value)}
+                      disabled={onboardSubmitting}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-1">
+                      Initial Plan Tier
+                    </label>
+                    <select
+                      value={onboardPlanStatus}
+                      onChange={(e) => setOnboardPlanStatus(e.target.value as any)}
+                      disabled={onboardSubmitting}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-medium text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    >
+                      <option value="solo">CaptoDesk Solo (Standard — $99/mo)</option>
+                      <option value="fleet">CaptoDesk Multi-Crew ($199/mo)</option>
+                      <option value="free">Free Trial (3 Booked Leads Limit)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800/80">
+                <button
+                  type="button"
+                  onClick={() => setOnboardModalOpen(false)}
+                  disabled={onboardSubmitting}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={onboardSubmitting}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-black bg-amber-400 hover:bg-amber-300 transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20 cursor-pointer"
+                >
+                  {onboardSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Creating & Priming Org...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <span>Create Organization & Generate Hand-Off Kit</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 1-Tap Owner Hand-Off Kit Modal (Phase 3.6) */}
+      {handOffModalOpen && handOffKit && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-zinc-800/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                  <Key className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">1-Tap Owner Hand-Off Kit</h3>
+                  <p className="text-xs text-zinc-400">
+                    {handOffKit.businessName} • <span className="font-mono text-amber-400">/{handOffKit.slug}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHandOffModalOpen(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800/60 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-5 text-xs text-zinc-300">
+              {/* Claim Link */}
+              <div className="space-y-1.5 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-white flex items-center gap-1.5">
+                    <Key className="h-3.5 w-3.5 text-amber-400" />
+                    <span>1-Tap Mobile Claim Link (Zero Password Required)</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-400 font-mono">HMAC-SHA256 Token</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={handOffKit.claimUrl}
+                    className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono text-xs select-all focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(handOffKit.claimUrl, 'claim')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-zinc-700 transition-colors"
+                  >
+                    {copiedKey === 'claim' ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Copy Claim Link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-500">
+                  When the contractor taps this link on their mobile phone, they are instantly logged into their owner dashboard with zero passwords or typing required.
+                </p>
+              </div>
+
+              {/* Public Booking Link */}
+              <div className="space-y-1.5 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-white flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-blue-400" />
+                    <span>Live Public Booking Link</span>
+                  </label>
+                  <a
+                    href={handOffKit.publicBookingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 font-semibold"
+                  >
+                    <span>Open Preview</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={handOffKit.publicBookingUrl}
+                    className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 font-mono text-xs select-all focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(handOffKit.publicBookingUrl, 'booking')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs border border-zinc-700 transition-colors"
+                  >
+                    {copiedKey === 'booking' ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Copy Booking Link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-500">
+                  This public booking portal is already live with pre-seeded services and pricing.
+                </p>
+              </div>
+
+              {/* Ready-to-Send Welcome SMS */}
+              <div className="space-y-2 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-white flex items-center gap-1.5">
+                    <PhoneCall className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Pre-Written Ready-to-Send Welcome SMS</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-400/90 font-semibold">Copy & Text Owner</span>
+                </div>
+                <textarea
+                  readOnly
+                  rows={4}
+                  value={handOffKit.welcomeSmsText}
+                  className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 text-xs leading-relaxed focus:outline-none select-all font-sans"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(handOffKit.welcomeSmsText, 'sms')}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black font-bold text-xs transition-colors shadow-lg shadow-emerald-500/10 cursor-pointer"
+                >
+                  {copiedKey === 'sms' ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>Copied Welcome SMS to Clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      <span>📋 Copy Full SMS to Text Owner</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-[11px] text-zinc-500 text-center">
+                  Paste directly into your Messages / iMessage app or WhatsApp on your phone and send to the owner.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end pt-3 border-t border-zinc-800/80">
+              <button
+                type="button"
+                onClick={() => setHandOffModalOpen(false)}
+                className="px-5 py-2 rounded-xl text-xs font-semibold text-black bg-zinc-200 hover:bg-white transition-colors"
+              >
+                Done / Close
               </button>
             </div>
           </div>

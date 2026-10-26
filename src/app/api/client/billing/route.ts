@@ -22,7 +22,7 @@ export async function GET(request?: Request, context?: BillingRouteContext) {
   // 1. Fetch organization
   const { data: org, error: orgErr } = await supabase
     .from('organizations')
-    .select('id, name, slug, subscription_status, monthly_rate, telnyx_phone_number')
+    .select('id, name, slug, subscription_status, monthly_rate, telnyx_phone_number, carrier_registration_status, legal_business_name, ein, is_sole_proprietor, address_street, address_city, address_state, address_postal_code')
     .eq('id', orgId)
     .maybeSingle()
 

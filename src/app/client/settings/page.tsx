@@ -37,6 +37,16 @@ import { ThemeSettingsSelector } from '@/components/theme-toggle'
 export default function SettingsPage() {
   const supabase = createClient()
   const [settingsTab, setSettingsTab] = useState<'profile' | 'display' | 'telephony' | 'retention' | 'payments' | 'notifications'>('profile')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const tab = params.get('tab')
+      if (tab && ['profile', 'display', 'telephony', 'retention', 'payments', 'notifications'].includes(tab)) {
+        setSettingsTab(tab as any)
+      }
+    }
+  }, [])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [copiedCarrier, setCopiedCarrier] = useState<string | null>(null)
@@ -891,6 +901,17 @@ export default function SettingsPage() {
                       </span>
                     )}
                   </div>
+                </div>
+
+                {/* 10DLC Educational Explainer for Paying Members */}
+                <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-200 leading-relaxed space-y-1">
+                  <p className="font-semibold flex items-center gap-1.5 text-blue-800 dark:text-blue-300">
+                    <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Missed-Call Text-Back &amp; 10DLC Registration for Paying Members</span>
+                  </p>
+                  <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80">
+                    US wireless carriers (Verizon, AT&amp;T, T-Mobile) require all automated business text messages to be pre-registered under the A2P 10DLC standard. During initial onboarding, these boxes were left blank so you could get started immediately. As a paying subscriber, CaptoDesk covers your 10DLC filing fees—please fill in your legal business name, Federal EIN (or Sole Prop), and business address below so your missed-call text-backs are verified and never blocked as spam.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

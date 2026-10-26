@@ -135,6 +135,12 @@ export default function DashboardPage() {
           variant: 'danger' as const,
           icon: CreditCard
         }
+      case 'retention':
+        return {
+          label: 'Carrier Verification',
+          variant: 'warning' as const,
+          icon: AlertCircle
+        }
       default:
         return {
           label: 'Action Required',

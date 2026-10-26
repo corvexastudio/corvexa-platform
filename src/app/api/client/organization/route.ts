@@ -323,7 +323,7 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
     // If client submits updated carrier verification fields, update status to pending review
     if (
       body.submit_carrier_verification === true ||
-      (allowedUpdates.ein && allowedUpdates.legal_business_name)
+      ((allowedUpdates.ein || allowedUpdates.is_sole_proprietor) && allowedUpdates.legal_business_name)
     ) {
       allowedUpdates.carrier_registration_status = 'pending'
     }

@@ -5,6 +5,7 @@ export type AuditEventType =
   | 'security.auth_callback'
   | 'security.access_denied'
   | 'security.privilege_escalation_attempt'
+  | 'security.account_claimed'
   | 'user.profile_updated'
   | 'organization.settings_updated'
   | 'organization.10dlc_submitted'

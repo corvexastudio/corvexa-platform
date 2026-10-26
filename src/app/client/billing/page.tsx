@@ -35,6 +35,11 @@ interface BillingData {
     subscription_status: string
     monthly_rate: number
     telnyx_phone_number?: string | null
+    carrier_registration_status?: string | null
+    legal_business_name?: string | null
+    ein?: string | null
+    is_sole_proprietor?: boolean | null
+    address_street?: string | null
   }
   subscription: {
     id: string
@@ -349,6 +354,33 @@ export default function ClientBillingPage() {
                 </span>
               </div>
             </div>
+
+            {/* 10DLC Carrier Status Banner for Paying Clients */}
+            {billingData.organization?.carrier_registration_status !== 'verified' && (
+              <div className="mt-4 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-start gap-2.5">
+                  <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      Missed-Call Text-Back (10DLC Carrier Registration)
+                    </span>
+                    <p className="text-slate-600 dark:text-zinc-400 text-[11px] mt-0.5">
+                      {billingData.organization?.carrier_registration_status === 'in_review' || billingData.organization?.carrier_registration_status === 'pending'
+                        ? 'Your official TCR brand registration is pending carrier review with Telnyx.'
+                        : 'Your subscription includes TCR registration. Provide your legal business name & EIN so your automated texts are verified.'}
+                    </p>
+                  </div>
+                </div>
+                {billingData.organization?.carrier_registration_status !== 'in_review' && billingData.organization?.carrier_registration_status !== 'pending' && (
+                  <Link
+                    href="/client/settings?tab=retention"
+                    className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 text-xs shrink-0 self-end sm:self-center"
+                  >
+                    <span>Complete in Settings →</span>
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Pricing & Cycle Status */}
