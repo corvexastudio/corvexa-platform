@@ -103,7 +103,10 @@ export default function SettingsPage() {
     weekly_digest_day_of_week: 1,
     weekly_digest_hour: 8,
     external_payment_url: '',
-    payment_instructions: ''
+    payment_instructions: '',
+    license_number: '',
+    tracking_mode: 'milestone',
+    tracking_geofence_miles: 5
   })
 
   const loadSettings = useCallback(async () => {
@@ -174,7 +177,10 @@ export default function SettingsPage() {
           weekly_digest_day_of_week: org.weekly_digest_day_of_week ?? 1,
           weekly_digest_hour: org.weekly_digest_hour ?? 8,
           external_payment_url: org.external_payment_url || '',
-          payment_instructions: org.payment_instructions || ''
+          payment_instructions: org.payment_instructions || '',
+          license_number: org.license_number || '',
+          tracking_mode: org.tracking_mode || 'milestone',
+          tracking_geofence_miles: org.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5
         })
       }
     } catch {
@@ -549,6 +555,64 @@ export default function SettingsPage() {
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
                     Included in post-service review request text messages sent to satisfied homeowners.
                   </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">State / Trade License #</Label>
+                  <Input
+                    value={formData.license_number}
+                    onChange={e => setFormData(d => ({ ...d, license_number: e.target.value }))}
+                    placeholder="e.g. Master Plumber #MP-49102 or HVAC #TACLA10928"
+                    className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md"
+                  />
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                    Displayed on customer live arrival tracking links and official invoices to verify professional credentials and build homeowner confidence.
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2 pt-3 border-t border-slate-100 dark:border-zinc-800/80 space-y-2">
+                  <Label className="text-xs text-slate-900 dark:text-zinc-100 block font-semibold">
+                    Customer Arrival Tracking Mode
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(d => ({ ...d, tracking_mode: 'milestone' }))}
+                      className={cn(
+                        "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                        formData.tracking_mode === 'milestone'
+                          ? "border-blue-500/70 bg-blue-50/30 dark:bg-blue-950/20 shadow-2xs"
+                          : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Smart Milestone Tracker</span>
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">Recommended</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Progress milestones &amp; live ETA countdown with 100% contractor privacy. Supply house, parts pickup, and gas stops are never broadcast to customer.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData(d => ({ ...d, tracking_mode: 'geofence_live' }))}
+                      className={cn(
+                        "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                        formData.tracking_mode === 'geofence_live'
+                          ? "border-blue-500/70 bg-blue-50/30 dark:bg-blue-950/20 shadow-2xs"
+                          : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">Live Geofenced GPS</span>
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">Within 5 miles</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Broadcasts live moving vehicle location to customer only when technician is within 5 miles / 15 minutes of destination.
+                      </p>
+                    </button>
+                  </div>
                 </div>
               </div>
 

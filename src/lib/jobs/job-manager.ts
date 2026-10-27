@@ -636,7 +636,7 @@ export async function customerViewJobTracking(
   }
 
   // 1. Fetch job with organization, contact, and service relations
-  const { data: job, error: jobError } = await supabase
+  let { data: job, error: jobError } = await supabase
     .from('jobs')
     .select(`
       id,
@@ -647,6 +647,7 @@ export async function customerViewJobTracking(
       scheduled_start,
       scheduled_end,
       en_route_at,
+      arrived_at,
       started_at,
       completed_at,
       technician_name,
@@ -662,7 +663,10 @@ export async function customerViewJobTracking(
         name,
         telnyx_phone_number,
         owner_phone,
-        google_review_url
+        google_review_url,
+        license_number,
+        tracking_mode,
+        tracking_geofence_miles
       ),
       contacts (
         id,
@@ -679,6 +683,56 @@ export async function customerViewJobTracking(
     `)
     .eq('tracking_token', token.trim())
     .single()
+
+  // Graceful fallback if newer organization columns are not yet in remote schema
+  if (jobError && (jobError.code === '42703' || jobError.message?.toLowerCase().includes('does not exist'))) {
+    const baseRes = await supabase
+      .from('jobs')
+      .select(`
+        id,
+        job_number,
+        title,
+        description,
+        status,
+        scheduled_start,
+        scheduled_end,
+        en_route_at,
+        arrived_at,
+        started_at,
+        completed_at,
+        technician_name,
+        eta_minutes,
+        notes,
+        tracking_token,
+        org_id,
+        contact_id,
+        service_id,
+        assigned_to,
+        organizations (
+          id,
+          name,
+          telnyx_phone_number,
+          owner_phone,
+          google_review_url
+        ),
+        contacts (
+          id,
+          name,
+          phone,
+          address
+        ),
+        services (
+          id,
+          name,
+          duration_minutes,
+          price
+        )
+      `)
+      .eq('tracking_token', token.trim())
+      .single()
+    job = baseRes.data as any
+    jobError = baseRes.error as any
+  }
 
   if (jobError || !job) {
     return { success: false, error: 'Job tracking link not found or expired' }
@@ -781,7 +835,10 @@ export async function customerViewJobTracking(
       id: org?.id,
       name: org?.name || 'Service Provider',
       phone: org?.telnyx_phone_number || org?.owner_phone || null,
-      logoUrl: org?.logo_url || null
+      logoUrl: org?.logo_url || null,
+      licenseNumber: org?.license_number || null,
+      trackingMode: org?.tracking_mode || 'milestone',
+      trackingGeofenceMiles: org?.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5
     },
     contact: (job as any).contacts ? {
       name: (job as any).contacts.name,
