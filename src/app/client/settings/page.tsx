@@ -36,13 +36,18 @@ import { ThemeSettingsSelector } from '@/components/theme-toggle'
 
 export default function SettingsPage() {
   const supabase = createClient()
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'display' | 'telephony' | 'retention' | 'payments' | 'notifications'>('profile')
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'subscription' | 'display' | 'telephony' | 'retention' | 'payments' | 'notifications'>('profile')
+  const [orgPlanData, setOrgPlanData] = useState<{
+    plan_id?: string
+    subscription_status?: string
+    monthly_rate?: number
+  }>({ plan_id: 'free', subscription_status: 'free', monthly_rate: 0 })
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       const tab = params.get('tab')
-      if (tab && ['profile', 'display', 'telephony', 'retention', 'payments', 'notifications'].includes(tab)) {
+      if (tab && ['profile', 'subscription', 'display', 'telephony', 'retention', 'payments', 'notifications'].includes(tab)) {
         setSettingsTab(tab as any)
       }
     }
@@ -134,6 +139,11 @@ export default function SettingsPage() {
       if (orgErr) {
         setError('Failed to retrieve organization settings.')
       } else if (org) {
+        setOrgPlanData({
+          plan_id: org.plan_id || 'free',
+          subscription_status: org.subscription_status || 'free',
+          monthly_rate: org.monthly_rate || 0
+        })
         setFormData({
           name: org.name || '',
           owner_phone: org.owner_phone || '',
@@ -412,10 +422,11 @@ export default function SettingsPage() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none bg-slate-100 dark:bg-zinc-900/60 p-1.5 rounded-xl border border-slate-200/60 dark:border-zinc-800">
             {[
               { id: 'profile', label: 'Business Profile', icon: Building2 },
+              { id: 'subscription', label: 'Subscription & Plans', icon: Sparkles },
               { id: 'display', label: 'Theme & Display', icon: Palette },
               { id: 'telephony', label: 'Telephony & Routing', icon: Smartphone },
               { id: 'retention', label: 'Retention & 10DLC', icon: ShieldCheck },
-              { id: 'payments', label: 'Payments & Payouts', icon: CreditCard },
+              { id: 'payments', label: 'Customer Payments', icon: CreditCard },
               { id: 'notifications', label: 'Alerts & Push', icon: Bell }
             ].map(t => {
               const Icon = t.icon
@@ -560,6 +571,96 @@ export default function SettingsPage() {
                 </div>
               </div>
             </form>
+          )}
+
+          {/* ── Tab: Subscription & SaaS Membership ── */}
+          {settingsTab === 'subscription' && (
+            <div className="border border-slate-200/80 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 p-6 space-y-6 shadow-xs">
+              <div className="pb-4 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    CaptoDesk SaaS Subscription &amp; Membership
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Manage your software subscription tier, phone number allocation, and team dispatch capacity.
+                  </p>
+                </div>
+                <Link
+                  href="/client/billing"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-xs transition-colors shrink-0 self-start sm:self-auto"
+                >
+                  <span>Open Billing &amp; Plans Portal</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              {/* Current Active Tier Card */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">Current Active Plan</span>
+                    <span className={cn(
+                      "px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider",
+                      orgPlanData.plan_id === 'fleet' || orgPlanData.plan_id === 'multi_crew'
+                        ? "bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20"
+                        : orgPlanData.plan_id === 'solo'
+                        ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                        : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                    )}>
+                      {orgPlanData.plan_id === 'fleet' || orgPlanData.plan_id === 'multi_crew'
+                        ? 'Team & Fleet Pro ($199/mo)'
+                        : orgPlanData.plan_id === 'solo'
+                        ? 'Solo Operator Pro ($99/mo)'
+                        : 'Free Booking & Field Organizer ($0/mo)'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-zinc-400">
+                    {orgPlanData.plan_id === 'free'
+                      ? 'Your public Google Maps booking link and schedule are 100% free with unlimited customer appointments.'
+                      : 'Includes your dedicated local phone line, 3-second missed-call recovery text-back, and automated reminders.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href="/client/billing"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-xs shadow-xs transition-colors"
+                  >
+                    {orgPlanData.plan_id === 'free' ? '⚡ Upgrade to Solo Pro ($99/mo)' : 'Change / Upgrade Plan'}
+                  </Link>
+                </div>
+              </div>
+
+              {/* Feature Matrix Comparison */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 space-y-2">
+                  <div className="font-bold text-slate-900 dark:text-white">Free Organizer ($0/mo)</div>
+                  <ul className="space-y-1.5 text-slate-600 dark:text-zinc-400">
+                    <li className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Unlimited booking link</li>
+                    <li className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Calendar &amp; job dispatch</li>
+                    <li className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Unmasked customer leads</li>
+                  </ul>
+                </div>
+                <div className="p-4 rounded-xl border-2 border-blue-500/40 bg-blue-50/20 dark:bg-blue-950/20 space-y-2">
+                  <div className="font-bold text-slate-900 dark:text-white">Solo Pro ($99/mo)</div>
+                  <ul className="space-y-1.5 text-slate-600 dark:text-zinc-400">
+                    <li className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400"><CheckCircle2 className="w-3.5 h-3.5" /> Dedicated local line</li>
+                    <li className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400"><CheckCircle2 className="w-3.5 h-3.5" /> 3-sec missed-call auto-text</li>
+                    <li className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400"><CheckCircle2 className="w-3.5 h-3.5" /> 24h &amp; 2h SMS reminders</li>
+                    <li className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400"><CheckCircle2 className="w-3.5 h-3.5" /> Live GPS &apos;On My Way&apos; links</li>
+                  </ul>
+                </div>
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 space-y-2">
+                  <div className="font-bold text-slate-900 dark:text-white">Team &amp; Fleet ($199/mo)</div>
+                  <ul className="space-y-1.5 text-slate-600 dark:text-zinc-400">
+                    <li className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400"><CheckCircle2 className="w-3.5 h-3.5" /> Up to 5 field tech logins</li>
+                    <li className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400"><CheckCircle2 className="w-3.5 h-3.5" /> Multi-crew live dispatch board</li>
+                    <li className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400"><CheckCircle2 className="w-3.5 h-3.5" /> Restricted mobile field portal</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* ── Tab 2: Theme & Display ── */}

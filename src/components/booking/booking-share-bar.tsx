@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Link2, Smartphone, PhoneCall, Check, ExternalLink, MapPin, Globe, Share2, Sparkles, ArrowRight } from 'lucide-react'
+import { Link2, Smartphone, PhoneCall, Check, ExternalLink, MapPin, Globe, Share2, Sparkles, ArrowRight, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspace } from '@/lib/context/workspace-context'
 
@@ -16,6 +16,26 @@ export function BookingShareBar({ slug: propSlug, className = '', showUpgradeCal
   const { orgSlug, orgName } = useWorkspace()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [showChannels, setShowChannels] = useState(false)
+  const [dismissedUpgrade, setDismissedUpgrade] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const dismissedTimestamp = localStorage.getItem('captodesk_booking_upgrade_dismissed')
+      if (dismissedTimestamp) {
+        const elapsedDays = (Date.now() - parseInt(dismissedTimestamp, 10)) / (1000 * 60 * 60 * 24)
+        if (elapsedDays < 14) {
+          setDismissedUpgrade(true)
+        }
+      }
+    }
+  }, [])
+
+  const handleDismissUpgrade = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('captodesk_booking_upgrade_dismissed', Date.now().toString())
+    }
+    setDismissedUpgrade(true)
+  }
 
   const effectiveSlug = propSlug || orgSlug || 'contractor'
   const appUrl = typeof window !== 'undefined' && window.location?.origin
@@ -170,7 +190,7 @@ export function BookingShareBar({ slug: propSlug, className = '', showUpgradeCal
         </div>
       )}
 
-      {showUpgradeCallout && (
+      {showUpgradeCallout && !dismissedUpgrade && (
         <div className="pt-2.5 border-t border-blue-200/60 dark:border-blue-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="flex h-5 w-5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 items-center justify-center font-bold text-xs shrink-0">
@@ -181,13 +201,24 @@ export function BookingShareBar({ slug: propSlug, className = '', showUpgradeCal
               Want automated 3-second text-back when you miss calls in the field?
             </p>
           </div>
-          <Link
-            href="/client/billing"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-bold transition-colors shrink-0 self-start sm:self-auto shadow-2xs border border-slate-700 dark:border-zinc-700 cursor-pointer"
-          >
-            <span>Upgrade to Solo Pro ($99/mo)</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <Link
+              href="/client/billing"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-bold transition-colors shadow-2xs border border-slate-700 dark:border-zinc-700 cursor-pointer"
+            >
+              <span>Upgrade to Solo Pro ($99/mo)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <button
+              type="button"
+              onClick={handleDismissUpgrade}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+              title="Dismiss notice for 14 days"
+              aria-label="Dismiss upgrade notice"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

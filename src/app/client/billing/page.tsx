@@ -35,6 +35,7 @@ interface BillingData {
     name: string
     slug: string
     subscription_status: string
+    plan_id?: string | null
     monthly_rate: number
     telnyx_phone_number?: string | null
     carrier_registration_status?: string | null
@@ -235,7 +236,14 @@ export default function ClientBillingPage() {
   const isScheduledCancellation = sub?.cancel_at_period_end
   const isCanceled = sub?.status === 'canceled'
   const isTrial = billingData.organization.subscription_status === 'trial'
-  const currentPlanId = sub?.plan_id || 'solo'
+
+  // Authoritative plan ID resolution (never default to 'solo' when sub is null!)
+  const activePlanId = (
+    sub?.plan_id || 
+    billingData.organization.plan_id || 
+    billingData.currentPlan.id || 
+    'free'
+  ).toLowerCase()
 
   const renewalDateFormatted = sub?.current_period_end
     ? new Date(sub.current_period_end).toLocaleDateString('en-US', {
@@ -245,9 +253,13 @@ export default function ClientBillingPage() {
       })
     : null
 
-  // Plan matching helper
-  const isCurrentSolo = (currentPlanId === 'solo' || currentPlanId === 'solo_yearly' || currentPlanId === 'captodesk_standard') && billingData.organization.subscription_status === 'active'
-  const isCurrentMultiCrew = (currentPlanId === 'multi_crew' || currentPlanId === 'multi_crew_yearly' || currentPlanId === 'fleet') && billingData.organization.subscription_status === 'active'
+  // Plan matching helper: only mark paid plans if activePlanId is paid and subscription is active
+  const isPayingActive = 
+    (sub?.status === 'active' || billingData.organization.subscription_status === 'active') && 
+    activePlanId !== 'free'
+
+  const isCurrentSolo = isPayingActive && (activePlanId === 'solo' || activePlanId === 'solo_yearly' || activePlanId === 'captodesk_standard')
+  const isCurrentMultiCrew = isPayingActive && (activePlanId === 'multi_crew' || activePlanId === 'multi_crew_yearly' || activePlanId === 'fleet')
   const isCurrentFree = !isCurrentSolo && !isCurrentMultiCrew
 
   const handleDirectUpgrade = async (targetPlanId: string) => {
@@ -375,8 +387,8 @@ export default function ClientBillingPage() {
               </div>
               <div>
                 <span className="text-slate-500 dark:text-zinc-500 block">Dedicated Phone</span>
-                <span className="font-semibold text-slate-900 dark:text-zinc-200 font-mono">
-                  {billingData.organization.telnyx_phone_number || '10DLC Active'}
+                <span className="font-semibold text-slate-900 dark:text-zinc-200 font-mono text-[11px] sm:text-xs">
+                  {billingData.organization.telnyx_phone_number || (isCurrentFree ? 'None (Included in Solo Pro)' : 'Provisioning...')}
                 </span>
               </div>
               <div>

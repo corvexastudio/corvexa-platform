@@ -360,7 +360,8 @@ export async function getAttentionQueue(
       ['active', 'trialing'].includes((orgData.subscription_status || '').toLowerCase()) &&
       planId !== 'free'
 
-    const isIncomplete = !orgData.legal_business_name || (!orgData.is_sole_proprietor && !orgData.ein) || !orgData.address_street || orgData.carrier_registration_status === 'unregistered'
+    const isPendingOrVerified = ['pending', 'in_review', 'verified'].includes(orgData.carrier_registration_status || '')
+    const isIncomplete = !isPendingOrVerified && (!orgData.legal_business_name || (!orgData.is_sole_proprietor && !orgData.ein) || !orgData.address_street || orgData.carrier_registration_status === 'unregistered')
     if (isPayingProPlan && isIncomplete) {
       items.push({
         id: `10dlc-${orgId}`,

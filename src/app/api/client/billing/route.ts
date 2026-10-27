@@ -77,7 +77,7 @@ export async function GET(request?: Request, context?: BillingRouteContext) {
   // 2. Fetch subscription and entitlement
   const subscription = await SubscriptionService.getSubscription(supabase, orgId)
   const entitlement = await SubscriptionService.getEntitlement(supabase, orgId)
-  const effectivePlanId = subscription?.plan_id || org?.plan_id || (org?.subscription_status === 'free' ? 'free' : DEFAULT_SAAS_PLAN_ID)
+  const effectivePlanId = subscription?.plan_id || org?.plan_id || 'free'
   const currentPlan = getSaasPlan(effectivePlanId)
   const payments = await SubscriptionService.getPaymentHistory(supabase, orgId)
 
@@ -349,6 +349,97 @@ export async function POST(request: Request, context?: BillingRouteContext) {
     }
 
     const targetPlan = getSaasPlan(targetPlanId)
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, name, slug, billing_provider, paypal_subscription_id')
+      .eq('id', orgId)
+      .maybeSingle()
+
+    // Downgrade to Free Tier ($0/mo)
+    if (targetPlan.tier === 'free' || targetPlan.id === 'free') {
+      const now = new Date().toISOString()
+      if (org?.paypal_subscription_id) {
+        await PayPalService.cancelPayPalSubscription(org.paypal_subscription_id, body.notes || 'Downgraded to Free tier via portal')
+      }
+
+      await supabase
+        .from('organizations')
+        .update({
+          subscription_status: 'free',
+          plan_id: 'free',
+          monthly_rate: 0,
+          updated_at: now
+        })
+        .eq('id', orgId)
+
+      await supabase
+        .from('saas_subscriptions')
+        .update({
+          status: 'canceled',
+          plan_id: 'free',
+          amount: 0,
+          canceled_at: now,
+          updated_at: now
+        })
+        .eq('org_id', orgId)
+
+      await logAuditEvent(supabase, {
+        org_id: orgId,
+        event_type: 'billing.subscription_canceled',
+        description: `Organization downgraded to Free Booking tier by user`,
+        metadata: {
+          actor_id: user.id,
+          actor_email: user.email,
+          previous_paypal_id: org?.paypal_subscription_id,
+          notes: body.notes || null
+        }
+      })
+
+      return NextResponse.json({
+        success: true,
+        downgraded: true,
+        message: 'Your plan has been downgraded to the Free Booking tier. Your public booking link, schedule, and customer directory remain 100% active.'
+      })
+    }
+
+    // Downgrade from Fleet to Solo ($99/mo)
+    if (targetPlan.tier === 'solo' && org?.paypal_subscription_id) {
+      const reqUrl = new URL(request.url)
+      const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`
+      const returnUrl = `${baseUrl}/client/billing?checkout=paypal_return&plan=solo`
+      const cancelUrl = `${baseUrl}/client/billing?checkout=cancel`
+
+      const reviseResult = await PayPalService.createOrRevisePayPalSubscription({
+        orgId,
+        planTier: 'solo',
+        returnUrl,
+        cancelUrl,
+        existingSubscriptionId: org.paypal_subscription_id,
+        waiveSetupFee: true
+      })
+
+      if (reviseResult.success) {
+        const now = new Date().toISOString()
+        await supabase.from('organizations').update({
+          plan_id: 'solo',
+          monthly_rate: targetPlan.amount,
+          updated_at: now
+        }).eq('id', orgId)
+
+        await supabase.from('saas_subscriptions').update({
+          plan_id: 'solo',
+          amount: targetPlan.amount,
+          updated_at: now
+        }).eq('org_id', orgId)
+
+        return NextResponse.json({
+          success: true,
+          message: 'Your subscription has been updated to CaptoDesk Solo Pro ($99/mo).',
+          checkoutUrl: reviseResult.approvalUrl
+        })
+      }
+    }
+
     await logAuditEvent(supabase, {
       org_id: orgId,
       event_type: 'billing.plan_change_requested',

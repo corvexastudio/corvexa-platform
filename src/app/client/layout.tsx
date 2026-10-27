@@ -59,7 +59,6 @@ export const navSections = [
     items: [
       { href: '/client/quotes', label: 'Quotes', icon: FileText },
       { href: '/client/invoices', label: 'Invoices', icon: CreditCard },
-      { href: '/client/billing', label: 'Plan & Billing', icon: DollarSign },
       { href: '/client/reviews', label: 'Reviews', icon: Star },
     ]
   },
@@ -415,7 +414,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly', 'captodesk_standard'].includes(planIdLower) &&
               ['active', 'trialing'].includes((org.subscription_status || '').toLowerCase()) &&
               planIdLower !== 'free'
-            const isIncomplete10Dlc = !org.legal_business_name || (!org.is_sole_proprietor && !org.ein) || !org.address_street || org.carrier_registration_status === 'unregistered'
+            const isPendingOrVerified = ['pending', 'in_review', 'verified'].includes(org.carrier_registration_status || '')
+            const isIncomplete10Dlc = !isPendingOrVerified && (!org.legal_business_name || (!org.is_sole_proprietor && !org.ein) || !org.address_street || org.carrier_registration_status === 'unregistered')
             const isOwnerOrAdmin = profile.role === 'owner' || profile.role === 'admin' || profile.role === 'super_admin'
 
             if (isPayingProPlan && isIncomplete10Dlc && isOwnerOrAdmin) {
