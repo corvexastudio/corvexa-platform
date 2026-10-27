@@ -10,9 +10,15 @@ export interface BookingShareBarProps {
   slug?: string
   className?: string
   showUpgradeCallout?: boolean
+  onTestMissedCall?: () => void
 }
 
-export function BookingShareBar({ slug: propSlug, className = '', showUpgradeCallout = false }: BookingShareBarProps) {
+export function BookingShareBar({ 
+  slug: propSlug, 
+  className = '', 
+  showUpgradeCallout = false,
+  onTestMissedCall
+}: BookingShareBarProps) {
   const { orgSlug, orgName } = useWorkspace()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [showChannels, setShowChannels] = useState(false)
@@ -135,14 +141,21 @@ export function BookingShareBar({ slug: propSlug, className = '', showUpgradeCal
             <span>📱 Text to Customer</span>
           </a>
 
-          <a
-            href="tel:+18777713802"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:underline transition-colors"
-            title="Call our live toll-free number to test 3-second auto-reply text"
+          <button
+            type="button"
+            onClick={() => {
+              if (onTestMissedCall) {
+                onTestMissedCall()
+              } else {
+                window.location.href = 'tel:+18777713802'
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:underline transition-colors cursor-pointer"
+            title="Test 3-second auto-reply text"
           >
             <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
             <span>Test Missed Call Auto-Text</span>
-          </a>
+          </button>
         </div>
       </div>
 

@@ -56,7 +56,11 @@ export default function DashboardPage() {
   const { orgId, orgName, orgSlug, subscriptionStatus, planId, role } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
   const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
-  const [showFirstBookingModal, setShowFirstBookingModal] = useState(false)
+  const [celebrationModal, setCelebrationModal] = useState<{
+    open: boolean
+    type: 'booking' | 'missed_call'
+    isInteractiveTest?: boolean
+  }>({ open: false, type: 'booking', isInteractiveTest: false })
 
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['dashboard', period],
@@ -103,34 +107,57 @@ export default function DashboardPage() {
   const canViewInvoices = data?.permissions?.canViewInvoices ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
   const canViewQuotes = data?.permissions?.canViewQuotes ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
 
-  // Trigger A: Milestone — Automatically celebrate first customer booking on free tier
+  // Trigger Milestones on Free Tier — ONLY after an achievement is reached (First Booking or Missed Call Recovery)
   useEffect(() => {
     if (isLoading || !data) return
     const isFree = (planId || '').toLowerCase() === 'free' || (subscriptionStatus || '').toLowerCase() === 'free'
-    if (!isFree) return
+    if (!isFree || !orgId) return
 
+    // Achievement 1: First customer booking milestone
     const totalBookings = outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0
     const bookedCount = data?.trialStatus?.bookedCount ?? 0
     const effectiveBookings = Math.max(totalBookings, bookedCount)
 
-    if (effectiveBookings >= 1 && orgId) {
-      const storageKey = `captodesk_first_booking_milestone_seen_${orgId}`
-      const hasSeen = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : 'true'
+    if (effectiveBookings >= 1) {
+      const bookingSeenKey = `captodesk_milestone_booking_seen_${orgId}`
+      const legacyKey = `captodesk_first_booking_milestone_seen_${orgId}`
+      const hasSeen = typeof window !== 'undefined' ? (localStorage.getItem(bookingSeenKey) || localStorage.getItem(legacyKey)) : 'true'
       if (!hasSeen) {
-        // Subtle 750ms delay to let the dashboard render smoothly before opening
         const timer = setTimeout(() => {
-          setShowFirstBookingModal(true)
+          setCelebrationModal({ open: true, type: 'booking', isInteractiveTest: false })
         }, 750)
         return () => clearTimeout(timer)
       }
     }
-  }, [isLoading, data, planId, subscriptionStatus, outcomes, orgId])
 
-  const handleCloseFirstBookingModal = () => {
-    if (orgId && typeof window !== 'undefined') {
-      localStorage.setItem(`captodesk_first_booking_milestone_seen_${orgId}`, 'true')
+    // Achievement 2: Missed call text back milestone (real calls received/handled)
+    const missedCalls = outcomes?.recoveredConversations?.totalMissedCalls ?? 0
+    const missedCallsRecovered = operations?.missedCallsRecovered ?? 0
+    const recentCallsCount = recentCalls?.length ?? 0
+    const effectiveCalls = Math.max(missedCalls, missedCallsRecovered, recentCallsCount)
+
+    if (effectiveCalls >= 1) {
+      const missedCallSeenKey = `captodesk_milestone_missed_call_seen_${orgId}`
+      const hasSeen = typeof window !== 'undefined' ? localStorage.getItem(missedCallSeenKey) : 'true'
+      if (!hasSeen) {
+        const timer = setTimeout(() => {
+          setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: false })
+        }, 750)
+        return () => clearTimeout(timer)
+      }
     }
-    setShowFirstBookingModal(false)
+  }, [isLoading, data, planId, subscriptionStatus, outcomes, operations, recentCalls, orgId])
+
+  const handleCloseCelebrationModal = () => {
+    if (orgId && typeof window !== 'undefined') {
+      if (celebrationModal.type === 'booking') {
+        localStorage.setItem(`captodesk_milestone_booking_seen_${orgId}`, 'true')
+        localStorage.setItem(`captodesk_first_booking_milestone_seen_${orgId}`, 'true')
+      } else {
+        localStorage.setItem(`captodesk_milestone_missed_call_seen_${orgId}`, 'true')
+      }
+    }
+    setCelebrationModal(prev => ({ ...prev, open: false }))
   }
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
@@ -260,7 +287,10 @@ export default function DashboardPage() {
       {/* Day-1 Native SMS & Quick Share Booking Link Bar (Unified Command Hub) */}
       <BookingShareBar
         slug={orgSlug}
-        showUpgradeCallout={planId === 'free' || subscriptionStatus === 'free'}
+        showUpgradeCallout={false}
+        onTestMissedCall={() => {
+          setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: true })
+        }}
       />
 
       {/* ── Section 1: Needs Attention (Action-First Queue) ── */}
@@ -687,10 +717,12 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* First Booking Milestone Celebratory Modal */}
+      {/* Achievement & Milestone Celebration Modal (Pop-up after Booking or Missed Call) */}
       <FirstBookingCelebrationModal
-        isOpen={showFirstBookingModal}
-        onClose={handleCloseFirstBookingModal}
+        isOpen={celebrationModal.open}
+        onClose={handleCloseCelebrationModal}
+        milestoneType={celebrationModal.type}
+        isInteractiveTest={celebrationModal.isInteractiveTest}
         bookingCount={Math.max(outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0, data?.trialStatus?.bookedCount ?? 0, 1)}
       />
     </div>

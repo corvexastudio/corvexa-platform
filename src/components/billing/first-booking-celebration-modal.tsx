@@ -19,15 +19,21 @@ export interface FirstBookingCelebrationModalProps {
   onClose: () => void
   bookingCount?: number
   onUpgradeSuccess?: () => void
+  milestoneType?: 'booking' | 'missed_call'
+  isInteractiveTest?: boolean
 }
 
 export function FirstBookingCelebrationModal({
   isOpen,
   onClose,
   bookingCount = 1,
-  onUpgradeSuccess
+  onUpgradeSuccess,
+  milestoneType = 'booking',
+  isInteractiveTest = false
 }: FirstBookingCelebrationModalProps) {
   const [loading, setLoading] = useState(false)
+
+  const isMissedCall = milestoneType === 'missed_call'
 
   const handleUpgrade = async () => {
     setLoading(true)
@@ -70,34 +76,86 @@ export function FirstBookingCelebrationModal({
       size="lg"
       title={
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+            isMissedCall 
+              ? 'bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400' 
+              : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+          }`}>
+            {isMissedCall ? (
+              <PhoneCall className="w-5 h-5" />
+            ) : (
+              <Sparkles className="w-5 h-5" />
+            )}
           </div>
           <div>
-            <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              Milestone Reached • Customer Booked
+            <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider ${
+              isMissedCall ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'
+            }`}>
+              {isMissedCall
+                ? (isInteractiveTest ? 'Live Interactive Test' : 'Achievement Unlocked • Missed Call Text-Back')
+                : 'Milestone Reached • Customer Booked'}
             </span>
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-              🎉 Your Free Booking Link Is Working!
+              {isMissedCall
+                ? '⚡ 3-Second Missed Call Recovery'
+                : '🎉 Your Free Booking Link Is Working!'}
             </h2>
           </div>
         </div>
       }
       description={
-        "A customer just booked directly on your schedule. You've proven your online link brings in real jobs without phone tag."
+        isMissedCall
+          ? 'Turn every missed phone call into a confirmed customer in under 3 seconds before they call a competitor.'
+          : "A customer just booked directly on your schedule. You've proven your online link brings in real jobs without phone tag."
       }
     >
       <div className="space-y-4 pt-2">
-        {/* The Revenue Bridge: Online vs Phone Calls */}
-        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-950 dark:text-amber-200 space-y-1">
-          <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-300">
-            <PhoneCall className="w-3.5 h-3.5" />
-            <span>The Next Big Leak: 62% of Customers Still Call</span>
+        {/* Contextual Milestone Banner */}
+        {isMissedCall ? (
+          isInteractiveTest ? (
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-950 dark:text-blue-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-300">
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Try It Live from Your Cell Phone</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white shadow-2xs">
+                  Toll-Free Test Line
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-blue-800 dark:text-blue-300/90 leading-relaxed">
+                Call our live demo line at <strong className="font-mono text-blue-950 dark:text-white">+1 (877) 771-3802</strong> from your phone. Let it ring once and hang up—your phone will immediately receive our live 3-second auto-reply text with a booking link!
+              </p>
+              <a
+                href="tel:+18777713802"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer w-fit"
+              >
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Call (877) 771-3802 to Test</span>
+              </a>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-950 dark:text-emerald-200 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900 dark:text-emerald-300">
+                <Zap className="w-3.5 h-3.5" />
+                <span>Inbound Missed Call Caught!</span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-emerald-800 dark:text-emerald-300/90 leading-relaxed">
+                A customer just called while you were on a job or driving. While customer details are saved in your Leads inbox, <strong>80% of missed callers hire the first business that texts them back</strong>. Solo Pro automatically replies in 3 seconds before they call the next contractor on Google.
+              </p>
+            </div>
+          )
+        ) : (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-950 dark:text-amber-200 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-300">
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>The Next Big Leak: 62% of Customers Still Call</span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+              While online booking captures digital homeowners, <strong>62% of high-ticket emergency jobs</strong> still start with a phone call. When you&apos;re under a sink or driving, missed calls go to voicemail—and 80% immediately call the next contractor on Google.
+            </p>
           </div>
-          <p className="text-[11px] sm:text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-            While online booking captures digital homeowners, <strong>62% of high-ticket emergency jobs</strong> still start with a phone call. When you&apos;re under a sink or driving, missed calls go to voicemail—and 80% immediately call the next contractor on Google.
-          </p>
-        </div>
+        )}
 
         {/* Solo Pro Value Card */}
         <div className="rounded-2xl border-2 border-blue-600/30 dark:border-blue-500/30 bg-blue-50/40 dark:bg-blue-950/20 p-4 space-y-3.5">
@@ -120,6 +178,10 @@ export function FirstBookingCelebrationModal({
             <li className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <span><strong>Instant 3-Sec Missed-Call Text-Back:</strong> Texts your booking link in 3 seconds before callers hang up and call competitors</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <span><strong>Dedicated Business Phone Line:</strong> Keep your personal cell number 100% private</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
