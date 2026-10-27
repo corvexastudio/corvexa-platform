@@ -72,6 +72,7 @@ export interface JobTodayItem {
   customerPhone?: string | null
   technicianName?: string | null
   address?: string | null
+  trackingToken?: string | null
 }
 
 export interface RecentCallItem {
@@ -758,7 +759,7 @@ export async function getJobsToday(
 
   const { data: jobs } = await supabase
     .from('jobs')
-    .select('id, job_number, title, status, scheduled_start, scheduled_end, contacts(name, phone, address), profiles(full_name)')
+    .select('id, job_number, title, status, scheduled_start, scheduled_end, tracking_token, contacts(name, phone, address), profiles(full_name)')
     .eq('org_id', orgId)
     .gte('scheduled_start', todayStart.toISOString())
     .lte('scheduled_start', todayEnd.toISOString())
@@ -774,7 +775,8 @@ export async function getJobsToday(
     customerName: j.contacts?.name || 'Customer',
     customerPhone: j.contacts?.phone || null,
     technicianName: j.profiles?.full_name || 'Unassigned',
-    address: j.contacts?.address || null
+    address: j.contacts?.address || null,
+    trackingToken: j.tracking_token || null
   }))
 }
 

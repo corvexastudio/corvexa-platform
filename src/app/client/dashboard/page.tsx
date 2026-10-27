@@ -25,8 +25,15 @@ import {
   TrendingUp,
   Target,
   Plus,
-  Sparkles
+  Sparkles,
+  Truck,
+  Navigation,
+  Phone,
+  Play,
+  Loader2
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { EnRouteModal } from '@/components/jobs/en-route-modal'
 import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -53,9 +60,11 @@ import { cn } from '@/lib/utils'
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgId, orgName, orgSlug, subscriptionStatus, planId, role } = useWorkspace()
+  const { orgId, orgName, orgSlug, subscriptionStatus, planId, role, userFullName } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
   const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
+  const [enRouteModalOpen, setEnRouteModalOpen] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
   const [celebrationModal, setCelebrationModal] = useState<{
     open: boolean
     type: 'booking' | 'missed_call'
@@ -158,6 +167,99 @@ export default function DashboardPage() {
       }
     }
     setCelebrationModal(prev => ({ ...prev, open: false }))
+  }
+
+  // Solo Owner & Field Operations: Determine active/upcoming job for today's route
+  const nonPracticeJobs = jobsToday.filter(j => !isPracticeJob(j))
+  const activeJob =
+    nonPracticeJobs.find(j => j.status === 'in_progress') ||
+    nonPracticeJobs.find(j => j.status === 'arrived') ||
+    nonPracticeJobs.find(j => j.status === 'en_route') ||
+    nonPracticeJobs.find(j => j.status === 'scheduled' || j.status === 'confirmed') ||
+    null
+
+  const allCompletedToday =
+    nonPracticeJobs.length > 0 &&
+    nonPracticeJobs.every(j => j.status === 'completed' || j.status === 'cancelled')
+
+  const enRouteJobPayload = activeJob ? {
+    id: activeJob.id,
+    job_number: activeJob.jobNumber,
+    title: activeJob.title,
+    contact: {
+      name: activeJob.customerName,
+      phone: activeJob.customerPhone || '',
+      address: activeJob.address || null
+    },
+    technician_name: activeJob.technicianName && activeJob.technicianName !== 'Unassigned' ? activeJob.technicianName : (userFullName || 'Lead Technician'),
+    assigned_profile: { full_name: activeJob.technicianName },
+    tracking_token: activeJob.trackingToken || null
+  } : null
+
+  const handleConfirmEnRoute = async ({
+    technicianName,
+    etaMinutes,
+    notifyCustomer
+  }: {
+    technicianName: string
+    etaMinutes: number
+    notifyCustomer: boolean
+  }) => {
+    if (!activeJob) return
+    try {
+      const res = await fetch(`/api/client/jobs/${activeJob.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'en_route',
+          technicianName,
+          etaMinutes,
+          notifyCustomer
+        })
+      })
+      const result = await res.json()
+      if (res.ok && result.success) {
+        toast.success(
+          notifyCustomer
+            ? `🚗 On my way! Customer notified with ~${etaMinutes}m ETA & tracking link.`
+            : 'Job marked en route.'
+        )
+        await refetch()
+      } else {
+        toast.error(result.error || 'Failed to update status to en route.')
+      }
+    } catch {
+      toast.error('Network error updating status.')
+    }
+  }
+
+  const handleTimestampAction = async (action: 'arrived' | 'started' | 'completed') => {
+    if (!activeJob) return
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/client/jobs/${activeJob.id}/timestamp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      })
+      const result = await res.json()
+      if (res.ok && result.success) {
+        if (action === 'arrived') {
+          toast.success('📍 Marked arrived on-site! Customer notified.')
+        } else if (action === 'started') {
+          toast.success('▶️ Started work on-site! Job is now in progress.')
+        } else if (action === 'completed') {
+          toast.success('✅ Job completed! Draft invoice generated automatically.')
+        }
+        await refetch()
+      } else {
+        toast.error(result.error || 'Failed to update job status.')
+      }
+    } catch {
+      toast.error('Network error updating job.')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
@@ -422,7 +524,201 @@ export default function DashboardPage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-3.5">
+              {/* Driver's Seat Hero Card (Solo Owner Command) */}
+              {activeJob && (
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 shadow-xs relative overflow-hidden space-y-4">
+                  {/* Subtle vertical priority indicator bar */}
+                  <div
+                    className={cn(
+                      "absolute left-0 top-0 bottom-0 w-1",
+                      activeJob.status === 'in_progress' ? "bg-emerald-500" :
+                      activeJob.status === 'arrived' ? "bg-amber-500" :
+                      activeJob.status === 'en_route' ? "bg-blue-600" : "bg-slate-400 dark:bg-zinc-600"
+                    )}
+                  />
+
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      {activeJob.status === 'in_progress' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/40">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          <span>Active On-Site</span>
+                        </span>
+                      ) : activeJob.status === 'arrived' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/40">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          <span>Arrived On-Site</span>
+                        </span>
+                      ) : activeJob.status === 'en_route' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/70 dark:border-blue-900/40">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                          <span>En Route</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                          <span>Next Job Today</span>
+                        </span>
+                      )}
+                      <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 font-medium">
+                        #{activeJob.jobNumber}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 px-2.5 py-1 rounded-md">
+                      <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                      <span className="tabular-nums">
+                        {activeJob.scheduledStart
+                          ? new Date(activeJob.scheduledStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                          : 'Today'}
+                        {activeJob.scheduledEnd && (
+                          <> – {new Date(activeJob.scheduledEnd).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
+                        {activeJob.customerName}
+                      </h3>
+                      <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+                        {activeJob.title}
+                      </span>
+                    </div>
+
+                    {activeJob.address ? (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500 shrink-0" />
+                        <span className="truncate">{activeJob.address}</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 dark:text-zinc-500">
+                        No physical address specified
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tactile 48px Action Buttons for Field Ergonomics */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center gap-2">
+                    {activeJob.status === 'en_route' ? (
+                      <Button
+                        type="button"
+                        onClick={() => handleTimestampAction('arrived')}
+                        disabled={actionLoading}
+                        className="min-h-[44px] px-4 font-semibold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer gap-2"
+                      >
+                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                        <span>Mark Arrived</span>
+                      </Button>
+                    ) : activeJob.status === 'arrived' ? (
+                      <Button
+                        type="button"
+                        onClick={() => handleTimestampAction('started')}
+                        disabled={actionLoading}
+                        className="min-h-[44px] px-4 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer gap-2"
+                      >
+                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                        <span>Start Work</span>
+                      </Button>
+                    ) : activeJob.status === 'in_progress' ? (
+                      <Button
+                        type="button"
+                        onClick={() => handleTimestampAction('completed')}
+                        disabled={actionLoading}
+                        className="min-h-[44px] px-4 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer gap-2"
+                      >
+                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        <span>Complete Job</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={() => setEnRouteModalOpen(true)}
+                        disabled={actionLoading}
+                        className="min-h-[44px] px-4 font-semibold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer gap-2"
+                      >
+                        <Truck className="h-4 w-4" />
+                        <span>On My Way</span>
+                      </Button>
+                    )}
+
+                    {activeJob.address && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeJob.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-lg border border-slate-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+                        title="Open in Google Maps"
+                      >
+                        <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>Directions</span>
+                      </a>
+                    )}
+
+                    {activeJob.customerPhone && (
+                      <>
+                        <a
+                          href={`tel:${activeJob.customerPhone}`}
+                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-slate-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+                          title="Call Customer"
+                        >
+                          <Phone className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                          <span>Call</span>
+                        </a>
+                        <a
+                          href={`sms:${activeJob.customerPhone}`}
+                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-slate-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+                          title="Text Customer"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                          <span>Text</span>
+                        </a>
+                      </>
+                    )}
+
+                    <div className="ml-auto">
+                      <Link
+                        href={`/client/jobs`}
+                        className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+                      >
+                        <span>Details &rarr;</span>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Celebratory Banner when all field appointments finished */}
+              {allCompletedToday && !activeJob && (
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                        All field jobs completed for today!
+                      </p>
+                      <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                        {nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'appointment' : 'appointments'} finished. Great job!
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/client/calendar"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+                  >
+                    <span>View Calendar</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              )}
+
+              {/* Day's Agenda Timeline */}
+              <div className="space-y-2.5">
               {jobsToday.map((job) => {
                 if (isPracticeJob(job)) {
                   const realJobsCount = jobsToday.filter(j => !isPracticeJob(j)).length
@@ -448,20 +744,35 @@ export default function DashboardPage() {
                   )
                 }
 
+                const isActiveCurrent = activeJob?.id === job.id
                 return (
                 <div
                   key={job.id}
-                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-zinc-700 transition-all"
+                  className={cn(
+                    "rounded-xl border bg-white dark:bg-zinc-900 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all",
+                    isActiveCurrent
+                      ? "border-blue-500/60 dark:border-blue-500/50 bg-blue-50/20 dark:bg-blue-950/20 shadow-xs"
+                      : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                  )}
                 >
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate">{job.title}</span>
+                      {isActiveCurrent && (
+                        <Badge variant="info" size="sm" className="font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5">
+                          Current
+                        </Badge>
+                      )}
                       <Badge
                         variant={
                           job.status === 'completed'
                             ? 'success'
                             : job.status === 'in_progress'
                             ? 'info'
+                            : job.status === 'en_route'
+                            ? 'info'
+                            : job.status === 'arrived'
+                            ? 'warning'
                             : 'neutral'
                         }
                         size="sm"
@@ -499,6 +810,7 @@ export default function DashboardPage() {
                 </div>
               )
             })}
+              </div>
             </div>
           )}
         </div>
@@ -602,11 +914,11 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* ── Section 3: Verified Outcomes (Business Numbers) ── */}
+      {/* ── Section 3: Performance & Cash Flow ── */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between border-t border-slate-200 dark:border-zinc-800 pt-6">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-            Verified Attributed Performance
+            Performance &amp; Cash Flow
           </h2>
           <Badge variant="neutral" size="default">
             {period === '7d' ? 'Last 7 Days' : 'Last 30 Days'}
@@ -725,6 +1037,17 @@ export default function DashboardPage() {
         isInteractiveTest={celebrationModal.isInteractiveTest}
         bookingCount={Math.max(outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0, data?.trialStatus?.bookedCount ?? 0, 1)}
       />
+
+      {/* Solo Owner Live ETA Dispatch Modal */}
+      {enRouteJobPayload && (
+        <EnRouteModal
+          isOpen={enRouteModalOpen}
+          onClose={() => setEnRouteModalOpen(false)}
+          job={enRouteJobPayload}
+          organizationName={orgName}
+          onConfirm={handleConfirmEnRoute}
+        />
+      )}
     </div>
   )
 }

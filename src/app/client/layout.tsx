@@ -677,20 +677,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 )}
               </Link>
             )}
-            <ThemeToggle />
+            {!isTechnician && <UniversalQuickCreate />}
             <ErrorBoundary fallback={<div className="h-8 w-8" />}>
               <NotificationCenter orgId={orgId} />
             </ErrorBoundary>
-            {unreadTotal > 0 && (
-              <Link
-                href="/client/inbox"
-                className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 dark:bg-blue-600/10 dark:border-blue-500/20 px-2.5 py-1 text-xs font-bold text-blue-600 dark:text-blue-400 min-h-[36px]"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-                <span>{unreadTotal}</span>
-              </Link>
-            )}
-            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Safety net active" />
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Front desk active" />
           </div>
         </header>
 
@@ -981,14 +972,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       )}
 
       {/* ── Mobile Purpose-Built Bottom Action Bar (< 768px) ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-14 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 md:hidden px-1 backdrop-blur-md safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-16 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 md:hidden px-1 backdrop-blur-md safe-area-bottom">
         {isTechnician ? (
           <>
             <Link
               href="/client/field"
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <Navigation className="h-4 w-4" />
@@ -998,8 +989,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Link
               href="/client/calendar"
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname.startsWith('/client/calendar') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/calendar') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <Calendar className="h-4 w-4" />
@@ -1009,22 +1000,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Link
               href="/client/inbox"
               className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <div className="relative">
                 <MessageSquare className="h-4 w-4" />
                 {unreadTotal > 0 && (
-                  <span className="absolute -top-1 -right-2 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
+                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
                 )}
               </div>
-              <span>Inbox</span>
+              <span>Messages</span>
             </Link>
 
             <button
               onClick={() => setMobileDrawerOpen(true)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[44px]"
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[48px] cursor-pointer"
             >
               <Menu className="h-4 w-4" />
               <span>More</span>
@@ -1035,8 +1026,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Link
               href="/client/dashboard"
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname === '/client/dashboard' ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname === '/client/dashboard' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <LayoutDashboard className="h-4 w-4" />
@@ -1046,35 +1037,35 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Link
               href="/client/inbox"
               className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <div className="relative">
                 <MessageSquare className="h-4 w-4" />
                 {unreadTotal > 0 && (
-                  <span className="absolute -top-1 -right-2 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
+                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
                 )}
               </div>
-              <span>Inbox</span>
+              <span>Messages</span>
             </Link>
 
             <Link
-              href="/client/jobs"
+              href="/client/calendar"
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname.startsWith('/client/jobs') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/calendar') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
-              <Briefcase className="h-4 w-4" />
-              <span>Jobs</span>
+              <Calendar className="h-4 w-4" />
+              <span>Schedule</span>
             </Link>
 
             <Link
               href="/client/invoices"
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[44px]',
-                pathname.startsWith('/client/invoices') ? 'text-blue-600 dark:text-zinc-100 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/invoices') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <CreditCard className="h-4 w-4" />
@@ -1083,7 +1074,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
             <button
               onClick={() => setMobileDrawerOpen(true)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[44px]"
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[48px] cursor-pointer"
             >
               <Menu className="h-4 w-4" />
               <span>More</span>
