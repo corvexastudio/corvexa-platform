@@ -375,3 +375,54 @@ export async function scheduleJobReviewAutomation(
     scheduled_at: new Date(scheduledTimeMs).toISOString()
   })
 }
+
+/**
+ * Schedules automated Google review follow-up 15 minutes after invoice payment in full
+ */
+export async function scheduleInvoiceReviewAutomation(
+  supabase: SupabaseClient,
+  context: { orgId: string; invoiceId: string; contactId?: string | null; delayMinutes?: number }
+): Promise<{ scheduled: boolean; scheduledAt?: string; reason?: string }> {
+  const { orgId, invoiceId, contactId, delayMinutes = 15 } = context
+
+  if (!contactId) {
+    return { scheduled: false, reason: 'missing_contact' }
+  }
+
+  // Fetch org review settings
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('review_delay_hours, review_requests_enabled, is_review_engine_active, google_review_url')
+    .eq('id', orgId)
+    .single()
+
+  const isEnabled = org?.review_requests_enabled !== false && org?.is_review_engine_active !== false && !!org?.google_review_url
+  if (!isEnabled) {
+    return { scheduled: false, reason: 'reviews_disabled_or_no_url' }
+  }
+
+  // 15 minutes after payment in full (or custom delay)
+  const scheduledTimeMs = Date.now() + delayMinutes * 60 * 1000
+  const scheduledAt = new Date(scheduledTimeMs).toISOString()
+
+  await supabase.from('automation_runs').insert({
+    org_id: orgId,
+    rule_id: '00000000-0000-0000-0000-000000000009', // System Invoice Review Automation Rule
+    job_id: `invoice_review_${invoiceId}`,
+    idempotency_key: `review_invoice_${invoiceId}`,
+    event_type: 'invoice.paid',
+    event_payload: {
+      invoice_id: invoiceId,
+      contact_id: contactId
+    },
+    action_type: 'send_review_request',
+    action_params: {
+      invoice_id: invoiceId,
+      contact_id: contactId
+    },
+    status: 'scheduled',
+    scheduled_at: scheduledAt
+  })
+
+  return { scheduled: true, scheduledAt }
+}

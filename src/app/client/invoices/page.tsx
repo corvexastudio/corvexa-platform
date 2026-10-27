@@ -619,14 +619,28 @@ function ClientInvoicesContent() {
                               onClick={() => handleSendInvoice(inv.id)}
                               disabled={actionLoadingId === inv.id}
                               className="h-7.5 px-2.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-zinc-800 font-semibold rounded-md shadow-2xs"
+                              title={inv.status === 'draft' ? 'Send invoice via SMS' : 'Resend payment reminder SMS'}
                             >
                               {actionLoadingId === inv.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 <Send className="h-3 w-3 mr-1" />
                               )}
-                              <span>Send</span>
+                              <span>{inv.status === 'draft' ? 'Send' : 'Remind'}</span>
                             </Button>
+                          )}
+
+                          {isPaid && (
+                            <a
+                              href={`/invoice/${inv.manage_token}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center h-7.5 px-2.5 text-xs text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 font-semibold rounded-md shadow-2xs transition-colors"
+                              title="View official customer receipt"
+                            >
+                              <Receipt className="h-3 w-3 mr-1 text-emerald-600 dark:text-emerald-400" />
+                              <span>Receipt</span>
+                            </a>
                           )}
 
                           {!isPaid && !isVoid && (
@@ -730,8 +744,20 @@ function ClientInvoicesContent() {
                         ) : (
                           <Send className="h-3 w-3 mr-1" />
                         )}
-                        <span>Send</span>
+                        <span>{inv.status === 'draft' ? 'Send' : 'Remind'}</span>
                       </Button>
+                    )}
+
+                    {isPaid && (
+                      <a
+                        href={`/invoice/${inv.manage_token}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center h-7.5 px-2.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 font-semibold rounded-md shadow-2xs"
+                      >
+                        <Receipt className="h-3 w-3 mr-1 text-emerald-600 dark:text-emerald-400" />
+                        <span>Receipt</span>
+                      </a>
                     )}
 
                     {!isPaid && !isVoid && (

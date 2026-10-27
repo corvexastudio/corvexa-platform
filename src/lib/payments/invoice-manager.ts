@@ -7,6 +7,7 @@ import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.t
 import { createStripeCheckoutSession } from './stripe-adapter.ts'
 import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
+import { scheduleInvoiceReviewAutomation } from '../reviews/review-manager.ts'
 
 export type InvoiceStatus =
   | 'draft'
@@ -636,7 +637,15 @@ export async function recordPayment(
       // Emit domain event for any listening services
       await handleAutomationEvent(supabase, paidEvent)
 
-      // Optional thank you SMS
+      // Automated 5-Star Google Review Trigger (15 minutes after full payment)
+      await scheduleInvoiceReviewAutomation(supabase, {
+        orgId: invoice.org_id,
+        invoiceId: invoice.id,
+        contactId: invoice.contact_id,
+        delayMinutes: 15
+      }).catch((err) => console.error('[INVOICE_REVIEW_AUTOMATION_ERROR]', err))
+
+      // Instant Transactional Receipt SMS with link to official receipt
       let contact = invoice.contacts
       if (!contact && invoice.contact_id) {
         const { data: c } = await supabase.from('contacts').select('*').eq('id', invoice.contact_id).single()
@@ -644,7 +653,12 @@ export async function recordPayment(
       }
 
       if (contact?.phone) {
-        const rawReceiptText = `Thank you for your payment! Invoice ${invoice.invoice_number} ($${amount}) has been marked paid in full.`
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+        const receiptUrl = invoice.manage_token ? `${baseUrl}/invoice/${invoice.manage_token}` : ''
+        const rawReceiptText = receiptUrl
+          ? `Thank you for your payment! Invoice ${invoice.invoice_number} ($${amount}) has been paid in full. View receipt: ${receiptUrl}`
+          : `Thank you for your payment! Invoice ${invoice.invoice_number} ($${amount}) has been marked paid in full.`
+
         const compliance = await verifyOutboundCompliance(supabase, {
           orgId: invoice.org_id,
           toPhone: contact.phone,
@@ -677,10 +691,10 @@ export async function recordPayment(
 export async function customerViewInvoice(
   supabase: SupabaseClient,
   manageToken: string
-): Promise<{ success: boolean; invoice?: any; items?: any[]; org?: any; error?: string }> {
+): Promise<{ success: boolean; invoice?: any; items?: any[]; org?: any; jobPhotos?: any[]; error?: string }> {
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
-    .select('*, invoice_items(*), organizations(id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions)')
+    .select('*, invoice_items(*), contacts(id, name, phone, email, address_street, address_city, address_state, address_postal_code), organizations(id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, address_street, address_city, address_state, address_postal_code)')
     .eq('manage_token', manageToken)
     .single()
 
@@ -692,7 +706,7 @@ export async function customerViewInvoice(
   if (!org && invoice.org_id) {
     const { data: o, error: oErr } = await supabase
       .from('organizations')
-      .select('id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions')
+      .select('id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, address_street, address_city, address_state, address_postal_code')
       .eq('id', invoice.org_id)
       .single()
     if (oErr) {
@@ -707,6 +721,32 @@ export async function customerViewInvoice(
     }
   }
 
+  // Fallback for contacts if relational embed was omitted or flat
+  if (!invoice.contacts && invoice.contact_id) {
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('id, name, phone, email, address_street, address_city, address_state, address_postal_code')
+      .eq('id', invoice.contact_id)
+      .maybeSingle()
+    if (contact) {
+      invoice.contacts = contact
+    }
+  }
+
+  // Fallback for invoice_items if relational embed was omitted
+  let items = invoice.invoice_items
+  if (!items || items.length === 0) {
+    const { data: fetchedItems } = await supabase
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', invoice.id)
+    if (fetchedItems && fetchedItems.length > 0) {
+      items = fetchedItems
+    } else {
+      items = items || []
+    }
+  }
+
   // Update status to viewed if currently sent
   if (invoice.status === 'sent') {
     const now = new Date().toISOString()
@@ -718,11 +758,27 @@ export async function customerViewInvoice(
     invoice.viewed_at = now
   }
 
+  // Fetch job photos (Before & After proof of work) if linked to a job
+  let jobPhotos: any[] = []
+  if (invoice.job_id) {
+    try {
+      const { data: photos } = await supabase
+        .from('job_photos')
+        .select('*')
+        .eq('job_id', invoice.job_id)
+        .order('created_at', { ascending: true })
+      jobPhotos = photos || []
+    } catch {
+      // Non-fatal if job_photos table is omitted in older schemas
+    }
+  }
+
   return {
     success: true,
     invoice,
-    items: invoice.invoice_items || [],
-    org
+    items,
+    org,
+    jobPhotos
   }
 }
 
