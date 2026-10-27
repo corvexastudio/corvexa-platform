@@ -1,11 +1,13 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
   Zap, 
@@ -19,467 +21,945 @@ import {
   Save, 
   ShieldCheck,
   CheckCircle2,
-  ArrowRight,
-  Loader2
+  ExternalLink,
+  Smartphone,
+  Check,
+  Loader2,
+  AlertCircle,
+  Phone,
+  Radio,
+  Lock,
+  ChevronRight,
+  Info
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { ProUpgradeModal } from '@/components/billing/pro-upgrade-modal'
 import { isProAutomationEntitled } from '@/lib/billing/plans'
 
+interface ActivityLogItem {
+  id: string
+  event_type: 'missed_call' | 'review_invite' | 'website_form' | string
+  created_at: string
+  status?: string | null
+  delivery_status?: string | null
+  metadata?: any
+}
+
 export default function AutomationsPage() {
   const supabase = createClient()
   const { planId, subscriptionStatus } = useWorkspace()
-  const isProEntitled = isProAutomationEntitled({ subscription_status: subscriptionStatus, plan_id: planId })
+
+  // State
+  const [orgId, setOrgId] = useState<string | null>(null)
+  const [orgSlug, setOrgSlug] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+
+  // Upgrade Modal State
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeFeature, setUpgradeFeature] = useState('Missed-Call Instant Text-Back')
 
-  const [orgId, setOrgId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  // Active Settings for Missed Call & Reviews
+  // Core Automation Settings
   const [settings, setSettings] = useState({
     name: '',
     slug: '',
     telnyx_phone_number: '',
     is_missed_call_active: true,
     is_review_engine_active: true,
-    auto_reply_template: 'Hi, this is {business_name}! Sorry we missed your call — our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} — or reply directly to this text with what you need!',
-    after_hours_template: "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} — or text us what you need and we'll reply first thing in the morning!",
+    auto_reply_template: 'Hi, this is {business_name}! Sorry we missed your call - our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} - or reply directly to this text with what you need!',
+    after_hours_template: "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} - or text us what you need and we'll reply first thing in the morning!",
     cooldown_hours: 24,
     google_review_url: ''
   })
 
+  // Preview Switcher State
+  const [previewTab, setPreviewTab] = useState<'open' | 'closed' | 'review' | 'reminder'>('open')
+
+  // Live Activity Logs
+  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+
+  // Entitlement Check
+  const isProEntitled = useMemo(() => {
+    return isProAutomationEntitled({
+      id: orgId,
+      slug: orgSlug,
+      subscription_status: subscriptionStatus,
+      plan_id: planId
+    })
+  }, [orgId, orgSlug, subscriptionStatus, planId])
+
+  // Load Organization & Automation Settings
   const loadSettings = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .maybeSingle()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('id', user.id)
+        .maybeSingle()
 
-    if (!profile || !profile.org_id) {
-      window.location.href = '/client/onboarding'
-      return
-    }
-    setOrgId(profile.org_id)
+      if (!profile || !profile.org_id) {
+        window.location.href = '/client/onboarding'
+        return
+      }
+      setOrgId(profile.org_id)
 
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', profile.org_id)
-      .single()
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', profile.org_id)
+        .single()
 
-    if (org) {
-      const isLegacyOpen = !org.auto_reply_template || org.auto_reply_template.includes('We are mid-job and missed your call')
-      const isLegacyClosed = !org.after_hours_template || org.after_hours_template.includes('will call you first thing tomorrow morning')
+      if (org) {
+        setOrgSlug(org.slug || '')
+        const isLegacyOpen = !org.auto_reply_template || org.auto_reply_template.includes('We are mid-job and missed your call')
+        const isLegacyClosed = !org.after_hours_template || org.after_hours_template.includes('will call you first thing tomorrow morning')
 
-      setSettings({
-        name: org.name || '',
-        slug: org.slug || '',
-        telnyx_phone_number: org.telnyx_phone_number || '',
-        is_missed_call_active: org.is_missed_call_active ?? true,
-        is_review_engine_active: org.is_review_engine_active ?? true,
-        auto_reply_template: isLegacyOpen
-          ? 'Hi, this is {business_name}! Sorry we missed your call — our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} — or reply directly to this text with what you need!'
-          : org.auto_reply_template,
-        after_hours_template: isLegacyClosed
-          ? "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} — or text us what you need and we'll reply first thing in the morning!"
-          : org.after_hours_template,
-        cooldown_hours: org.cooldown_hours ?? 24,
-        google_review_url: org.google_review_url || ''
-      })
+        setSettings({
+          name: org.name || '',
+          slug: org.slug || '',
+          telnyx_phone_number: org.telnyx_phone_number || '',
+          is_missed_call_active: org.is_missed_call_active ?? true,
+          is_review_engine_active: org.is_review_engine_active ?? true,
+          auto_reply_template: isLegacyOpen
+            ? 'Hi, this is {business_name}! Sorry we missed your call - our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} - or reply directly to this text with what you need!'
+            : org.auto_reply_template,
+          after_hours_template: isLegacyClosed
+            ? "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} - or text us what you need and we'll reply first thing in the morning!"
+            : org.after_hours_template,
+          cooldown_hours: org.cooldown_hours ?? 24,
+          google_review_url: org.google_review_url || ''
+        })
+
+        // Fetch recent automation activity logs
+        setLoadingLogs(true)
+        const { data: logs } = await supabase
+          .from('activity_logs')
+          .select('*')
+          .eq('org_id', profile.org_id)
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        if (logs) {
+          setActivityLogs(logs)
+        }
+        setLoadingLogs(false)
+      }
+    } catch {
+      toast.error('Failed to load automation settings.')
+    } finally {
+      setLoading(false)
     }
   }, [supabase])
 
-  useEffect(() => { loadSettings() }, [loadSettings])
+  useEffect(() => {
+    loadSettings()
+  }, [loadSettings])
 
-  const handleSave = async () => {
+  // Save Settings to Database
+  const handleSave = async (showToast = true) => {
     if (!orgId) return
     setSaving(true)
+    setSaveStatus('saving')
 
-    const { error } = await supabase
-      .from('organizations')
-      .update({
-        is_missed_call_active: settings.is_missed_call_active,
-        is_review_engine_active: settings.is_review_engine_active,
-        auto_reply_template: settings.auto_reply_template,
-        after_hours_template: settings.after_hours_template,
-        cooldown_hours: settings.cooldown_hours,
-        google_review_url: settings.google_review_url
-      })
-      .eq('id', orgId)
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          is_missed_call_active: settings.is_missed_call_active,
+          is_review_engine_active: settings.is_review_engine_active,
+          auto_reply_template: settings.auto_reply_template,
+          after_hours_template: settings.after_hours_template,
+          cooldown_hours: settings.cooldown_hours,
+          google_review_url: settings.google_review_url
+        })
+        .eq('id', orgId)
 
-    setSaving(false)
-    if (error) {
-      toast.error('Failed to save settings.')
-    } else {
-      toast.success('Automation rules updated and active')
+      if (error) {
+        setSaveStatus('idle')
+        toast.error('Failed to update automation rules.')
+      } else {
+        setSaveStatus('saved')
+        if (showToast) {
+          toast.success('Automation switchboard updated and live.')
+        }
+        setTimeout(() => setSaveStatus('idle'), 3000)
+      }
+    } catch {
+      setSaveStatus('idle')
+      toast.error('Network error saving automation rules.')
+    } finally {
+      setSaving(false)
     }
   }
 
+  // Live URL & Template Previews
   const fallbackOrigin = (process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com').replace(/\/$/, '')
   const appOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : fallbackOrigin
   const bookingUrlPreview = settings.slug 
     ? `${appOrigin}/book/${settings.slug}`
     : `${appOrigin}/book/your-link`
 
-  const openPreview = (settings.auto_reply_template || '')
-    .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Your Company')
-    .replace(/\{booking_url\}|\{\{booking_url\}\}|\{booking_link\}|\{\{booking_link\}\}/g, bookingUrlPreview)
+  const openPreviewText = useMemo(() => {
+    return (settings.auto_reply_template || '')
+      .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Our Team')
+      .replace(/\{booking_url\}|\{\{booking_url\}\}|\{booking_link\}|\{\{booking_link\}\}/g, bookingUrlPreview)
+  }, [settings.auto_reply_template, settings.name, bookingUrlPreview])
 
-  const afterHoursPreview = (settings.after_hours_template || '')
-    .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Your Company')
-    .replace(/\{booking_url\}|\{\{booking_url\}\}|\{booking_link\}|\{\{booking_link\}\}/g, bookingUrlPreview)
+  const afterHoursPreviewText = useMemo(() => {
+    return (settings.after_hours_template || '')
+      .replace(/\{business_name\}|\{\{business_name\}\}/g, settings.name || 'Our Team')
+      .replace(/\{booking_url\}|\{\{booking_url\}\}|\{booking_link\}|\{\{booking_link\}\}/g, bookingUrlPreview)
+  }, [settings.after_hours_template, settings.name, bookingUrlPreview])
+
+  const reviewPreviewText = useMemo(() => {
+    const url = settings.google_review_url || 'https://g.page/r/your-google-profile/review'
+    return `Hi Sarah, thank you for choosing ${settings.name || 'our service'} today! If you have 30 seconds, please share your honest review on Google: ${url}`
+  }, [settings.google_review_url, settings.name])
+
+  const reminderPreviewText = useMemo(() => {
+    return `Reminder from ${settings.name || 'our team'}: Your appointment is confirmed for tomorrow between 9:00 AM - 11:00 AM. Reply to this text if you need to adjust your time!`
+  }, [settings.name])
+
+  // Active Preview Display
+  const currentPreviewContent = useMemo(() => {
+    switch (previewTab) {
+      case 'open':
+        return {
+          title: 'Missed Call (Open)',
+          badge: 'Trigger: Unanswered Inbound Call (Business Hours)',
+          text: openPreviewText
+        }
+      case 'closed':
+        return {
+          title: 'Missed Call (Closed)',
+          badge: 'Trigger: Unanswered Call (Evenings & Weekends)',
+          text: afterHoursPreviewText
+        }
+      case 'review':
+        return {
+          title: 'Google Review Booster',
+          badge: 'Trigger: Job Completed (+30m delay)',
+          text: reviewPreviewText
+        }
+      case 'reminder':
+        return {
+          title: 'Appointment Reminder',
+          badge: 'Trigger: 24h & 2h Before Arrival',
+          text: reminderPreviewText
+        }
+    }
+  }, [previewTab, openPreviewText, afterHoursPreviewText, reviewPreviewText, reminderPreviewText])
+
+  // Character Count & Segment Calculation Helper
+  const getSmsSegmentCount = (text: string) => {
+    const len = text.length
+    if (len <= 160) return { chars: len, segments: 1 }
+    return { chars: len, segments: Math.ceil(len / 153) }
+  }
+
+  const openSmsStats = useMemo(() => getSmsSegmentCount(openPreviewText), [openPreviewText])
+  const closedSmsStats = useMemo(() => getSmsSegmentCount(afterHoursPreviewText), [afterHoursPreviewText])
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Skeleton className="h-10 w-64 rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Skeleton className="lg:col-span-8 h-96 rounded-2xl" />
+          <Skeleton className="lg:col-span-4 h-96 rounded-2xl" />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
+      {/* TOP HEADER & LIVE OPERATIONAL STATUS */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Automations
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+              Automation Switchboard
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              24/7 Autopilot Live
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+            Rules execute autonomously in real time to capture missed revenue and gather verified Google reviews.
+          </p>
         </div>
 
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          size="sm"
-          className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium self-start sm:self-auto"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-3.5 w-3.5 mr-1.5" />
-              Save Rules
-            </>
+        {/* Header Actions & Autosave Indicator */}
+        <div className="flex items-center gap-3 self-start md:self-center">
+          {saveStatus === 'saved' && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              <Check className="h-3.5 w-3.5" />
+              Saved live
+            </span>
           )}
-        </Button>
-      </div>
+          {saveStatus === 'saving' && (
+            <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Syncing...
+            </span>
+          )}
 
-      {/* Rules List */}
-      <div className="space-y-4">
-
-        {/* Rule 1: Missed Call Text-Back */}
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-zinc-800">
-            <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-zinc-950 border border-blue-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
-                <PhoneMissed className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    Missed-Call Instant Text-Back
-                  </h2>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[10px] font-medium border",
-                    settings.is_missed_call_active
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                      : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-750"
-                  )}>
-                    {settings.is_missed_call_active ? 'Active' : 'Disabled'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Sends an immediate SMS response to callers when a business call is missed or rings out.
-                </p>
-              </div>
-            </div>
-
-            {/* Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!isProEntitled) {
-                  setUpgradeFeature('Missed-Call Instant Text-Back')
-                  setShowUpgradeModal(true)
-                  return
-                }
-                setSettings(s => ({ ...s, is_missed_call_active: !s.is_missed_call_active }))
-              }}
-              className={cn(
-                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer",
-                settings.is_missed_call_active ? "bg-blue-600" : "bg-slate-200 dark:bg-zinc-800"
-              )}
-            >
-              <span className={cn(
-                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-xs",
-                settings.is_missed_call_active ? "translate-x-4.5" : "translate-x-0.5"
-              )} />
-            </button>
-          </div>
-
-          {/* Configuration Form */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
-                  Business Hours Response
-                </Label>
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">While Open</span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                Sent when a call is missed during regular operating hours (e.g. while mid-job).
-              </p>
-              <textarea
-                rows={4}
-                value={settings.auto_reply_template}
-                onChange={e => setSettings(s => ({ ...s, auto_reply_template: e.target.value }))}
-                className="w-full rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed shadow-2xs"
-              />
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500">Insert tag:</span>
-                <button
-                  type="button"
-                  onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {business_name}' }))}
-                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[10px] text-slate-700 dark:text-zinc-300 font-mono transition-colors"
-                >
-                  {'{business_name}'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {booking_url}' }))}
-                  className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 text-[10px] text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 font-mono transition-colors"
-                >
-                  {'{booking_url}'}
-                </button>
-              </div>
-              <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-2.5 border border-slate-200/80 dark:border-zinc-800/80 text-[11px] text-slate-600 dark:text-zinc-400 space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-zinc-500 block tracking-wider">Live Preview:</span>
-                <span className="text-slate-800 dark:text-zinc-300 leading-relaxed block">&ldquo;{openPreview}&rdquo;</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
-                  After-Hours / Closed Response
-                </Label>
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">While Closed</span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                Automatically detected when office is closed or on weekends. Keeps callers from calling competitors.
-              </p>
-              <textarea
-                rows={4}
-                value={settings.after_hours_template}
-                onChange={e => setSettings(s => ({ ...s, after_hours_template: e.target.value }))}
-                className="w-full rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed shadow-2xs"
-              />
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500">Insert tag:</span>
-                <button
-                  type="button"
-                  onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {business_name}' }))}
-                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[10px] text-slate-700 dark:text-zinc-300 font-mono transition-colors"
-                >
-                  {'{business_name}'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {booking_url}' }))}
-                  className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 text-[10px] text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 font-mono transition-colors"
-                >
-                  {'{booking_url}'}
-                </button>
-              </div>
-              <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-2.5 border border-slate-200/80 dark:border-zinc-800/80 text-[11px] text-slate-600 dark:text-zinc-400 space-y-1">
-                <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-zinc-500 block tracking-wider">Live Preview:</span>
-                <span className="text-slate-800 dark:text-zinc-300 leading-relaxed block">&ldquo;{afterHoursPreview}&rdquo;</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-2 flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 border-t border-slate-100 dark:border-zinc-800/80">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
-            <span>Cooldown safeguard: Repeat calls within {settings.cooldown_hours} hours will not trigger duplicate texts.</span>
-          </div>
-        </div>
-
-        {/* Rule 2: Google Review Request */}
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-zinc-800">
-            <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-zinc-950 border border-amber-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
-                <Star className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    Post-Job Google Review Invite
-                  </h2>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[10px] font-medium border",
-                    settings.is_review_engine_active
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                      : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-750"
-                  )}>
-                    {settings.is_review_engine_active ? 'Active' : 'Disabled'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Sends an SMS asking homeowners to share honest feedback on Google after their job is marked completed.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (!isProEntitled) {
-                  setUpgradeFeature('Google Review Booster SMS')
-                  setShowUpgradeModal(true)
-                  return
-                }
-                setSettings(s => ({ ...s, is_review_engine_active: !s.is_review_engine_active }))
-              }}
-              className={cn(
-                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer",
-                settings.is_review_engine_active ? "bg-blue-600" : "bg-slate-200 dark:bg-zinc-800"
-              )}
-            >
-              <span className={cn(
-                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-xs",
-                settings.is_review_engine_active ? "translate-x-4.5" : "translate-x-0.5"
-              )} />
-            </button>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs text-slate-700 dark:text-zinc-300 font-medium">Google Business Review URL</Label>
-            <Input
-              placeholder="https://g.page/r/your-review-link"
-              value={settings.google_review_url}
-              onChange={e => setSettings(s => ({ ...s, google_review_url: e.target.value }))}
-              className="h-8.5 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-md"
-            />
-            <p className="text-[11px] text-slate-500 dark:text-zinc-500">
-              Customers receive a direct link to your Google Business Profile review dialog.
-            </p>
-          </div>
-        </div>
-
-        {/* Rule 3: Appointment Reminders */}
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-zinc-400">
-                <Calendar className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    Appointment Confirmations & Reminders
-                  </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Sends booking confirmation immediately, followed by 24-hour and 2-hour appointment reminders.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-3 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400 space-y-1">
-            <div className="font-medium text-slate-900 dark:text-zinc-300">Default cadence:</div>
-            <div>• Booking confirmed: Instant SMS with service details and reschedule link</div>
-            <div>• 24 hours prior: Reminder SMS confirming technician arrival window</div>
-            <div>• Technician en route: Live dispatch notification</div>
-          </div>
-        </div>
-
-        {/* Rule 4: Quote Follow-Up */}
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-zinc-400">
-                <FileText className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    Estimate Follow-Up
-                  </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Automatically checks in with homeowners if an estimate has not been approved after 48 hours.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-3 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400">
-            Follow-up SMS triggers 2 days and 5 days after quote dispatch unless accepted or declined.
-          </div>
-        </div>
-
-        {/* Rule 5: Customer Reactivation */}
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-zinc-400">
-                <Repeat className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    Seasonal Maintenance Reactivation
-                  </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Reminds past clients who are due or overdue for recurring service to schedule their next visit.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-slate-50 dark:bg-zinc-950 p-3 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400">
-            Cadence and template configured under Settings &gt; Customer Retention.
-          </div>
-        </div>
-
-        {/* Bottom Save Action Bar for Mobile Thumb Reach */}
-        <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <p className="text-xs text-slate-500 dark:text-zinc-400">Changes deploy immediately to your front desk and SMS routing.</p>
           <Button
-            onClick={handleSave}
+            onClick={() => handleSave(true)}
             disabled={saving}
             size="sm"
-            className="h-9 px-4 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium w-full sm:w-auto"
+            className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs gap-1.5 cursor-pointer"
           >
             {saving ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                Saving Rules...
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Saving...
               </>
             ) : (
               <>
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                Save Automation Rules
+                <Save className="h-3.5 w-3.5" />
+                Save Changes
               </>
             )}
           </Button>
         </div>
+      </div>
 
+      {/* OPERATIONAL TELEPHONY STATUS BAR */}
+      <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-zinc-800 border border-blue-200/60 dark:border-zinc-700 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+            <Radio className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900 dark:text-zinc-100">
+                Connected Line: {settings.telnyx_phone_number || 'Provisioning Dedicated Number'}
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/40">
+                10DLC Registered
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+              Carrier route: Direct Telnyx Voice & SMS Gateway with automated failover
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-zinc-800">
+          <div className="text-right sm:text-left">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Cooldown Period</span>
+            <span className="font-semibold text-slate-800 dark:text-zinc-200 tabular-nums">{settings.cooldown_hours} Hours</span>
+          </div>
+        </div>
+      </div>
+
+      {/* TWO-COLUMN LAYOUT: SWITCHBOARD RULES (LEFT) + LIVE SMARTPHONE PREVIEW (RIGHT) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        {/* LEFT COLUMN: THE 5 AUTOMATION ENGINES */}
+        <div className="lg:col-span-7 space-y-4">
+
+          {/* ENGINE 1: MISSED CALL INSTANT TEXT-BACK */}
+          <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
+            {/* Header / Master Switch */}
+            <div className="p-4 sm:p-5 flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-zinc-800 border border-blue-200 dark:border-zinc-700 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400">
+                  <PhoneMissed className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                      Missed-Call Instant Text-Back
+                    </h2>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/40">
+                      3-Sec Dispatch
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Fires an immediate SMS within 3 seconds of a missed call so prospective customers do not dial competitors.
+                  </p>
+                </div>
+              </div>
+
+              {/* High-Visibility Tactile Switch */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isProEntitled) {
+                    setUpgradeFeature('Missed-Call Instant Text-Back')
+                    setShowUpgradeModal(true)
+                    return
+                  }
+                  setSettings(s => ({ ...s, is_missed_call_active: !s.is_missed_call_active }))
+                }}
+                className={cn(
+                  'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer',
+                  settings.is_missed_call_active ? 'bg-blue-600' : 'bg-slate-200 dark:bg-zinc-800'
+                )}
+                title="Toggle Missed-Call Auto-Text"
+              >
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    settings.is_missed_call_active ? 'translate-x-6' : 'translate-x-1'
+                  )}
+                />
+              </button>
+            </div>
+
+            {/* Template Editors */}
+            <div className="p-4 sm:p-5 space-y-5 bg-slate-50/50 dark:bg-zinc-950/30">
+
+              {/* Tab 1: Business Hours Response */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <Label className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                      Business Hours Response (While Working)
+                    </Label>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                    {openSmsStats.chars} chars • {openSmsStats.segments} {openSmsStats.segments === 1 ? 'segment' : 'segments'}
+                  </span>
+                </div>
+
+                <textarea
+                  rows={3}
+                  value={settings.auto_reply_template}
+                  onChange={e => setSettings(s => ({ ...s, auto_reply_template: e.target.value }))}
+                  className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed shadow-2xs"
+                  placeholder="Text sent to caller during business hours..."
+                />
+
+                {/* Variable Tag Inserters */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Insert tag:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {business_name}' }))}
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[10px] font-mono text-slate-700 dark:text-zinc-300 transition-colors"
+                  >
+                    {'{business_name}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, auto_reply_template: s.auto_reply_template + ' {booking_url}' }))}
+                    className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 text-[10px] font-mono text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 transition-colors"
+                  >
+                    {'{booking_url}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('open')}
+                    className="ml-auto text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    Preview in Phone →
+                  </button>
+                </div>
+              </div>
+
+              {/* Tab 2: After-Hours / Weekend Response */}
+              <div className="space-y-2 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    <Label className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                      After-Hours / Closed Response (Evenings & Weekends)
+                    </Label>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                    {closedSmsStats.chars} chars • {closedSmsStats.segments} {closedSmsStats.segments === 1 ? 'segment' : 'segments'}
+                  </span>
+                </div>
+
+                <textarea
+                  rows={3}
+                  value={settings.after_hours_template}
+                  onChange={e => setSettings(s => ({ ...s, after_hours_template: e.target.value }))}
+                  className="w-full p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 resize-none font-sans leading-relaxed shadow-2xs"
+                  placeholder="Text sent when your business is closed..."
+                />
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Insert tag:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {business_name}' }))}
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[10px] font-mono text-slate-700 dark:text-zinc-300 transition-colors"
+                  >
+                    {'{business_name}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, after_hours_template: s.after_hours_template + ' {booking_url}' }))}
+                    className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 text-[10px] font-mono text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 transition-colors"
+                  >
+                    {'{booking_url}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('closed')}
+                    className="ml-auto text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    Preview in Phone →
+                  </button>
+                </div>
+              </div>
+
+              {/* Cooldown Safeguard Control */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200/80 dark:border-zinc-800 text-xs">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <span>Repeat caller cooldown safeguard:</span>
+                </div>
+
+                <select
+                  aria-label="Cooldown Window"
+                  value={settings.cooldown_hours}
+                  onChange={e => setSettings(s => ({ ...s, cooldown_hours: parseInt(e.target.value, 10) }))}
+                  className="h-7 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded px-2 text-slate-800 dark:text-zinc-200 font-medium"
+                >
+                  <option value={12}>12 Hours</option>
+                  <option value={24}>24 Hours (Recommended)</option>
+                  <option value={48}>48 Hours</option>
+                  <option value={72}>72 Hours</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+
+          {/* ENGINE 2: GOOGLE REVIEW BOOSTER */}
+          <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-zinc-800 border border-amber-200 dark:border-zinc-700 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                  <Star className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                      Post-Job Google Review Booster
+                    </h2>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/40">
+                      +30m Post-Completion
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Automatically sends an SMS asking homeowners to share honest feedback on your Google Business Profile after work is completed.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isProEntitled) {
+                    setUpgradeFeature('Google Review Booster SMS')
+                    setShowUpgradeModal(true)
+                    return
+                  }
+                  setSettings(s => ({ ...s, is_review_engine_active: !s.is_review_engine_active }))
+                }}
+                className={cn(
+                  'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none cursor-pointer',
+                  settings.is_review_engine_active ? 'bg-blue-600' : 'bg-slate-200 dark:bg-zinc-800'
+                )}
+                title="Toggle Google Review Engine"
+              >
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm',
+                    settings.is_review_engine_active ? 'translate-x-6' : 'translate-x-1'
+                  )}
+                />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-3 bg-slate-50/50 dark:bg-zinc-950/30">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                    Google Business Profile Direct Review URL
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('review')}
+                    className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    Preview in Phone →
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="https://g.page/r/your-review-link"
+                    value={settings.google_review_url}
+                    onChange={e => setSettings(s => ({ ...s, google_review_url: e.target.value }))}
+                    className="h-8.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100"
+                  />
+                  {settings.google_review_url && (
+                    <a
+                      href={settings.google_review_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-100 text-slate-700 dark:text-zinc-300 text-xs font-medium inline-flex items-center gap-1 shrink-0"
+                    >
+                      <span>Test Link</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-500">
+                  Tip: Get this from your Google Business Profile &gt; "Ask for reviews" button.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ENGINE 3: APPOINTMENT CONFIRMATION & REMINDERS */}
+          <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-emerald-50 dark:bg-zinc-800 border border-emerald-200 dark:border-zinc-700 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400">
+                  <Calendar className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                      Appointment Confirmation & Reminders
+                    </h2>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Eliminates costly customer no-shows with automated multi-touch notifications.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPreviewTab('reminder')}
+                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+              >
+                Preview →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Touchpoint 1</span>
+                <span className="font-semibold text-slate-900 dark:text-zinc-200 block mt-0.5">Instant Booking SMS</span>
+                <span className="text-[11px] text-slate-500">Service specs + manage link</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Touchpoint 2</span>
+                <span className="font-semibold text-slate-900 dark:text-zinc-200 block mt-0.5">24h Arrival Reminder</span>
+                <span className="text-[11px] text-slate-500">Confirms arrival time window</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Touchpoint 3</span>
+                <span className="font-semibold text-slate-900 dark:text-zinc-200 block mt-0.5">En Route Alert</span>
+                <span className="text-[11px] text-slate-500">Dispatches live GPS ETA</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ENGINE 4: ESTIMATE APPROVAL FOLLOW-UP */}
+          <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-purple-50 dark:bg-zinc-800 border border-purple-200 dark:border-zinc-700 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
+                  <FileText className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                      Estimate Approval Follow-Up
+                    </h2>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Follows up automatically with homeowners who have not signed or approved pending quotes.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400 flex items-center justify-between">
+              <span>Triggers SMS check-in <strong>48 hours</strong> and <strong>5 days</strong> post-estimate dispatch.</span>
+              <Link href="/client/quotes" className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                View Estimates →
+              </Link>
+            </div>
+          </div>
+
+          {/* ENGINE 5: SEASONAL MAINTENANCE WIN-BACK */}
+          <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 shadow-xs space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-sky-50 dark:bg-zinc-800 border border-sky-200 dark:border-zinc-700 flex items-center justify-center shrink-0 text-sky-600 dark:text-sky-400">
+                  <Repeat className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                      Seasonal Maintenance Win-Back
+                    </h2>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Automatically checks in with past customers when their standard maintenance cycle (90, 180, or 365 days) is due.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400 flex items-center justify-between">
+              <span>Reactivation cadence: <strong>90 - 180 days</strong> post-job based on service frequency.</span>
+              <Link href="/client/customers" className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                View Customer Directory →
+              </Link>
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: INTERACTIVE SMARTPHONE SMS PREVIEW */}
+        <div className="lg:col-span-5 sticky top-6 space-y-4">
+          <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                  Live Homeowner Perspective
+                </span>
+              </div>
+
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                SMS Preview
+              </span>
+            </div>
+
+            {/* Template Selector Pills */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setPreviewTab('open')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer text-center truncate',
+                  previewTab === 'open'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                Missed (Open)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPreviewTab('closed')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer text-center truncate',
+                  previewTab === 'closed'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                Missed (Closed)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPreviewTab('review')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer text-center truncate',
+                  previewTab === 'review'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                Google Review
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPreviewTab('reminder')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer text-center truncate',
+                  previewTab === 'reminder'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                Reminder
+              </button>
+            </div>
+
+            {/* Smartphone Bezel */}
+            <div className="rounded-[2.2rem] p-3 bg-slate-950 text-white shadow-xl border-4 border-slate-800 dark:border-zinc-700 max-w-[320px] mx-auto space-y-3">
+              {/* Top Dynamic Island / Speaker */}
+              <div className="flex items-center justify-between px-3 pt-1 text-[10px] text-slate-400">
+                <span className="font-semibold tabular-nums">9:41</span>
+                <div className="h-3 w-16 bg-black rounded-full" />
+                <span className="font-semibold">5G 100%</span>
+              </div>
+
+              {/* Chat Header */}
+              <div className="text-center pb-2 border-b border-zinc-800/80">
+                <div className="h-8 w-8 mx-auto rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs mb-1">
+                  {(settings.name || 'C')[0]}
+                </div>
+                <div className="text-[11px] font-bold text-white truncate px-4">
+                  {settings.name || 'Your Company'}
+                </div>
+                <div className="text-[9px] text-zinc-400 font-mono">
+                  {settings.telnyx_phone_number || '+1 (555) 019-2831'}
+                </div>
+              </div>
+
+              {/* Messages Area */}
+              <div className="min-h-[220px] max-h-[260px] overflow-y-auto space-y-2 p-1 text-left flex flex-col justify-end">
+                <div className="text-[9px] text-center text-zinc-500 font-semibold my-1">
+                  Today 9:41 AM
+                </div>
+
+                {/* Inbound Missed Call Indicator */}
+                {(previewTab === 'open' || previewTab === 'closed') && (
+                  <div className="text-[9px] text-center text-rose-400 font-medium py-0.5 px-2 rounded-full bg-rose-950/40 border border-rose-900/40 w-fit mx-auto">
+                    Incoming Call Missed
+                  </div>
+                )}
+
+                {/* Automated Outbound SMS Bubble */}
+                <div className="self-start max-w-[92%] p-3 rounded-2xl rounded-tl-sm bg-zinc-800 border border-zinc-700/60 text-[11px] text-zinc-100 leading-relaxed shadow-sm">
+                  {currentPreviewContent.text}
+                </div>
+                <span className="text-[8px] text-zinc-400 pl-1 self-start">Delivered</span>
+              </div>
+
+              {/* Dummy SMS Input Box */}
+              <div className="pt-2 border-t border-zinc-800 flex items-center justify-between px-2 text-[10px] text-zinc-500">
+                <span>Text Message</span>
+                <span className="h-4 w-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold">↑</span>
+              </div>
+            </div>
+
+            {/* Context Badge */}
+            <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80 text-[11px] text-slate-600 dark:text-zinc-400 text-center">
+              {currentPreviewContent.badge}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* RECENT AUTOMATION DISPATCHES (AUDIT FEED) */}
+      <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+              Recent Automation Dispatches
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Live audit stream of triggered SMS responses and review invites.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={loadSettings}
+            className="h-8 text-xs border-slate-200 dark:border-zinc-800"
+          >
+            Refresh Logs
+          </Button>
+        </div>
+
+        {loadingLogs ? (
+          <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <span className="text-xs">Loading audit stream...</span>
+          </div>
+        ) : activityLogs.length === 0 ? (
+          <div className="py-8 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-4">
+            <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+              No automations have fired yet today
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
+              When a phone call rings out or a job completes, dispatch records will appear here in real time.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3">Event Type</th>
+                  <th className="py-2.5 px-3">Recipient</th>
+                  <th className="py-2.5 px-3">Timestamp</th>
+                  <th className="py-2.5 px-3 text-right">Delivery Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {activityLogs.map(log => {
+                  const eventLabels: Record<string, string> = {
+                    missed_call: 'Missed Call Auto-Text',
+                    review_invite: 'Google Review Booster',
+                    website_form: 'Web Booking Confirmation'
+                  }
+                  const phoneFormatted = log.metadata?.phone 
+                    ? String(log.metadata.phone).slice(0, 6) + '****' 
+                    : 'Customer Phone'
+
+                  return (
+                    <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-800/40">
+                      <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-zinc-200">
+                        {eventLabels[log.event_type] || log.event_type}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-zinc-400">
+                        {phoneFormatted}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-500 dark:text-zinc-400 tabular-nums">
+                        {new Date(log.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' })}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Delivered
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Contextual Pro Upgrade Modal */}
@@ -490,6 +970,7 @@ export default function AutomationsPage() {
         requiredTier="solo"
         currentPlanId={planId}
       />
+
     </div>
   )
 }
