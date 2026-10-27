@@ -48,8 +48,7 @@ export const navSections = [
     items: [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
       { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
-      { href: '/client/calendar', label: 'Schedule', icon: Calendar },
-      { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
+      { href: '/client/calendar', label: 'Schedule & Jobs', icon: Calendar },
     ]
   },
   {
@@ -131,7 +130,9 @@ function NavLinkItem({
 }) {
   const rawPathname = usePathname()
   const pathname = rawPathname || ''
-  const isActive = pathname === href || (href !== '/client/dashboard' && pathname.startsWith(href + '/'))
+  const isActive = pathname === href || 
+    (href !== '/client/dashboard' && pathname.startsWith(href + '/')) ||
+    (href === '/client/calendar' && (pathname === '/client/jobs' || pathname.startsWith('/client/jobs/')))
 
   return (
     <Link
@@ -920,7 +921,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     {sec.title}
                   </div>
                   {sec.items.map(item => {
-                    const isActive = pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
+                    const isActive = pathname === item.href || 
+                      (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/')) ||
+                      (item.href === '/client/calendar' && (pathname === '/client/jobs' || pathname.startsWith('/client/jobs/')))
                     const Icon = item.icon
                     const unread = item.badgeKey === 'inbox' ? unreadTotal : 0
                     return (
@@ -985,7 +988,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               href="/client/calendar"
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname.startsWith('/client/calendar') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                (pathname.startsWith('/client/calendar') || pathname.startsWith('/client/jobs')) ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <Calendar className="h-4 w-4" />
@@ -1049,7 +1052,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               href="/client/calendar"
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname.startsWith('/client/calendar') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                (pathname.startsWith('/client/calendar') || pathname.startsWith('/client/jobs')) ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
               <Calendar className="h-4 w-4" />
