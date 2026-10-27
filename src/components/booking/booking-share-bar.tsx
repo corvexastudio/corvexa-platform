@@ -68,31 +68,35 @@ export function BookingShareBar({
   }
 
   return (
-    <div className={`rounded-xl border border-blue-200/80 dark:border-blue-900/40 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-zinc-900 p-3 shadow-2xs flex flex-col gap-3 ${className}`}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+    <div className={`rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 sm:p-4 shadow-2xs flex flex-col gap-3 ${className}`}>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-slate-600 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700/60">
+            <Link2 className="w-4 h-4" />
+          </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                Your Public Booking Link
+              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
+                Public Booking Link
               </span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                100% Free &amp; Unlimited
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/40">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span>Live Front Desk</span>
               </span>
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate font-mono">
+              <p className="text-xs text-slate-600 dark:text-zinc-300 truncate font-mono">
                 {bookingUrl}
               </p>
               <a
                 href={bookingUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center text-[10px] text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                className="inline-flex items-center text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0 gap-0.5"
                 title="Preview public booking page"
               >
-                <ExternalLink className="w-3 h-3 ml-0.5" />
+                <span>Preview</span>
+                <ExternalLink className="w-3 h-3" />
               </a>
             </div>
           </div>
@@ -102,44 +106,44 @@ export function BookingShareBar({
           <button
             type="button"
             onClick={() => handleCopy(bookingUrl, 'default', 'Booking Link')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 transition-colors shadow-2xs cursor-pointer"
           >
             {copiedKey === 'default' ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Copied!</span>
+                <Check className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
+                <span>Copied to Clipboard</span>
               </>
             ) : (
               <>
-                <Link2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <Link2 className="w-3.5 h-3.5" />
                 <span>Copy Link</span>
               </>
             )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowChannels(!showChannels)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shadow-2xs cursor-pointer ${
-              showChannels
-                ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-700'
-            }`}
-          >
-            <Share2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>{showChannels ? 'Hide Channels' : 'Where to Put Link (Maps/Web)'}</span>
           </button>
 
           <a
             href={smsHref}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-2xs"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs"
             title="Send booking link from your phone's native SMS app"
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>📱 Text to Customer</span>
+            <Smartphone className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
+            <span>Text to Customer</span>
           </a>
+
+          <button
+            type="button"
+            onClick={() => setShowChannels(!showChannels)}
+            className={`inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shadow-2xs cursor-pointer ${
+              showChannels
+                ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-750'
+            }`}
+          >
+            <Share2 className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
+            <span>{showChannels ? 'Hide Setup' : 'Placement Guide'}</span>
+          </button>
 
           <button
             type="button"
@@ -150,11 +154,11 @@ export function BookingShareBar({
                 window.location.href = 'tel:+18777713802'
               }
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:underline transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             title="Test 3-second auto-reply text"
           >
             <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
-            <span>Test Missed Call Auto-Text</span>
+            <span>Test Auto-Reply</span>
           </button>
         </div>
       </div>

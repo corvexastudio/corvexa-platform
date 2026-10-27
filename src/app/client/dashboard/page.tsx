@@ -421,18 +421,16 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : attentionQueue.length === 0 ? (
-          <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 px-5 py-4.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
-            <div className="flex items-center gap-3.5">
-              <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">All caught up!</p>
-              </div>
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <p className="text-xs font-medium text-slate-700 dark:text-zinc-300">
+                <span className="font-bold text-slate-900 dark:text-zinc-100">All caught up.</span> No missed calls or unread customer messages requiring reply.
+              </p>
             </div>
             <Link
               href="/client/inbox"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors shrink-0"
             >
               <span>Open 2-Way Inbox</span>
               <ArrowRight className="h-3.5 w-3.5" />
@@ -508,19 +506,60 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : jobsToday.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 p-8 text-center bg-white/60 dark:bg-zinc-900/40 shadow-2xs">
-              <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 dark:text-zinc-500 mx-auto mb-3">
-                <Calendar className="h-5 w-5" />
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 shadow-xs relative overflow-hidden space-y-4">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
+
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/40">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span>Front Desk Monitoring</span>
+                  </span>
+                  <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 font-medium">
+                    0 Jobs Scheduled Today
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 px-2.5 py-1 rounded-md">
+                  <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                  <span>{new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                </div>
               </div>
-              <p className="text-sm font-bold text-slate-900 dark:text-zinc-100">No field appointments scheduled for today</p>
-              <div className="mt-4">
+
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
+                  Truck Command Active • Ready for Dispatch
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-xl leading-relaxed">
+                  Inbound missed calls and web booking requests will automatically appear here as your Next Up job with 1-tap Google Maps directions, live ETA tracking, and on-site invoicing.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center gap-2.5">
                 <Link
                   href="/client/calendar"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors"
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Book Appointment Now</span>
+                  <Plus className="h-4 w-4" />
+                  <span>Schedule Next Job</span>
                 </Link>
+
+                <Link
+                  href="/client/quotes"
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <FileText className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
+                  <span>Create Quick Estimate</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: true })}
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <PhoneCall className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span>Test 3-Sec Missed Call Auto-Text</span>
+                </button>
               </div>
             </div>
           ) : (

@@ -44,14 +44,12 @@ import { PostSubscribe10DlcModal } from '@/components/compliance/post-subscribe-
 // Workflow-centric information architecture for field service businesses
 export const navSections = [
   {
-    title: 'Daily Work',
+    title: 'Daily Operations',
     items: [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
       { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
-      { href: '/client/leads', label: 'Leads', icon: Target },
-      { href: '/client/calendar', label: 'Calendar', icon: Calendar },
+      { href: '/client/calendar', label: 'Schedule', icon: Calendar },
       { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
-      { href: '/client/field', label: 'Field Portal', icon: Navigation },
     ]
   },
   {
@@ -551,12 +549,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </Link>
 
           <span 
-            className="relative flex h-2 w-2 shrink-0" 
-            title="Front desk safety net active" 
-          >
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
+            className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" 
+            title="Front desk active" 
+          />
         </div>
 
         {/* Structured Navigation Groups */}
