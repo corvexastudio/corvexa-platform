@@ -26,8 +26,7 @@ export async function GET(
     .select(`
       *,
       contact:contacts(id, name, phone, email, address),
-      items:quote_items(*),
-      jobs:jobs(id, job_number, status)
+      items:quote_items(*)
     `)
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
@@ -56,6 +55,44 @@ export async function GET(
   const hasMore = items.length > limit
   if (hasMore) {
     items.pop()
+  }
+
+  // Safely populate linked jobs without ambiguous PostgREST schema relationship errors
+  const quoteIds = items.map((q: any) => q.id).filter(Boolean)
+  if (quoteIds.length > 0) {
+    try {
+      const { data: linkedJobs } = await supabase
+        .from('jobs')
+        .select('id, job_number, status, quote_id')
+        .eq('org_id', orgId)
+        .in('quote_id', quoteIds)
+
+      if (linkedJobs && linkedJobs.length > 0) {
+        const jobsByQuote = new Map<string, any[]>()
+        for (const job of linkedJobs) {
+          if (job.quote_id) {
+            const list = jobsByQuote.get(job.quote_id) || []
+            list.push(job)
+            jobsByQuote.set(job.quote_id, list)
+          }
+        }
+        for (const q of items) {
+          q.jobs = jobsByQuote.get(q.id) || []
+        }
+      } else {
+        for (const q of items) {
+          q.jobs = []
+        }
+      }
+    } catch {
+      for (const q of items) {
+        q.jobs = []
+      }
+    }
+  } else {
+    for (const q of items) {
+      q.jobs = []
+    }
   }
 
   let nextCursor: string | null = null

@@ -506,60 +506,34 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : jobsToday.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 shadow-xs relative overflow-hidden space-y-4">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
-
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-0.5 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/40">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span>Front Desk Monitoring</span>
-                  </span>
-                  <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 font-medium">
-                    0 Jobs Scheduled Today
-                  </span>
+                  <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0" />
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                    No appointments scheduled for today
+                  </h3>
                 </div>
-
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 px-2.5 py-1 rounded-md">
-                  <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                  <span>{new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
-                  Truck Command Active • Ready for Dispatch
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-xl leading-relaxed">
-                  Inbound missed calls and web booking requests will automatically appear here as your Next Up job with 1-tap Google Maps directions, live ETA tracking, and on-site invoicing.
+                <p className="text-xs text-slate-500 dark:text-zinc-400 pl-4">
+                  Confirmed bookings and route jobs will appear here.
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-2 shrink-0">
                 <Link
                   href="/client/calendar"
-                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Schedule Next Job</span>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Schedule Job</span>
                 </Link>
-
                 <Link
                   href="/client/quotes"
-                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
                 >
-                  <FileText className="h-4 w-4 text-slate-500 dark:text-zinc-400" />
-                  <span>Create Quick Estimate</span>
+                  <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                  <span>New Quote</span>
                 </Link>
-
-                <button
-                  type="button"
-                  onClick={() => setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: true })}
-                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
-                >
-                  <PhoneCall className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span>Test 3-Sec Missed Call Auto-Text</span>
-                </button>
               </div>
             </div>
           ) : (
