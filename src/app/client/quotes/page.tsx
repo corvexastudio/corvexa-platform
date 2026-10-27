@@ -49,8 +49,20 @@ interface QuoteItem {
   total?: number
 }
 
+const TRADE_PRESET_CATEGORIES = [
+  { id: 'all', label: 'All Trades' },
+  { id: 'plumbing', label: 'Plumbing' },
+  { id: 'hvac', label: 'HVAC' },
+  { id: 'electrical', label: 'Electrical' },
+  { id: 'exterior', label: 'Roof & Exterior' },
+  { id: 'interior', label: 'Paint & Repairs' },
+  { id: 'specialty', label: 'Specialty Trades' },
+]
+
 const TRADE_PRESETS = [
+  // Plumbing
   {
+    category: 'plumbing',
     label: '40-Gal Water Heater',
     title: 'Standard 40-Gal Water Heater Replacement',
     price: 1450,
@@ -60,6 +72,7 @@ const TRADE_PRESETS = [
     notes: 'Includes standard manufacturer warranty, removal & disposal of old unit.'
   },
   {
+    category: 'plumbing',
     label: 'Drain Snake',
     title: 'Main Sewer / Drain Clearing',
     price: 185,
@@ -69,6 +82,19 @@ const TRADE_PRESETS = [
     notes: 'Includes 30-day clear line warranty.'
   },
   {
+    category: 'plumbing',
+    label: 'Garbage Disposal',
+    title: 'Kitchen Garbage Disposal Replacement',
+    price: 285,
+    items: [
+      { description: '1/2 HP continuous feed garbage disposal, new discharge tube, splash guard & electrical hookup', quantity: 1, unit_price: 285 }
+    ],
+    notes: 'Includes 1-year parts & labor warranty.'
+  },
+
+  // HVAC
+  {
+    category: 'hvac',
     label: 'Diagnostic Site Fee',
     title: 'Diagnostic & On-Site Inspection',
     price: 89,
@@ -78,6 +104,7 @@ const TRADE_PRESETS = [
     notes: 'Diagnostic fee is credited 100% toward the repair if approved.'
   },
   {
+    category: 'hvac',
     label: 'AC Tune-Up',
     title: 'AC Precision Seasonal Tune-Up',
     price: 129,
@@ -87,6 +114,7 @@ const TRADE_PRESETS = [
     notes: 'Complete multi-point cooling efficiency and safety inspection.'
   },
   {
+    category: 'hvac',
     label: 'Capacitor Swap',
     title: 'AC Dual-Run Capacitor Replacement',
     price: 185,
@@ -95,7 +123,10 @@ const TRADE_PRESETS = [
     ],
     notes: 'Includes 1-year parts warranty.'
   },
+
+  // Electrical
   {
+    category: 'electrical',
     label: 'EV Charger 50A',
     title: 'EV Level 2 Charger Dedicated Circuit',
     price: 850,
@@ -105,6 +136,7 @@ const TRADE_PRESETS = [
     notes: 'Compliant with local electrical code and manufacturer specifications.'
   },
   {
+    category: 'electrical',
     label: 'Panel Inspection',
     title: 'Whole-Home Electrical Panel Inspection',
     price: 119,
@@ -112,6 +144,122 @@ const TRADE_PRESETS = [
       { description: 'Thermal scan of breakers, ground fault testing, load calculation & safety report', quantity: 1, unit_price: 119 }
     ],
     notes: 'Complete written code & safety evaluation report provided.'
+  },
+  {
+    category: 'electrical',
+    label: 'Ceiling Fan Install',
+    title: 'Ceiling Fan / Fixture Replacement',
+    price: 165,
+    items: [
+      { description: 'Assemble and securely mount fan/light fixture up to 10ft ceiling, wire and test balance', quantity: 1, unit_price: 165 }
+    ],
+    notes: 'Existing junction box must be ceiling fan-rated.'
+  },
+
+  // Exterior (Roofing, Pressure Wash, Tree, Fence)
+  {
+    category: 'exterior',
+    label: 'Gutter Cleaning',
+    title: 'Seamless Gutter Cleanout & Flush',
+    price: 149,
+    items: [
+      { description: 'Complete gutter hand clearing, downspout water flush, and debris haul away', quantity: 1, unit_price: 149 }
+    ],
+    notes: 'Includes multi-point gutter seam inspection.'
+  },
+  {
+    category: 'exterior',
+    label: 'Driveway Wash',
+    title: 'Concrete Driveway & Walkway Surface Wash',
+    price: 150,
+    items: [
+      { description: 'Deep rotary surface cleaning, pre-treatment surfactant, and concrete pressure rinse up to 800 sq ft', quantity: 1, unit_price: 150 }
+    ],
+    notes: 'Removes organic mold, mildew, and road grime.'
+  },
+  {
+    category: 'exterior',
+    label: 'Hazardous Tree Trim',
+    title: 'Canopy Thinning & Deadwood Limb Removal',
+    price: 350,
+    items: [
+      { description: 'Selective canopy thinning, deadwood limb pruning away from roofline & wood chipping haul', quantity: 1, unit_price: 350 }
+    ],
+    notes: 'Full clean-up of lawn and haul away of all green waste included.'
+  },
+  {
+    category: 'exterior',
+    label: 'Fence Post Repair',
+    title: 'Wood Fence Post Replacement & Gate Adjustment',
+    price: 175,
+    items: [
+      { description: 'Dig out failing post, pour quick-set concrete footer, set 4x4 pressure-treated post & realign gate latch', quantity: 1, unit_price: 175 }
+    ],
+    notes: 'Includes new galvanized exterior hardware.'
+  },
+
+  // Interior (Paint, Handyman, Carpet)
+  {
+    category: 'interior',
+    label: 'Drywall Hole Patch',
+    title: 'Drywall Patch, Tape, Mud & Texture',
+    price: 140,
+    items: [
+      { description: 'Cut back damaged sheetrock, backing board, mesh tape, two coats fast-set mud, sand & texture match', quantity: 1, unit_price: 140 }
+    ],
+    notes: 'Ready for paint once fully cured.'
+  },
+  {
+    category: 'interior',
+    label: 'Room Repaint',
+    title: 'Standard Interior Room Paint (2 Coats)',
+    price: 450,
+    items: [
+      { description: 'Mask trim and flooring, minor spackle prep, 2 coats premium washable latex paint on walls', quantity: 1, unit_price: 450 }
+    ],
+    notes: 'Includes paint and prep materials for standard 12x12 room.'
+  },
+  {
+    category: 'interior',
+    label: 'Carpet Deep Clean',
+    title: '3-Room Hot Water Steam Extraction',
+    price: 139,
+    items: [
+      { description: 'Truck-mounted steam extraction, high-traffic pre-spray, and rapid-dry vacuum stroke up to 3 rooms', quantity: 1, unit_price: 139 }
+    ],
+    notes: 'Pet-safe non-toxic cleaning solution used.'
+  },
+
+  // Specialty (Garage Door, Locksmith, Appliance)
+  {
+    category: 'specialty',
+    label: 'Torsion Spring Swap',
+    title: 'Garage Door Broken Torsion Spring Replacement',
+    price: 240,
+    items: [
+      { description: 'High-cycle 15,000+ torsion spring replacement, cable inspection, track alignment & drum balance', quantity: 1, unit_price: 240 }
+    ],
+    notes: 'Includes 3-year spring warranty.'
+  },
+  {
+    category: 'specialty',
+    label: 'Emergency Lockout',
+    title: 'Residential Emergency Lockout Service',
+    price: 95,
+    items: [
+      { description: 'Non-destructive door entry, lock pick/bypass, and latch hardware security check', quantity: 1, unit_price: 95 }
+    ],
+    notes: 'Photo ID matching address required on arrival.'
+  },
+  {
+    category: 'specialty',
+    label: 'Appliance Diagnostic',
+    title: 'Major Appliance On-Site Diagnostic Fee',
+    price: 89,
+    items: [
+      { description: 'Troubleshoot electrical, motor, pump, or refrigeration cooling failure and provide itemized repair quote', quantity: 1, unit_price: 89 }
+    ],
+    notes: 'Diagnostic fee is credited 100% toward the repair if approved.'
   }
 ]
 
@@ -213,6 +361,7 @@ function ClientQuotesContent() {
   const [requiresDeposit, setRequiresDeposit] = useState(false)
   const [depositType, setDepositType] = useState<'percentage' | 'fixed'>('percentage')
   const [depositValue, setDepositValue] = useState<number>(30)
+  const [presetCategory, setPresetCategory] = useState<string>('all')
 
   // Listen to contact_id or quick-create query param
   useEffect(() => {
@@ -817,17 +966,39 @@ function ClientQuotesContent() {
           </div>
 
           {/* 1-Tap Trade Presets */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
-              1-Tap Trade Presets (Fast Sight-Unseen Quotes)
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {TRADE_PRESETS.map((preset) => (
+          <div className="space-y-2 pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
+                1-Tap Trade Presets (Fast Sight-Unseen Quotes)
+              </span>
+
+              {/* Trade Category Tabs */}
+              <div className="flex flex-wrap gap-1">
+                {TRADE_PRESET_CATEGORIES.map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setPresetCategory(cat.id)}
+                    className={cn(
+                      'text-[10px] px-2 py-0.5 rounded border transition-colors cursor-pointer',
+                      presetCategory === cat.id
+                        ? 'bg-blue-600 border-blue-600 text-white font-semibold'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300'
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 rounded-lg border border-slate-100 dark:border-zinc-850 bg-slate-50/50 dark:bg-zinc-900/40">
+              {TRADE_PRESETS.filter(p => presetCategory === 'all' || p.category === presetCategory).map((preset) => (
                 <button
                   key={preset.label}
                   type="button"
                   onClick={() => applyPreset(preset)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
                 >
                   <span>{preset.label}</span>
                   <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">

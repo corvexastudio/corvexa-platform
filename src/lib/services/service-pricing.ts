@@ -1,4 +1,4 @@
-export type PricingModel = 'fixed' | 'starting_at' | 'diagnostic_fee' | 'free_estimate'
+export type PricingModel = 'fixed' | 'starting_at' | 'diagnostic_fee' | 'free_estimate' | 'quote_on_site'
 
 export interface ParsedServicePricing {
   model: PricingModel
@@ -12,7 +12,8 @@ export const PRICING_MODEL_LABELS: Record<PricingModel, string> = {
   fixed: 'Fixed Price',
   starting_at: 'Starting At',
   diagnostic_fee: 'Diagnostic Fee',
-  free_estimate: 'Free Estimate / Custom Quote'
+  quote_on_site: 'Quote on Site (Blank Price)',
+  free_estimate: 'Free Estimate / Consultation'
 }
 
 /**
@@ -20,7 +21,7 @@ export const PRICING_MODEL_LABELS: Record<PricingModel, string> = {
  */
 export function cleanServiceDescription(description?: string | null): string {
   if (!description) return ''
-  return description.replace(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate)\]\s*/gi, '').trim()
+  return description.replace(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate|quote_on_site)\]\s*/gi, '').trim()
 }
 
 /**
@@ -40,7 +41,7 @@ export function parseServicePricing(
   description?: string | null
 ): ParsedServicePricing {
   const descStr = description || ''
-  const tagMatch = descStr.match(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate)\]/i)
+  const tagMatch = descStr.match(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate|quote_on_site)\]/i)
   
   const cleanDesc = cleanServiceDescription(descStr)
 
@@ -59,7 +60,11 @@ export function parseServicePricing(
   } else {
     // Inferred model
     if (numPrice === null || numPrice === undefined) {
-      model = 'free_estimate'
+      if (/quote on site|quote-on-site/i.test(cleanDesc)) {
+        model = 'quote_on_site'
+      } else {
+        model = 'free_estimate'
+      }
     } else if (numPrice === 0) {
       model = 'free_estimate'
     } else if (/diagnostic/i.test(cleanDesc)) {
@@ -78,7 +83,7 @@ export function parseServicePricing(
         formattedPrice = `$${numPrice.toFixed(2)}`
         shortLabel = `$${numPrice.toFixed(2)}`
       } else {
-        formattedPrice = 'Custom Quote'
+        formattedPrice = 'Quote on Site'
         shortLabel = 'Quote'
       }
       break
@@ -87,8 +92,8 @@ export function parseServicePricing(
         formattedPrice = `Starting at $${numPrice.toFixed(2)}`
         shortLabel = `$${numPrice.toFixed(2)}+`
       } else {
-        formattedPrice = 'Starting at $0.00'
-        shortLabel = '$0+'
+        formattedPrice = 'Quote on Site'
+        shortLabel = 'Quote'
       }
       break
     case 'diagnostic_fee':
@@ -98,6 +103,15 @@ export function parseServicePricing(
       } else {
         formattedPrice = 'Diagnostic Fee'
         shortLabel = 'Diag Fee'
+      }
+      break
+    case 'quote_on_site':
+      if (numPrice !== null && numPrice > 0) {
+        formattedPrice = `Quote on Site (Est. $${numPrice.toFixed(2)})`
+        shortLabel = 'Quote'
+      } else {
+        formattedPrice = 'Quote on Site'
+        shortLabel = 'Quote'
       }
       break
     case 'free_estimate':

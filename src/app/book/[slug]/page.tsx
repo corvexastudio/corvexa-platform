@@ -24,6 +24,7 @@ import {
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
+import { cn } from '@/lib/utils'
 
 interface ServiceItem {
   id: string
@@ -476,7 +477,12 @@ export default function PublicBookingPage() {
                                 <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                                 {svc.duration_minutes} mins
                               </span>
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                              <span className={cn(
+                                'font-semibold',
+                                pricing.model === 'quote_on_site'
+                                  ? 'text-slate-700 dark:text-zinc-300'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                              )}>
                                 {pricing.formattedPrice}
                               </span>
                             </div>
@@ -530,11 +536,19 @@ export default function PublicBookingPage() {
               <span className="text-slate-500 dark:text-zinc-400">Service: <strong className="text-slate-900 dark:text-white">{selectedService?.name}</strong></span>
               <div className="flex items-center gap-2">
                 <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedService?.duration_minutes} mins</span>
-                {selectedService && (
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                    {parseServicePricing(selectedService.price, selectedService.description).formattedPrice}
-                  </span>
-                )}
+                {selectedService && (() => {
+                  const pricing = parseServicePricing(selectedService.price, selectedService.description)
+                  return (
+                    <span className={cn(
+                      'font-semibold',
+                      pricing.model === 'quote_on_site'
+                        ? 'text-slate-700 dark:text-zinc-300'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    )}>
+                      {pricing.formattedPrice}
+                    </span>
+                  )
+                })()}
               </div>
             </div>
 

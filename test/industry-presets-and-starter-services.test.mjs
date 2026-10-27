@@ -4,7 +4,7 @@ import { INDUSTRY_PRESETS, INDUSTRY_LIST, getIndustryPreset } from '../src/lib/c
 import { POST as onboardingHandler } from '../src/app/api/onboarding/route.ts'
 import { PATCH as organizationPatchHandler } from '../src/app/api/client/organization/route.ts'
 
-test('1. Industry Catalog: All 10 US small business trade presets are registered', () => {
+test('1. Industry Catalog: All 21 US small business trade presets are registered', () => {
   const expectedKeys = [
     'hvac',
     'plumbing',
@@ -15,10 +15,21 @@ test('1. Industry Catalog: All 10 US small business trade presets are registered
     'pest_control',
     'auto_detailing',
     'handyman',
+    'appliance_repair',
+    'painting',
+    'garage_doors',
+    'locksmith',
+    'pressure_washing',
+    'carpet_cleaning',
+    'tree_service',
+    'fencing_decking',
+    'general_contracting',
+    'pool_maintenance',
+    'window_services',
     'general'
   ]
 
-  assert.strictEqual(INDUSTRY_LIST.length, 10, 'Must have exactly 10 industry presets')
+  assert.strictEqual(INDUSTRY_LIST.length, 21, 'Must have all 21 industry presets')
 
   for (const key of expectedKeys) {
     const preset = INDUSTRY_PRESETS[key]
