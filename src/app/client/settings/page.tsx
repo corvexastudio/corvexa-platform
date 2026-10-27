@@ -39,7 +39,8 @@ import {
   FileText,
   MapPin,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Zap
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
@@ -393,6 +394,44 @@ export default function SettingsPage() {
       }
     } catch {
       toast.error('Network error upgrading plan.')
+    } finally {
+      setSubmittingPlanChange(false)
+    }
+  }
+
+  const handleOpenChangePlan = (plan: { id: string; name: string; amount: number; interval?: string }) => {
+    setSelectedTargetPlan(plan)
+    setChangeNotes('')
+    setChangePlanModalOpen(true)
+  }
+
+  const handleConfirmPlanChange = async () => {
+    if (!selectedTargetPlan) return
+    setSubmittingPlanChange(true)
+    try {
+      const res = await fetch('/api/client/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request_change',
+          targetPlanId: selectedTargetPlan.id,
+          notes: changeNotes.trim() || undefined
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl
+          return
+        }
+        toast.success(data.message || 'Plan change processed successfully!')
+        setChangePlanModalOpen(false)
+        loadBilling()
+      } else {
+        toast.error(data.error || 'Failed to update plan.')
+      }
+    } catch {
+      toast.error('Network error during plan change.')
     } finally {
       setSubmittingPlanChange(false)
     }
@@ -863,193 +902,411 @@ export default function SettingsPage() {
             <ErrorState title="Unable to load billing" message="Please retry." onRetry={loadBilling} />
           ) : (
             <>
-              {/* Current Active Plan Status Banner */}
-              <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Current Plan</span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/40">
-                      {billingData.currentPlan?.name || 'Solo Pro'}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      ● Active
-                    </span>
-                  </div>
+              {(() => {
+                const sub = billingData.subscription
+                const activePlanId = (
+                  sub?.plan_id || 
+                  billingData.organization?.plan_id || 
+                  billingData.currentPlan?.id || 
+                  'free'
+                ).toLowerCase()
 
-                  <p className="text-xs text-slate-600 dark:text-zinc-400">
-                    {billingData.subscription?.current_period_end ? (
-                      <>Renews on <strong className="text-slate-900 dark:text-zinc-100">{new Date(billingData.subscription.current_period_end).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</strong></>
-                    ) : (
-                      'Billed monthly via direct card processing'
-                    )}
-                  </p>
-                </div>
+                const isPayingActive = 
+                  (sub?.status === 'active' || billingData.organization?.subscription_status === 'active') && 
+                  activePlanId !== 'free'
 
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <span className="text-xl font-bold text-slate-900 dark:text-zinc-100 tabular-nums">
-                      ${billingData.currentPlan?.amount || 79}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400"> / month</span>
-                  </div>
+                const isCurrentSolo = isPayingActive && (activePlanId === 'solo' || activePlanId === 'solo_yearly' || activePlanId === 'captodesk_standard')
+                const isCurrentMultiCrew = isPayingActive && (activePlanId === 'multi_crew' || activePlanId === 'multi_crew_yearly' || activePlanId === 'fleet')
+                const isCurrentFree = !isCurrentSolo && !isCurrentMultiCrew
 
-                  {billingData.subscription?.cancel_at_period_end ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={reactivatingSub}
-                      onClick={handleReactivateSubscription}
-                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
-                    >
-                      {reactivatingSub ? 'Reactivating...' : 'Reactivate Plan'}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCancelModalOpen(true)}
-                      className="h-8 text-xs border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-rose-600"
-                    >
-                      Manage
-                    </Button>
-                  )}
-                </div>
-              </div>
+                return (
+                  <>
+                    {/* Current Active Plan Status Banner */}
+                    <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Current Plan</span>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/40">
+                            {isCurrentMultiCrew ? 'CaptoDesk Multi-Crew' : isCurrentSolo ? 'CaptoDesk Solo' : 'Free Booking Tier'}
+                          </span>
+                          <span className={cn(
+                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                            isPayingActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                          )}>
+                            ● {isPayingActive ? 'Active Subscription' : 'Free Tier (Active)'}
+                          </span>
+                        </div>
 
-              {/* Billing Cycle Interval Switcher */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Available Plans</h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">Switch tiers or save 20% with annual billing.</p>
-                </div>
+                        <p className="text-xs text-slate-600 dark:text-zinc-400">
+                          {sub?.current_period_end ? (
+                            <>Renews on <strong className="text-slate-900 dark:text-zinc-100">{new Date(sub.current_period_end).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}</strong></>
+                          ) : isPayingActive ? (
+                            'Billed monthly via direct card processing'
+                          ) : (
+                            'Free forever. No card required. Unlimited public booking link and calendar scheduling.'
+                          )}
+                        </p>
+                      </div>
 
-                <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
-                  <button
-                    type="button"
-                    onClick={() => setBillingCycle('monthly')}
-                    className={cn(
-                      'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
-                      billingCycle === 'monthly' ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs' : 'text-slate-500'
-                    )}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBillingCycle('yearly')}
-                    className={cn(
-                      'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1',
-                      billingCycle === 'yearly' ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs' : 'text-slate-500'
-                    )}
-                  >
-                    <span>Annual</span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1 rounded">Save 20%</span>
-                  </button>
-                </div>
-              </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className="text-xl font-bold text-slate-900 dark:text-zinc-100 tabular-nums">
+                            ${isCurrentMultiCrew ? (billingCycle === 'yearly' ? '1,990' : '199') : isCurrentSolo ? (billingCycle === 'yearly' ? '990' : '99') : '0'}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-zinc-400"> / {isCurrentFree ? 'month forever' : (billingCycle === 'yearly' ? 'year' : 'month')}</span>
+                        </div>
 
-              {/* Plan Comparison Cards (Solid Cards, Zero AI Glows) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {isPayingActive && (
+                          sub?.cancel_at_period_end ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={reactivatingSub}
+                              onClick={handleReactivateSubscription}
+                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium cursor-pointer"
+                            >
+                              {reactivatingSub ? 'Reactivating...' : 'Reactivate Plan'}
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCancelModalOpen(true)}
+                              className="h-8 text-xs border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-rose-600 cursor-pointer"
+                            >
+                              Cancel Subscription
+                            </Button>
+                          )
+                        )}
+                      </div>
+                    </div>
 
-                {/* Card 1: Solo Pro */}
-                <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Solo Pro</h4>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Engineered for owner-operators in a single service truck.</p>
-                  </div>
+                    {/* Billing Cycle Interval Switcher */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Subscription Plans</h3>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400">Upgrade as your business grows. Switch to annual billing anytime to get 2 months free.</p>
+                      </div>
 
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-slate-900 dark:text-zinc-100 tabular-nums">
-                      ${billingCycle === 'yearly' ? '63' : '79'}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400">/ month</span>
-                    {billingCycle === 'yearly' && (
-                      <span className="text-[11px] text-slate-400 font-mono ml-1.5">(billed $758/year)</span>
-                    )}
-                  </div>
+                      <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => setBillingCycle('monthly')}
+                          className={cn(
+                            'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer',
+                            billingCycle === 'monthly' ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs' : 'text-slate-500'
+                          )}
+                        >
+                          Monthly
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBillingCycle('yearly')}
+                          className={cn(
+                            'px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1',
+                            billingCycle === 'yearly' ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs' : 'text-slate-500'
+                          )}
+                        >
+                          <span>Annual</span>
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1 rounded">2 Mo Free</span>
+                        </button>
+                      </div>
+                    </div>
 
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span>1 Dedicated 10DLC Verified Business Line</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span>3-Second Missed Call Instant Text-Back</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span>Two-Way SMS & Homeowner Chat Hub</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span>Estimates, Invoices & Mobile Field Portal</span>
-                    </li>
-                  </ul>
+                    {/* 3-Tier Canonical Plan Cards */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submittingPlanChange}
-                    onClick={() => handleDirectUpgrade(billingCycle === 'yearly' ? 'solo_yearly' : 'solo')}
-                    className="w-full h-8.5 text-xs font-semibold border-slate-200 dark:border-zinc-800"
-                  >
-                    Select Solo Pro
-                  </Button>
-                </div>
+                      {/* Card 1: Free Booking Tier */}
+                      <div className={cn(
+                        "rounded-xl border bg-white dark:bg-zinc-900 p-5 flex flex-col justify-between space-y-5 shadow-xs transition-colors",
+                        isCurrentFree
+                          ? "border-emerald-500/50 dark:border-emerald-500/40 bg-emerald-50/10 dark:bg-emerald-950/10"
+                          : "border-slate-200/80 dark:border-zinc-800"
+                      )}>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                              Free Organizer
+                            </span>
+                            {isCurrentFree && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                Current Plan
+                              </span>
+                            )}
+                          </div>
 
-                {/* Card 2: Team & Fleet Pro */}
-                <div className="rounded-xl border border-blue-500/70 dark:border-blue-900 bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs relative">
-                  <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 px-2 py-0.5 rounded-full">
-                    Recommended
-                  </span>
+                          <div>
+                            <h4 className="text-base font-bold text-slate-900 dark:text-zinc-100">Free Booking Tier</h4>
+                            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                              100% free booking link, unmasked customer leads, visual calendar, and job work orders.
+                            </p>
+                          </div>
 
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100">Team & Fleet Pro</h4>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">For growing shops with multiple vans, helpers, or dispatchers.</p>
-                  </div>
+                          <div className="flex items-baseline gap-1 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <span className="text-2xl font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
+                              $0
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                              / month forever
+                            </span>
+                          </div>
 
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-slate-900 dark:text-zinc-100 tabular-nums">
-                      ${billingCycle === 'yearly' ? '119' : '149'}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400">/ month</span>
-                    {billingCycle === 'yearly' && (
-                      <span className="text-[11px] text-slate-400 font-mono ml-1.5">(billed $1,428/year)</span>
-                    )}
-                  </div>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span>Setup Fee: <strong className="text-slate-800 dark:text-zinc-200">$0.00 (Free)</strong></span>
+                          </div>
 
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                      <span>Everything in Solo Pro</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                      <span>Unlimited Technicians, Dispatchers & Vans</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                      <span>Multi-Crew Dispatch Swimlanes & Reassignment</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                      <span>Live GPS Route Tracking & Geofenced ETAs</span>
-                    </li>
-                  </ul>
+                          <ul className="space-y-2 text-xs text-slate-600 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>Unlimited Public Booking Link</strong> (/book/[slug])</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>100% Unmasked</strong> customer contacts</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Visual Calendar &amp; Job scheduling</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Customer Directory &amp; Service Catalog</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Before &amp; After job photos</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Native 1-tap phone SMS sharing (free)</span>
+                            </li>
+                          </ul>
+                        </div>
 
-                  <Button
-                    type="button"
-                    disabled={submittingPlanChange}
-                    onClick={() => handleDirectUpgrade(billingCycle === 'yearly' ? 'multi_crew_yearly' : 'multi_crew')}
-                    className="w-full h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs"
-                  >
-                    Upgrade to Fleet Pro
-                  </Button>
-                </div>
+                        <div className="pt-4 border-t border-slate-100 dark:border-zinc-800">
+                          {isCurrentFree ? (
+                            <Button disabled className="w-full h-9 bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-400 font-semibold text-xs cursor-default">
+                              Current Active Plan
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleOpenChangePlan({ id: 'free', name: 'Free Booking Tier', amount: 0, interval: 'month' })}
+                              className="w-full h-9 text-xs font-semibold border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              Downgrade to Free ($0/mo)
+                            </Button>
+                          )}
+                        </div>
+                      </div>
 
-              </div>
+                      {/* Card 2: Solo Plan ($99/mo or $990/yr) */}
+                      <div className={cn(
+                        "rounded-xl border bg-white dark:bg-zinc-900 p-5 flex flex-col justify-between space-y-5 shadow-xs transition-colors",
+                        isCurrentSolo
+                          ? "border-blue-500/60 dark:border-blue-500/40 bg-blue-50/10 dark:bg-blue-950/10"
+                          : "border-slate-200/80 dark:border-zinc-800"
+                      )}>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/40">
+                              Solo Operator
+                            </span>
+                            {isCurrentSolo && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                Current Plan
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <h4 className="text-base font-bold text-slate-900 dark:text-zinc-100">CaptoDesk Solo</h4>
+                            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                              Built for 1 owner-operator running their service business from their phone.
+                            </p>
+                          </div>
+
+                          <div className="flex items-baseline gap-1 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <span className="text-2xl font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
+                              ${billingCycle === 'yearly' ? '990' : '99'}
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                              / {billingCycle === 'yearly' ? 'year (2 Mo Free)' : 'month'}
+                            </span>
+                          </div>
+
+                          {/* Waived Setup Fee Callout Badge */}
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Setup &amp; Carrier Reg: <span className="line-through text-slate-400 dark:text-zinc-500">$199.00</span> <strong className="text-emerald-600 dark:text-emerald-400 font-bold">$0.00 (Waived!)</strong></span>
+                          </div>
+
+                          <ul className="space-y-2 text-xs text-slate-600 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>1 Dedicated Telnyx Line</strong> (10DLC verified)</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>3-Second Missed Call</strong> AI Text-Back</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Two-Way SMS &amp; Homeowner Chat Hub</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Mobile Field Portal with GPS routing</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Apple Pay &amp; Card Invoicing (0.5% flat)</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Domino&apos;s live technician tracking links</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Automated 5-star Google review booster</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-100 dark:border-zinc-800">
+                          {isCurrentSolo ? (
+                            <Button disabled className="w-full h-9 bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-400 font-semibold text-xs cursor-default">
+                              Current Plan
+                            </Button>
+                          ) : isCurrentMultiCrew ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleOpenChangePlan({ id: billingCycle === 'yearly' ? 'solo_yearly' : 'solo', name: 'CaptoDesk Solo', amount: billingCycle === 'yearly' ? 990 : 99, interval: billingCycle })}
+                              className="w-full h-9 text-xs font-semibold border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              Downgrade to Solo (${billingCycle === 'yearly' ? '990/yr' : '99/mo'})
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              disabled={submittingPlanChange}
+                              onClick={() => handleDirectUpgrade(billingCycle === 'yearly' ? 'solo_yearly' : 'solo')}
+                              className="w-full h-9 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              {submittingPlanChange ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
+                              <span>Upgrade to Solo (${billingCycle === 'yearly' ? '$990/yr' : '$99/mo'})</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 3: Multi-Crew Plan ($199/mo or $1,990/yr) */}
+                      <div className={cn(
+                        "rounded-xl border bg-white dark:bg-zinc-900 p-5 flex flex-col justify-between space-y-5 shadow-xs transition-colors relative",
+                        isCurrentMultiCrew
+                          ? "border-emerald-500/60 dark:border-emerald-500/40 bg-emerald-50/10 dark:bg-emerald-950/10"
+                          : "border-slate-300 dark:border-zinc-700 ring-1 ring-slate-200 dark:ring-zinc-800"
+                      )}>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-500/20">
+                              Growing Fleet
+                            </span>
+                            {isCurrentMultiCrew ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                Current Plan
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-600 text-white">
+                                Recommended
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <h4 className="text-base font-bold text-slate-900 dark:text-zinc-100">CaptoDesk Multi-Crew</h4>
+                            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                              For growing service businesses with helpers, field crews, and technicians.
+                            </p>
+                          </div>
+
+                          <div className="flex items-baseline gap-1 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <span className="text-2xl font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
+                              ${billingCycle === 'yearly' ? '1,990' : '199'}
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                              / {billingCycle === 'yearly' ? 'year (2 Mo Free)' : 'month'}
+                            </span>
+                          </div>
+
+                          {/* Waived Setup Fee Callout Badge */}
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Setup &amp; Carrier Reg: <span className="line-through text-slate-400 dark:text-zinc-500">$299.00</span> <strong className="text-emerald-600 dark:text-emerald-400 font-bold">$0.00 (Waived!)</strong></span>
+                          </div>
+
+                          <ul className="space-y-2 text-xs text-slate-600 dark:text-zinc-300 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>Up to 5 Crew Members</strong> &amp; Technicians</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>Everything in Solo Plan</strong>, plus:</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Multi-crew live dispatch board &amp; team schedule</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Restricted field portal (zero financial visibility)</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Role permissions (Owner, Admin, Dispatch, Tech)</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Live GPS Route Tracking &amp; Geofenced ETAs</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Priority carrier message delivery routing</span>
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-100 dark:border-zinc-800">
+                          {isCurrentMultiCrew ? (
+                            <Button disabled className="w-full h-9 bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-400 font-semibold text-xs cursor-default">
+                              Current Plan
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              disabled={submittingPlanChange}
+                              onClick={() => handleDirectUpgrade(billingCycle === 'yearly' ? 'multi_crew_yearly' : 'multi_crew')}
+                              className="w-full h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              {submittingPlanChange ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
+                              <span>Upgrade to Multi-Crew (${billingCycle === 'yearly' ? '$1,990/yr' : '$199/mo'})</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </>
+                )
+              })()}
 
               {/* Billing Receipts & History */}
               <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs">
@@ -1451,6 +1708,69 @@ export default function SettingsPage() {
               className="h-8 text-xs bg-rose-600 hover:bg-rose-500 text-white font-medium"
             >
               {cancelingSub ? 'Canceling...' : 'Confirm Cancellation'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* PLAN CHANGE / DOWNGRADE MODAL */}
+      <Modal
+        open={changePlanModalOpen}
+        onOpenChange={setChangePlanModalOpen}
+        title={selectedTargetPlan?.amount === 0 ? 'Downgrade to Free Booking Tier' : `Switch to ${selectedTargetPlan?.name || 'Selected Plan'}`}
+        description={
+          selectedTargetPlan?.amount === 0
+            ? 'Your public booking link, calendar schedule, customer CRM, and job history remain 100% active.'
+            : 'Review and confirm your plan change.'
+        }
+        size="sm"
+      >
+        <div className="space-y-4 py-2">
+          {selectedTargetPlan?.amount === 0 ? (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-800 dark:text-amber-300">
+              Your dedicated 10DLC phone line and automated text-back will be paused at the end of the current billing cycle. You will keep unlimited online customer bookings, calendar scheduling, customer CRM, and job photos with $0 monthly fee forever.
+            </div>
+          ) : (
+            <p className="text-xs text-slate-600 dark:text-zinc-400">
+              You are switching your plan to <strong>{selectedTargetPlan?.name}</strong> at <strong>${selectedTargetPlan?.amount}/{selectedTargetPlan?.interval || 'month'}</strong>.
+            </p>
+          )}
+
+          <div>
+            <Label className="text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1 block">Notes or reason (Optional)</Label>
+            <textarea
+              rows={2}
+              value={changeNotes}
+              onChange={e => setChangeNotes(e.target.value)}
+              placeholder="Any details for your account change..."
+              className="w-full p-2 text-xs bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setChangePlanModalOpen(false)}
+              className="h-8 text-xs border-slate-200 dark:border-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={submittingPlanChange}
+              onClick={handleConfirmPlanChange}
+              className={cn(
+                "h-8 text-xs text-white font-medium",
+                selectedTargetPlan?.amount === 0 ? "bg-amber-600 hover:bg-amber-500" : "bg-blue-600 hover:bg-blue-500"
+              )}
+            >
+              {submittingPlanChange ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+              ) : null}
+              {selectedTargetPlan?.amount === 0 ? 'Confirm Downgrade to Free' : 'Confirm Plan Change'}
             </Button>
           </div>
         </div>
