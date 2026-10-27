@@ -49,6 +49,72 @@ interface QuoteItem {
   total?: number
 }
 
+const TRADE_PRESETS = [
+  {
+    label: '40-Gal Water Heater',
+    title: 'Standard 40-Gal Water Heater Replacement',
+    price: 1450,
+    items: [
+      { description: '40-Gallon Water Heater replacement, brass ball valve, flex connectors, drain pan & disposal of old unit', quantity: 1, unit_price: 1450 }
+    ],
+    notes: 'Includes standard manufacturer warranty, removal & disposal of old unit.'
+  },
+  {
+    label: 'Drain Snake',
+    title: 'Main Sewer / Drain Clearing',
+    price: 185,
+    items: [
+      { description: 'Commercial mechanical snake cleanout through exterior cleanout up to 75ft', quantity: 1, unit_price: 185 }
+    ],
+    notes: 'Includes 30-day clear line warranty.'
+  },
+  {
+    label: 'Diagnostic Site Fee',
+    title: 'Diagnostic & On-Site Inspection',
+    price: 89,
+    items: [
+      { description: 'Comprehensive troubleshooting, diagnosis, and upfront repair estimate', quantity: 1, unit_price: 89 }
+    ],
+    notes: 'Diagnostic fee is credited 100% toward the repair if approved.'
+  },
+  {
+    label: 'AC Tune-Up',
+    title: 'AC Precision Seasonal Tune-Up',
+    price: 129,
+    items: [
+      { description: 'Chemical coil wash, capacitor testing, refrigerant check & electrical inspection', quantity: 1, unit_price: 129 }
+    ],
+    notes: 'Complete multi-point cooling efficiency and safety inspection.'
+  },
+  {
+    label: 'Capacitor Swap',
+    title: 'AC Dual-Run Capacitor Replacement',
+    price: 185,
+    items: [
+      { description: 'Industrial-rated dual-run capacitor replacement & motor startup draw test', quantity: 1, unit_price: 185 }
+    ],
+    notes: 'Includes 1-year parts warranty.'
+  },
+  {
+    label: 'EV Charger 50A',
+    title: 'EV Level 2 Charger Dedicated Circuit',
+    price: 850,
+    items: [
+      { description: 'Dedicated 240V 50A breaker, conduit run up to 25ft, NEMA 14-50 receptacle', quantity: 1, unit_price: 850 }
+    ],
+    notes: 'Compliant with local electrical code and manufacturer specifications.'
+  },
+  {
+    label: 'Panel Inspection',
+    title: 'Whole-Home Electrical Panel Inspection',
+    price: 119,
+    items: [
+      { description: 'Thermal scan of breakers, ground fault testing, load calculation & safety report', quantity: 1, unit_price: 119 }
+    ],
+    notes: 'Complete written code & safety evaluation report provided.'
+  }
+]
+
 interface Quote {
   id: string
   quote_number: string
@@ -269,6 +335,13 @@ function ClientQuotesContent() {
   // Create Quote Handlers
   const handleAddItem = () => {
     setNewItems([...newItems, { description: '', quantity: 1, unit_price: 0 }])
+  }
+
+  const applyPreset = (preset: typeof TRADE_PRESETS[0]) => {
+    setQuoteTitle(preset.title)
+    setNewItems(preset.items)
+    setQuoteNotes(preset.notes)
+    toast.success(`Applied ${preset.label} preset!`)
   }
 
   const handleRemoveItem = (index: number) => {
@@ -741,6 +814,28 @@ function ClientQuotesContent() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* 1-Tap Trade Presets */}
+          <div className="space-y-1.5 pt-1">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
+              1-Tap Trade Presets (Fast Sight-Unseen Quotes)
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {TRADE_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>{preset.label}</span>
+                  <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    ${preset.price}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -27,6 +27,7 @@ export interface CreateBookingInput {
   customerAddress?: string
   startTime: string // ISO string
   notes?: string
+  photos?: string[] // Customer diagnostic intake photos
   source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call' | 'referral'
   referralCode?: string
   appBaseUrl?: string
@@ -306,11 +307,27 @@ export async function createBooking(
     confirmed_at: isInstant ? new Date().toISOString() : null
   }
 
-  const { data: appointment, error: aptError } = await supabase
+  if (input.photos && input.photos.length > 0) {
+    appointmentPayload.intake_photos = input.photos
+  }
+
+  let { data: appointment, error: aptError } = await supabase
     .from('appointments')
     .insert(appointmentPayload)
     .select('*')
     .single()
+
+  // Graceful fallback if intake_photos column does not exist in older remote schema
+  if (aptError && (aptError.code === '42703' || aptError.message?.toLowerCase().includes('does not exist'))) {
+    delete appointmentPayload.intake_photos
+    const retryRes = await supabase
+      .from('appointments')
+      .insert(appointmentPayload)
+      .select('*')
+      .single()
+    appointment = retryRes.data
+    aptError = retryRes.error
+  }
 
   if (aptError || !appointment) {
     if (
@@ -378,6 +395,26 @@ export async function createBooking(
 
     if (jobRes.success && jobRes.job) {
       linkedJob = jobRes.job
+
+      // Insert customer diagnostic intake photos into job_photos
+      if (input.photos && input.photos.length > 0) {
+        for (const photoUrl of input.photos) {
+          if (photoUrl && typeof photoUrl === 'string') {
+            try {
+              await supabase.from('job_photos').insert({
+                org_id: orgId,
+                job_id: linkedJob.id,
+                photo_type: 'before',
+                url: photoUrl,
+                caption: 'Customer diagnostic intake photo'
+              })
+            } catch {
+              // Non-blocking intake photo insertion
+            }
+          }
+        }
+      }
+
       // Also link crew on appointment if resolved
       if (autoCrewId) {
         await supabase

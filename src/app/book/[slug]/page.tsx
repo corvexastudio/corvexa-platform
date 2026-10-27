@@ -16,7 +16,10 @@ import {
   ShieldCheck,
   CalendarDays,
   FileText,
-  Gift
+  Gift,
+  Camera,
+  X,
+  Image as ImageIcon
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
@@ -82,8 +85,69 @@ export default function PublicBookingPage() {
     phone: '',
     email: '',
     address: '',
-    notes: ''
+    notes: '',
+    photos: [] as string[]
   })
+
+  // Diagnostic Photo Upload Handlers
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const remaining = 4 - formData.photos.length
+    if (remaining <= 0) return
+
+    const filesToProcess = Array.from(files).slice(0, remaining)
+
+    filesToProcess.forEach((file) => {
+      if (!file.type.startsWith('image/')) return
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = document.createElement('img')
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const MAX_WIDTH = 1200
+          const MAX_HEIGHT = 1200
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width
+              width = MAX_WIDTH
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height
+              height = MAX_HEIGHT
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0, width, height)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+
+          setFormData((prev) => ({
+            ...prev,
+            photos: [...prev.photos, dataUrl]
+          }))
+        }
+        img.src = event.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+
+    e.target.value = ''
+  }
+
+  const handleRemovePhoto = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index)
+    }))
+  }
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -232,6 +296,7 @@ export default function PublicBookingPage() {
           customerAddress: formData.address,
           startTime: selectedSlot.startTime,
           notes: formData.notes,
+          photos: formData.photos,
           bookingToken: bookingToken || undefined,
           referralCode: referralCode || undefined
         })
@@ -821,6 +886,63 @@ export default function PublicBookingPage() {
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="w-full p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 resize-none shadow-xs"
                 />
+              </div>
+
+              {/* Diagnostic Intake Photos */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block">
+                    Diagnostic Photos of Issue <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 tabular-nums">
+                    {formData.photos.length}/4 photos
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                  Snap or upload a photo of your equipment label, leak, or breaker panel. Helps our technician arrive with the exact right parts.
+                </p>
+
+                {/* Upload Button & Preview Grid */}
+                <div className="grid grid-cols-4 gap-2 pt-1">
+                  {formData.photos.map((photoUrl, idx) => (
+                    <div
+                      key={idx}
+                      className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-850 aspect-square shadow-2xs group"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photoUrl}
+                        alt={`Intake photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(idx)}
+                        className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 hover:bg-red-600 text-white transition-colors cursor-pointer"
+                        title="Remove photo"
+                        aria-label="Remove photo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {formData.photos.length < 4 && (
+                    <label className="rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-600 bg-slate-50/60 dark:bg-zinc-900/40 hover:bg-slate-100/60 dark:hover:bg-zinc-850/60 aspect-square flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-slate-500 dark:text-zinc-400">
+                      <Camera className="w-5 h-5 text-slate-400 dark:text-zinc-500" />
+                      <span className="text-[10px] font-semibold text-center leading-tight">
+                        {formData.photos.length === 0 ? 'Add Photo' : 'Add More'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -15,10 +15,16 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}))
     const customerName = body.customerName?.trim()
+    const signatureData = body.signatureData?.trim()
+
+    // Extract client IP for legal electronic signature audit trail
+    const forwarded = request.headers.get('x-forwarded-for')
+    const realIp = request.headers.get('x-real-ip')
+    const clientIp = (forwarded ? forwarded.split(',')[0].trim() : realIp) || '127.0.0.1'
 
     const supabase = createAdminClient()
 
-    const result = await customerAcceptQuote(supabase, token, customerName)
+    const result = await customerAcceptQuote(supabase, token, customerName, signatureData, clientIp)
 
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'Failed to accept quote' }, { status: 400 })

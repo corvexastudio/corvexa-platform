@@ -551,7 +551,9 @@ export async function customerViewQuote(
 export async function customerAcceptQuote(
   supabase: SupabaseClient,
   manageToken: string,
-  customerName?: string
+  customerName?: string,
+  signatureData?: string,
+  clientIp?: string
 ): Promise<{
   success: boolean
   quote?: any
@@ -579,17 +581,38 @@ export async function customerAcceptQuote(
     return { success: false, error: `Quote is already ${quote.status}` }
   }
 
-  // 1. Update Quote to 'accepted'
-  const { data: updatedQuote, error: updateError } = await supabase
+  // 1. Update Quote to 'accepted' with electronic signature metadata
+  const updatePayload: Record<string, any> = {
+    status: 'accepted',
+    accepted_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+  if (customerName) updatePayload.signed_by = customerName.trim()
+  if (signatureData) updatePayload.signature_data = signatureData.trim()
+  if (clientIp) updatePayload.signed_ip = clientIp.trim()
+
+  let { data: updatedQuote, error: updateError } = await supabase
     .from('quotes')
-    .update({
-      status: 'accepted',
-      accepted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload)
     .eq('id', quote.id)
     .select('*')
     .single()
+
+  // Graceful fallback if signature columns do not exist in older remote schema
+  if (updateError && (updateError.code === '42703' || updateError.message?.toLowerCase().includes('does not exist'))) {
+    const fallbackRes = await supabase
+      .from('quotes')
+      .update({
+        status: 'accepted',
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', quote.id)
+      .select('*')
+      .single()
+    updatedQuote = fallbackRes.data
+    updateError = fallbackRes.error
+  }
 
   if (updateError || !updatedQuote) {
     return { success: false, error: 'Failed to accept quote' }

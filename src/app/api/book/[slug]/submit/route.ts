@@ -32,6 +32,7 @@ export async function POST(
       customerAddress,
       startTime,
       notes,
+      photos,
       bookingToken,
       referralCode
     } = body
@@ -99,6 +100,7 @@ export async function POST(
       customerAddress: customerAddress?.trim() || undefined,
       startTime,
       notes: notes?.trim() || undefined,
+      photos: Array.isArray(photos) ? photos.filter((p: any) => typeof p === 'string' && p.trim()) : undefined,
       source: 'booking_page',
       referralCode: effectiveReferralCode,
       appBaseUrl
