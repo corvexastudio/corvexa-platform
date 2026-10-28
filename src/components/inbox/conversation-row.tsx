@@ -15,10 +15,18 @@ export interface ConversationRowProps {
     contact?: {
       name?: string | null
       phone: string
+      address?: string | null
     }
     last_message_preview?: string | null
     last_message_at: string
     unread_count: number
+    lead?: {
+      id: string
+      status: string
+      urgency?: string
+      source?: string
+      service_needed?: string | null
+    } | null
   }
   onClick: () => void
 }
@@ -41,6 +49,7 @@ export function ConversationRow({
   const displayMessage = lastMessage ?? conversation?.last_message_preview ?? 'No messages'
   const displayTime = lastMessageAt ?? conversation?.last_message_at ?? ''
   const count = unreadCount ?? conversation?.unread_count ?? 0
+  const lead = conversation?.lead
 
   return (
     <button
@@ -65,14 +74,26 @@ export function ConversationRow({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className={cn(
-            "text-xs truncate font-semibold transition-colors",
-            active 
-              ? "text-blue-950 dark:text-blue-100 font-bold" 
-              : "text-slate-900 dark:text-zinc-100"
-          )}>
-            {displayName || displayPhone}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <span className={cn(
+              "text-xs truncate font-semibold transition-colors",
+              active 
+                ? "text-blue-950 dark:text-blue-100 font-bold" 
+                : "text-slate-900 dark:text-zinc-100"
+            )}>
+              {displayName || displayPhone}
+            </span>
+            {lead?.status === 'new' && (
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                New
+              </span>
+            )}
+            {lead?.source === 'missed_call' && (
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                Missed Call
+              </span>
+            )}
+          </div>
           {displayTime && (
             <span className="text-[10px] text-slate-400 dark:text-zinc-500 shrink-0 font-mono">
               {new Date(displayTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -88,6 +109,14 @@ export function ConversationRow({
         )}>
           {displayMessage}
         </p>
+
+        {lead?.service_needed && (
+          <div className="mt-1 flex items-center gap-1">
+            <span className="text-[10px] text-slate-400 dark:text-zinc-500 truncate bg-slate-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded font-medium">
+              {lead.service_needed}
+            </span>
+          </div>
+        )}
       </div>
 
       {count > 0 && (

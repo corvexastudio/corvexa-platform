@@ -516,21 +516,21 @@ export default function LeadsPage() {
                           <PhoneCall className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
                         </a>
                         <Link
-                          href="/client/inbox"
+                          href={`/client/inbox?contact_id=${lead.contact_id}`}
                           className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 transition-colors"
                           title="Open in Inbox"
                         >
                           <MessageSquare className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                         </Link>
                         <Link
-                          href="/client/quotes"
+                          href={`/client/quotes?contact_id=${lead.contact_id}&lead_id=${lead.id}&customer_name=${encodeURIComponent(lead.contact?.name || '')}`}
                           className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 transition-colors"
                           title="Create Quote"
                         >
                           <FileText className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
                         </Link>
                         <Link
-                          href="/client/calendar"
+                          href={`/client/calendar?contact_id=${lead.contact_id}&customer_name=${encodeURIComponent(lead.contact?.name || '')}`}
                           className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 transition-colors"
                           title="Schedule Job"
                         >
@@ -594,7 +594,7 @@ export default function LeadsPage() {
                       <PhoneCall className="h-4 w-4" />
                     </a>
                     <Link
-                      href="/client/inbox"
+                      href={`/client/inbox?contact_id=${lead.contact_id}`}
                       className="p-2 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-emerald-600 dark:text-emerald-400"
                       title="Message customer"
                     >
@@ -671,7 +671,7 @@ export default function LeadsPage() {
                               <PhoneCall className="h-3 w-3 text-blue-500 dark:text-blue-400" />
                             </a>
                             <Link
-                              href="/client/inbox"
+                              href={`/client/inbox?contact_id=${lead.contact_id}`}
                               className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300"
                               title="Message"
                             >

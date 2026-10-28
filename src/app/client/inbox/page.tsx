@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { Badge } from '@/components/ui/badge'
-import { FilterTabs } from '@/components/ui/filter-tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { 
@@ -31,12 +30,30 @@ import {
   AlertCircle,
   Inbox as InboxIcon,
   Sparkles,
-  Plus
+  Plus,
+  Filter,
+  Clock,
+  Target,
+  DollarSign,
+  Wrench,
+  ChevronDown,
+  Check,
+  PanelRightClose,
+  PanelRightOpen,
+  AlertTriangle,
+  X,
+  Tag,
+  PhoneForwarded,
+  ShieldAlert,
+  Zap,
+  Flame,
+  CheckCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConversationRow } from '@/components/inbox/conversation-row'
 import { MessageBubble } from '@/components/inbox/message-bubble'
 import { CannedSnippetsBar } from '@/components/inbox/canned-snippets'
+import { INDUSTRY_LIST } from '@/lib/constants/industries'
 
 interface ConversationItem {
   id: string
@@ -50,8 +67,22 @@ interface ConversationItem {
     id: string
     name?: string | null
     phone: string
+    email?: string | null
     address?: string | null
+    notes?: string | null
+    lifetime_value?: number | null
   }
+  lead?: {
+    id: string
+    contact_id: string
+    source: string
+    status: 'new' | 'contacted' | 'booked' | 'lost'
+    urgency: 'low' | 'normal' | 'high' | 'emergency'
+    service_needed?: string | null
+    estimated_value?: number | null
+    notes?: string | null
+    created_at: string
+  } | null
 }
 
 interface MessageItem {
@@ -85,33 +116,47 @@ function playMessageChime() {
     osc.start()
     osc.stop(ctx.currentTime + 0.25)
   } catch {
-    // Non-blocking if audio autoplay policy prevents sound
+    // Non-blocking audio
   }
 }
+
+const LEAD_STAGES = [
+  { key: 'new', label: 'New Lead', color: 'bg-blue-600 text-white' },
+  { key: 'contacted', label: 'Contacted', color: 'bg-amber-500 text-white' },
+  { key: 'booked', label: 'Booked', color: 'bg-emerald-600 text-white' },
+  { key: 'lost', label: 'Archived', color: 'bg-slate-500 text-white' }
+] as const
 
 export default function InboxPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
+
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const activeConvIdRef = useRef<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
   const [search, setSearch] = useState('')
-  const [filterTab, setFilterTab] = useState<'all' | 'unread'>('all')
+  const [channelFilter, setChannelFilter] = useState<'all' | 'unread' | 'leads' | 'missed'>('all')
+  const [selectedTrade, setSelectedTrade] = useState<string>('all')
+  const [dossierOpen, setDossierOpen] = useState(true)
+  const [mobileDossierOpen, setMobileDossierOpen] = useState(false)
+
   const [sending, setSending] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
   const [oldestCursor, setOldestCursor] = useState<string | null>(null)
   const [mobileViewThread, setMobileViewThread] = useState(false)
-  const [leadStatus, setLeadStatus] = useState<string | null>(null)
+  const [updatingStage, setUpdatingStage] = useState(false)
 
   // Compose New Message State
   const [showComposeModal, setShowComposeModal] = useState(false)
   const [composeContactId, setComposeContactId] = useState('')
   const [composeCustomPhone, setComposeCustomPhone] = useState('')
   const [composeCustomName, setComposeCustomName] = useState('')
+  const [composeTrade, setComposeTrade] = useState('')
+  const [composeUrgency, setComposeUrgency] = useState<'normal' | 'high' | 'emergency'>('normal')
   const [composeMessage, setComposeMessage] = useState('')
   const [composing, setComposing] = useState(false)
   const [customersList, setCustomersList] = useState<any[]>([])
@@ -126,7 +171,7 @@ export default function InboxPage() {
       .catch(() => {})
   }, [])
 
-  // Auto-open compose modal if triggered via quick actions
+  // Auto-open compose modal if triggered via URL params
   useEffect(() => {
     if (searchParams.get('compose') === 'true' || searchParams.get('new') === 'true') {
       setShowComposeModal(true)
@@ -137,7 +182,7 @@ export default function InboxPage() {
     activeConvIdRef.current = activeConvId
   }, [activeConvId])
 
-  // React Query with resilient background polling (like Gmail auto-sync)
+  // React Query with resilient background polling
   const { data: convData, isLoading: loadingConvs, isError: isConvError, error: convQueryError, refetch: refetchConvs } = useQuery({
     queryKey: ['inbox-conversations'],
     queryFn: async () => {
@@ -159,14 +204,23 @@ export default function InboxPage() {
   })
 
   const conversations: ConversationItem[] = convData?.conversations || []
-  const convError = isConvError ? (convQueryError?.message || 'Failed to load conversations.') : null
 
-  // Ensure active conversation is selected
+  // Auto-select conversation matching contact_id from URL if present
   useEffect(() => {
+    const contactIdParam = searchParams.get('contact_id')
+    if (contactIdParam && conversations.length > 0) {
+      const match = conversations.find(c => c.contact_id === contactIdParam)
+      if (match) {
+        setActiveConvId(match.id)
+        setMobileViewThread(true)
+        return
+      }
+    }
+    // Default selection
     if (conversations.length > 0 && !activeConvId) {
       setActiveConvId(conversations[0].id)
     }
-  }, [conversations, activeConvId])
+  }, [conversations, activeConvId, searchParams])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -176,10 +230,6 @@ export default function InboxPage() {
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior })
   }
-
-  const loadConversations = useCallback(async () => {
-    await refetchConvs()
-  }, [refetchConvs])
 
   const loadMessages = useCallback(async (convId: string) => {
     setLoadingMessages(true)
@@ -192,7 +242,7 @@ export default function InboxPage() {
         setOldestCursor(data.oldestCursor || null)
         setTimeout(() => scrollToBottom('auto'), 50)
 
-        // Mark as read in background without race condition or stale closure
+        // Mark as read in background
         supabase.from('conversations').update({ unread_count: 0 }).eq('id', convId).then(() => {
           queryClient.setQueryData<{ conversations?: ConversationItem[] }>(['inbox-conversations'], (old) => {
             if (!old?.conversations) return old
@@ -212,22 +262,7 @@ export default function InboxPage() {
     }
   }, [supabase, queryClient])
 
-  // Load active lead status for the selected contact
-  useEffect(() => {
-    if (!activeConv?.contact_id) return
-    supabase
-      .from('leads')
-      .select('status')
-      .eq('contact_id', activeConv.contact_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }: { data: any }) => {
-        setLeadStatus(data?.status || null)
-      })
-  }, [activeConv?.contact_id, supabase])
-
-  const handleLoadOlderMessages = async () => {
+  const handleLoadOlderMessages = useCallback(async () => {
     if (!activeConvId || !oldestCursor || loadingOlder) return
 
     setLoadingOlder(true)
@@ -258,7 +293,7 @@ export default function InboxPage() {
     } finally {
       setLoadingOlder(false)
     }
-  }
+  }, [activeConvId, oldestCursor, loadingOlder])
 
   useEffect(() => {
     if (activeConvId) {
@@ -266,22 +301,17 @@ export default function InboxPage() {
     }
   }, [activeConvId, loadMessages])
 
-  // Persistent realtime subscription for incoming messages & conversation updates
+  // Realtime subscription for incoming messages
   useEffect(() => {
     const channel = supabase
       .channel('inbox_realtime_stream')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload: any) => {
           const newMsg = payload.new as MessageItem
           if (!newMsg) return
 
-          // If the message is for the currently viewed conversation
           if (newMsg.conversation_id === activeConvIdRef.current) {
             setMessages(prev => {
               if (prev.some(m => m.id === newMsg.id)) return prev
@@ -296,17 +326,12 @@ export default function InboxPage() {
             playMessageChime()
           }
 
-          // Instantly refresh conversation list and unread badges
           refetchConvs()
         }
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations'
-        },
+        { event: '*', schema: 'public', table: 'conversations' },
         () => {
           refetchConvs()
         }
@@ -318,7 +343,7 @@ export default function InboxPage() {
     }
   }, [supabase, refetchConvs])
 
-  // Resilient background auto-sync for active conversation thread (like Gmail)
+  // Resilient background auto-sync for active thread
   useEffect(() => {
     if (!activeConvId) return
 
@@ -348,13 +373,14 @@ export default function InboxPage() {
           return incomingMessages
         })
       } catch {
-        // Silent non-blocking background sync
+        // Silent background sync
       }
     }, 3500)
 
     return () => clearInterval(syncTimer)
   }, [activeConvId, supabase])
 
+  // Reply submission handler
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!replyText.trim() || !activeConv || !activeConv.contact?.phone || sending) return
@@ -401,6 +427,50 @@ export default function InboxPage() {
     }
   }
 
+  // Update lead stage in real time
+  const handleUpdateLeadStatus = async (newStatus: 'new' | 'contacted' | 'booked' | 'lost') => {
+    if (!activeConv) return
+    setUpdatingStage(true)
+
+    try {
+      if (activeConv.lead?.id) {
+        const res = await fetch(`/api/client/leads/${activeConv.lead.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        })
+        if (res.ok) {
+          toast.success(`Lead marked as ${newStatus}`)
+          refetchConvs()
+        } else {
+          toast.error('Failed to update lead status.')
+        }
+      } else {
+        const res = await fetch('/api/client/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contactId: activeConv.contact_id,
+            status: newStatus,
+            source: 'manual',
+            urgency: 'normal'
+          })
+        })
+        if (res.ok) {
+          toast.success(`Lead initialized as ${newStatus}`)
+          refetchConvs()
+        } else {
+          toast.error('Failed to initialize lead.')
+        }
+      }
+    } catch {
+      toast.error('Network error updating lead status.')
+    } finally {
+      setUpdatingStage(false)
+    }
+  }
+
+  // Compose new message dispatch
   const handleComposeSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!composeMessage.trim() || composing) return
@@ -480,6 +550,21 @@ export default function InboxPage() {
         targetConvId = newConv.id
       }
 
+      // If trade or urgency specified, ensure lead is logged
+      if (composeTrade || composeUrgency !== 'normal') {
+        await fetch('/api/client/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contactId: resolvedContactId,
+            source: 'manual',
+            status: 'new',
+            urgency: composeUrgency,
+            serviceNeeded: composeTrade || undefined
+          })
+        }).catch(() => {})
+      }
+
       const res = await fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -496,6 +581,8 @@ export default function InboxPage() {
         setComposeContactId('')
         setComposeCustomPhone('')
         setComposeCustomName('')
+        setComposeTrade('')
+        setComposeUrgency('normal')
         setComposeMessage('')
         setActiveConvId(targetConvId)
         refetchConvs()
@@ -510,90 +597,188 @@ export default function InboxPage() {
     }
   }
 
-  const handleStatusChange = async (newStatus: 'new' | 'contacted' | 'booked' | 'lost') => {
-    if (!activeConv) return
-    const { error } = await supabase.from('leads').update({ status: newStatus }).eq('contact_id', activeConv.contact_id)
-    if (!error) {
-      setLeadStatus(newStatus)
-      toast.success(`Lead marked as ${newStatus}`)
-    }
-  }
+  // Triage filter metrics
+  const totalUnread = useMemo(() => conversations.filter(c => c.unread_count > 0).length, [conversations])
+  const totalLeads = useMemo(() => conversations.filter(c => c.lead != null).length, [conversations])
+  const totalMissed = useMemo(() => conversations.filter(c => c.lead?.source === 'missed_call' || c.last_message_preview?.toLowerCase().includes('missed')).length, [conversations])
 
-  const totalUnread = conversations.reduce((acc, c) => acc + (c.unread_count > 0 ? 1 : 0), 0)
+  // Filtered conversation list
+  const filteredConversations = useMemo(() => {
+    return conversations.filter(c => {
+      // Channel filters
+      if (channelFilter === 'unread' && c.unread_count === 0) return false
+      if (channelFilter === 'leads' && !c.lead) return false
+      if (channelFilter === 'missed' && c.lead?.source !== 'missed_call' && !c.last_message_preview?.toLowerCase().includes('missed')) return false
 
-  const filtered = conversations.filter(c => {
-    if (filterTab === 'unread' && c.unread_count === 0) return false
-    const q = search.toLowerCase()
-    return c.contact?.name?.toLowerCase().includes(q) || c.contact?.phone?.includes(q) || c.last_message_preview?.toLowerCase().includes(q)
-  })
+      // Trade filter across all 21 trades
+      if (selectedTrade !== 'all') {
+        const tradeMatch = c.lead?.service_needed?.toLowerCase().includes(selectedTrade.toLowerCase())
+        if (!tradeMatch) return false
+      }
+
+      // Search filter
+      if (search.trim()) {
+        const q = search.toLowerCase().trim()
+        const matchName = c.contact?.name?.toLowerCase().includes(q)
+        const matchPhone = c.contact?.phone?.includes(q)
+        const matchAddress = c.contact?.address?.toLowerCase().includes(q)
+        const matchMsg = c.last_message_preview?.toLowerCase().includes(q)
+        const matchService = c.lead?.service_needed?.toLowerCase().includes(q)
+        return matchName || matchPhone || matchAddress || matchMsg || matchService
+      }
+
+      return true
+    })
+  }, [conversations, channelFilter, selectedTrade, search])
 
   return (
-    <div className="h-[calc(100dvh-3.5rem-3.5rem)] md:h-[calc(100vh-8.5rem)] flex md:rounded-2xl md:border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
+    <div className="h-[calc(100dvh-3.5rem-3.5rem)] md:h-[calc(100vh-8.5rem)] flex md:rounded-2xl md:border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-xs overflow-hidden">
       
-      {/* ── Left Pane: Conversation Directory (Hidden on mobile when viewing thread) ── */}
+      {/* ========================================================================= */}
+      {/* 1. LEFT PANE: CHANNELS & CONVERSATION DIRECTORY                           */}
+      {/* ========================================================================= */}
       <div className={cn(
-        "w-full md:w-80 border-r border-slate-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 shrink-0",
+        "w-full md:w-84 lg:w-92 border-r border-slate-200 dark:border-zinc-800 flex flex-col bg-white dark:bg-zinc-950 shrink-0",
         mobileViewThread ? "hidden md:flex" : "flex"
       )}>
-        {/* Header, Filter Pills & Search */}
-        <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 space-y-2.5 bg-slate-50/50 dark:bg-zinc-900/40">
+        {/* Header & Controls */}
+        <div className="p-3.5 border-b border-slate-200 dark:border-zinc-800 space-y-3 bg-slate-50/50 dark:bg-zinc-900/40">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Conversations
+              <h1 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">
+                Inbound Communications
               </h1>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50" title="Auto-sync active: updates in real-time">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Live
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 dark:text-zinc-400 font-semibold tabular-nums">
-                {conversations.length} total
-              </span>
+
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setShowComposeModal(true)}
-                className="h-6 w-6 rounded flex items-center justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
-                title="Compose new text message"
-                aria-label="Compose new text message"
+                className="h-7 px-2 rounded-lg flex items-center gap-1 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-2xs transition-colors cursor-pointer"
+                title="Compose new SMS"
               >
                 <Plus className="h-3.5 w-3.5" />
+                <span>Text</span>
               </button>
               <button
                 type="button"
-                onClick={loadConversations}
+                onClick={() => refetchConvs()}
                 disabled={loadingConvs}
-                className="h-6 w-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
                 title="Refresh conversations"
               >
-                <RefreshCw className={cn("h-3 w-3", loadingConvs && "animate-spin")} />
+                <RefreshCw className={cn("h-3.5 w-3.5", loadingConvs && "animate-spin")} />
               </button>
             </div>
           </div>
 
-          {/* Quick Filter Segment */}
-          <FilterTabs
-            tabs={[
-              { id: 'all', label: 'All', count: conversations.length },
-              { id: 'unread', label: 'Unread', count: totalUnread > 0 ? totalUnread : undefined }
-            ]}
-            activeTab={filterTab}
-            onChange={(val) => setFilterTab(val as 'all' | 'unread')}
-            className="w-full justify-stretch grid grid-cols-2"
-            size="sm"
-            ariaLabel="Filter conversations"
-          />
+          {/* Quick Channels / Triage Filter Pills */}
+          <div className="grid grid-cols-4 gap-1 p-0.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[11px] font-semibold">
+            <button
+              type="button"
+              onClick={() => setChannelFilter('all')}
+              className={cn(
+                "py-1.5 rounded-lg text-center transition-colors cursor-pointer",
+                channelFilter === 'all'
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              All <span className="tabular-nums opacity-70">({conversations.length})</span>
+            </button>
 
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-            <Input
-              placeholder="Search customer, phone, text..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-8.5 h-9 text-xs sm:text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100"
-            />
+            <button
+              type="button"
+              onClick={() => setChannelFilter('unread')}
+              className={cn(
+                "py-1.5 rounded-lg text-center transition-colors cursor-pointer flex items-center justify-center gap-1",
+                channelFilter === 'unread'
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              Unread
+              {totalUnread > 0 && (
+                <span className="h-4 min-w-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">
+                  {totalUnread}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setChannelFilter('leads')}
+              className={cn(
+                "py-1.5 rounded-lg text-center transition-colors cursor-pointer flex items-center justify-center gap-1",
+                channelFilter === 'leads'
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              Leads
+              {totalLeads > 0 && (
+                <span className="tabular-nums opacity-70">({totalLeads})</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setChannelFilter('missed')}
+              className={cn(
+                "py-1.5 rounded-lg text-center transition-colors cursor-pointer flex items-center justify-center gap-1",
+                channelFilter === 'missed'
+                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              Missed
+              {totalMissed > 0 && (
+                <span className="tabular-nums opacity-70">({totalMissed})</span>
+              )}
+            </button>
+          </div>
+
+          {/* Search & Universal Trade Filter */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500 pointer-events-none" />
+              <Input
+                placeholder="Search name, phone, address, text..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-8.5 h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Universal Trade Selector Dropdown (Supporting All 21 Trades) */}
+            <div className="flex items-center gap-1.5">
+              <Wrench className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <select
+                value={selectedTrade}
+                onChange={e => setSelectedTrade(e.target.value)}
+                className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1.5 px-2 text-slate-700 dark:text-zinc-300 font-medium cursor-pointer"
+              >
+                <option value="all">All Home Service Trades (21)</option>
+                {INDUSTRY_LIST.map(ind => (
+                  <option key={ind.id} value={ind.id}>
+                    {ind.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -604,23 +789,27 @@ export default function InboxPage() {
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="space-y-1.5 animate-pulse">
                   <div className="flex justify-between">
-                    <div className="h-3 w-28 bg-slate-200 dark:bg-zinc-800 rounded" />
+                    <div className="h-3.5 w-28 bg-slate-200 dark:bg-zinc-800 rounded" />
                     <div className="h-3 w-10 bg-slate-100 dark:bg-zinc-800/60 rounded" />
                   </div>
                   <div className="h-3 w-44 bg-slate-100/70 dark:bg-zinc-800/40 rounded" />
                 </div>
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
               <InboxIcon className="h-8 w-8 text-slate-300 dark:text-zinc-600 mx-auto mb-2" />
               <p className="font-semibold text-slate-700 dark:text-zinc-300">No conversations found</p>
               <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
-                {filterTab === 'unread' ? "You're caught up with all messages." : "Incoming customer messages will show up here."}
+                {channelFilter === 'unread'
+                  ? "You're caught up with all messages."
+                  : channelFilter === 'leads'
+                    ? "No incoming leads found under this filter."
+                    : "Incoming customer messages will show up here."}
               </p>
             </div>
           ) : (
-            filtered.map(conv => (
+            filteredConversations.map(conv => (
               <ConversationRow
                 key={conv.id}
                 conversation={conv}
@@ -635,68 +824,131 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* ── Center Pane: Active Message Thread ── */}
+      {/* ========================================================================= */}
+      {/* 2. CENTER PANE: ACTIVE THREAD & TOP ACTION RAIL                           */}
+      {/* ========================================================================= */}
       <div className={cn(
         "flex-1 flex flex-col bg-slate-50/50 dark:bg-zinc-950 min-w-0",
         !mobileViewThread ? "hidden md:flex" : "flex"
       )}>
         {activeConv ? (
           <>
-            {/* Thread Header */}
-            <div className="h-14 border-b border-slate-200 dark:border-zinc-800 px-4 flex items-center justify-between shrink-0 bg-white dark:bg-zinc-950">
+            {/* Top Operational Action Rail */}
+            <div className="min-h-14 border-b border-slate-200 dark:border-zinc-800 px-3.5 sm:px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0 bg-white dark:bg-zinc-950 shadow-2xs">
+              
+              {/* Left: Contact Identity */}
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   type="button"
                   onClick={() => setMobileViewThread(false)}
-                  className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0 cursor-pointer"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0 cursor-pointer"
                   aria-label="Back to conversations"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
+
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-zinc-100 truncate">
                       {activeConv.contact?.name || activeConv.contact?.phone}
                     </span>
                     {activeConv.contact?.name && (
-                      <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">
+                      <a
+                        href={`tel:${activeConv.contact.phone}`}
+                        className="text-[11px] text-slate-500 hover:text-blue-600 dark:text-zinc-400 font-mono truncate"
+                      >
                         {activeConv.contact.phone}
-                      </span>
+                      </a>
                     )}
                   </div>
-                  {activeConv.contact?.address && (
+
+                  {activeConv.contact?.address ? (
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
                       <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
                       <span>{activeConv.contact.address}</span>
                     </p>
-                  )}
+                  ) : activeConv.lead?.service_needed ? (
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 font-medium">
+                      <Wrench className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span>{activeConv.lead.service_needed}</span>
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
-              {/* Quick Actions in Thread Header */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Right: 1-Tap Truck Actions & Lead Stage */}
+              <div className="flex items-center flex-wrap gap-1.5 shrink-0">
+                
+                {/* 1. Phone Call CTA */}
                 <a
                   href={`tel:${activeConv.contact?.phone}`}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 transition-colors shadow-2xs cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1 h-8 sm:h-8.5 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
                   title="Call customer directly"
-                  aria-label="Call customer directly"
                 >
-                  <PhoneCall className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">Call</span>
+                  <PhoneCall className="h-3.5 w-3.5" />
+                  <span>Call</span>
                 </a>
+
+                {/* 2. Fast Estimate CTA */}
                 <Link
-                  href={`/client/customers/${activeConv.contact_id}`}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer"
-                  title="View customer record"
-                  aria-label="View customer profile"
+                  href={`/client/quotes?contact_id=${activeConv.contact_id}&customer_name=${encodeURIComponent(activeConv.contact?.name || '')}&from_inbox=true`}
+                  className="inline-flex items-center justify-center gap-1 h-8 sm:h-8.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:border-blue-300 dark:hover:border-zinc-700 hover:text-blue-600 transition-colors shadow-2xs"
+                  title="Create Quote for customer"
                 >
-                  <User className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">Profile</span>
+                  <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>+ Quote</span>
                 </Link>
+
+                {/* 3. Fast Appointment CTA */}
+                <Link
+                  href={`/client/calendar?contact_id=${activeConv.contact_id}&customer_name=${encodeURIComponent(activeConv.contact?.name || '')}&from_inbox=true`}
+                  className="inline-flex items-center justify-center gap-1 h-8 sm:h-8.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:border-emerald-300 dark:hover:border-zinc-700 hover:text-emerald-600 transition-colors shadow-2xs"
+                  title="Schedule Job on Dispatch Calendar"
+                >
+                  <Calendar className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>+ Job</span>
+                </Link>
+
+                {/* 4. Lead Stage Dropdown Segment */}
+                <div className="flex items-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 p-0.5 text-[11px] font-semibold">
+                  <span className="px-1.5 text-[10px] text-slate-400 uppercase font-bold tracking-wider hidden lg:inline">
+                    Stage:
+                  </span>
+                  <select
+                    disabled={updatingStage}
+                    value={activeConv.lead?.status || 'new'}
+                    onChange={e => handleUpdateLeadStatus(e.target.value as any)}
+                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer py-1 pr-1.5"
+                  >
+                    <option value="new">● New</option>
+                    <option value="contacted">● Contacted</option>
+                    <option value="booked">● Booked</option>
+                    <option value="lost">● Archived</option>
+                  </select>
+                </div>
+
+                {/* 5. Dossier Toggle (Desktop) */}
+                <button
+                  type="button"
+                  onClick={() => setDossierOpen(!dossierOpen)}
+                  className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-zinc-900 transition-colors"
+                  title={dossierOpen ? "Collapse Dossier" : "Expand Dossier"}
+                >
+                  {dossierOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                </button>
+
+                {/* Mobile Dossier Drawer Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setMobileDossierOpen(true)}
+                  className="lg:hidden h-8 px-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 text-xs font-semibold bg-white dark:bg-zinc-900"
+                >
+                  Dossier
+                </button>
               </div>
             </div>
 
-            {/* Messages Scroll View */}
+            {/* Message History Feed */}
             <div 
               ref={scrollContainerRef}
               className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/40 dark:bg-zinc-950"
@@ -736,7 +988,7 @@ export default function InboxPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Canned Snippets & Composer */}
+            {/* Canned Templates & SMS Composer */}
             <div className="border-t border-slate-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-950 space-y-2.5 shrink-0 shadow-xs">
               <CannedSnippetsBar onSelect={text => setReplyText(text)} />
 
@@ -779,9 +1031,13 @@ export default function InboxPage() {
         )}
       </div>
 
-      {/* ── Right Pane: Contextual Customer Details (Desktop >= 1024px) ── */}
-      {activeConv && (
-        <div className="hidden lg:flex w-76 border-l border-slate-200 dark:border-zinc-800 flex-col bg-white dark:bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
+      {/* ========================================================================= */}
+      {/* 3. RIGHT PANE: CUSTOMER DOSSIER & LEAD INTELLIGENCE                       */}
+      {/* ========================================================================= */}
+      {activeConv && dossierOpen && (
+        <div className="hidden lg:flex w-80 border-l border-slate-200 dark:border-zinc-800 flex-col bg-white dark:bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
+          
+          {/* Customer Overview */}
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
               Customer Dossier
@@ -790,75 +1046,79 @@ export default function InboxPage() {
               {activeConv.contact?.name || 'Unsaved Caller'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 font-mono mt-0.5">{activeConv.contact?.phone}</p>
+            {activeConv.contact?.email && (
+              <p className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5">{activeConv.contact.email}</p>
+            )}
           </div>
 
-          {/* Quick Workflow Actions */}
-          <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-              1-Click Actions
+          {/* Lead Intelligence Card */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/50 p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                <Target className="h-3 w-3 text-blue-600" /> Lead Pipeline
+              </span>
+              {activeConv.lead?.status ? (
+                <span className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                  activeConv.lead.status === 'new' ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" :
+                  activeConv.lead.status === 'contacted' ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" :
+                  activeConv.lead.status === 'booked' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" :
+                  "bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300"
+                )}>
+                  {activeConv.lead.status}
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400">Unregistered Lead</span>
+              )}
             </div>
 
-            <Link
-              href={`/client/calendar?contact_id=${activeConv.contact_id}`}
-              className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-800 transition-all shadow-2xs"
-            >
-              <div className="h-6 w-6 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <Calendar className="h-3.5 w-3.5" />
+            {/* Urgency & Source */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-400 block font-medium">Source</span>
+                <span className="font-semibold text-slate-800 dark:text-zinc-200 capitalize">
+                  {activeConv.lead?.source === 'missed_call' ? 'Missed Call' : (activeConv.lead?.source || 'Inbound SMS')}
+                </span>
               </div>
-              <span>Book Appointment</span>
-            </Link>
+              <div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-400 block font-medium">Urgency</span>
+                <span className={cn(
+                  "font-semibold capitalize",
+                  activeConv.lead?.urgency === 'emergency' ? "text-rose-600 dark:text-rose-400 font-bold" :
+                  activeConv.lead?.urgency === 'high' ? "text-amber-600 dark:text-amber-400 font-bold" :
+                  "text-slate-800 dark:text-zinc-200"
+                )}>
+                  {activeConv.lead?.urgency || 'Normal'}
+                </span>
+              </div>
+            </div>
 
-            <Link
-              href={`/client/quotes?contact_id=${activeConv.contact_id}`}
-              className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-300 dark:hover:border-emerald-800 transition-all shadow-2xs"
-            >
-              <div className="h-6 w-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <FileText className="h-3.5 w-3.5" />
+            {/* Trade / Service Requested */}
+            {activeConv.lead?.service_needed && (
+              <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 space-y-1">
+                <span className="text-[10px] text-slate-400 block font-medium">Requested Service</span>
+                <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100 block">
+                  {activeConv.lead.service_needed}
+                </span>
               </div>
-              <span>Create Estimate</span>
-            </Link>
+            )}
 
-            <Link
-              href={`/client/invoices?contact_id=${activeConv.contact_id}`}
-              className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-800 transition-all shadow-2xs"
-            >
-              <div className="h-6 w-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <CreditCard className="h-3.5 w-3.5" />
+            {/* Estimated Value */}
+            {activeConv.lead?.estimated_value != null && (
+              <div className="flex items-center justify-between text-xs px-1">
+                <span className="text-slate-500">Estimated Deal Value</span>
+                <span className="font-bold text-slate-900 dark:text-zinc-100 tabular-nums">
+                  ${Number(activeConv.lead.estimated_value).toLocaleString()}
+                </span>
               </div>
-              <span>Create Invoice</span>
-            </Link>
+            )}
           </div>
 
-          {/* Lead Lifecycle Status */}
-          <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-              Lead Stage
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(['new', 'contacted', 'booked', 'lost'] as const).map(st => (
-                <button
-                  key={st}
-                  type="button"
-                  aria-pressed={leadStatus === st}
-                  onClick={() => handleStatusChange(st)}
-                  className={cn(
-                    'px-2.5 py-2 min-h-[38px] text-xs font-semibold rounded-lg border transition-all capitalize text-center shadow-2xs cursor-pointer',
-                    leadStatus === st
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-xs font-bold'
-                      : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'
-                  )}
-                >
-                  {st}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Customer Address */}
+          {/* Service Address & Notes */}
           {activeConv.contact?.address && (
-            <div className="space-y-1.5 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> Service Address
+                <MapPin className="h-3 w-3 text-slate-500" /> Service Location
               </div>
               <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed bg-slate-50 dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">
                 {activeConv.contact.address}
@@ -866,28 +1126,44 @@ export default function InboxPage() {
             </div>
           )}
 
-          {/* Full History Link */}
-          <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 mt-auto">
+          {activeConv.contact?.notes && (
+            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                Customer Notes
+              </div>
+              <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed bg-slate-50 dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">
+                {activeConv.contact.notes}
+              </p>
+            </div>
+          )}
+
+          {/* CRM Profile Deep Link */}
+          <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 mt-auto space-y-2">
             <Link
               href={`/client/customers/${activeConv.contact_id}`}
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-900"
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors"
             >
-              <span>Full customer profile</span>
+              <span>Full Customer Dossier & CRM</span>
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* 4. MODALS & DRAWERS                                                       */}
+      {/* ========================================================================= */}
+
       {/* Compose New Message Modal */}
       <Modal
         open={showComposeModal}
         onOpenChange={setShowComposeModal}
-        title="Compose New Message"
+        title="Compose Inbound SMS & Lead"
+        description="Dispatch a text to an existing customer or initialize a new inbound lead."
       >
-        <form onSubmit={handleComposeSend} className="space-y-4 pt-1">
+        <form onSubmit={handleComposeSend} className="space-y-3.5 pt-1">
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1.5">
+            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
               Select Customer
             </label>
             <select
@@ -937,8 +1213,43 @@ export default function InboxPage() {
             </div>
           )}
 
+          {/* Trade & Urgency Selectors */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800/60">
+            <div>
+              <label className="text-[11px] font-medium text-slate-600 dark:text-zinc-400 block mb-1">
+                Trade Service
+              </label>
+              <select
+                value={composeTrade}
+                onChange={e => setComposeTrade(e.target.value)}
+                className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2 text-slate-900 dark:text-zinc-100"
+              >
+                <option value="">General Service</option>
+                {INDUSTRY_LIST.map(ind => (
+                  <option key={ind.id} value={ind.name}>
+                    {ind.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-slate-600 dark:text-zinc-400 block mb-1">
+                Urgency Level
+              </label>
+              <select
+                value={composeUrgency}
+                onChange={e => setComposeUrgency(e.target.value as any)}
+                className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2 text-slate-900 dark:text-zinc-100"
+              >
+                <option value="normal">Normal</option>
+                <option value="high">High Priority</option>
+                <option value="emergency">Emergency / Same Day</option>
+              </select>
+            </div>
+          </div>
+
           <div>
-            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1.5">
+            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
               Message Text *
             </label>
             <textarea
@@ -958,7 +1269,7 @@ export default function InboxPage() {
               size="sm"
               onClick={() => setShowComposeModal(false)}
               disabled={composing}
-              className="h-8 text-xs"
+              className="h-8 text-xs border-slate-200 dark:border-zinc-800"
             >
               Cancel
             </Button>
@@ -966,7 +1277,7 @@ export default function InboxPage() {
               type="submit"
               size="sm"
               disabled={composing || !composeMessage.trim() || (!composeContactId && !composeCustomPhone.trim())}
-              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs"
             >
               {composing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
               <span>Send SMS</span>
@@ -974,6 +1285,62 @@ export default function InboxPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Mobile Dossier Drawer Modal */}
+      {mobileDossierOpen && activeConv && (
+        <Modal
+          open={mobileDossierOpen}
+          onOpenChange={setMobileDossierOpen}
+          title="Customer Dossier & Lead Info"
+        >
+          <div className="space-y-4 py-1 text-xs">
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Customer</span>
+              <p className="font-bold text-sm text-slate-900 dark:text-zinc-100">{activeConv.contact?.name || 'Unsaved Caller'}</p>
+              <p className="font-mono text-xs text-slate-500">{activeConv.contact?.phone}</p>
+            </div>
+
+            {activeConv.contact?.address && (
+              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Service Address</span>
+                <p className="text-slate-800 dark:text-zinc-200">{activeConv.contact.address}</p>
+              </div>
+            )}
+
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700 dark:text-zinc-300">Lead Stage</span>
+                <select
+                  value={activeConv.lead?.status || 'new'}
+                  onChange={e => handleUpdateLeadStatus(e.target.value as any)}
+                  className="bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-md text-xs font-bold p-1"
+                >
+                  <option value="new">New</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="booked">Booked</option>
+                  <option value="lost">Archived</option>
+                </select>
+              </div>
+
+              {activeConv.lead?.service_needed && (
+                <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800">
+                  <span className="text-[10px] text-slate-400 block">Requested Service</span>
+                  <span className="font-semibold text-slate-900 dark:text-zinc-100">{activeConv.lead.service_needed}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex flex-col gap-2">
+              <Link
+                href={`/client/customers/${activeConv.contact_id}`}
+                className="w-full text-center py-2.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 font-semibold text-xs border border-slate-200 dark:border-zinc-700"
+              >
+                Open Full Customer Record
+              </Link>
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </div>
   )
