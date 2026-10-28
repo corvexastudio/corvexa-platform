@@ -235,7 +235,7 @@ export function BookingShareBar({
           </div>
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
             <Link
-              href="/client/billing"
+              href="/client/settings?tab=billing"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-bold transition-colors shadow-2xs border border-slate-700 dark:border-zinc-700 cursor-pointer"
             >
               <span>Upgrade to Solo Pro ($99/mo)</span>
