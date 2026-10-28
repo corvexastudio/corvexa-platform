@@ -166,6 +166,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [orgSlug, setOrgSlug] = useState<string>('')
   const [orgPhone, setOrgPhone] = useState<string>('')
   const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
+  const [orgIndustry, setOrgIndustry] = useState<string>('general')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>('free')
   const [planId, setPlanId] = useState<string | null>('free')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
@@ -370,7 +371,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           const [orgRes, { count }] = await Promise.all([
             supabase
               .from('organizations')
-              .select('name, slug, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry')
               .eq('id', profile.org_id)
               .maybeSingle(),
             supabase
@@ -385,7 +386,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           if (orgRes.error && orgRes.error.code === '42703') {
             const fallbackRes = await supabase
               .from('organizations')
-              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry')
               .eq('id', profile.org_id)
               .maybeSingle()
             org = fallbackRes.data
@@ -396,6 +397,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             if (org.slug) setOrgSlug(org.slug)
             setOrgPhone(org.telnyx_phone_number || '')
             if (org.timezone) setOrgTimezone(org.timezone)
+            if (org.industry) setOrgIndustry(org.industry)
             if (org.subscription_status) setSubscriptionStatus(org.subscription_status)
             if (org.plan_id) setPlanId(org.plan_id)
 
@@ -514,6 +516,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     orgSlug,
     orgPhone,
     orgTimezone,
+    orgIndustry,
     subscriptionStatus,
     planId,
     isSuperAdmin,

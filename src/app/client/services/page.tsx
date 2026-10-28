@@ -40,6 +40,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import {
   parseServicePricing,
   cleanServiceDescription,
@@ -80,10 +81,19 @@ export default function ServicesPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
   // 60-Second Instant Catalog Modal
+  const { orgIndustry } = useWorkspace()
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string>('hvac')
+  const [showOtherTrades, setShowOtherTrades] = useState(false)
   const [tradeSearch, setTradeSearch] = useState('')
   const [submittingImport, setSubmittingImport] = useState(false)
+
+  // Align with workspace trade
+  useEffect(() => {
+    if (orgIndustry && orgIndustry !== 'general') {
+      setSelectedTradeId(orgIndustry)
+    }
+  }, [orgIndustry])
 
   // Form Fields
   const [formName, setFormName] = useState('')
@@ -464,7 +474,7 @@ export default function ServicesPage() {
             className="h-9 px-3 text-xs font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-600 dark:text-amber-400" />
-            <span>Load Trade Presets (21 Trades)</span>
+            <span>Load {selectedPreset ? selectedPreset.name.split('&')[0].trim() : 'Trade'} Presets</span>
           </Button>
 
           <Button
@@ -848,35 +858,53 @@ export default function ServicesPage() {
         size="lg"
       >
         <div className="space-y-4 pt-1">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <Input
-              value={tradeSearch}
-              onChange={e => setTradeSearch(e.target.value)}
-              placeholder="Search 21 trade presets (e.g. HVAC, Plumbing, Roofing, Electrical, Painting)..."
-              className="pl-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs h-9 text-slate-900 dark:text-zinc-100"
-            />
+          {/* Header toggle for primary vs other trades */}
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-xs text-slate-500 dark:text-zinc-400">
+              Active Trade: <strong className="text-slate-900 dark:text-zinc-100">{selectedPreset.name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowOtherTrades(prev => !prev)}
+              className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+            >
+              {showOtherTrades ? 'Hide Other Trades' : 'Browse Other 20 Trades'}
+            </button>
           </div>
 
-          {/* Trade Pills Selector */}
-          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 border border-slate-200 dark:border-zinc-800 rounded-xl bg-slate-50/60 dark:bg-zinc-950/60">
-            {filteredTrades.map(trade => (
-              <button
-                key={trade.id}
-                type="button"
-                onClick={() => setSelectedTradeId(trade.id)}
-                className={cn(
-                  'px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer',
-                  selectedTradeId === trade.id
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-2xs'
-                    : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                )}
-              >
-                <span>{trade.name}</span>
-              </button>
-            ))}
-          </div>
+          {showOtherTrades && (
+            <div className="space-y-2 p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Input
+                  value={tradeSearch}
+                  onChange={e => setTradeSearch(e.target.value)}
+                  placeholder="Search 21 trade presets (e.g. HVAC, Plumbing, Roofing, Electrical, Painting)..."
+                  className="pl-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs h-9 text-slate-900 dark:text-zinc-100"
+                />
+              </div>
+
+              {/* Trade Pills Selector */}
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+                {filteredTrades.map(trade => (
+                  <button
+                    key={trade.id}
+                    type="button"
+                    onClick={() => setSelectedTradeId(trade.id)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer',
+                      selectedTradeId === trade.id
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-2xs'
+                        : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
+                    )}
+                  >
+                    <span>{trade.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Selected Trade Preview Box */}
           <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 space-y-3">

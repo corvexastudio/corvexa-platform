@@ -47,6 +47,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { INDUSTRY_LIST, INDUSTRY_PRESETS, getIndustryPreset, type IndustryPreset } from '@/lib/constants/industries'
 
 interface QuoteItem {
@@ -159,8 +160,17 @@ function ClientQuotesContent() {
   const [depositValue, setDepositValue] = useState<number>(50)
   
   // 21 Trades Selector State
+  const { orgIndustry } = useWorkspace()
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all')
+  const [showAllTrades, setShowAllTrades] = useState(false)
   const [tradeSearch, setTradeSearch] = useState<string>('')
+
+  // Align default trade with organization onboarding trade
+  useEffect(() => {
+    if (orgIndustry && orgIndustry !== 'general') {
+      setSelectedTradeId(orgIndustry)
+    }
+  }, [orgIndustry])
 
   // Listen to contact_id or quick-create query param
   useEffect(() => {
@@ -911,30 +921,53 @@ function ClientQuotesContent() {
             </select>
           </div>
 
-          {/* 21-Trade Preset Browser (1-Tap Sight-Unseen Line Items) */}
+          {/* Trade Preset Browser */}
           <div className="space-y-2 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Trade Price Book (All 21 Home Service Trades)</span>
+                <span>Quick Line Items {selectedTradeId !== 'all' ? `(${getIndustryPreset(selectedTradeId).name.split('&')[0].trim()})` : ''}</span>
               </span>
 
-              {/* Trade Filter Dropdown */}
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={selectedTradeId}
-                  onChange={e => setSelectedTradeId(e.target.value)}
-                  className="p-1 px-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-slate-800 dark:text-zinc-200 focus:outline-none cursor-pointer shadow-2xs"
-                >
-                  <option value="all">All 21 Trades</option>
-                  {INDUSTRY_LIST.map(ind => (
-                    <option key={ind.id} value={ind.id}>
-                      {ind.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllTrades(prev => !prev)}
+                className="text-[11px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                {showAllTrades ? 'Focus My Trade' : 'Browse other trades'}
+              </button>
             </div>
+
+            {showAllTrades && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1 pb-0.5">
+                <div className="flex items-center gap-1.5 flex-1">
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 shrink-0">Trade:</span>
+                  <select
+                    value={selectedTradeId}
+                    onChange={e => setSelectedTradeId(e.target.value)}
+                    className="w-full p-1 px-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-slate-800 dark:text-zinc-200 focus:outline-none cursor-pointer shadow-2xs"
+                  >
+                    {orgIndustry && orgIndustry !== 'general' && (
+                      <option value={orgIndustry}>★ {getIndustryPreset(orgIndustry).name} (My Primary Trade)</option>
+                    )}
+                    <option value="all">All 21 Home Service Trades</option>
+                    {INDUSTRY_LIST.filter(ind => ind.id !== orgIndustry).map(ind => (
+                      <option key={ind.id} value={ind.id}>
+                        {ind.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="relative">
+                  <Input
+                    placeholder="Search services..."
+                    value={tradeSearch}
+                    onChange={e => setTradeSearch(e.target.value)}
+                    className="h-7 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 w-full sm:w-44"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Presets List */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-44 overflow-y-auto p-1 scrollbar-thin">

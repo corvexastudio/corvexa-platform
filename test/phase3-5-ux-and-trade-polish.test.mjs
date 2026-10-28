@@ -217,3 +217,31 @@ test('NAV-003: Schedule & Jobs Unified Navigation Consolidation', () => {
   assert.ok(jobsPageSource.includes("router.replace"), 'Jobs page must redirect to calendar')
   assert.ok(jobsPageSource.includes("/client/calendar"), 'Jobs page must redirect to unified calendar hub')
 })
+
+test('TRADE-001: Trade-First Default with Multi-Trade Expandability Across Platform', () => {
+  // 1. Workspace Context provides orgIndustry
+  const wsSource = fs.readFileSync(path.resolve('src/lib/context/workspace-context.tsx'), 'utf8')
+  assert.ok(wsSource.includes('orgIndustry: string'), 'WorkspaceContextValue must include orgIndustry')
+
+  // 2. Invoices defaults to primary trade and supports multi-trade expansion
+  const invoicesSource = fs.readFileSync(path.resolve('src/app/client/invoices/page.tsx'), 'utf8')
+  assert.ok(invoicesSource.includes('orgIndustry'), 'Invoices must utilize orgIndustry')
+  assert.ok(invoicesSource.includes('Browse other trades'), 'Invoices must provide multi-trade expandability')
+
+  // 3. Quotes defaults to primary trade and supports multi-trade expansion
+  const quotesSource = fs.readFileSync(path.resolve('src/app/client/quotes/page.tsx'), 'utf8')
+  assert.ok(quotesSource.includes('orgIndustry'), 'Quotes must utilize orgIndustry')
+  assert.ok(quotesSource.includes('Browse other trades'), 'Quotes must provide multi-trade expandability')
+
+  // 4. Inbox provides trade workspace indicator
+  const inboxSource = fs.readFileSync(path.resolve('src/app/client/inbox/page.tsx'), 'utf8')
+  assert.ok(inboxSource.includes('orgIndustry'), 'Inbox must utilize orgIndustry')
+  assert.ok(inboxSource.includes('Workspace'), 'Inbox must display workspace indicator')
+
+  // 5. Services and Automations support trade-first defaults
+  const servicesSource = fs.readFileSync(path.resolve('src/app/client/services/page.tsx'), 'utf8')
+  assert.ok(servicesSource.includes('orgIndustry'), 'Services must utilize orgIndustry')
+  
+  const automationsSource = fs.readFileSync(path.resolve('src/app/client/automations/page.tsx'), 'utf8')
+  assert.ok(automationsSource.includes('orgIndustry'), 'Automations must utilize orgIndustry')
+})

@@ -8,6 +8,7 @@ export interface WorkspaceContextValue {
   orgSlug: string
   orgPhone: string
   orgTimezone: string
+  orgIndustry: string
   subscriptionStatus: string | null
   planId: string | null
   isSuperAdmin: boolean
@@ -24,6 +25,7 @@ export const WorkspaceContext = createContext<WorkspaceContextValue>({
   orgSlug: '',
   orgPhone: '',
   orgTimezone: 'America/Chicago',
+  orgIndustry: 'general',
   subscriptionStatus: 'free',
   planId: 'free',
   isSuperAdmin: false,

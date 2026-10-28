@@ -50,7 +50,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { INDUSTRY_LIST, type IndustryPreset } from '@/lib/constants/industries'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { INDUSTRY_LIST, getIndustryPreset, type IndustryPreset } from '@/lib/constants/industries'
 
 interface InvoiceItem {
   id?: string
@@ -163,8 +164,17 @@ function ClientInvoicesContent() {
   const [newItems, setNewItems] = useState<InvoiceItem[]>([
     { description: 'Service Labor & Callout', quantity: 1, unit_price: 150 }
   ])
+  const { orgIndustry } = useWorkspace()
   const [savingInvoice, setSavingInvoice] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all')
+  const [showAllTrades, setShowAllTrades] = useState(false)
+
+  // Align default trade with organization onboarding trade
+  useEffect(() => {
+    if (orgIndustry && orgIndustry !== 'general') {
+      setSelectedTradeId(orgIndustry)
+    }
+  }, [orgIndustry])
 
   // Listen to contact_id / title / create query param
   useEffect(() => {
@@ -1064,21 +1074,37 @@ function ClientInvoicesContent() {
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Trade Price Book (Quick Line Items)</span>
+                <span>Quick Line Items {selectedTradeId !== 'all' ? `(${getIndustryPreset(selectedTradeId).name.split('&')[0].trim()})` : ''}</span>
               </span>
-              <select
-                value={selectedTradeId}
-                onChange={e => setSelectedTradeId(e.target.value)}
-                className="p-1 px-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-slate-800 dark:text-zinc-200 focus:outline-none cursor-pointer shadow-2xs"
+              <button
+                type="button"
+                onClick={() => setShowAllTrades(prev => !prev)}
+                className="text-[11px] font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline cursor-pointer"
               >
-                <option value="all">All 21 Trades</option>
-                {INDUSTRY_LIST.map(ind => (
-                  <option key={ind.id} value={ind.id}>
-                    {ind.name}
-                  </option>
-                ))}
-              </select>
+                {showAllTrades ? 'Focus My Trade' : 'Browse other trades'}
+              </button>
             </div>
+
+            {showAllTrades && (
+              <div className="flex items-center gap-2 pt-1 pb-0.5">
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 shrink-0">Filter Trade:</span>
+                <select
+                  value={selectedTradeId}
+                  onChange={e => setSelectedTradeId(e.target.value)}
+                  className="w-full p-1 px-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-slate-800 dark:text-zinc-200 focus:outline-none cursor-pointer shadow-2xs"
+                >
+                  {orgIndustry && orgIndustry !== 'general' && (
+                    <option value={orgIndustry}>★ {getIndustryPreset(orgIndustry).name} (My Primary Trade)</option>
+                  )}
+                  <option value="all">All 21 Home Service Trades</option>
+                  {INDUSTRY_LIST.filter(ind => ind.id !== orgIndustry).map(ind => (
+                    <option key={ind.id} value={ind.id}>
+                      {ind.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto p-1 scrollbar-thin">
               {INDUSTRY_LIST.filter(t => selectedTradeId === 'all' || t.id === selectedTradeId).flatMap(trade =>

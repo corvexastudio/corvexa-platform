@@ -53,7 +53,8 @@ import { cn } from '@/lib/utils'
 import { ConversationRow } from '@/components/inbox/conversation-row'
 import { MessageBubble } from '@/components/inbox/message-bubble'
 import { CannedSnippetsBar } from '@/components/inbox/canned-snippets'
-import { INDUSTRY_LIST } from '@/lib/constants/industries'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
 
 interface ConversationItem {
   id: string
@@ -136,9 +137,11 @@ export default function InboxPage() {
   const activeConvIdRef = useRef<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
+  const { orgIndustry } = useWorkspace()
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState<'all' | 'unread' | 'leads' | 'missed'>('all')
   const [selectedTrade, setSelectedTrade] = useState<string>('all')
+  const [showTradeFilter, setShowTradeFilter] = useState(false)
   const [dossierOpen, setDossierOpen] = useState(true)
   const [mobileDossierOpen, setMobileDossierOpen] = useState(false)
 
@@ -157,6 +160,13 @@ export default function InboxPage() {
   const [composeCustomName, setComposeCustomName] = useState('')
   const [composeTrade, setComposeTrade] = useState('')
   const [composeUrgency, setComposeUrgency] = useState<'normal' | 'high' | 'emergency'>('normal')
+
+  // Sync compose default trade with workspace onboarding trade
+  useEffect(() => {
+    if (orgIndustry && orgIndustry !== 'general' && !composeTrade) {
+      setComposeTrade(getIndustryPreset(orgIndustry).name)
+    }
+  }, [orgIndustry, composeTrade])
   const [composeMessage, setComposeMessage] = useState('')
   const [composing, setComposing] = useState(false)
   const [customersList, setCustomersList] = useState<any[]>([])
@@ -763,22 +773,52 @@ export default function InboxPage() {
               )}
             </div>
 
-            {/* Universal Trade Selector Dropdown (Supporting All 21 Trades) */}
-            <div className="flex items-center gap-1.5">
-              <Wrench className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <select
-                value={selectedTrade}
-                onChange={e => setSelectedTrade(e.target.value)}
-                className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1.5 px-2 text-slate-700 dark:text-zinc-300 font-medium cursor-pointer"
-              >
-                <option value="all">All Home Service Trades (21)</option>
-                {INDUSTRY_LIST.map(ind => (
-                  <option key={ind.id} value={ind.id}>
-                    {ind.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Trade Filter (Clean Workspace Badge & Expandable Filter) */}
+            {showTradeFilter ? (
+              <div className="flex items-center gap-1.5">
+                <Wrench className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                <select
+                  value={selectedTrade}
+                  onChange={e => setSelectedTrade(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-1.5 px-2 text-slate-700 dark:text-zinc-300 font-medium cursor-pointer"
+                >
+                  <option value="all">All Trades (21)</option>
+                  {orgIndustry && orgIndustry !== 'general' && (
+                    <option value={orgIndustry}>★ {getIndustryPreset(orgIndustry).name} (My Trade)</option>
+                  )}
+                  {INDUSTRY_LIST.filter(ind => ind.id !== orgIndustry).map(ind => (
+                    <option key={ind.id} value={ind.id}>
+                      {ind.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTradeFilter(false)
+                    setSelectedTrade('all')
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 p-1 cursor-pointer"
+                  title="Close filter"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-zinc-500 px-0.5">
+                <span className="flex items-center gap-1.5 truncate">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="font-medium text-slate-600 dark:text-zinc-400">{getIndustryPreset(orgIndustry).name.split('&')[0].trim()} Workspace</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTradeFilter(true)}
+                  className="text-[11px] text-blue-600 hover:underline dark:text-blue-400 shrink-0 cursor-pointer"
+                >
+                  Filter Trade
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1226,8 +1266,13 @@ export default function InboxPage() {
                 onChange={e => setComposeTrade(e.target.value)}
                 className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2 text-slate-900 dark:text-zinc-100"
               >
+                {orgIndustry && orgIndustry !== 'general' && (
+                  <option value={getIndustryPreset(orgIndustry).name}>
+                    ★ {getIndustryPreset(orgIndustry).name} (My Primary Trade)
+                  </option>
+                )}
                 <option value="">General Service</option>
-                {INDUSTRY_LIST.map(ind => (
+                {INDUSTRY_LIST.filter(ind => ind.id !== orgIndustry).map(ind => (
                   <option key={ind.id} value={ind.name}>
                     {ind.name}
                   </option>

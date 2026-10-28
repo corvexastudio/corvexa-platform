@@ -51,7 +51,7 @@ interface ActivityLogItem {
 
 export default function AutomationsPage() {
   const supabase = createClient()
-  const { planId, subscriptionStatus } = useWorkspace()
+  const { planId, subscriptionStatus, orgIndustry } = useWorkspace()
 
   // State
   const [orgId, setOrgId] = useState<string | null>(null)
@@ -64,10 +64,18 @@ export default function AutomationsPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeFeature, setUpgradeFeature] = useState('Missed-Call Instant Text-Back')
 
-  // 21-Trade Preset Modal State
+  // Trade Preset Modal State
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false)
+  const [showOtherTrades, setShowOtherTrades] = useState(false)
   const [presetSearch, setPresetSearch] = useState('')
   const [selectedTradePresetId, setSelectedTradePresetId] = useState('hvac')
+
+  // Align with workspace trade
+  useEffect(() => {
+    if (orgIndustry && orgIndustry !== 'general') {
+      setSelectedTradePresetId(orgIndustry)
+    }
+  }, [orgIndustry])
 
   // Core Automation Settings
   const [settings, setSettings] = useState({
@@ -361,7 +369,7 @@ export default function AutomationsPage() {
             className="min-h-[44px] sm:min-h-[40px] px-3.5 text-xs font-semibold border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs gap-1.5 cursor-pointer"
           >
             <Sparkles className="h-4 w-4 text-amber-500" />
-            <span>21-Trade Presets</span>
+            <span>{selectedPreset ? selectedPreset.badge : 'Trade'} Presets</span>
           </Button>
 
           {/* Autosave Status */}
@@ -1126,61 +1134,79 @@ export default function AutomationsPage() {
         )}
       </div>
 
-      {/* 21-TRADE STARTER TEMPLATE PRESETS MODAL */}
+      {/* TRADE STARTER TEMPLATE PRESETS MODAL */}
       <Modal
         open={isPresetModalOpen}
         onOpenChange={setIsPresetModalOpen}
-        title="21-Trade Starter Template Presets"
-        description="Select your industry trade to load pre-calibrated auto-reply and after-hours text messaging copy."
+        title="Starter Template Presets"
+        description="Load pre-calibrated auto-reply and after-hours text messaging copy tailored for your trade."
         size="lg"
       >
         <div className="space-y-4 pt-2">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="Search 21 home service trades (e.g. HVAC, Plumbing, Electrician)..."
-              value={presetSearch}
-              onChange={e => setPresetSearch(e.target.value)}
-              className="pl-9 h-11 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
-            />
+          {/* Header toggle for primary vs other trades */}
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-xs text-slate-500 dark:text-zinc-400">
+              Active Trade: <strong className="text-slate-900 dark:text-zinc-100">{selectedPreset.name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowOtherTrades(prev => !prev)}
+              className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+            >
+              {showOtherTrades ? 'Hide Other Trades' : 'Browse Other 20 Trades'}
+            </button>
           </div>
 
-          {/* Trade Selector List (Scrollable, 48px Touch Friendly) */}
-          <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100 dark:divide-zinc-800">
-            {filteredPresets.map(trade => {
-              const isSelected = trade.id === selectedTradePresetId
-              return (
-                <button
-                  key={trade.id}
-                  type="button"
-                  onClick={() => setSelectedTradePresetId(trade.id)}
-                  className={cn(
-                    'w-full min-h-[46px] p-2.5 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer',
-                    isSelected
-                      ? 'bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60'
-                      : 'hover:bg-slate-50 dark:hover:bg-zinc-800/60'
-                  )}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className={cn(
-                      'text-xs font-bold',
-                      isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-zinc-100'
-                    )}>
-                      {trade.name}
-                    </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                      {trade.badge}
-                    </span>
-                  </div>
-                  {isSelected && (
-                    <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
+          {showOtherTrades && (
+            <div className="space-y-3 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Search 21 home service trades (e.g. HVAC, Plumbing, Electrician)..."
+                  value={presetSearch}
+                  onChange={e => setPresetSearch(e.target.value)}
+                  className="pl-9 h-10 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                />
+              </div>
+
+              {/* Trade Selector List (Scrollable, 48px Touch Friendly) */}
+              <div className="max-h-48 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-100 dark:divide-zinc-800">
+                {filteredPresets.map(trade => {
+                  const isSelected = trade.id === selectedTradePresetId
+                  return (
+                    <button
+                      key={trade.id}
+                      type="button"
+                      onClick={() => setSelectedTradePresetId(trade.id)}
+                      className={cn(
+                        'w-full min-h-[44px] p-2 rounded-lg text-left flex items-center justify-between transition-colors cursor-pointer',
+                        isSelected
+                          ? 'bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60'
+                          : 'hover:bg-slate-100/60 dark:hover:bg-zinc-800/60'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          'text-xs font-bold',
+                          isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-zinc-100'
+                        )}>
+                          {trade.name}
+                        </span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                          {trade.badge}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Trade Template Copy Preview Box */}
           <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
