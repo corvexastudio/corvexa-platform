@@ -190,6 +190,8 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
     // 2. Strict Prohibition of Billing & Identity Tampering (P1-BILLING-01)
     // Tenant owners/admins must NEVER be able to modify SaaS billing, payment, routing, or identity state.
     const FORBIDDEN_BILLING_KEYS = [
+      'plan_id',
+      'planId',
       'subscription_status',
       'monthly_rate',
       'org_id',

@@ -292,7 +292,7 @@ export async function adminOnboardTenant(
   }
 
   // Generate 1-Tap Claim Link & Welcome SMS
-  const baseUrl = options?.baseUrl || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.corvexastudio.com'
+  const baseUrl = options?.baseUrl || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.captodesk.com'
   const claimToken = createClaimToken({ userId, email: effectiveEmail, orgId })
   const claimUrl = `${baseUrl}/claim/${claimToken}`
   const publicBookingUrl = `${baseUrl}/book/${finalSlug}`

@@ -148,6 +148,8 @@ export async function getTenantContext(
   const defaultSuperEmails = [
     'corvexastudio@gmail.com',
     'shanta@corvexastudio.com',
+    'shanta@captodesk.com',
+    'admin@captodesk.com',
     'shanta.mondal11@gmail.com'
   ]
   const envSuperEmails = (process.env.SUPER_ADMIN_EMAILS || '')

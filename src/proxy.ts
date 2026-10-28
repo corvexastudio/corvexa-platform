@@ -16,7 +16,9 @@ const CLIENT_ROUTES = [
   '/invoices',
   '/quotes',
   '/team',
-  '/field'
+  '/field',
+  '/billing',
+  '/onboarding'
 ]
 
 export async function proxy(request: NextRequest) {
@@ -67,12 +69,16 @@ export async function proxy(request: NextRequest) {
   // 2. Subdomain Routing: book.<domain> for public booking portal
   const isBookSubdomain = hostname.startsWith('book.')
   if (isBookSubdomain) {
+    // Bare root on book subdomain redirects to main brand landing page
+    if (pathname === '/' || pathname === '') {
+      return finalizeResponse(NextResponse.redirect(new URL('https://captodesk.com', request.url)))
+    }
     // If user accesses book.domain.com/manage/:token -> /book/manage/:token
     if (pathname.startsWith('/manage/')) {
       return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
     }
     // If user accesses book.domain.com/:slug (and not already /book or /api/book)
-    if (!pathname.startsWith('/book') && !pathname.startsWith('/api/book') && pathname !== '/') {
+    if (!pathname.startsWith('/book') && !pathname.startsWith('/api/book')) {
       return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
     }
   }
@@ -118,6 +124,22 @@ export async function proxy(request: NextRequest) {
       return finalizeResponse(NextResponse.rewrite(new URL(`/admin${pathname}`, request.url)))
     }
     return finalizeResponse(supabaseResponse)
+  }
+
+  // 4.5. App Subdomain Routing: app.<domain> for contractor SaaS client portal
+  const isAppSubdomain = hostname.startsWith('app.')
+  if (isAppSubdomain) {
+    // Bare root on app subdomain redirects straight to client dashboard or login
+    if (pathname === '/' || pathname === '') {
+      return finalizeResponse(
+        NextResponse.redirect(new URL(user ? '/client/dashboard' : '/client/login', request.url))
+      )
+    }
+    if (pathname === '/login') {
+      return finalizeResponse(
+        NextResponse.redirect(new URL(user ? '/client/dashboard' : '/client/login', request.url))
+      )
+    }
   }
 
   // 5. Route normalization: rewrite bare paths (/dashboard -> /client/dashboard)

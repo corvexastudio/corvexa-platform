@@ -25,7 +25,7 @@ test('Release Readiness 2. Production Environment Validation - Valid Production 
   const validProductionEnv = {
     APP_ENV: 'production',
     NODE_ENV: 'production',
-    NEXT_PUBLIC_APP_URL: 'https://app.corvexastudio.com',
+    NEXT_PUBLIC_APP_URL: 'https://app.captodesk.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://xyzprod.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.validAnon',
     SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.validService',
@@ -35,7 +35,7 @@ test('Release Readiness 2. Production Environment Validation - Valid Production 
     STRIPE_SECRET_KEY: 'sk_live_5123456789abcdef',
     STRIPE_WEBHOOK_SECRET: 'whsec_987654321fedcba',
     CRON_SECRET: '9f8e7d6c5b4a392817263544abcdef12',
-    SUPER_ADMIN_EMAILS: 'owner@corvexastudio.com'
+    SUPER_ADMIN_EMAILS: 'owner@captodesk.com'
   }
 
   const result = validateEnvironment(validProductionEnv)
@@ -44,7 +44,7 @@ test('Release Readiness 2. Production Environment Validation - Valid Production 
   assert.strictEqual(result.config.tier, 'production')
   assert.strictEqual(result.config.stripeMode, 'live')
   assert.strictEqual(result.config.hasCronSecret, true)
-  assert.strictEqual(result.config.superAdminEmails.includes('owner@corvexastudio.com'), true)
+  assert.strictEqual(result.config.superAdminEmails.includes('owner@captodesk.com'), true)
 })
 
 test('Release Readiness 3. Production Environment Validation - Rejects Missing Critical Secrets', () => {
@@ -70,7 +70,7 @@ test('Release Readiness 4. Production Environment Validation - Warns on Test Key
   const testKeyInProdEnv = {
     APP_ENV: 'production',
     NODE_ENV: 'production',
-    NEXT_PUBLIC_APP_URL: 'https://app.corvexastudio.com',
+    NEXT_PUBLIC_APP_URL: 'https://app.captodesk.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://xyzprod.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
     SUPABASE_SERVICE_ROLE_KEY: 'service-key',
@@ -88,29 +88,38 @@ test('Release Readiness 4. Production Environment Validation - Warns on Test Key
 
 test('Release Readiness 5. Domain & Subdomain Routing Edge Logic', () => {
   // Test simulated proxy host matching logic
-  function resolveSubdomainRewrite(hostname, pathname) {
+  function resolveSubdomainRewrite(hostname, pathname, user = null) {
     if (pathname.startsWith('/api/webhooks') || pathname === '/api/health' || pathname.includes('/auth/callback')) {
       return { action: 'bypass', path: pathname }
     }
     if (hostname.startsWith('book.')) {
+      if (pathname === '/' || pathname === '') {
+        return { action: 'redirect', path: 'https://captodesk.com' }
+      }
       if (pathname.startsWith('/manage/')) {
         return { action: 'rewrite', path: `/book${pathname}` }
       }
-      if (!pathname.startsWith('/book') && !pathname.startsWith('/api/book') && pathname !== '/') {
+      if (!pathname.startsWith('/book') && !pathname.startsWith('/api/book')) {
         return { action: 'rewrite', path: `/book${pathname}` }
       }
     }
     if (hostname.startsWith('admin.') && !pathname.startsWith('/admin')) {
       return { action: 'rewrite', path: `/admin${pathname}` }
     }
+    if (hostname.startsWith('app.')) {
+      if (pathname === '/' || pathname === '' || pathname === '/login') {
+        return { action: 'redirect', path: user ? '/client/dashboard' : '/client/login' }
+      }
+    }
     return { action: 'next', path: pathname }
   }
 
   // 1. Health check bypass
-  assert.strictEqual(resolveSubdomainRewrite('app.corvexastudio.com', '/api/health').action, 'bypass')
+  assert.strictEqual(resolveSubdomainRewrite('app.captodesk.com', '/api/health').action, 'bypass')
 
-  // 2. Public booking subdomain rewriting
-  const bookSlug = resolveSubdomainRewrite('book.corvexastudio.com', '/apex-plumbing')
+  // 2. Public booking subdomain rewriting & root redirect
+  assert.strictEqual(resolveSubdomainRewrite('book.captodesk.com', '/').action, 'redirect')
+  const bookSlug = resolveSubdomainRewrite('book.captodesk.com', '/apex-plumbing')
   assert.strictEqual(bookSlug.action, 'rewrite')
   assert.strictEqual(bookSlug.path, '/book/apex-plumbing')
 
@@ -119,9 +128,14 @@ test('Release Readiness 5. Domain & Subdomain Routing Edge Logic', () => {
   assert.strictEqual(bookManage.path, '/book/manage/tok-secret-999')
 
   // 3. Admin subdomain rewriting
-  const adminHealth = resolveSubdomainRewrite('admin.corvexastudio.com', '/system-health')
+  const adminHealth = resolveSubdomainRewrite('admin.captodesk.com', '/system-health')
   assert.strictEqual(adminHealth.action, 'rewrite')
   assert.strictEqual(adminHealth.path, '/admin/system-health')
+
+  // 4. App subdomain routing
+  assert.strictEqual(resolveSubdomainRewrite('app.captodesk.com', '/', null).action, 'redirect')
+  assert.strictEqual(resolveSubdomainRewrite('app.captodesk.com', '/', null).path, '/client/login')
+  assert.strictEqual(resolveSubdomainRewrite('app.captodesk.com', '/', { id: 'usr-1' }).path, '/client/dashboard')
 })
 
 test('Release Readiness 6. Background Worker CRON_SECRET Security Enforcement', () => {

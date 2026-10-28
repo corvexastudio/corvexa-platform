@@ -19,7 +19,7 @@ test('1. Supabase URL / service-role project mismatch detection in validateEnvir
   const mismatchEnv = {
     APP_ENV: 'production',
     NODE_ENV: 'production',
-    NEXT_PUBLIC_APP_URL: 'https://app.corvexastudio.com',
+    NEXT_PUBLIC_APP_URL: 'https://app.captodesk.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://vlztovqaummczupslymr.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_valid',
     SUPABASE_SERVICE_ROLE_KEY: makeFakeJwt({ iss: 'supabase', ref: 'ttshyxmudazpnwkpvqcb', role: 'service_role' }),
@@ -40,7 +40,7 @@ test('2. Matching Supabase URL and service-role project references pass validati
   const matchedEnv = {
     APP_ENV: 'production',
     NODE_ENV: 'production',
-    NEXT_PUBLIC_APP_URL: 'https://app.corvexastudio.com',
+    NEXT_PUBLIC_APP_URL: 'https://app.captodesk.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://vlztovqaummczupslymr.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_valid',
     SUPABASE_SERVICE_ROLE_KEY: makeFakeJwt({ iss: 'supabase', ref: 'vlztovqaummczupslymr', role: 'service_role' }),
@@ -77,7 +77,7 @@ test('4. Missing required secrets are detected in production environment', () =>
   const missingSecretsEnv = {
     APP_ENV: 'production',
     NODE_ENV: 'production',
-    NEXT_PUBLIC_APP_URL: 'https://app.corvexastudio.com',
+    NEXT_PUBLIC_APP_URL: 'https://app.captodesk.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://vlztovqaummczupslymr.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
     SUPABASE_SERVICE_ROLE_KEY: '',
@@ -110,7 +110,7 @@ test('6. Deferred Stripe SaaS billing does not block manual billing foundation',
   const manualBillingEnv = {
     APP_ENV: 'production',
     NODE_ENV: 'production',
-    NEXT_PUBLIC_APP_URL: 'https://app.corvexastudio.com',
+    NEXT_PUBLIC_APP_URL: 'https://app.captodesk.com',
     NEXT_PUBLIC_SUPABASE_URL: 'https://vlztovqaummczupslymr.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-token',
     SUPABASE_SERVICE_ROLE_KEY: makeFakeJwt({ ref: 'vlztovqaummczupslymr' }),

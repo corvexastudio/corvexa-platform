@@ -653,7 +653,7 @@ export async function recordPayment(
       }
 
       if (contact?.phone) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com'
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com'
         const receiptUrl = invoice.manage_token ? `${baseUrl}/invoice/${invoice.manage_token}` : ''
         const rawReceiptText = receiptUrl
           ? `Thank you for your payment! Invoice ${invoice.invoice_number} ($${amount}) has been paid in full. View receipt: ${receiptUrl}`

@@ -224,7 +224,7 @@ export default function TeamPage() {
   }
 
   const handleCopyFieldLink = () => {
-    const fieldUrl = typeof window !== 'undefined' ? `${window.location.origin}/client/field` : 'https://app.corvexastudio.com/client/field'
+    const fieldUrl = typeof window !== 'undefined' ? `${window.location.origin}/client/field` : 'https://app.captodesk.com/client/field'
     navigator.clipboard.writeText(fieldUrl)
     setCopiedFieldLink(true)
     toast.success('Mobile field route link copied!')

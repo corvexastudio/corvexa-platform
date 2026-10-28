@@ -222,21 +222,21 @@ test('ADD-03: Booking Origin: Allows same-origin and sec-fetch-site same-origin'
   const orgId = 'org-super-hvac'
 
   // Browser same-origin request
-  const sameSiteReq = new Request('https://app.corvexastudio.com/api/book/super-hvac/submit', {
+  const sameSiteReq = new Request('https://app.captodesk.com/api/book/super-hvac/submit', {
     method: 'POST',
     headers: {
       'sec-fetch-site': 'same-origin',
-      'host': 'app.corvexastudio.com'
+      'host': 'app.captodesk.com'
     }
   })
   assert.strictEqual(validateBookingOrigin(sameSiteReq, slug, orgId).allowed, true)
 
   // Matching Origin header
-  const matchingOriginReq = new Request('https://app.corvexastudio.com/api/book/super-hvac/submit', {
+  const matchingOriginReq = new Request('https://app.captodesk.com/api/book/super-hvac/submit', {
     method: 'POST',
     headers: {
-      'origin': 'https://app.corvexastudio.com',
-      'host': 'app.corvexastudio.com'
+      'origin': 'https://app.captodesk.com',
+      'host': 'app.captodesk.com'
     }
   })
   assert.strictEqual(validateBookingOrigin(matchingOriginReq, slug, orgId).allowed, true)
@@ -246,12 +246,12 @@ test('ADD-03: Booking Origin: Rejects unauthorized cross-origin requests without
   const slug = 'super-hvac'
   const orgId = 'org-super-hvac'
 
-  const crossOriginReq = new Request('https://app.corvexastudio.com/api/book/super-hvac/submit', {
+  const crossOriginReq = new Request('https://app.captodesk.com/api/book/super-hvac/submit', {
     method: 'POST',
     headers: {
       'origin': 'https://evil-attacker.example',
       'sec-fetch-site': 'cross-site',
-      'host': 'app.corvexastudio.com'
+      'host': 'app.captodesk.com'
     }
   })
 
@@ -270,12 +270,12 @@ test('ADD-03: Booking Origin: Allows legitimate cross-origin embeds with valid u
   assert.strictEqual(verifyBookingToken(validToken, slug, orgId), true)
 
   // Legitimate embed request carrying valid token
-  const embedReq = new Request('https://app.corvexastudio.com/api/book/super-hvac/submit', {
+  const embedReq = new Request('https://app.captodesk.com/api/book/super-hvac/submit', {
     method: 'POST',
     headers: {
       'origin': 'https://my-contractor-website.com',
       'sec-fetch-site': 'cross-site',
-      'host': 'app.corvexastudio.com'
+      'host': 'app.captodesk.com'
     }
   })
 

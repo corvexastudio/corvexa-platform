@@ -1013,7 +1013,7 @@ test('TEST 30 (FLOWS): booking workflow triggers push + SMS', async () => {
     customerPhone: '+15554446666',
     customerAddress: '704 Twin Peaks Blvd',
     startTime: '2026-11-20T10:00:00Z',
-    appBaseUrl: 'https://app.corvexastudio.com'
+    appBaseUrl: 'https://app.captodesk.com'
   })
 
   assert.strictEqual(res.success, true)

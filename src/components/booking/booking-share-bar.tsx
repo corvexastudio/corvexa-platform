@@ -49,7 +49,7 @@ export function BookingShareBar({
   const effectiveSlug = propSlug || orgSlug || 'contractor'
   const appUrl = typeof window !== 'undefined' && window.location?.origin
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com').replace(/\/$/, '')
+    : (process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com').replace(/\/$/, '')
   const bookingUrl = `${appUrl}/book/${effectiveSlug}`
 
   const mapsUrl = `${bookingUrl}?ref=google_maps`

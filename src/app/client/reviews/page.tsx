@@ -409,7 +409,7 @@ export default function ReviewsPage() {
   // Interpolated preview text for the live phone preview
   const livePreviewText = useMemo(() => {
     const businessName = settings.businessName || 'Our Service Team'
-    const previewUrl = 'https://app.corvexastudio.com/r/preview'
+    const previewUrl = typeof window !== 'undefined' ? `${window.location.origin}/r/preview` : 'https://app.captodesk.com/r/preview'
     return customMessage
       .replace(/\{business_name\}|\{\{business_name\}\}/g, businessName)
       .replace(/\{review_link\}|\{review_url\}|\{\{review_link\}\}|\{\{review_url\}\}/g, previewUrl)

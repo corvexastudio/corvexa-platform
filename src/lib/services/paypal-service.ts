@@ -2,6 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSaasPlan, getPayPalPlanId, getEffectiveSetupFee } from '../billing/plans.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
 
+export const ALLOWED_PAID_PLAN_TIERS = ['solo', 'multi_crew', 'fleet'] as const
+export type AllowedPaidPlanTier = typeof ALLOWED_PAID_PLAN_TIERS[number]
+
 export interface CreateOrRevisePayPalSubscriptionInput {
   orgId: string
   planTier: 'solo' | 'fleet' | 'multi_crew'
@@ -48,6 +51,28 @@ export interface PayPalSubscriptionDetails {
 let cachedAccessToken: { token: string; expiresAt: number } | null = null
 
 export class PayPalService {
+  /**
+   * Determines whether the runtime is an active production environment
+   */
+  static isProductionEnvironment(): boolean {
+    return (
+      process.env.NODE_ENV === 'production' ||
+      process.env.APP_ENV === 'production' ||
+      process.env.VERCEL_ENV === 'production'
+    )
+  }
+
+  /**
+   * Determines whether mock/simulated billing responses are explicitly permitted.
+   * STRICT SAFEGUARD: Simulation is NEVER permitted in production environments under any circumstances.
+   */
+  static isSimulationPermitted(): boolean {
+    if (this.isProductionEnvironment()) {
+      return false
+    }
+    return process.env.NODE_ENV === 'test' || process.env.PAYPAL_MOCK_DISPATCH === 'true'
+  }
+
   /**
    * Determines whether live PayPal environment is active
    */
@@ -125,6 +150,20 @@ export class PayPalService {
 
     // Offline / Test Simulation Mode when credentials are not present
     if (!this.isConfigured()) {
+      if (this.isProductionEnvironment()) {
+        return {
+          success: false,
+          subscriptionId: '',
+          error: 'PayPal billing is not configured in this production environment.'
+        }
+      }
+      if (!this.isSimulationPermitted()) {
+        return {
+          success: false,
+          subscriptionId: '',
+          error: 'PayPal client credentials are not configured.'
+        }
+      }
       const simSubId = existingSubscriptionId || `sub_sim_${Date.now()}`
       const simulatedApprovalUrl = `${returnUrl}?subscription_id=${simSubId}&simulated=true`
       return {
@@ -250,24 +289,150 @@ export class PayPalService {
   /**
    * Retrieves subscription details from PayPal
    */
-  static async getPayPalSubscription(subscriptionId: string): Promise<PayPalSubscriptionDetails> {
-    if (!this.isConfigured() || subscriptionId.startsWith('sub_sim_')) {
-      return {
-        id: subscriptionId,
-        status: 'ACTIVE',
-        plan_id: process.env.NEXT_PUBLIC_PAYPAL_SOLO_PLAN_ID || 'P-SOLO-99',
-        start_time: new Date().toISOString(),
-        custom_id: 'mock_org',
-        subscriber: {
-          email_address: 'contractor@example.com',
-          payer_id: 'MOCK_PAYER_123',
-          name: { given_name: 'Alex', surname: 'Contractor' }
-        }
+  static async getPayPalSubscription(
+    subscriptionId: string,
+    simContext?: {
+      expectedOrgId?: string
+      expectedPlanId?: string
+      expectedStatus?: string
+    }
+  ): Promise<PayPalSubscriptionDetails> {
+    if (!subscriptionId || typeof subscriptionId !== 'string' || !subscriptionId.trim()) {
+      throw new Error('Subscription ID is required.')
+    }
+
+    const cleanSubId = subscriptionId.trim()
+
+    // ── 1. Production Security Safeguards ──
+    // In production, mock prefixes or unconfigured states must fail immediately and closed.
+    if (this.isProductionEnvironment()) {
+      if (cleanSubId.startsWith('sub_sim_')) {
+        throw new Error('Simulated subscription IDs (sub_sim_) are strictly rejected in production.')
+      }
+      if (!this.isConfigured()) {
+        throw new Error('PayPal client credentials are not configured in production environment.')
       }
     }
 
+    // ── 2. Explicit Test Mode Simulation ──
+    // ONLY permitted in non-production test/sandbox environments
+    if (!this.isProductionEnvironment() && this.isSimulationPermitted()) {
+      if (cleanSubId.startsWith('sub_sim_')) {
+        if (cleanSubId.includes('mismatched_org')) {
+          return {
+            id: cleanSubId,
+            status: 'ACTIVE',
+            plan_id: simContext?.expectedPlanId || getPayPalPlanId('solo'),
+            start_time: new Date().toISOString(),
+            custom_id: 'org_different_tenant_999',
+            subscriber: {
+              email_address: 'other@example.com',
+              payer_id: 'PAYER_OTHER_999',
+              name: { given_name: 'Other', surname: 'Contractor' }
+            }
+          }
+        }
+
+        if (cleanSubId.includes('missing_custom_id')) {
+          return {
+            id: cleanSubId,
+            status: 'ACTIVE',
+            plan_id: simContext?.expectedPlanId || getPayPalPlanId('solo'),
+            start_time: new Date().toISOString(),
+            subscriber: {
+              email_address: 'test@example.com',
+              payer_id: 'PAYER_TEST_123',
+              name: { given_name: 'Test', surname: 'Contractor' }
+            }
+          }
+        }
+
+        if (cleanSubId.includes('mismatched_plan')) {
+          return {
+            id: cleanSubId,
+            status: 'ACTIVE',
+            plan_id: 'P-INVALID-MISMATCHED-PLAN-999',
+            start_time: new Date().toISOString(),
+            custom_id: simContext?.expectedOrgId || 'org-test',
+            subscriber: {
+              email_address: 'test@example.com',
+              payer_id: 'PAYER_TEST_123',
+              name: { given_name: 'Test', surname: 'Contractor' }
+            }
+          }
+        }
+
+        if (cleanSubId.includes('missing_plan_id')) {
+          return {
+            id: cleanSubId,
+            status: 'ACTIVE',
+            plan_id: '',
+            start_time: new Date().toISOString(),
+            custom_id: simContext?.expectedOrgId || 'org-test',
+            subscriber: {
+              email_address: 'test@example.com',
+              payer_id: 'PAYER_TEST_123',
+              name: { given_name: 'Test', surname: 'Contractor' }
+            }
+          }
+        }
+
+        if (cleanSubId.includes('status_cancelled')) {
+          return {
+            id: cleanSubId,
+            status: 'CANCELLED',
+            plan_id: simContext?.expectedPlanId || getPayPalPlanId('solo'),
+            start_time: new Date().toISOString(),
+            custom_id: simContext?.expectedOrgId || 'org-test',
+            subscriber: {
+              email_address: 'test@example.com',
+              payer_id: 'PAYER_TEST_123',
+              name: { given_name: 'Test', surname: 'Contractor' }
+            }
+          }
+        }
+
+        if (cleanSubId.includes('status_pending')) {
+          return {
+            id: cleanSubId,
+            status: 'APPROVAL_PENDING',
+            plan_id: simContext?.expectedPlanId || getPayPalPlanId('solo'),
+            start_time: new Date().toISOString(),
+            custom_id: simContext?.expectedOrgId || 'org-test',
+            subscriber: {
+              email_address: 'test@example.com',
+              payer_id: 'PAYER_TEST_123',
+              name: { given_name: 'Test', surname: 'Contractor' }
+            }
+          }
+        }
+
+        // Standard test simulation fixture
+        return {
+          id: cleanSubId,
+          status: (simContext?.expectedStatus as any) || 'ACTIVE',
+          plan_id: simContext?.expectedPlanId || getPayPalPlanId('solo'),
+          start_time: new Date().toISOString(),
+          custom_id: simContext?.expectedOrgId || 'mock_org',
+          subscriber: {
+            email_address: 'contractor@example.com',
+            payer_id: 'MOCK_PAYER_123',
+            name: { given_name: 'Alex', surname: 'Contractor' }
+          }
+        }
+      }
+
+      if (!this.isConfigured()) {
+        throw new Error('PayPal client credentials are not configured.')
+      }
+    }
+
+    if (!this.isConfigured()) {
+      throw new Error('PayPal client credentials are not configured.')
+    }
+
     const accessToken = await this.getAccessToken()
-    const res = await fetch(`${this.getApiBaseUrl()}/v1/billing/subscriptions/${subscriptionId}`, {
+    const res = await fetch(`${this.getApiBaseUrl()}/v1/billing/subscriptions/${cleanSubId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -278,7 +443,7 @@ export class PayPalService {
 
     if (!res.ok) {
       const err = await res.text()
-      throw new Error(`Failed to fetch PayPal subscription ${subscriptionId}: ${res.status} ${err}`)
+      throw new Error(`Failed to fetch PayPal subscription ${cleanSubId}: ${res.status} ${err}`)
     }
 
     return res.json()
@@ -292,22 +457,128 @@ export class PayPalService {
     input: {
       subscriptionId: string
       orgId: string
-      planTier: 'solo' | 'fleet' | 'multi_crew'
+      planTier: AllowedPaidPlanTier | string
+      actorId?: string
+      actorEmail?: string
     }
   ): Promise<{ success: boolean; organization?: any; planTier?: string; error?: string }> {
-    const { subscriptionId, orgId, planTier } = input
-    const targetPlan = getSaasPlan(planTier)
+    const { subscriptionId, orgId, planTier, actorId, actorEmail } = input
+
+    // ── Step 1: Input Validation ──
+    if (!subscriptionId || typeof subscriptionId !== 'string' || !subscriptionId.trim()) {
+      return { success: false, error: 'Subscription ID is required.' }
+    }
+    const cleanSubId = subscriptionId.trim()
+
+    if (!orgId || typeof orgId !== 'string' || !orgId.trim()) {
+      return { success: false, error: 'Organization ID is required.' }
+    }
+    const cleanOrgId = orgId.trim()
+
+    // ── Step 2: Tier Allowlist Validation ──
+    const normalizedTier = (planTier || '').toLowerCase().trim()
+    if (!ALLOWED_PAID_PLAN_TIERS.includes(normalizedTier as any)) {
+      return {
+        success: false,
+        error: `Invalid or unauthorized requested plan tier: '${planTier}'. Allowed tiers are: ${ALLOWED_PAID_PLAN_TIERS.join(', ')}.`
+      }
+    }
+
+    const targetPlan = getSaasPlan(normalizedTier)
     const targetPlanId = (targetPlan.tier === 'multi_crew' || targetPlan.tier === 'fleet') ? 'multi_crew' : 'solo'
 
-    try {
-      const details = await this.getPayPalSubscription(subscriptionId)
+    // ── Step 3: Server-Authoritative Plan ID Resolution ──
+    const expectedPlanId = getPayPalPlanId(normalizedTier)
+    if (!expectedPlanId || expectedPlanId.trim().length === 0) {
+      return {
+        success: false,
+        error: `PayPal plan configuration is missing for tier '${normalizedTier}'.`
+      }
+    }
 
-      // Ensure subscription is in valid paying state
-      const validStatuses = ['ACTIVE', 'APPROVED']
-      if (!validStatuses.includes(details.status) && !subscriptionId.startsWith('sub_sim_')) {
+    try {
+      // ── Step 3.5: Multi-Tenant Collision Pre-Check ──
+      // Ensure the same subscription is never claimed by another organization
+      let conflictQuery = supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('paypal_subscription_id', cleanSubId)
+
+      if (typeof (conflictQuery as any)?.neq === 'function') {
+        conflictQuery = (conflictQuery as any).neq('id', cleanOrgId)
+      }
+
+      const { data: conflictingOrg } = await (conflictQuery as any).maybeSingle()
+
+      if (conflictingOrg && conflictingOrg.id !== cleanOrgId) {
         return {
           success: false,
-          error: `Subscription is currently in '${details.status}' status and cannot be activated.`
+          error: 'This PayPal subscription is already linked to another organization.'
+        }
+      }
+
+      // ── Step 3.6: Idempotency & Safe Retry Check ──
+      const { data: currentOrg } = await supabase
+        .from('organizations')
+        .select('id, subscription_status, plan_id, paypal_subscription_id, monthly_rate')
+        .eq('id', cleanOrgId)
+        .maybeSingle()
+
+      if (
+        currentOrg &&
+        currentOrg.paypal_subscription_id === cleanSubId &&
+        currentOrg.subscription_status === 'active' &&
+        currentOrg.plan_id === targetPlanId
+      ) {
+        return {
+          success: true,
+          planTier: targetPlanId,
+          organization: currentOrg
+        }
+      }
+
+      // ── Step 4: Fetch Authoritative Subscription From Provider ──
+      const details = await this.getPayPalSubscription(cleanSubId, {
+        expectedOrgId: cleanOrgId,
+        expectedPlanId
+      })
+
+      // ── Step 5: Provider Status Verification ──
+      const validStatuses = ['ACTIVE', 'APPROVED']
+      if (!details.status || !validStatuses.includes(details.status)) {
+        return {
+          success: false,
+          error: `Subscription is currently in '${details.status || 'UNKNOWN'}' status and cannot be activated. Expected ACTIVE or APPROVED.`
+        }
+      }
+
+      // ── Step 6: Exact Organization Binding Verification (custom_id) ──
+      if (!details.custom_id || typeof details.custom_id !== 'string' || details.custom_id.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Subscription does not contain a verified organization binding (custom_id is missing).'
+        }
+      }
+
+      if (details.custom_id.trim() !== cleanOrgId) {
+        return {
+          success: false,
+          error: 'Subscription organization binding does not match the authenticated organization.'
+        }
+      }
+
+      // ── Step 7: Exact Plan ID Verification (plan_id) ──
+      if (!details.plan_id || typeof details.plan_id !== 'string' || details.plan_id.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Subscription does not contain a verified PayPal plan ID.'
+        }
+      }
+
+      if (details.plan_id.trim() !== expectedPlanId.trim()) {
+        return {
+          success: false,
+          error: `Subscription plan ID '${details.plan_id}' does not match expected plan ID '${expectedPlanId}' for tier '${normalizedTier}'.`
         }
       }
 
@@ -315,54 +586,60 @@ export class PayPalService {
       const payerId = details.subscriber?.payer_id || null
       const payerEmail = details.subscriber?.email_address || null
 
-      // 1. Update organization to active commercial subscription
+      // ── Step 10: Server-Authoritative Database Activation ──
       const { data: updatedOrg, error: orgUpdateErr } = await supabase
         .from('organizations')
         .update({
           subscription_status: 'active',
           plan_id: targetPlanId,
           billing_provider: 'paypal',
-          paypal_subscription_id: subscriptionId,
-          paypal_plan_id: details.plan_id || getPayPalPlanId(planTier),
+          paypal_subscription_id: cleanSubId,
+          paypal_plan_id: details.plan_id,
           paypal_payer_id: payerId,
           monthly_rate: targetPlan.amount,
           updated_at: now
         })
-        .eq('id', orgId)
+        .eq('id', cleanOrgId)
         .select('*')
         .single()
 
-      if (orgUpdateErr) {
+      if (orgUpdateErr || !updatedOrg) {
         console.error('[PAYPAL_ACTIVATE_ORG_ERROR]', orgUpdateErr)
-        return { success: false, error: 'Database error updating organization subscription state.' }
+        return {
+          success: false,
+          error: 'Database error updating organization subscription state.'
+        }
       }
 
-      // 2. Synchronize saas_subscriptions record
+      // ── Step 11: Synchronize saas_subscriptions ──
       await supabase
         .from('saas_subscriptions')
         .upsert({
-          org_id: orgId,
+          org_id: cleanOrgId,
           plan_id: targetPlanId,
           amount: targetPlan.amount,
           currency: 'USD',
           status: 'active',
           billing_interval: 'month',
           provider: 'paypal',
-          paypal_subscription_id: subscriptionId,
-          paypal_plan_id: details.plan_id || getPayPalPlanId(planTier),
+          paypal_subscription_id: cleanSubId,
+          paypal_plan_id: details.plan_id,
           current_period_start: details.start_time || now,
           updated_at: now
         }, { onConflict: 'org_id' })
 
-      // 3. Log security audit event
+      // ── Step 12: Security Audit Logging ──
       await logAuditEvent(supabase, {
-        org_id: orgId,
+        org_id: cleanOrgId,
         event_type: 'billing.subscription_activated',
         description: `PayPal SaaS subscription activated for ${targetPlan.name} ($${targetPlan.amount}/mo)`,
         metadata: {
-          subscription_id: subscriptionId,
+          actor_id: actorId || 'system',
+          actor_email: actorEmail || null,
+          subscription_id: cleanSubId,
           plan_tier: targetPlanId,
           amount: targetPlan.amount,
+          paypal_plan_id: details.plan_id,
           payer_id: payerId,
           payer_email: payerEmail
         }
@@ -375,7 +652,10 @@ export class PayPalService {
       }
     } catch (err: any) {
       console.error('[PAYPAL_VERIFY_AND_ACTIVATE_EXCEPTION]', err)
-      return { success: false, error: err?.message || 'Error verifying PayPal subscription' }
+      return {
+        success: false,
+        error: err?.message || 'Error verifying PayPal subscription'
+      }
     }
   }
 
@@ -386,8 +666,17 @@ export class PayPalService {
     subscriptionId: string,
     reason: string = 'Contractor requested cancellation via portal'
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.isConfigured() || subscriptionId.startsWith('sub_sim_')) {
-      return { success: true }
+    if (this.isProductionEnvironment()) {
+      if (!this.isConfigured()) {
+        return { success: false, error: 'PayPal credentials are not configured in production.' }
+      }
+      if (subscriptionId.startsWith('sub_sim_')) {
+        return { success: false, error: 'Simulated subscription IDs are not permitted in production.' }
+      }
+    } else if (this.isSimulationPermitted()) {
+      if (!this.isConfigured() || subscriptionId.startsWith('sub_sim_')) {
+        return { success: true }
+      }
     }
 
     try {
@@ -488,7 +777,7 @@ export const verifyAndActivateSubscription = (
   return PayPalService.verifyAndActivateSubscription(supabaseOrInput.supabase, {
     subscriptionId: supabaseOrInput.subscriptionId,
     orgId: supabaseOrInput.orgId || supabaseOrInput.expectedOrgId,
-    planTier: supabaseOrInput.planTier || supabaseOrInput.expectedPlanTier || 'solo'
+    planTier: typeof supabaseOrInput.planTier !== 'undefined' ? supabaseOrInput.planTier : (supabaseOrInput.expectedPlanTier || 'solo')
   })
 }
 

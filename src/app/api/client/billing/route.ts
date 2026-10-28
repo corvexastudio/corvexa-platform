@@ -229,11 +229,22 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       }
 
       if (payPalResult.revisedImmediately || payPalResult.simulated) {
-        // Automatically activate locally if revised immediately or simulated
-        await PayPalService.verifyAndActivateSubscription(supabase, {
+        // Automatically activate locally via administrative client if revised immediately or simulated
+        let adminClient = (context as any)?.adminSupabase || (context?.customSupabase as any)?.adminSupabase
+        if (!adminClient) {
+          try {
+            const { createAdminClient } = await import('../../../../lib/supabase/admin.ts')
+            adminClient = createAdminClient()
+          } catch {
+            adminClient = supabase
+          }
+        }
+        await PayPalService.verifyAndActivateSubscription(adminClient, {
           subscriptionId: payPalResult.subscriptionId,
           orgId,
-          planTier: targetPlanId
+          planTier: targetPlanId,
+          actorId: user.id,
+          actorEmail: user.email
         })
 
         return NextResponse.json({

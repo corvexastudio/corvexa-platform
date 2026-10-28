@@ -191,7 +191,7 @@ test('Fail-Closed 6. Stripe Webhook: Rejects unverified events in production whe
 })
 
 test('Fail-Closed 7. Rate Limiter IP Extraction: Cloudflare edge header takes precedence over spoofed X-Forwarded-For', () => {
-  const spoofedRequest = new Request('https://app.corvexastudio.com/api/login', {
+  const spoofedRequest = new Request('https://app.captodesk.com/api/login', {
     headers: {
       'cf-connecting-ip': '198.51.100.77',
       'x-forwarded-for': '203.0.113.1, 10.0.0.1' // Attacker attempting IP spoofing
