@@ -8,7 +8,6 @@ import {
   MessageSquare, 
   Target, 
   Calendar, 
-  Briefcase,
   FileText,
   CreditCard,
   Star,
@@ -48,8 +47,7 @@ export const navSections = [
     items: [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
       { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
-      { href: '/client/calendar', label: 'Schedule', icon: Calendar },
-      { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
+      { href: '/client/calendar', label: 'Schedule & Jobs', icon: Calendar }, // Consolidated /client/jobs into unified Schedule & Jobs hub
     ]
   },
   {
@@ -92,8 +90,7 @@ export const dispatcherNavSections = [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
       { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
       { href: '/client/leads', label: 'Leads', icon: Target },
-      { href: '/client/calendar', label: 'Calendar', icon: Calendar },
-      { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
+      { href: '/client/calendar', label: 'Schedule & Jobs', icon: Calendar }, // Consolidated /client/jobs into unified Schedule & Jobs hub
     ]
   },
   {

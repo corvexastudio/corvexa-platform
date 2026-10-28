@@ -208,3 +208,12 @@ test('NAV-002: Cross-Switching Navigation Links Between Jobs and Calendar', () =
   assert.equal(jobsToCalendarPath, '/client/calendar')
   assert.equal(calendarToJobsPath, '/client/jobs')
 })
+
+test('NAV-003: Schedule & Jobs Unified Navigation Consolidation', () => {
+  const layoutSource = fs.readFileSync(path.resolve('src/app/client/layout.tsx'), 'utf8')
+  assert.ok(layoutSource.includes("label: 'Schedule & Jobs'"), 'Sidebar must have unified Schedule & Jobs link')
+  
+  const jobsPageSource = fs.readFileSync(path.resolve('src/app/client/jobs/page.tsx'), 'utf8')
+  assert.ok(jobsPageSource.includes("router.replace"), 'Jobs page must redirect to calendar')
+  assert.ok(jobsPageSource.includes("/client/calendar"), 'Jobs page must redirect to unified calendar hub')
+})

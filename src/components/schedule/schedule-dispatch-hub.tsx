@@ -178,6 +178,15 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
     window.history.replaceState({}, '', currentUrl.toString())
   }
 
+  // Handle URL query parameters for direct modal creation triggers
+  useEffect(() => {
+    if (searchParams.get('create') === 'true' || searchParams.get('new') === 'true') {
+      const custId = searchParams.get('customerId') || searchParams.get('contact_id')
+      if (custId) setNewContactId(custId)
+      setShowCreateJobModal(true)
+    }
+  }, [searchParams])
+
   // Load Organization & Profile Settings
   useEffect(() => {
     async function loadOrgContext() {
