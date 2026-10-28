@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     .from('jobs')
     .select(`
       *,
-      contact:contacts(id, name, phone, email, address),
+      contact:contacts(id, name, phone, email, address, notes),
       service:services(id, name, duration_minutes),
       appointment:appointments(id, start_time, end_time),
       quote:quotes!quote_id(id, quote_number, total),
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
       .from('jobs')
       .select(`
         *,
-        contact:contacts(id, name, phone, email, address),
+        contact:contacts(id, name, phone, email, address, notes),
         service:services(id, name, duration_minutes),
         appointment:appointments(id, start_time, end_time),
         items:job_items(*)

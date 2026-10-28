@@ -882,7 +882,8 @@ export default function InboxPage() {
                 {/* 1. Phone Call CTA */}
                 <a
                   href={`tel:${activeConv.contact?.phone}`}
-                  className="inline-flex items-center justify-center gap-1 h-8 sm:h-8.5 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
+                  aria-label="Call customer directly"
+                  className="inline-flex items-center justify-center gap-1 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] h-8 sm:h-8.5 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
                   title="Call customer directly"
                 >
                   <PhoneCall className="h-3.5 w-3.5" />
@@ -1141,6 +1142,7 @@ export default function InboxPage() {
           <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 mt-auto space-y-2">
             <Link
               href={`/client/customers/${activeConv.contact_id}`}
+              aria-label="View customer profile"
               className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors"
             >
               <span>Full Customer Dossier & CRM</span>
