@@ -530,34 +530,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     setMobileDrawerOpen(false)
   }, [pathname])
 
-  if (isAuthPage) return <>{children}</>
-
-  if (authState === 'checking' || authState === 'redirecting') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-center animate-pulse">
-            <span className="text-blue-600 dark:text-blue-400 font-extrabold text-base">C</span>
-          </div>
-          <span className="text-xs text-slate-500 dark:text-zinc-500 font-medium">
-            {authState === 'redirecting' ? 'Redirecting to workspace setup...' : 'Loading workspace...'}
-          </span>
-        </div>
-      </div>
-    )
-  }
-
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/client/login')
   }
 
+  // All hooks must run unconditionally before any early returns (Rules of Hooks)
   const currentItem = useMemo(() => {
     return effectiveNavSections.flatMap(s => s.items).find(item => 
       pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
     )
   }, [effectiveNavSections, pathname])
+
   const pageTitle = currentItem ? currentItem.label : 'CaptoDesk'
+
   const workspaceValue: WorkspaceContextValue = {
     orgId,
     orgName,
@@ -574,6 +560,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     userEmail,
     userFullName,
     unreadTotal
+  }
+
+  if (isAuthPage) return <>{children}</>
+
+  if (authState === 'checking' || authState === 'redirecting') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-center animate-pulse">
+            <span className="text-blue-600 dark:text-blue-400 font-extrabold text-base">C</span>
+          </div>
+          <span className="text-xs text-slate-500 dark:text-zinc-500 font-medium">
+            {authState === 'redirecting' ? 'Redirecting to workspace setup...' : 'Loading workspace...'}
+          </span>
+        </div>
+      </div>
+    )
   }
 
   return (

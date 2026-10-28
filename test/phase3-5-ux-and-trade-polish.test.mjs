@@ -306,4 +306,10 @@ test('SCALE-002: Resilient Database Schema Fallbacks & Client Error Boundary Arc
   const clientErrorSource = fs.readFileSync(path.resolve('src/app/client/error.tsx'), 'utf8')
   assert.ok(clientErrorSource.includes("'use client'"), 'Client error boundary must be a client component')
   assert.ok(clientErrorSource.includes("reset()"), 'Client error boundary must provide reset trigger')
+
+  // 4. Strict React Rules of Hooks: All hooks (useMemo, useEffect, useState) precede early returns
+  const useMemoIdx = layoutSource.indexOf('const currentItem = useMemo')
+  const earlyReturnIdx = layoutSource.indexOf('if (authState === \'checking\'')
+  assert.ok(useMemoIdx > 0 && earlyReturnIdx > 0, 'Hooks and early returns must exist')
+  assert.ok(useMemoIdx < earlyReturnIdx, 'currentItem useMemo must execute BEFORE authState early return to prevent React Error #310')
 })
