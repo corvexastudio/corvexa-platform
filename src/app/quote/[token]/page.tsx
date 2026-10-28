@@ -20,7 +20,8 @@ import {
   RotateCcw,
   BadgeCheck,
   Lock,
-  ChevronRight
+  ChevronRight,
+  Printer
 } from 'lucide-react'
 
 interface QuoteItem {
@@ -336,6 +337,15 @@ export default function CustomerQuotePage() {
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-center">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 text-xs font-semibold shadow-2xs print:hidden cursor-pointer transition-colors"
+              title="Print or Save Estimate as PDF"
+            >
+              <Printer className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+              <span>Print / PDF</span>
+            </button>
             <span
               className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
                 isAccepted

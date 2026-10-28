@@ -60,6 +60,52 @@ export async function GET(
     items.pop()
   }
 
+  // Safely populate linked jobs and quotes without PostgREST schema relationship errors
+  const jobIds = items.map((i: any) => i.job_id).filter(Boolean)
+  const quoteIds = items.map((i: any) => i.quote_id).filter(Boolean)
+
+  if (jobIds.length > 0) {
+    try {
+      const { data: linkedJobs } = await supabase
+        .from('jobs')
+        .select('id, job_number, status')
+        .eq('org_id', orgId)
+        .in('id', jobIds)
+
+      if (linkedJobs && linkedJobs.length > 0) {
+        const jobMap = new Map<string, any>(linkedJobs.map((j: any) => [j.id, j]))
+        for (const item of items) {
+          if (item.job_id) {
+            item.job = jobMap.get(item.job_id) || null
+          }
+        }
+      }
+    } catch {
+      // quiet fallback
+    }
+  }
+
+  if (quoteIds.length > 0) {
+    try {
+      const { data: linkedQuotes } = await supabase
+        .from('quotes')
+        .select('id, quote_number, title')
+        .eq('org_id', orgId)
+        .in('id', quoteIds)
+
+      if (linkedQuotes && linkedQuotes.length > 0) {
+        const quoteMap = new Map<string, any>(linkedQuotes.map((q: any) => [q.id, q]))
+        for (const item of items) {
+          if (item.quote_id) {
+            item.quote = quoteMap.get(item.quote_id) || null
+          }
+        }
+      }
+    } catch {
+      // quiet fallback
+    }
+  }
+
   let nextCursor: string | null = null
   if (hasMore && items.length > 0) {
     const lastItem = items[items.length - 1]
