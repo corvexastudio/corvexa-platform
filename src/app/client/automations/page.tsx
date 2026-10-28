@@ -32,7 +32,8 @@ import {
   ChevronRight,
   Info,
   Wrench,
-  CheckCircle
+  CheckCircle,
+  Truck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/context/workspace-context'
@@ -51,7 +52,7 @@ interface ActivityLogItem {
 
 export default function AutomationsPage() {
   const supabase = createClient()
-  const { planId, subscriptionStatus, orgIndustry } = useWorkspace()
+  const { planId, subscriptionStatus, orgIndustry, operationMode } = useWorkspace()
 
   // State
   const [orgId, setOrgId] = useState<string | null>(null)
@@ -122,13 +123,14 @@ export default function AutomationsPage() {
     return getIndustryPreset(selectedTradePresetId)
   }, [selectedTradePresetId])
 
-  // Active Automations Count (Calculated out of 5 engines)
+  // Active Automations Count (Calculated out of 5 engines in Solo, 6 in Multi-Crew)
   const activeEnginesCount = useMemo(() => {
     let count = 3 // Appointment Reminders, Estimate Follow-Up, and Win-Back are active by default
     if (settings.is_missed_call_active) count += 1
     if (settings.is_review_engine_active) count += 1
+    if (operationMode === 'multi_crew') count += 1
     return count
-  }, [settings.is_missed_call_active, settings.is_review_engine_active])
+  }, [settings.is_missed_call_active, settings.is_review_engine_active, operationMode])
 
   // Load Organization & Automation Settings
   const loadSettings = useCallback(async () => {
@@ -421,7 +423,7 @@ export default function AutomationsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
-              {activeEnginesCount}/5
+              {activeEnginesCount}/{operationMode === 'multi_crew' ? 6 : 5}
             </span>
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
               Active
@@ -917,6 +919,48 @@ export default function AutomationsPage() {
               </Link>
             </div>
           </div>
+
+          {/* ENGINE 6: 🚛 DAILY MORNING CREW SCHEDULE BROADCAST (Multi-Crew Fleet Only) */}
+          {operationMode === 'multi_crew' && (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 shadow-xs space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-zinc-800 border border-indigo-200 dark:border-zinc-700 flex items-center justify-center shrink-0 text-indigo-600 dark:text-indigo-400">
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                        Daily Morning Crew Schedule Broadcast
+                      </h2>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+                        Multi-Crew Fleet
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                      Automatically dispatches each technician's daily route and job addresses to their mobile phone every morning.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/client/team"
+                  className="min-h-[44px] px-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Manage Fleet</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span>Broadcasts <strong>7:00 AM daily</strong> with van assignments, addresses, and customer notes.</span>
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Active for all dispatched crews
+                </span>
+              </div>
+            </div>
+          )}
 
         </div>
 

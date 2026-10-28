@@ -174,6 +174,7 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
+    operation_mode: 'solo' as 'solo' | 'multi_crew',
     owner_phone: '',
     telnyx_phone_number: '',
     carrier: 'Verizon',
@@ -245,6 +246,7 @@ export default function SettingsPage() {
         setFormData({
           name: org.name || '',
           slug: org.slug || '',
+          operation_mode: (org.operation_mode as 'solo' | 'multi_crew') || 'solo',
           owner_phone: org.owner_phone || '',
           telnyx_phone_number: org.telnyx_phone_number || '',
           carrier: org.carrier || 'Verizon',
@@ -344,6 +346,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name,
+          operation_mode: formData.operation_mode,
           owner_phone: formData.owner_phone,
           carrier: formData.carrier,
           timezone: formData.timezone,
@@ -818,6 +821,72 @@ export default function SettingsPage() {
                   <option value="Pacific/Honolulu">Hawaii Time</option>
                 </select>
               </div>
+
+              <div className="md:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
+                    Field Operation Scale
+                  </Label>
+                  <span className="text-[10px] text-zinc-500">
+                    Adapts dispatch board &amp; plan recommendations
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(d => ({ ...d, operation_mode: 'solo' }))}
+                    className={cn(
+                      'p-3 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer min-h-[48px]',
+                      formData.operation_mode === 'solo'
+                        ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-1 ring-blue-500/40'
+                        : 'bg-zinc-50/60 dark:bg-zinc-950/60 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
+                    )}
+                  >
+                    <div className={cn(
+                      'p-1.5 rounded-md mt-0.5 shrink-0',
+                      formData.operation_mode === 'solo' ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    )}>
+                      <Truck className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">Solo Operator (1 Truck)</span>
+                        {formData.operation_mode === 'solo' && <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />}
+                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        1 clean route, auto-assigned bookings, zero fleet clutter. Fits 1-2 person single-truck setups.
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(d => ({ ...d, operation_mode: 'multi_crew' }))}
+                    className={cn(
+                      'p-3 rounded-lg border text-left transition-all flex items-start gap-3 cursor-pointer min-h-[48px]',
+                      formData.operation_mode === 'multi_crew'
+                        ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-1 ring-blue-500/40'
+                        : 'bg-zinc-50/60 dark:bg-zinc-950/60 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700'
+                    )}
+                  >
+                    <div className={cn(
+                      'p-1.5 rounded-md mt-0.5 shrink-0',
+                      formData.operation_mode === 'multi_crew' ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    )}>
+                      <Users className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold">Multi-Crew / Fleet (2+ Trucks)</span>
+                        {formData.operation_mode === 'multi_crew' && <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />}
+                      </div>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Multi-truck dispatch swimlanes, driver routing, morning crew SMS broadcast, and fleet roster.
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1178,19 +1247,25 @@ export default function SettingsPage() {
                         "rounded-xl border bg-white dark:bg-zinc-900 p-5 flex flex-col justify-between space-y-5 shadow-2xs transition-colors",
                         isCurrentSolo
                           ? "border-blue-500/60 dark:border-blue-500/40 bg-blue-50/10 dark:bg-blue-950/10"
-                          : "border-zinc-200 dark:border-zinc-800"
+                          : formData.operation_mode === 'solo'
+                            ? "border-blue-500/70 dark:border-blue-500/50 ring-2 ring-blue-500/30"
+                            : "border-zinc-200 dark:border-zinc-800"
                       )}>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/40">
                               Solo Operator
                             </span>
-                            {isCurrentSolo && (
+                            {isCurrentSolo ? (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                 Current Plan
                               </span>
-                            )}
+                            ) : formData.operation_mode === 'solo' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-600 text-white">
+                                Recommended for 1 Truck
+                              </span>
+                            ) : null}
                           </div>
 
                           <div>
@@ -1280,7 +1355,9 @@ export default function SettingsPage() {
                         "rounded-xl border bg-white dark:bg-zinc-900 p-5 flex flex-col justify-between space-y-5 shadow-2xs transition-colors relative",
                         isCurrentMultiCrew
                           ? "border-emerald-500/60 dark:border-emerald-500/40 bg-emerald-50/10 dark:bg-emerald-950/10"
-                          : "border-zinc-300 dark:border-zinc-700 ring-1 ring-zinc-200 dark:ring-zinc-800"
+                          : formData.operation_mode === 'multi_crew'
+                            ? "border-emerald-500/70 dark:border-emerald-500/50 ring-2 ring-emerald-500/30"
+                            : "border-zinc-300 dark:border-zinc-700 ring-1 ring-zinc-200 dark:ring-zinc-800"
                       )}>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
@@ -1292,11 +1369,11 @@ export default function SettingsPage() {
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                 Current Plan
                               </span>
-                            ) : (
+                            ) : formData.operation_mode === 'multi_crew' ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-600 text-white">
-                                Recommended
+                                Recommended for Fleet
                               </span>
-                            )}
+                            ) : null}
                           </div>
 
                           <div>

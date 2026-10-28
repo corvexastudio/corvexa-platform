@@ -55,6 +55,7 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       subscription_status,
       monthly_rate,
       industry,
+      operation_mode,
       legal_business_name,
       business_type,
       ein,
@@ -364,6 +365,12 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
 
     if (typeof body.industry === 'string') {
       allowedUpdates.industry = body.industry.trim().slice(0, 50) || 'general'
+    }
+
+    if (typeof body.operation_mode === 'string' && ['solo', 'multi_crew'].includes(body.operation_mode.toLowerCase().trim())) {
+      allowedUpdates.operation_mode = body.operation_mode.toLowerCase().trim()
+    } else if (typeof body.operationMode === 'string' && ['solo', 'multi_crew'].includes(body.operationMode.toLowerCase().trim())) {
+      allowedUpdates.operation_mode = body.operationMode.toLowerCase().trim()
     }
 
     if (typeof body.weekly_digest_enabled === 'boolean') {

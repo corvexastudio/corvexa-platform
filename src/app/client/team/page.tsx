@@ -67,7 +67,7 @@ function formatPhoneNumber(num?: string | null) {
 
 export default function TeamPage() {
   const supabase = createClient()
-  const { planId, subscriptionStatus, orgName } = useWorkspace()
+  const { planId, subscriptionStatus, orgName, operationMode } = useWorkspace()
   const isFleetEntitled = ['fleet', 'multi_crew', 'multi_crew_yearly', 'fleet_monthly', 'fleet_yearly'].includes((planId || '').toLowerCase()) && subscriptionStatus === 'active'
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -372,8 +372,8 @@ export default function TeamPage() {
   }, [members, roleFilter, searchQuery])
 
   // Contextual Mode Determination:
-  // If user has 1 member or fewer and 0 crews and is not on a fleet plan, default to solo mode.
-  const isSoloNatural = members.length <= 1 && crews.length === 0 && !isFleetEntitled
+  // If operationMode is explicitly solo or multi_crew, respect it; otherwise fall back to member/crew heuristic.
+  const isSoloNatural = operationMode ? (operationMode === 'solo') : (members.length <= 1 && crews.length === 0 && !isFleetEntitled)
   const currentMode = viewModeOverride ?? (isSoloNatural ? 'solo' : 'fleet')
 
   // Find primary solo user data

@@ -20,6 +20,7 @@ import { exportToCsv } from '@/lib/export/csv-export'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { type Crew } from '@/lib/crews/crew-manager'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -111,10 +112,12 @@ interface ScheduleDispatchHubProps {
 export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatchHubProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { operationMode } = useWorkspace()
 
   // Primary State
   const initialView = (searchParams.get('view') as ViewMode) || defaultView
-  const [activeView, setActiveView] = useState<ViewMode>(initialView)
+  const effectiveInitialView = (initialView === 'crews' && operationMode === 'solo') ? 'agenda' : initialView
+  const [activeView, setActiveView] = useState<ViewMode>(effectiveInitialView)
   const [jobs, setJobs] = useState<JobItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -653,7 +656,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
               <span>Month</span>
             </button>
 
-            {crews.length > 0 && (
+            {operationMode === 'multi_crew' && crews.length > 0 && (
               <button
                 type="button"
                 onClick={() => handleViewChange('crews')}
@@ -1837,7 +1840,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
             </div>
           )}
 
-          {crews.length > 0 && (
+          {operationMode === 'multi_crew' && crews.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
                 Assign Crew / Vehicle

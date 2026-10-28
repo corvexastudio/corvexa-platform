@@ -25,6 +25,8 @@ import {
   Car, 
   Hammer, 
   Briefcase,
+  Truck,
+  Users,
   Check
 } from 'lucide-react'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
@@ -55,6 +57,7 @@ export default function OnboardingPage() {
   const [businessName, setBusinessName] = useState('')
   const [phone, setPhone] = useState('')
   const [selectedIndustry, setSelectedIndustry] = useState<string>('hvac')
+  const [operationMode, setOperationMode] = useState<'solo' | 'multi_crew'>('solo')
 
   // Step 2: 10DLC Carrier & Legal Verification
   const [legalBusinessName, setLegalBusinessName] = useState('')
@@ -178,7 +181,8 @@ export default function OnboardingPage() {
       const payload: Record<string, any> = {
         businessName: nameToSubmit,
         phone: phone.trim() || null,
-        industry: selectedIndustry
+        industry: selectedIndustry,
+        operationMode: operationMode
       }
 
       if (include10Dlc) {
@@ -350,6 +354,95 @@ export default function OnboardingPage() {
                       </div>
                     )
                   })()}
+                </div>
+
+                {/* Operation Scale: Solo vs Multi-Crew */}
+                <div className="grid gap-2 pt-1">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-slate-700 dark:text-zinc-300">
+                        Field Operations Setup <span className="text-red-500 dark:text-red-400">*</span>
+                      </Label>
+                      <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                        Tailors dispatch &amp; plan options
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Working with a helper or apprentice in 1 truck? Choose Solo Operator.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setOperationMode('solo')}
+                      className={`min-h-[52px] p-3 rounded-lg border text-left transition-all flex flex-col justify-between ${
+                        operationMode === 'solo'
+                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40'
+                          : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-md ${operationMode === 'solo' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
+                              <Truck className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-semibold">Solo Operator</span>
+                          </div>
+                          {operationMode === 'solo' && (
+                            <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
+                          1 Truck (Solo or with helper)
+                        </p>
+                      </div>
+                      <div className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-zinc-800 text-[10px] text-slate-500 dark:text-zinc-400 space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> 1 clean daily route, zero fleet clutter
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> Auto-assigned 1-tap fast booking
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOperationMode('multi_crew')}
+                      className={`min-h-[52px] p-3 rounded-lg border text-left transition-all flex flex-col justify-between ${
+                        operationMode === 'multi_crew'
+                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40'
+                          : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-md ${operationMode === 'multi_crew' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
+                              <Users className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-semibold">Multi-Crew / Fleet</span>
+                          </div>
+                          {operationMode === 'multi_crew' && (
+                            <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
+                          2+ Trucks Dispatched Daily
+                        </p>
+                      </div>
+                      <div className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-zinc-800 text-[10px] text-slate-500 dark:text-zinc-400 space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> Multi-truck dispatch swimlanes
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> Morning crew SMS broadcast
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid gap-1.5">

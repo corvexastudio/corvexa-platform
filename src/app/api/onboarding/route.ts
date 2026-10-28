@@ -191,6 +191,8 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
     // Industry Category & Starter Presets
     const rawIndustry = typeof body.industry === 'string' ? body.industry.trim().toLowerCase() : 'general'
     const industryPreset = getIndustryPreset(rawIndustry)
+    const rawOperationMode = body.operationMode || body.operation_mode
+    const operationMode = rawOperationMode === 'multi_crew' ? 'multi_crew' : 'solo'
 
     const baseOrgPayload: Record<string, any> = {
       id: orgId,
@@ -203,6 +205,7 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       is_missed_call_active: true,
       is_review_engine_active: true,
       industry: industryPreset.id,
+      operation_mode: operationMode,
       auto_reply_template: industryPreset.templates.auto_reply,
       after_hours_template: industryPreset.templates.after_hours,
       busy_template: industryPreset.templates.busy,
@@ -214,15 +217,16 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
       .from('organizations')
       .insert(baseOrgPayload)
 
-    // Fallback A: If column "industry" does not exist in schema (error 42703), retry without it
+    // Fallback A: If columns "industry" or "operation_mode" do not exist in older schema (error 42703), retry without them
     if (
       orgError &&
       (orgError.code === '42703' ||
-        (orgError.message?.toLowerCase().includes('industry') &&
+        ((orgError.message?.toLowerCase().includes('industry') || orgError.message?.toLowerCase().includes('operation_mode')) &&
           orgError.message?.toLowerCase().includes('does not exist')))
     ) {
       const payloadWithoutIndustry = { ...baseOrgPayload }
       delete payloadWithoutIndustry.industry
+      delete payloadWithoutIndustry.operation_mode
       const retryRes = await dbClient.from('organizations').insert(payloadWithoutIndustry)
       orgError = retryRes.error
     }

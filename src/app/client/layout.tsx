@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { 
@@ -167,6 +167,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [orgPhone, setOrgPhone] = useState<string>('')
   const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
   const [orgIndustry, setOrgIndustry] = useState<string>('general')
+  const [operationMode, setOperationMode] = useState<'solo' | 'multi_crew'>('solo')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>('free')
   const [planId, setPlanId] = useState<string | null>('free')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
@@ -371,7 +372,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           const [orgRes, { count }] = await Promise.all([
             supabase
               .from('organizations')
-              .select('name, slug, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, plan_id, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry, operation_mode')
               .eq('id', profile.org_id)
               .maybeSingle(),
             supabase
@@ -386,7 +387,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           if (orgRes.error && orgRes.error.code === '42703') {
             const fallbackRes = await supabase
               .from('organizations')
-              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry, operation_mode')
               .eq('id', profile.org_id)
               .maybeSingle()
             org = fallbackRes.data
@@ -398,6 +399,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             setOrgPhone(org.telnyx_phone_number || '')
             if (org.timezone) setOrgTimezone(org.timezone)
             if (org.industry) setOrgIndustry(org.industry)
+            if (org.operation_mode) setOperationMode(org.operation_mode === 'multi_crew' ? 'multi_crew' : 'solo')
             if (org.subscription_status) setSubscriptionStatus(org.subscription_status)
             if (org.plan_id) setPlanId(org.plan_id)
 
@@ -451,11 +453,30 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isTechnician = role?.toLowerCase() === 'technician'
   const isDispatcher = role?.toLowerCase() === 'dispatcher'
   const isMember = role?.toLowerCase() === 'member'
-  const effectiveNavSections = isTechnician
-    ? technicianNavSections
-    : (isDispatcher || isMember)
-    ? dispatcherNavSections
-    : navSections
+  const effectiveNavSections = useMemo(() => {
+    const baseSections = isTechnician
+      ? technicianNavSections
+      : (isDispatcher || isMember)
+      ? dispatcherNavSections
+      : navSections
+
+    if (operationMode === 'solo') {
+      return baseSections.map(sec => ({
+        ...sec,
+        items: sec.items.map(item => {
+          if (item.href === '/client/team') {
+            return {
+              ...item,
+              label: 'Team & Staff',
+              icon: Users
+            }
+          }
+          return item
+        })
+      }))
+    }
+    return baseSections
+  }, [isTechnician, isDispatcher, isMember, operationMode])
 
   // Strict route guard for technician role (Hook declared unconditionally at top level)
   useEffect(() => {
@@ -506,9 +527,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push('/client/login')
   }
 
-  const currentItem = navItems.find(item => 
-    pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
-  )
+  const currentItem = useMemo(() => {
+    return effectiveNavSections.flatMap(s => s.items).find(item => 
+      pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
+    )
+  }, [effectiveNavSections, pathname])
   const pageTitle = currentItem ? currentItem.label : 'CaptoDesk'
   const workspaceValue: WorkspaceContextValue = {
     orgId,
@@ -517,6 +540,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     orgPhone,
     orgTimezone,
     orgIndustry,
+    operationMode,
     subscriptionStatus,
     planId,
     isSuperAdmin,

@@ -245,3 +245,44 @@ test('TRADE-001: Trade-First Default with Multi-Trade Expandability Across Platf
   const automationsSource = fs.readFileSync(path.resolve('src/app/client/automations/page.tsx'), 'utf8')
   assert.ok(automationsSource.includes('orgIndustry'), 'Automations must utilize orgIndustry')
 })
+
+test('SCALE-001: Solo vs Multi-Crew Operation Scale Customization', () => {
+  // 1. Workspace Context provides operationMode
+  const wsSource = fs.readFileSync(path.resolve('src/lib/context/workspace-context.tsx'), 'utf8')
+  assert.ok(wsSource.includes("operationMode: 'solo' | 'multi_crew'"), 'WorkspaceContextValue must include operationMode')
+
+  // 2. Migration 56 adds operation_mode column
+  const migrationSource = fs.readFileSync(path.resolve('supabase/migrations/56_operation_mode_solo_multi_crew.sql'), 'utf8')
+  assert.ok(migrationSource.includes('operation_mode TEXT DEFAULT'), 'Migration 56 must define operation_mode')
+  assert.ok(migrationSource.includes("CHECK (operation_mode IN ('solo', 'multi_crew'))"), 'Migration 56 must check valid operation modes')
+
+  // 3. Onboarding API accepts operationMode
+  const onboardingApiSource = fs.readFileSync(path.resolve('src/app/api/onboarding/route.ts'), 'utf8')
+  assert.ok(onboardingApiSource.includes('operation_mode'), 'Onboarding API must accept and store operation_mode')
+
+  // 4. Onboarding UI provides Solo vs Multi-Crew card selector
+  const onboardingPageSource = fs.readFileSync(path.resolve('src/app/client/onboarding/page.tsx'), 'utf8')
+  assert.ok(onboardingPageSource.includes("setOperationMode('solo')"), 'Onboarding page must support selecting solo mode')
+  assert.ok(onboardingPageSource.includes("setOperationMode('multi_crew')"), 'Onboarding page must support selecting multi_crew mode')
+
+  // 5. Pro Upgrade Modal adapts to operationMode
+  const upgradeModalSource = fs.readFileSync(path.resolve('src/components/billing/pro-upgrade-modal.tsx'), 'utf8')
+  assert.ok(upgradeModalSource.includes('operationMode'), 'ProUpgradeModal must consume operationMode')
+  assert.ok(upgradeModalSource.includes("operationMode === 'multi_crew' ? 'fleet' : 'solo'"), 'ProUpgradeModal must default tier based on operationMode')
+
+  // 6. Settings Page enables mode switching and customizes billing cards
+  const settingsSource = fs.readFileSync(path.resolve('src/app/client/settings/page.tsx'), 'utf8')
+  assert.ok(settingsSource.includes('operation_mode'), 'Settings page must support operation_mode in profile form')
+  assert.ok(settingsSource.includes('Recommended for 1 Truck'), 'Settings page must recommend Solo plan for solo operators')
+  assert.ok(settingsSource.includes('Recommended for Fleet'), 'Settings page must recommend Multi-Crew plan for fleets')
+
+  // 7. Schedule Dispatch Hub adapts to operationMode
+  const scheduleSource = fs.readFileSync(path.resolve('src/components/schedule/schedule-dispatch-hub.tsx'), 'utf8')
+  assert.ok(scheduleSource.includes('operationMode'), 'ScheduleDispatchHub must consume operationMode')
+  assert.ok(scheduleSource.includes("operationMode === 'multi_crew' && crews.length > 0"), 'ScheduleDispatchHub must hide crews tab for solo operators')
+
+  // 8. Navigation layout adapts Team label
+  const layoutSource = fs.readFileSync(path.resolve('src/app/client/layout.tsx'), 'utf8')
+  assert.ok(layoutSource.includes("operationMode === 'solo'"), 'Layout must conditionally format nav based on solo operation mode')
+  assert.ok(layoutSource.includes("'Team & Staff'"), 'Layout must label solo team as Team & Staff')
+})

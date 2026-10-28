@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { 
   Zap, 
   CheckCircle2, 
@@ -37,7 +38,7 @@ export interface ProUpgradeModalProps {
 export function ProUpgradeModal({
   isOpen,
   onClose,
-  requiredTier = 'solo',
+  requiredTier,
   featureName,
   currentPlanId = 'free',
   customerPhone,
@@ -45,10 +46,18 @@ export function ProUpgradeModal({
   fallbackNativeSmsText,
   onSuccess
 }: ProUpgradeModalProps) {
-  const [activeTier, setActiveTier] = useState<'solo' | 'fleet'>(requiredTier)
+  const { operationMode } = useWorkspace()
+  const initialTier = requiredTier || (operationMode === 'multi_crew' ? 'fleet' : 'solo')
+  const [activeTier, setActiveTier] = useState<'solo' | 'fleet'>(initialTier)
   const [loading, setLoading] = useState(false)
 
-  // Sync activeTier if prop changes when opening
+  // Sync activeTier if prop or operationMode changes when opening
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTier(requiredTier || (operationMode === 'multi_crew' ? 'fleet' : 'solo'))
+    }
+  }, [isOpen, requiredTier, operationMode])
+
   const isSoloActive = activeTier === 'solo'
   const isCurrentlySolo = (currentPlanId || '').toLowerCase() === 'solo' || (currentPlanId || '').toLowerCase() === 'solo_yearly'
 
