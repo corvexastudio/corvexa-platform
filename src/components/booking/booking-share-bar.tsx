@@ -11,13 +11,16 @@ export interface BookingShareBarProps {
   className?: string
   showUpgradeCallout?: boolean
   onTestMissedCall?: () => void
+  onDismiss?: () => void
+  dismissible?: boolean
 }
 
 export function BookingShareBar({ 
   slug: propSlug, 
   className = '', 
   showUpgradeCallout = false,
-  onTestMissedCall
+  onTestMissedCall,
+  onDismiss
 }: BookingShareBarProps) {
   const { orgSlug, orgName } = useWorkspace()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
@@ -160,6 +163,18 @@ export function BookingShareBar({
             <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
             <span>Test Auto-Reply</span>
           </button>
+
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="inline-flex items-center justify-center min-h-[38px] w-9 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Dismiss booking banner"
+              aria-label="Dismiss booking banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

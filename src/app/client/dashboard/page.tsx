@@ -30,7 +30,11 @@ import {
   Navigation,
   Phone,
   Play,
-  Loader2
+  Loader2,
+  Link2,
+  Check,
+  ExternalLink,
+  X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
@@ -71,6 +75,54 @@ export default function DashboardPage() {
     isInteractiveTest?: boolean
   }>({ open: false, type: 'booking', isInteractiveTest: false })
 
+  const isPayingCustomer = Boolean(
+    (planId && !['free', 'trial'].includes(planId.toLowerCase())) ||
+    (subscriptionStatus && ['active', 'paid', 'solo', 'crew'].includes(subscriptionStatus.toLowerCase()) && (planId || '').toLowerCase() !== 'free')
+  )
+
+  const [bookingShareDismissed, setBookingShareDismissed] = useState<boolean>(true)
+  const [bookingCopied, setBookingCopied] = useState<boolean>(false)
+  const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[]>([])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && orgId) {
+      const dismissed = localStorage.getItem(`captodesk_booking_share_dismissed_${orgId}`) === 'true'
+      setBookingShareDismissed(dismissed)
+    }
+  }, [orgId])
+
+  const handleDismissBookingBar = () => {
+    if (typeof window !== 'undefined' && orgId) {
+      localStorage.setItem(`captodesk_booking_share_dismissed_${orgId}`, 'true')
+    }
+    setBookingShareDismissed(true)
+    toast.success('Booking share banner dismissed from Today.')
+  }
+
+  const appUrl = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_APP_URL || 'https://app.corvexastudio.com').replace(/\/$/, '')
+  const bookingUrl = `${appUrl}/book/${orgSlug || 'contractor'}`
+
+  const handleCopyBookingUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingUrl)
+      setBookingCopied(true)
+      toast.success('Public booking link copied to clipboard!')
+      setTimeout(() => setBookingCopied(false), 2500)
+    } catch {
+      toast.error('Failed to copy booking link.')
+    }
+  }
+
+  const handleDismissAttentionItem = (id: string) => {
+    setDismissedAttentionIds(prev => [...prev, id])
+  }
+
+  const handleAttentionActionClick = (id: string) => {
+    setDismissedAttentionIds(prev => [...prev, id])
+  }
+
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['dashboard', period],
     queryFn: async () => {
@@ -105,6 +157,12 @@ export default function DashboardPage() {
   })
 
   const attentionQueue: AttentionItem[] = data?.attentionQueue || []
+
+  // Urgent attention items (missed calls, unread customer messages, new leads, urgent bookings)
+  const visibleAttentionItems = attentionQueue.filter(item => {
+    if (dismissedAttentionIds.includes(item.id)) return false
+    return ['message', 'missed_call', 'lead', 'appointment'].includes(item.category)
+  })
   const operations: OperationalMetrics | null = data?.operations || null
   const outcomes: OutcomeMetrics | null = data?.outcomes || null
   const jobsToday: JobTodayItem[] = data?.jobsToday || []
@@ -270,6 +328,12 @@ export default function DashboardPage() {
 
   const getAttentionMeta = (category: AttentionItem['category']) => {
     switch (category) {
+      case 'missed_call':
+        return {
+          label: 'Missed Call',
+          variant: 'danger' as const,
+          icon: PhoneMissed
+        }
       case 'lead':
         return {
           label: 'New Lead',
@@ -327,7 +391,34 @@ export default function DashboardPage() {
           </Badge>
         }
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyBookingUrl}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer"
+              title="Copy public booking link"
+            >
+              {bookingCopied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                  <span className="hidden sm:inline">Booking Link</span>
+                </>
+              )}
+            </button>
+            <a
+              href={bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center h-9 w-9 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
+              title="Preview public booking page"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
             <FilterTabs
               tabs={[
                 { id: '7d', label: '7 Days' },
@@ -386,59 +477,34 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Day-1 Native SMS & Quick Share Booking Link Bar (Unified Command Hub) */}
-      <BookingShareBar
-        slug={orgSlug}
-        showUpgradeCallout={false}
-        onTestMissedCall={() => {
-          setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: true })
-        }}
-      />
+      {/* Day-1 Native SMS & Quick Share Booking Link Bar (Only for Free / Unpaid accounts that haven't dismissed it) */}
+      {!isPayingCustomer && !bookingShareDismissed && (
+        <BookingShareBar
+          slug={orgSlug}
+          showUpgradeCallout={false}
+          onDismiss={handleDismissBookingBar}
+          onTestMissedCall={() => {
+            setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: true })
+          }}
+        />
+      )}
 
-      {/* ── Section 1: Needs Attention (Action-First Queue) ── */}
-      <section className="space-y-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Needs Immediate Attention
-            </h2>
-            {attentionQueue.length > 0 && (
+      {/* ── Section 1: Needs Attention (Only surfaces when there is an active unread message or missed call) ── */}
+      {!loading && visibleAttentionItems.length > 0 && (
+        <section className="space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Needs Immediate Attention
+              </h2>
               <Badge variant="warning" size="sm" className="font-bold tabular-nums">
-                {attentionQueue.length}
+                {visibleAttentionItems.length}
               </Badge>
-            )}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3 shadow-2xs">
-                <div className="h-4 w-24 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
-                <div className="h-5 w-48 bg-slate-100 dark:bg-zinc-800 rounded animate-pulse" />
-                <div className="h-3 w-full bg-slate-100/70 dark:bg-zinc-800/60 rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-        ) : attentionQueue.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-              <p className="text-xs font-medium text-slate-700 dark:text-zinc-300">
-                <span className="font-bold text-slate-900 dark:text-zinc-100">All caught up.</span> No missed calls or unread customer messages requiring reply.
-              </p>
             </div>
-            <Link
-              href="/client/inbox"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors shrink-0"
-            >
-              <span>Open 2-Way Inbox</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
           </div>
-        ) : (
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {attentionQueue.map((item) => {
+            {visibleAttentionItems.map((item) => {
               const meta = getAttentionMeta(item.category)
               const Icon = meta.icon
 
@@ -453,9 +519,23 @@ export default function DashboardPage() {
                         <Icon className="h-3 w-3" />
                         <span>{meta.label}</span>
                       </Badge>
-                      <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                        {item.timestamp ? new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today'}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
+                          {item.timestamp ? new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleDismissAttentionItem(item.id)
+                          }}
+                          className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                          title="Dismiss alert"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -469,6 +549,7 @@ export default function DashboardPage() {
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end">
                     <Link
                       href={item.actionHref}
+                      onClick={() => handleAttentionActionClick(item.id)}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                     >
                       <span>{item.actionLabel}</span>
@@ -479,9 +560,8 @@ export default function DashboardPage() {
               )
             })}
           </div>
-        )}
-      </section>
-
+        </section>
+      )}
       {/* ── Section 2: Today's Schedule & Key Pipeline ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 

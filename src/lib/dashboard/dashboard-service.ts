@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 export interface AttentionItem {
   id: string
-  category: 'lead' | 'message' | 'quote' | 'appointment' | 'invoice' | 'retention'
+  category: 'lead' | 'message' | 'missed_call' | 'quote' | 'appointment' | 'invoice' | 'retention'
   urgency: 'critical' | 'warning' | 'info'
   title: string
   subtitle: string
@@ -130,11 +130,21 @@ export async function getAttentionQueue(
   // 2. Customers Waiting for Response (Unread Conversations)
   const convQuery = supabase
     .from('conversations')
-    .select('id, unread_count, last_message_at, contacts(name, phone)')
+    .select('id, unread_count, last_message_at, contacts(id, name, phone)')
     .eq('org_id', orgId)
     .gt('unread_count', 0)
     .order('last_message_at', { ascending: false })
     .limit(10)
+
+  // 2b. Unhandled Missed Calls (Past 24 Hours)
+  const callsQuery = supabase
+    .from('calls')
+    .select('id, from_number, status, created_at, contacts(id, name, phone)')
+    .eq('org_id', orgId)
+    .eq('status', 'missed')
+    .gte('created_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(5)
 
   // 3. Expiring Quotes (Sent or Viewed with expiration within 48h or expired)
   let quotesQuery = supabase
@@ -200,6 +210,7 @@ export async function getAttentionQueue(
   const [
     { data: rawLeads },
     { data: unreadConvs },
+    { data: recentMissedCalls },
     { data: rawExpiringQuotes },
     { data: requestedAppts },
     { data: rawOverdueInvoices },
@@ -208,6 +219,7 @@ export async function getAttentionQueue(
   ] = await Promise.all([
     leadsQuery,
     convQuery,
+    callsQuery,
     quotesQuery,
     apptsQuery,
     invQuery,
@@ -267,6 +279,25 @@ export async function getAttentionQueue(
         actionLabel: 'Reply in Inbox',
         actionHref: '/client/inbox',
         metadata: { conversationId: conv.id }
+      })
+    }
+  }
+
+  // Process 2b: Inbound Missed Calls Awaiting Callback
+  if (recentMissedCalls && recentMissedCalls.length > 0) {
+    for (const call of recentMissedCalls) {
+      const contactName = (call.contacts as any)?.name || call.from_number || 'Unknown Caller'
+      const contactId = (call.contacts as any)?.id
+      items.push({
+        id: `call-${call.id}`,
+        category: 'missed_call',
+        urgency: 'critical',
+        title: `Missed Call: ${contactName}`,
+        subtitle: 'Inbound missed call • Automated text sent',
+        timestamp: call.created_at,
+        actionLabel: 'Call Back in Inbox',
+        actionHref: contactId ? `/client/inbox?contact_id=${contactId}` : '/client/inbox',
+        metadata: { callId: call.id, phoneNumber: call.from_number }
       })
     }
   }
