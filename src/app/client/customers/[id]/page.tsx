@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, use } from 'react'
+import { useEffect, useState, useCallback, use, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -23,13 +23,15 @@ import {
   MessageSquare, 
   CheckCircle2, 
   AlertCircle, 
-  HelpCircle, 
   Tag, 
   Save, 
   Loader2, 
   ExternalLink, 
   DollarSign,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  Wrench,
+  X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -38,9 +40,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const router = useRouter()
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'timeline' | 'jobs' | 'quotes_invoices' | 'notes'>('timeline')
+  
+  // History timeline filter: 'all' | 'jobs' | 'money' | 'comms'
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'jobs' | 'money' | 'comms'>('all')
 
-  // Editable fields
+  // Editable CRM contact fields
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -50,6 +54,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [tags, setTags] = useState<string[]>([])
   const [serviceFrequency, setServiceFrequency] = useState(90)
   const [saving, setSaving] = useState(false)
+  const [sendingReview, setSendingReview] = useState(false)
 
   const loadProfile = useCallback(async () => {
     setLoading(true)
@@ -96,23 +101,23 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          phone,
-          email,
-          address,
-          notes,
+          name: name.trim() || undefined,
+          phone: phone.trim() || undefined,
+          email: email.trim() || undefined,
+          address: address.trim() || undefined,
+          notes: notes.trim() || undefined,
           tags,
-          serviceFrequencyDays: Number(serviceFrequency)
+          serviceFrequencyDays: Number(serviceFrequency) || 90
         })
       })
       if (res.ok) {
-        toast.success('Customer details updated')
+        toast.success('Customer dossier updated successfully')
         loadProfile()
       } else {
         toast.error('Failed to update customer details')
       }
     } catch {
-      toast.error('Network error')
+      toast.error('Network error updating profile.')
     } finally {
       setSaving(false)
     }
@@ -131,29 +136,55 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     setTags(tags.filter(t => t !== tagToRemove))
   }
 
-  const sendReviewQuick = async () => {
+  const handleSendReviewInvite = async () => {
+    if (!profile?.contact?.phone) {
+      toast.error('No valid phone number for this customer.')
+      return
+    }
+    setSendingReview(true)
     try {
       const res = await fetch('/api/reviews/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profile?.contact?.name || 'Customer', phone: profile?.contact?.phone }),
+        body: JSON.stringify({ 
+          name: profile?.contact?.name || 'Customer', 
+          phone: profile?.contact?.phone 
+        }),
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success('Review invite sent')
+        toast.success(`Google Review invite sent to ${profile?.contact?.name || profile?.contact?.phone}`)
         loadProfile()
       } else {
-        toast.error(data.error || 'Failed to send review invite')
+        toast.error(data.error || 'Failed to dispatch review invite')
       }
     } catch {
-      toast.error('Network error')
+      toast.error('Network error dispatching invite.')
+    } finally {
+      setSendingReview(false)
     }
   }
 
+  // Filtered timeline based on active sub-pill
+  const filteredTimeline = useMemo(() => {
+    const list = profile?.timeline || []
+    if (historyFilter === 'jobs') {
+      return list.filter((item: any) => item.type === 'job' || item.type === 'appointment')
+    }
+    if (historyFilter === 'money') {
+      return list.filter((item: any) => item.type === 'invoice' || item.type === 'quote' || item.type === 'payment')
+    }
+    if (historyFilter === 'comms') {
+      return list.filter((item: any) => item.type === 'call' || item.type === 'message' || item.type === 'review_request')
+    }
+    return list
+  }, [profile?.timeline, historyFilter])
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+        <span className="text-xs text-slate-500 dark:text-zinc-400">Loading homeowner dossier...</span>
       </div>
     )
   }
@@ -166,25 +197,28 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     switch (status) {
       case 'active':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-            Active
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Active Relationship</span>
           </span>
         )
       case 'due':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-            Service Due
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <Clock className="w-3 h-3" />
+            <span>Service Due</span>
           </span>
         )
       case 'overdue':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
-            Overdue
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+            <AlertCircle className="w-3 h-3" />
+            <span>Overdue for Service</span>
           </span>
         )
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
             Inactive
           </span>
         )
@@ -194,380 +228,464 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-6">
 
-      {/* Top Navigation */}
+      {/* Top Breadcrumb Navigation */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-4">
         <Link
           href="/client/customers"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors font-medium"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors font-semibold"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to Customers</span>
+          <span>Back to Customer Directory</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={sendReviewQuick}
-            className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-amber-600 dark:text-amber-400 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
-          >
-            <Star className="h-3.5 w-3.5 mr-1" />
-            <span>Send Review Link</span>
-          </Button>
-          <Link href="/client/inbox">
-            <Button size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs">
-              <MessageSquare className="h-3.5 w-3.5 mr-1" />
-              <span>Inbox</span>
-            </Button>
-          </Link>
-        </div>
       </div>
 
-      {/* Profile Overview Card */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Customer Header & Truck Quick Actions (48px Touch Targets) */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          
+          {/* Identity & Contact Badges */}
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {contact.name || 'Customer'}
               </h1>
               {getStatusBadge(profile.lifecycleStatus || 'active')}
               {profile.leadSource && (
-                <span className="text-[11px] bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-400 dark:border-zinc-800 px-2 py-0.5 rounded capitalize font-medium">
-                  {profile.leadSource.replace('_', ' ')}
+                <span className="text-[11px] bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800 px-2 py-0.5 rounded-md capitalize font-medium">
+                  Source: {profile.leadSource.replace('_', ' ')}
                 </span>
               )}
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-zinc-400 pt-1">
-              <span className="flex items-center gap-1 text-slate-700 dark:text-zinc-300">
-                <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
-                <a href={`tel:${contact.phone}`} className="hover:text-blue-600 dark:hover:text-blue-400 font-medium tabular-nums">{contact.phone}</a>
+              <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200 font-mono">
+                <Phone className="h-3.5 w-3.5 text-blue-500" />
+                <a href={`tel:${contact.phone}`} className="hover:text-blue-600 font-bold tabular-nums">
+                  {contact.phone}
+                </a>
               </span>
+
               {contact.email && (
-                <span className="flex items-center gap-1 text-slate-700 dark:text-zinc-300">
-                  <Mail className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
-                  <a href={`mailto:${contact.email}`} className="hover:text-blue-600 dark:hover:text-blue-400">{contact.email}</a>
+                <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200">
+                  <Mail className="h-3.5 w-3.5 text-slate-400" />
+                  <a href={`mailto:${contact.email}`} className="hover:text-blue-600">
+                    {contact.email}
+                  </a>
                 </span>
               )}
+
               {contact.address && (
-                <span className="flex items-center gap-1 text-slate-700 dark:text-zinc-300">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
+                <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200">
+                  <MapPin className="h-3.5 w-3.5 text-rose-500" />
                   <span>{contact.address}</span>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contact.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center ml-0.5"
+                    title="Open address in Google Maps"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </span>
               )}
             </div>
           </div>
 
-          {/* Lifetime Value Box */}
-          <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 rounded-xl px-4 py-2.5 md:text-right shrink-0">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-zinc-400 font-semibold">Lifetime Value</div>
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">
-              ${Number(profile.lifetimeValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-          </div>
-        </div>
-      </div>
+          {/* Truck Fast Action Rail (48px Touch Height on Mobile) */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
+            {contact.phone && (
+              <>
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors shadow-2xs"
+                >
+                  <Phone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Call</span>
+                </a>
 
-      {/* 4 Stat Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Completed Jobs</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
-            {profile.stats?.completedJobs} <span className="text-xs font-normal text-slate-500 dark:text-zinc-500">/ {profile.stats?.totalJobs} total</span>
-          </p>
-        </div>
+                <Link
+                  href={`/client/inbox?contact=${contact.id}`}
+                  className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors shadow-2xs"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>2-Way SMS</span>
+                </Link>
+              </>
+            )}
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Billing Records</p>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
-            {profile.stats?.totalInvoices} <span className="text-xs font-normal text-slate-500 dark:text-zinc-500">invoices ({profile.stats?.totalQuotes} quotes)</span>
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Last Service</p>
-          <p className="text-sm font-semibold text-slate-900 dark:text-zinc-100 tabular-nums mt-1">
-            {contact.last_service_date ? new Date(contact.last_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'No prior jobs'}
-          </p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Every {contact.service_frequency_days || 90} days</p>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl p-4">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Next Expected Service</p>
-          <p className="text-sm font-semibold text-slate-900 dark:text-zinc-100 tabular-nums mt-1">
-            {contact.next_expected_service_date ? new Date(contact.next_expected_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-          </p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">Automated reactivation</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800 text-xs font-medium">
-        <button
-          onClick={() => setActiveTab('timeline')}
-          className={cn(
-            "pb-2.5 px-3 border-b-2 transition-colors",
-            activeTab === 'timeline'
-              ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-white font-semibold"
-              : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
-          )}
-        >
-          Timeline ({profile.timeline?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab('jobs')}
-          className={cn(
-            "pb-2.5 px-3 border-b-2 transition-colors",
-            activeTab === 'jobs'
-              ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-white font-semibold"
-              : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
-          )}
-        >
-          Jobs ({profile.jobs?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab('quotes_invoices')}
-          className={cn(
-            "pb-2.5 px-3 border-b-2 transition-colors",
-            activeTab === 'quotes_invoices'
-              ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-white font-semibold"
-              : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
-          )}
-        >
-          Quotes & Invoices ({profile.invoices?.length || 0})
-        </button>
-        <button
-          onClick={() => setActiveTab('notes')}
-          className={cn(
-            "pb-2.5 px-3 border-b-2 transition-colors",
-            activeTab === 'notes'
-              ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-white font-semibold"
-              : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
-          )}
-        >
-          Details & Notes
-        </button>
-      </div>
-
-      {/* Tab 1: Chronological Timeline */}
-      {activeTab === 'timeline' && (
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 shadow-xs">
-          <div className="mb-4">
-            <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200 uppercase tracking-wider">Activity Timeline</h2>
-            <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">
-              Call logs, SMS messages, estimates, dispatches, and payment events.
-            </p>
-          </div>
-
-          {profile.timeline?.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 dark:text-zinc-500 text-xs">No historical activity recorded yet.</div>
-          ) : (
-            <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-zinc-800">
-              {profile.timeline.map((item: any) => {
-                const eventIcons: Record<string, any> = {
-                  call: Phone,
-                  message: MessageSquare,
-                  quote: FileText,
-                  appointment: Calendar,
-                  job: Briefcase,
-                  invoice: CreditCard,
-                  payment: DollarSign,
-                  review_request: Star
-                }
-                const Icon = eventIcons[item.type] || Clock
-
-                return (
-                  <div key={item.id} className="relative group">
-                    <div className="absolute -left-6 top-1 h-5 w-5 rounded-full flex items-center justify-center bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 shadow-xs">
-                      <Icon className="h-2.5 w-2.5" />
-                    </div>
-
-                    <div className="bg-slate-50/70 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80 rounded-lg p-3 ml-2 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <span className="font-semibold text-xs text-slate-900 dark:text-zinc-100">{item.title}</span>
-                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
-                          {new Date(item.timestamp).toLocaleString([], {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                      {item.description && (
-                        <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1">{item.description}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 2: Jobs */}
-      {activeTab === 'jobs' && (
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between">
-            <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200 uppercase tracking-wider">Field Jobs</h2>
-            <Link href="/client/jobs">
-              <Button size="sm" variant="outline" className="h-7 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 shadow-xs">
-                Dispatch New
-              </Button>
+            <Link
+              href={`/client/jobs?new=true&customerId=${contact.id}`}
+              className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors shadow-2xs"
+            >
+              <Calendar className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              <span>Book Job</span>
             </Link>
-          </div>
-          {profile.jobs?.length === 0 ? (
-            <p className="p-6 text-slate-400 dark:text-zinc-500 text-xs text-center">No field jobs recorded for this customer.</p>
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-              {profile.jobs.map((j: any) => (
-                <div key={j.id} className="p-3.5 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-xs text-slate-900 dark:text-zinc-100">{j.job_number} • {j.title}</div>
-                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">{new Date(j.created_at).toLocaleDateString()}</div>
-                  </div>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800">
-                    {j.status.replace('_', ' ')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* Tab 3: Quotes & Invoices */}
-      {activeTab === 'quotes_invoices' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden shadow-xs">
-            <div className="p-3.5 border-b border-slate-100 dark:border-zinc-800">
-              <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200 uppercase tracking-wider">Invoices</h2>
-            </div>
-            {profile.invoices?.length === 0 ? (
-              <p className="p-6 text-slate-400 dark:text-zinc-500 text-xs text-center">No invoices generated.</p>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {profile.invoices.map((inv: any) => (
-                  <div key={inv.id} className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-xs text-slate-900 dark:text-zinc-100">{inv.invoice_number}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">${Number(inv.total).toFixed(2)} (Due: ${Number(inv.amount_due).toFixed(2)})</div>
-                    </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded capitalize bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800">
-                      {inv.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            <Link
+              href={`/client/quotes?new=true&customerId=${contact.id}`}
+              className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors shadow-2xs"
+            >
+              <FileText className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Estimate</span>
+            </Link>
 
-          <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden shadow-xs">
-            <div className="p-3.5 border-b border-slate-100 dark:border-zinc-800">
-              <h2 className="font-semibold text-xs text-slate-900 dark:text-zinc-200 uppercase tracking-wider">Estimates</h2>
-            </div>
-            {profile.quotes?.length === 0 ? (
-              <p className="p-6 text-slate-400 dark:text-zinc-500 text-xs text-center">No estimates created.</p>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {profile.quotes.map((q: any) => (
-                  <div key={q.id} className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-xs text-slate-900 dark:text-zinc-100">{q.quote_number} • {q.title}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">Total: ${Number(q.total).toFixed(2)}</div>
-                    </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded capitalize bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800">
-                      {q.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: CRM Notes & Details */}
-      {activeTab === 'notes' && (
-        <form onSubmit={handleSaveContact} className="border border-slate-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Customer Full Name</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white rounded-md" />
-            </div>
-
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Phone Number</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white rounded-md" />
-            </div>
-
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Email Address</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white rounded-md" />
-            </div>
-
-            <div>
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Service Frequency (Days)</Label>
-              <Input
-                type="number"
-                min={7}
-                value={serviceFrequency}
-                onChange={e => setServiceFrequency(parseInt(e.target.value) || 90)}
-                className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white rounded-md"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Service Address</Label>
-              <Input value={address} onChange={e => setAddress(e.target.value)} className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white rounded-md" />
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Customer Tags</Label>
-              <div className="flex items-center gap-2 mb-2">
-                <Input
-                  placeholder="Add a tag (e.g. VIP, Residential)..."
-                  value={tagInput}
-                  onChange={e => setTagInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag() } }}
-                  className="h-8 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white rounded-md"
-                />
-                <Button type="button" onClick={handleAddTag} variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 shadow-xs">
-                  Add Tag
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 text-xs px-2 py-0.5 rounded-md font-medium">
-                    <Tag className="h-3 w-3 text-slate-400 dark:text-zinc-500" />
-                    {t}
-                    <button type="button" onClick={() => handleRemoveTag(t)} className="text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 ml-1">×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="sm:col-span-2">
-              <Label className="text-xs text-slate-700 dark:text-zinc-300 mb-1 block font-medium">Relationship Notes</Label>
-              <textarea
-                rows={3}
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Gate codes, preferences, equipment details..."
-                className="w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-zinc-800">
-            <Button type="submit" size="sm" disabled={saving} className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-xs">
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
-              Save Changes
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSendReviewInvite}
+              disabled={sendingReview}
+              className="h-10 px-3.5 text-xs font-bold border-amber-300 dark:border-amber-700/60 bg-amber-50/50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 shadow-2xs"
+            >
+              {sendingReview ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Star className="h-3.5 w-3.5 mr-1.5 text-amber-500 fill-amber-500" />
+              )}
+              <span>Send Review Link</span>
             </Button>
           </div>
-        </form>
-      )}
+
+        </div>
+      </div>
+
+      {/* 4 Financial & Operational Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs rounded-xl p-3.5">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Lifetime Value</p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-1">
+            ${Number(profile.lifetimeValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Paid invoices &amp; jobs</p>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs rounded-xl p-3.5">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Completed Field Jobs</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
+            {profile.stats?.completedJobs || 0} <span className="text-xs font-normal text-slate-400">/ {profile.stats?.totalJobs || 0} total</span>
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Service history</p>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs rounded-xl p-3.5">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Billing Records</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
+            {profile.stats?.totalInvoices || 0} <span className="text-xs font-normal text-slate-400">invoices ({profile.stats?.totalQuotes || 0} quotes)</span>
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Financial records</p>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs rounded-xl p-3.5">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Service Cadence</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-zinc-100 tabular-nums mt-1 truncate">
+            {contact.last_service_date ? new Date(contact.last_service_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'No prior jobs'}
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Recurrence every {contact.service_frequency_days || 90}d</p>
+        </div>
+      </div>
+
+      {/* Split Layout: Main Medical Chart (7 cols) + Property Dossier (5 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Column: Unified Chronological Timeline (7 cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 p-5 shadow-xs space-y-4">
+            
+            {/* Timeline Header & Sub-Filter Pills */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div>
+                <h2 className="font-bold text-sm text-slate-900 dark:text-zinc-100">
+                  Customer Medical Chart &amp; Activity
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Chronological unified feed of dispatches, calls, quotes, invoices, and payments.
+                </p>
+              </div>
+
+              {/* History Sub-Filter Pills */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'jobs', label: 'Jobs' },
+                  { id: 'money', label: 'Money' },
+                  { id: 'comms', label: 'Comms' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setHistoryFilter(tab.id as any)}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors",
+                      historyFilter === tab.id
+                        ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Timeline Stream */}
+            {filteredTimeline.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 dark:text-zinc-500 text-xs">
+                No events recorded for this filter category.
+              </div>
+            ) : (
+              <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-zinc-800">
+                {filteredTimeline.map((item: any) => {
+                  const eventIcons: Record<string, any> = {
+                    call: Phone,
+                    message: MessageSquare,
+                    quote: FileText,
+                    appointment: Calendar,
+                    job: Briefcase,
+                    invoice: CreditCard,
+                    payment: DollarSign,
+                    review_request: Star
+                  }
+                  const Icon = eventIcons[item.type] || Clock
+
+                  return (
+                    <div key={item.id} className="relative group">
+                      <div className="absolute -left-6 top-1 h-5 w-5 rounded-full flex items-center justify-center bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 shadow-2xs">
+                        <Icon className="h-2.5 w-2.5" />
+                      </div>
+
+                      <div className="bg-slate-50/70 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3.5 ml-2 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors space-y-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span className="font-bold text-xs text-slate-900 dark:text-zinc-100">
+                            {item.title}
+                          </span>
+                          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono tabular-nums">
+                            {new Date(item.timestamp).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+
+                        {item.description && (
+                          <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+
+                        {/* Direct Record Deep Links */}
+                        {item.type === 'job' && item.metadata?.job_id && (
+                          <div className="pt-1">
+                            <Link
+                              href={`/client/jobs?id=${item.metadata.job_id}`}
+                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                            >
+                              <span>View Field Job</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        )}
+
+                        {item.type === 'invoice' && item.metadata?.invoice_id && (
+                          <div className="pt-1">
+                            <Link
+                              href={`/client/invoices`}
+                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                            >
+                              <span>View Invoice</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        )}
+
+                        {item.type === 'quote' && item.metadata?.quote_id && (
+                          <div className="pt-1">
+                            <Link
+                              href={`/client/quotes`}
+                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                            >
+                              <span>View Estimate</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Property Dossier, Equipment & Notes (5 cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          <form onSubmit={handleSaveContact} className="border border-slate-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h2 className="font-bold text-sm text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-blue-500" />
+                <span>Property &amp; Equipment Dossier</span>
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 block">
+                  Customer Full Name
+                </Label>
+                <Input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 block">
+                  Cell Phone Number
+                </Label>
+                <Input
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 block">
+                  Email Address
+                </Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                    Service Property Address
+                  </Label>
+                  {address && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                    >
+                      <span>Map ↗</span>
+                    </a>
+                  )}
+                </div>
+                <Input
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  placeholder="Street address, city, state, zip"
+                  className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 block">
+                  Service Frequency Cadence (Days)
+                </Label>
+                <Input
+                  type="number"
+                  min={7}
+                  value={serviceFrequency}
+                  onChange={e => setServiceFrequency(parseInt(e.target.value, 10) || 90)}
+                  className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                />
+                <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
+                  Interval for automated seasonal maintenance alerts (default: 90 days).
+                </p>
+              </div>
+
+              {/* Tags Section */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 block">
+                  Customer &amp; Trade Tags
+                </Label>
+                <div className="flex items-center gap-2 mb-2">
+                  <Input
+                    placeholder="e.g. VIP, Heat Pump, Commercial..."
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag() } }}
+                    className="h-8.5 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddTag}
+                    variant="outline"
+                    size="sm"
+                    className="h-8.5 text-xs border-slate-200 dark:border-zinc-800 shrink-0 font-semibold"
+                  >
+                    Add Tag
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                  {tags.map(t => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center gap-1 bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 text-xs px-2.5 py-0.5 rounded-md font-semibold"
+                    >
+                      <Tag className="h-3 w-3 text-slate-400" />
+                      <span>{t}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(t)}
+                        className="text-slate-400 hover:text-rose-500 ml-1 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Equipment Notes */}
+              <div>
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1 block">
+                  Equipment, Gate Codes &amp; Property Notes
+                </Label>
+                <textarea
+                  rows={4}
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="e.g. Carrier 4-ton AC in attic (Filter 20x25x4), gate code #5921, watch out for dog."
+                  className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-2.5 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed resize-none"
+                />
+              </div>
+
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full h-11 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-xs"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    <span>Saving Changes...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Save Customer Profile</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+
+      </div>
 
     </div>
   )
