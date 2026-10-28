@@ -45,6 +45,7 @@ export async function GET(request: Request) {
       clickRate
     },
     settings: {
+      businessName: org?.name || 'Our Service',
       googleReviewUrl: org?.google_review_url || '',
       reviewRequestsEnabled: org?.review_requests_enabled !== false && org?.is_review_engine_active !== false,
       delayHours: org?.review_delay_hours || 24,

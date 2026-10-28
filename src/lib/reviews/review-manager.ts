@@ -226,7 +226,17 @@ export async function dispatchReviewRequest(
   }
 
   // 3. Format message (strictly compliant: neutral feedback, no 5-star gating)
-  const messageBody = customMessage || formatCompliantReviewMessage(businessName, trackableReviewUrl)
+  let messageBody: string
+  if (customMessage) {
+    messageBody = customMessage
+      .replace(/\{review_url\}|\{review_link\}|\{\{review_url\}\}|\{\{review_link\}\}/g, trackableReviewUrl)
+      .replace(/\{business_name\}|\{\{business_name\}\}/g, businessName)
+    if (!messageBody.includes(trackableReviewUrl) && !messageBody.includes('/r/')) {
+      messageBody = `${messageBody.trim()} ${trackableReviewUrl}`
+    }
+  } else {
+    messageBody = formatCompliantReviewMessage(businessName, trackableReviewUrl)
+  }
 
   // 4. Resolve sender number
   let senderNumber = org.telnyx_phone_number
