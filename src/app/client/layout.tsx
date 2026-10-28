@@ -48,7 +48,8 @@ export const navSections = [
     items: [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
       { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
-      { href: '/client/calendar', label: 'Schedule & Jobs', icon: Calendar },
+      { href: '/client/calendar', label: 'Schedule', icon: Calendar },
+      { href: '/client/jobs', label: 'Jobs', icon: Briefcase },
     ]
   },
   {

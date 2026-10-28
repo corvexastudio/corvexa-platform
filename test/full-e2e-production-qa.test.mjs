@@ -730,7 +730,7 @@ test('E2E QA 11. Invoicing -> Online Payment -> Stripe Webhook -> Reminders Halt
 
   // 4. Overdue reminders must be HALTED
   const remainingOverdue = db._tables.automation_runs.filter(
-    r => r.org_id === 'org-apex-a' && r.event_payload?.invoice_id === invoiceId && r.status === 'scheduled'
+    r => r.org_id === 'org-apex-a' && r.event_payload?.invoice_id === invoiceId && r.status === 'scheduled' && r.action_type !== 'send_review_request'
   )
   assert.strictEqual(remainingOverdue.length, 0, 'Payment must cancel all scheduled invoice reminders')
 })

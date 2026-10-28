@@ -5,6 +5,7 @@ import React, { Suspense } from 'react'
 import { ScheduleDispatchHub } from '@/components/schedule/schedule-dispatch-hub'
 import { Skeleton } from '@/components/ui/skeleton'
 
+// Un-onboarded profile redirects to /client/onboarding via ScheduleDispatchHub
 export default function CalendarPage() {
   return (
     <Suspense
