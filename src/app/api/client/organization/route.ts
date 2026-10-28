@@ -140,9 +140,36 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       .single()
 
     if (fallbackRes.error || !fallbackRes.data) {
-      return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      // Secondary fallback for legacy schema
+      const minimalRes = await supabase
+        .from('organizations')
+        .select(`
+          id,
+          name,
+          slug,
+          owner_phone,
+          telnyx_phone_number,
+          carrier,
+          timezone,
+          subscription_status,
+          monthly_rate,
+          created_at
+        `)
+        .eq('id', orgId)
+        .single()
+
+      if (minimalRes.error || !minimalRes.data) {
+        return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
+      }
+      finalOrg = minimalRes.data
+    } else {
+      finalOrg = fallbackRes.data
     }
-    finalOrg = fallbackRes.data
+  }
+
+  if (finalOrg) {
+    finalOrg.operation_mode = finalOrg.operation_mode || 'solo'
+    finalOrg.industry = finalOrg.industry || 'general'
   }
 
   return NextResponse.json({ organization: finalOrg })
@@ -454,6 +481,7 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
         updateError.message?.toLowerCase().includes('does not exist'))
     ) {
       const sanitizedUpdates = { ...allowedUpdates }
+      if (updateError.message?.toLowerCase().includes('operation_mode') || updateError.code === '42703') delete sanitizedUpdates.operation_mode
       if (updateError.message?.toLowerCase().includes('industry')) delete sanitizedUpdates.industry
       if (updateError.message?.toLowerCase().includes('external_payment_url')) delete sanitizedUpdates.external_payment_url
       if (updateError.message?.toLowerCase().includes('payment_instructions')) delete sanitizedUpdates.payment_instructions

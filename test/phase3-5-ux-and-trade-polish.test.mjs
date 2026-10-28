@@ -286,3 +286,24 @@ test('SCALE-001: Solo vs Multi-Crew Operation Scale Customization', () => {
   assert.ok(layoutSource.includes("operationMode === 'solo'"), 'Layout must conditionally format nav based on solo operation mode')
   assert.ok(layoutSource.includes("'Team & Staff'"), 'Layout must label solo team as Team & Staff')
 })
+
+test('SCALE-002: Resilient Database Schema Fallbacks & Client Error Boundary Architecture', () => {
+  // 1. Layout multi-tier database fallback does not query operation_mode in fallback tier
+  const layoutSource = fs.readFileSync(path.resolve('src/app/client/layout.tsx'), 'utf8')
+  assert.ok(layoutSource.includes('fallbackRes1'), 'Layout must implement fallbackRes1')
+  assert.ok(layoutSource.includes('fallbackRes2'), 'Layout must implement fallbackRes2')
+  assert.ok(layoutSource.includes('fallbackRes3'), 'Layout must implement fallbackRes3 minimal core')
+  assert.ok(layoutSource.includes('effectiveOrg'), 'Layout must safely populate effectiveOrg even if database enrichment fails')
+
+  // 2. Organization API PATCH handles missing operation_mode column gracefully
+  const orgApiSource = fs.readFileSync(path.resolve('src/app/api/client/organization/route.ts'), 'utf8')
+  assert.ok(orgApiSource.includes("delete sanitizedUpdates.operation_mode"), 'Organization API must drop operation_mode on 42703 error')
+  assert.ok(orgApiSource.includes("finalOrg.operation_mode = finalOrg.operation_mode || 'solo'"), 'Organization API GET must default operation_mode to solo')
+
+  // 3. Client and root error boundaries exist
+  assert.ok(fs.existsSync(path.resolve('src/app/client/error.tsx')), 'Client error boundary src/app/client/error.tsx must exist')
+  assert.ok(fs.existsSync(path.resolve('src/app/error.tsx')), 'Root error boundary src/app/error.tsx must exist')
+  const clientErrorSource = fs.readFileSync(path.resolve('src/app/client/error.tsx'), 'utf8')
+  assert.ok(clientErrorSource.includes("'use client'"), 'Client error boundary must be a client component')
+  assert.ok(clientErrorSource.includes("reset()"), 'Client error boundary must provide reset trigger')
+})

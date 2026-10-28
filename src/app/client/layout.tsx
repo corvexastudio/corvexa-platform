@@ -144,7 +144,11 @@ function NavLinkItem({
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        <Icon className={cn('h-4 w-4 shrink-0 transition-colors', isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-zinc-500 group-hover:text-slate-600 dark:group-hover:text-zinc-300')} />
+        {Icon ? (
+          <Icon className={cn('h-4 w-4 shrink-0 transition-colors', isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-zinc-500 group-hover:text-slate-600 dark:group-hover:text-zinc-300')} />
+        ) : (
+          <div className="h-4 w-4 shrink-0" />
+        )}
         <span className="truncate">{label}</span>
       </div>
       {typeof unreadCount === 'number' && unreadCount > 0 && (
@@ -383,40 +387,61 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           ])
 
           let org = orgRes.data
-          // Graceful fallback if migration 51 (plan_id column) has not been run yet
-          if (orgRes.error && orgRes.error.code === '42703') {
-            const fallbackRes = await supabase
+          // Fallback Tier 1: If migration 56 (operation_mode) or newer columns have not been run yet (PostgreSQL error 42703)
+          if (orgRes.error && (orgRes.error.code === '42703' || orgRes.error.message?.includes('operation_mode') || orgRes.error.message?.includes('plan_id'))) {
+            const fallbackRes1 = await supabase
               .from('organizations')
-              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry, operation_mode')
+              .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status, industry')
               .eq('id', profile.org_id)
               .maybeSingle()
-            org = fallbackRes.data
+            org = fallbackRes1.data
+
+            // Fallback Tier 2: If migration 55 (industry) has not been run yet
+            if (fallbackRes1.error && (fallbackRes1.error.code === '42703' || fallbackRes1.error.message?.includes('industry'))) {
+              const fallbackRes2 = await supabase
+                .from('organizations')
+                .select('name, slug, telnyx_phone_number, timezone, subscription_status, legal_business_name, ein, is_sole_proprietor, address_street, carrier_registration_status')
+                .eq('id', profile.org_id)
+                .maybeSingle()
+              org = fallbackRes2.data
+
+              // Fallback Tier 3: Core minimal columns
+              if (fallbackRes2.error && fallbackRes2.error.code === '42703') {
+                const fallbackRes3 = await supabase
+                  .from('organizations')
+                  .select('name, slug, telnyx_phone_number, timezone, subscription_status')
+                  .eq('id', profile.org_id)
+                  .maybeSingle()
+                org = fallbackRes3.data
+              }
+            }
           }
 
-          if (org && isMounted) {
-            setOrgName(org.name || 'My Business')
-            if (org.slug) setOrgSlug(org.slug)
-            setOrgPhone(org.telnyx_phone_number || '')
-            if (org.timezone) setOrgTimezone(org.timezone)
-            if (org.industry) setOrgIndustry(org.industry)
-            if (org.operation_mode) setOperationMode(org.operation_mode === 'multi_crew' ? 'multi_crew' : 'solo')
-            if (org.subscription_status) setSubscriptionStatus(org.subscription_status)
-            if (org.plan_id) setPlanId(org.plan_id)
+          if (isMounted) {
+            const effectiveOrg = org || {}
+            setOrgName(effectiveOrg.name || 'My Business')
+            if (effectiveOrg.slug) setOrgSlug(effectiveOrg.slug)
+            setOrgPhone(effectiveOrg.telnyx_phone_number || '')
+            if (effectiveOrg.timezone) setOrgTimezone(effectiveOrg.timezone)
+            if (effectiveOrg.industry) setOrgIndustry(effectiveOrg.industry)
+            setOperationMode(effectiveOrg.operation_mode === 'multi_crew' ? 'multi_crew' : 'solo')
+            if (effectiveOrg.subscription_status) setSubscriptionStatus(effectiveOrg.subscription_status)
+            if (effectiveOrg.plan_id) setPlanId(effectiveOrg.plan_id)
 
             setOrg10DlcInitialData({
-              legal_business_name: org.legal_business_name || '',
-              ein: org.ein || '',
-              is_sole_proprietor: org.is_sole_proprietor ?? false,
-              address_street: org.address_street || ''
+              legal_business_name: effectiveOrg.legal_business_name || '',
+              ein: effectiveOrg.ein || '',
+              is_sole_proprietor: effectiveOrg.is_sole_proprietor ?? false,
+              address_street: effectiveOrg.address_street || ''
             })
 
-            const planIdLower = (org.plan_id || '').toLowerCase()
+            const planIdLower = (effectiveOrg.plan_id || '').toLowerCase()
             const isPayingProPlan =
               ['solo', 'fleet', 'multi_crew', 'solo_yearly', 'multi_crew_yearly', 'captodesk_standard'].includes(planIdLower) &&
-              ['active', 'trialing'].includes((org.subscription_status || '').toLowerCase()) &&
+              ['active', 'trialing'].includes((effectiveOrg.subscription_status || '').toLowerCase()) &&
               planIdLower !== 'free'
-            const isPendingOrVerified = ['pending', 'in_review', 'verified'].includes(org.carrier_registration_status || '')
-            const isIncomplete10Dlc = !isPendingOrVerified && (!org.legal_business_name || (!org.is_sole_proprietor && !org.ein) || !org.address_street || org.carrier_registration_status === 'unregistered')
+            const isPendingOrVerified = ['pending', 'in_review', 'verified'].includes(effectiveOrg.carrier_registration_status || '')
+            const isIncomplete10Dlc = !isPendingOrVerified && (!effectiveOrg.legal_business_name || (!effectiveOrg.is_sole_proprietor && !effectiveOrg.ein) || !effectiveOrg.address_street || effectiveOrg.carrier_registration_status === 'unregistered')
             const isOwnerOrAdmin = profile.role === 'owner' || profile.role === 'admin' || profile.role === 'super_admin'
 
             if (isPayingProPlan && isIncomplete10Dlc && isOwnerOrAdmin) {
@@ -463,7 +488,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (operationMode === 'solo') {
       return baseSections.map(sec => ({
         ...sec,
-        items: sec.items.map(item => {
+        items: (sec.items || []).map(item => {
           if (item.href === '/client/team') {
             return {
               ...item,
@@ -964,7 +989,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                         )}
                       >
                         <div className="flex items-center gap-3">
-                          <Icon className={cn('h-4 w-4', isActive ? 'text-blue-600 dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-400')} />
+                          {Icon ? (
+                            <Icon className={cn('h-4 w-4', isActive ? 'text-blue-600 dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-400')} />
+                          ) : (
+                            <div className="h-4 w-4 shrink-0" />
+                          )}
                           <span>{item.label}</span>
                         </div>
                         {unread > 0 && (
