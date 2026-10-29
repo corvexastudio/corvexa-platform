@@ -67,6 +67,15 @@ class TelemetryStore {
     if (this.apiMetrics.length > 1000) {
       this.apiMetrics.pop()
     }
+
+    // P3-002: Durable operational telemetry drain for serverless environments
+    // Structured JSON to stdout allows external log drains (Axiom, Datadog, Vercel) to persist metrics across cold starts
+    if (process.env.NODE_ENV !== 'test' && (fullEntry.statusCode >= 400 || (fullEntry.durationMs && fullEntry.durationMs > 1000))) {
+      console.log(JSON.stringify({
+        telemetry_type: 'api_metric',
+        ...fullEntry
+      }))
+    }
   }
 
   /**
@@ -84,6 +93,14 @@ class TelemetryStore {
 
     if (entry.stage in this.webhookCounts) {
       this.webhookCounts[entry.stage]++
+    }
+
+    // P3-002: Durable operational telemetry drain for serverless environments
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(JSON.stringify({
+        telemetry_type: 'webhook_lifecycle',
+        ...fullEntry
+      }))
     }
   }
 

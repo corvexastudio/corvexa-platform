@@ -3,7 +3,8 @@ import crypto from 'crypto'
 import { sendTelnyxSms } from '../telnyx.ts'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
-import { isPhoneSuppressed, logComplianceAudit } from '../compliance/compliance-engine.ts'
+import { isPhoneSuppressed, isTcpaQuietHours, verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
+import { calculateNextMorning805 } from '../services/call-recovery.ts'
 
 export interface ReviewEligibilityResult {
   eligible: boolean
@@ -26,7 +27,7 @@ export async function checkReviewEligibility(
   // 1. Fetch organization review settings
   const { data: org, error: orgError } = await supabase
     .from('organizations')
-    .select('id, name, google_review_url, is_review_engine_active, review_requests_enabled, review_cooldown_days, telnyx_phone_number')
+    .select('id, name, google_review_url, is_review_engine_active, review_requests_enabled, review_cooldown_days, telnyx_phone_number, timezone, enforce_quiet_hours')
     .eq('id', orgId)
     .single()
 
@@ -136,9 +137,18 @@ export async function dispatchReviewRequest(
     customMessage?: string
     actorId?: string
     actorRole?: string
+    overrideDate?: Date
   }
-): Promise<{ success: boolean; reviewRequest?: any; suppressed?: boolean; reason?: string; error?: string }> {
-  const { orgId, contactId, jobId, baseUrl, customMessage, actorId, actorRole } = input
+): Promise<{
+  success: boolean
+  reviewRequest?: any
+  suppressed?: boolean
+  reason?: string
+  error?: string
+  scheduled?: boolean
+  scheduledAt?: string
+}> {
+  const { orgId, contactId, jobId, baseUrl, customMessage, actorId, actorRole, overrideDate } = input
 
   // 1. Check eligibility
   const eligibility = await checkReviewEligibility(supabase, { orgId, contactId, jobId })
@@ -251,6 +261,101 @@ export async function dispatchReviewRequest(
     senderNumber = numRow?.phone_number
   }
 
+  // 4.5. TCPA Quiet Hours & Pre-Flight Compliance Interception (P2-003)
+  const timezone = org.timezone || 'America/New_York'
+  const isQuiet = isTcpaQuietHours(timezone, overrideDate)
+
+  if (isQuiet && org.enforce_quiet_hours !== false) {
+    const { scheduledAt } = calculateNextMorning805(timezone, overrideDate)
+    const nowIso = new Date().toISOString()
+
+    await supabase
+      .from('review_requests')
+      .update({
+        status: 'scheduled',
+        delivery_status: 'scheduled',
+        scheduled_at: scheduledAt,
+        updated_at: nowIso
+      })
+      .eq('id', requestRow.id)
+
+    const idempotencyKey = `review_quiet_hours:${orgId}:${requestRow.id}`
+    const { data: existingRun } = await supabase
+      .from('automation_runs')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle()
+
+    if (!existingRun) {
+      await supabase.from('automation_runs').insert({
+        org_id: orgId,
+        job_id: `job_${idempotencyKey}`,
+        idempotency_key: idempotencyKey,
+        event_type: 'review.quiet_hours_scheduled',
+        action_type: 'send_sms',
+        action_params: {
+          to: contact.phone,
+          from: senderNumber,
+          text: messageBody,
+          message: messageBody,
+          flowType: 'review_request',
+          messageType: 'marketing'
+        },
+        status: 'scheduled',
+        scheduled_at: scheduledAt,
+        event_payload: {
+          contact_id: contactId,
+          review_request_id: requestRow.id,
+          job_id: jobId
+        }
+      })
+    }
+
+    return {
+      success: true,
+      scheduled: true,
+      scheduledAt,
+      reviewRequest: {
+        ...requestRow,
+        status: 'scheduled',
+        delivery_status: 'scheduled',
+        scheduled_at: scheduledAt
+      }
+    }
+  }
+
+  // Pre-flight Outbound Compliance Verification
+  const compliance = await verifyOutboundCompliance(supabase, {
+    orgId,
+    toPhone: contact.phone,
+    contactId,
+    flowType: 'review_request',
+    messageType: 'marketing',
+    body: messageBody,
+    timezone,
+    checkQuietHours: false
+  })
+
+  if (!compliance.allowed) {
+    const nowIso = new Date().toISOString()
+    await supabase
+      .from('review_requests')
+      .update({
+        status: 'suppressed',
+        delivery_status: 'suppressed',
+        suppression_reason: compliance.suppressionReason || 'compliance_check_failed',
+        updated_at: nowIso
+      })
+      .eq('id', requestRow.id)
+
+    return {
+      success: false,
+      suppressed: true,
+      reason: compliance.suppressionReason || 'Compliance check failed'
+    }
+  }
+
   // 5. Send SMS via Telnyx
   const smsResult = await sendTelnyxSms({
     to: contact.phone,
@@ -286,6 +391,16 @@ export async function dispatchReviewRequest(
     .eq('id', requestRow.id)
     .select('*')
     .single()
+
+  // 6.5. Compliance Audit Log
+  await logComplianceAudit(supabase, {
+    orgId,
+    phone: contact.phone,
+    contactId,
+    action: 'message_sent',
+    messageType: 'marketing',
+    metadata: { flowType: 'review_request', body: messageBody }
+  })
 
   // 7. Audit log event
   await logAuditEvent(supabase, {

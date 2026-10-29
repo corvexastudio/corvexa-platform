@@ -64,13 +64,21 @@ export class PayPalService {
 
   /**
    * Determines whether mock/simulated billing responses are explicitly permitted.
-   * STRICT SAFEGUARD: Simulation is NEVER permitted in production environments under any circumstances.
+   * STRICT SAFEGUARD: Simulation is NEVER permitted in production environments or when live credentials are active.
+   * Requires explicit test mode or PAYPAL_MOCK_DISPATCH opt-in in non-production.
    */
-  static isSimulationPermitted(): boolean {
-    if (this.isProductionEnvironment()) {
+  static isSimulationAllowed(): boolean {
+    if (this.isProductionEnvironment() || this.isLiveEnvironment()) {
       return false
     }
     return process.env.NODE_ENV === 'test' || process.env.PAYPAL_MOCK_DISPATCH === 'true'
+  }
+
+  /**
+   * Backward-compatible alias for isSimulationAllowed()
+   */
+  static isSimulationPermitted(): boolean {
+    return this.isSimulationAllowed()
   }
 
   /**
@@ -150,18 +158,11 @@ export class PayPalService {
 
     // Offline / Test Simulation Mode when credentials are not present
     if (!this.isConfigured()) {
-      if (this.isProductionEnvironment()) {
+      if (this.isProductionEnvironment() || this.isLiveEnvironment() || !this.isSimulationAllowed()) {
         return {
           success: false,
           subscriptionId: '',
           error: 'PayPal billing is not configured in this production environment.'
-        }
-      }
-      if (!this.isSimulationPermitted()) {
-        return {
-          success: false,
-          subscriptionId: '',
-          error: 'PayPal client credentials are not configured.'
         }
       }
       const simSubId = existingSubscriptionId || `sub_sim_${Date.now()}`
@@ -303,20 +304,20 @@ export class PayPalService {
 
     const cleanSubId = subscriptionId.trim()
 
-    // ── 1. Production Security Safeguards ──
-    // In production, mock prefixes or unconfigured states must fail immediately and closed.
-    if (this.isProductionEnvironment()) {
+    // ── 1. Production & Live Security Safeguards ──
+    // In production or when live environment is active, mock prefixes and unconfigured states must fail immediately and closed.
+    if (this.isProductionEnvironment() || this.isLiveEnvironment() || !this.isSimulationAllowed()) {
       if (cleanSubId.startsWith('sub_sim_')) {
-        throw new Error('Simulated subscription IDs (sub_sim_) are strictly rejected in production.')
+        throw new Error('Simulated subscription IDs (sub_sim_) are strictly rejected in production and live environments.')
       }
       if (!this.isConfigured()) {
-        throw new Error('PayPal client credentials are not configured in production environment.')
+        throw new Error('PayPal client credentials are not configured.')
       }
     }
 
     // ── 2. Explicit Test Mode Simulation ──
-    // ONLY permitted in non-production test/sandbox environments
-    if (!this.isProductionEnvironment() && this.isSimulationPermitted()) {
+    // ONLY permitted when isSimulationAllowed() is true (non-production, non-live test/sandbox opt-in)
+    if (this.isSimulationAllowed()) {
       if (cleanSubId.startsWith('sub_sim_')) {
         if (cleanSubId.includes('mismatched_org')) {
           return {
@@ -544,11 +545,12 @@ export class PayPalService {
       })
 
       // ── Step 5: Provider Status Verification ──
-      const validStatuses = ['ACTIVE', 'APPROVED']
+      // Strictly require ACTIVE status. In PayPal Subscriptions API, only ACTIVE guarantees the recurring billing agreement has completed initial payment.
+      const validStatuses = ['ACTIVE']
       if (!details.status || !validStatuses.includes(details.status)) {
         return {
           success: false,
-          error: `Subscription is currently in '${details.status || 'UNKNOWN'}' status and cannot be activated. Expected ACTIVE or APPROVED.`
+          error: `Subscription is currently in '${details.status || 'UNKNOWN'}' status and cannot be activated. Expected ACTIVE.`
         }
       }
 
@@ -592,6 +594,7 @@ export class PayPalService {
         .update({
           subscription_status: 'active',
           plan_id: targetPlanId,
+          plan_tier: targetPlanId,
           billing_provider: 'paypal',
           paypal_subscription_id: cleanSubId,
           paypal_plan_id: details.plan_id,
@@ -617,6 +620,7 @@ export class PayPalService {
         .upsert({
           org_id: cleanOrgId,
           plan_id: targetPlanId,
+          plan_tier: targetPlanId,
           amount: targetPlan.amount,
           currency: 'USD',
           status: 'active',

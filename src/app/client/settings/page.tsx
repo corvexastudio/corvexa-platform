@@ -44,7 +44,8 @@ import {
   Phone,
   Shield,
   Layers,
-  Repeat
+  Repeat,
+  Info
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
@@ -1658,6 +1659,17 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 <span className="text-[10px] text-zinc-400 block font-mono">Deactivate: ##61#</span>
+              </div>
+            </div>
+
+            {/* P3-003: MVNO Carrier Star-Code Guidance Notice */}
+            <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+              <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <span className="font-semibold">Using a discount mobile carrier or MVNO (Mint Mobile, Visible, Cricket, Metro, Google Fi)?</span>
+                <p className="mt-0.5 text-amber-700 dark:text-amber-400/90 leading-relaxed">
+                  Discount mobile virtual network operators (MVNOs) may require carrier-specific forwarding star-codes or manual activation via your carrier&apos;s mobile app or customer support portal. If keypad dialing returns a carrier error, contact your wireless provider to request &quot;Conditional No-Answer Call Forwarding&quot; to your CaptoDesk phone number.
+                </p>
               </div>
             </div>
           </div>

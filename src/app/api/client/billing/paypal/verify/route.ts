@@ -76,7 +76,11 @@ export async function POST(request: Request, context?: PayPalVerifyRouteContext)
       success: true,
       message: `Your ${displayTierName} subscription is now active!`,
       organization: result.organization,
-      planTier: result.planTier
+      planTier: result.planTier,
+      subscription_status: result.organization?.subscription_status || 'active',
+      plan_id: result.organization?.plan_id || result.planTier,
+      plan_tier: result.organization?.plan_tier || result.planTier,
+      monthly_rate: result.organization?.monthly_rate
     })
   } catch (err: any) {
     console.error('[PAYPAL_VERIFY_ROUTE_ERROR]', err)

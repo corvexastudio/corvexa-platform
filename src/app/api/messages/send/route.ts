@@ -3,6 +3,7 @@ import { getTenantContext } from '@/lib/security/tenant-context'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders } from '@/lib/security/rate-limiter'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
+import { verifyOutboundCompliance, logComplianceAudit } from '@/lib/compliance/compliance-engine'
 
 export async function POST(request: Request) {
   // 1. Authenticate user and resolve organization server-side (Requirement 1 & 2)
@@ -81,14 +82,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // 4. TCPA Opt-out Enforcement
-    if (contact.opt_out) {
-      return NextResponse.json(
-        { error: 'Cannot send message: Contact has unsubscribed/opted out of SMS communications' },
-        { status: 403, headers: rateHeaders }
-      )
-    }
-
     const senderNumber = org?.telnyx_phone_number
     if (!senderNumber) {
       return NextResponse.json(
@@ -97,13 +90,35 @@ export async function POST(request: Request) {
       )
     }
 
-    // 5. REQUIREMENT 6: Never trust arbitrary client-supplied 'to'.
-    // The recipient phone number is resolved strictly from the verified contact record!
+    // 4. Resolve strictly from the verified contact record
     const verifiedRecipient = toE164(contact.phone)
 
     if (clientTo && toE164(clientTo) !== verifiedRecipient) {
       console.warn(
         `[SECURITY WARNING] Mismatched destination phone: client supplied '${clientTo}', but conversation contact is '${verifiedRecipient}'. Enforcing contact record.`
+      )
+    }
+
+    // 5. Centralized Compliance Engine Pre-Flight (Opt-out, suppression list, quiet hours, audit logging)
+    const complianceResult = await verifyOutboundCompliance(supabase, {
+      orgId: conv.org_id,
+      toPhone: verifiedRecipient,
+      fromPhone: senderNumber,
+      contactId: contact.id,
+      flowType: 'conversational_reply',
+      body: message.trim(),
+      timezone: org?.timezone,
+      checkQuietHours: true
+    })
+
+    if (!complianceResult.allowed) {
+      const reasonMsg = complianceResult.suppressionReason || 'Blocked by compliance policy'
+      return NextResponse.json(
+        {
+          error: `Cannot send message: ${reasonMsg}`,
+          reason: complianceResult.suppressionReason
+        },
+        { status: 403, headers: rateHeaders }
       )
     }
 
@@ -120,8 +135,18 @@ export async function POST(request: Request) {
     const result = await sendTelnyxSms({
       to: verifiedRecipient,
       from: senderNumber,
-      text: message.trim()
+      text: complianceResult.formattedText || message.trim()
     })
+
+    if (result.success) {
+      await logComplianceAudit(supabase, {
+        orgId: conv.org_id,
+        phone: verifiedRecipient,
+        contactId: contact.id,
+        action: 'message_sent',
+        messageType: 'transactional'
+      })
+    }
 
     if (!result.success) {
       // Record failed message attempt in database for observability and inbox truthfulness

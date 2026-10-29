@@ -283,7 +283,9 @@ export async function createBooking(
   const isInstant = org.booking_mode !== 'request'
   const initialStatus = isInstant ? 'confirmed' : 'requested'
   const manageToken = randomBytes(24).toString('hex')
-  const manageUrl = `${appBaseUrl}/book/manage/${manageToken}`
+  const manageUrl = appBaseUrl.includes('captodesk.com')
+    ? `https://book.captodesk.com/manage/${manageToken}`
+    : `${appBaseUrl}/book/manage/${manageToken}`
 
   // 8. Insert Appointment with source attribution
   let effectiveNotes = notes || null
@@ -863,7 +865,10 @@ export async function customerCancelBooking(
 
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone
   if (senderNumber && contact?.phone) {
-    const rebookUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'}/book/${org?.slug || ''}`
+    const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
+    const rebookUrl = rawAppUrl.includes('captodesk.com')
+      ? `https://book.captodesk.com/${org?.slug || ''}`
+      : `${rawAppUrl}/book/${org?.slug || ''}`
     const cancelText = `Your appointment with ${org?.name || 'us'} has been cancelled. To reschedule or book a new time, visit: ${rebookUrl}`
     
     const compliance = await verifyOutboundCompliance(supabase, {
@@ -1029,7 +1034,9 @@ export async function customerRescheduleBooking(
   const slotStartDate = new Date(newStartTime)
   const displayTime = formatSlotDisplayDateTime(slotStartDate, timezone)
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
-  const manageUrl = `${appBaseUrl}/book/manage/${manageToken}`
+  const manageUrl = appBaseUrl.includes('captodesk.com')
+    ? `https://book.captodesk.com/manage/${manageToken}`
+    : `${appBaseUrl}/book/manage/${manageToken}`
 
   // 4. Schedule new reminders
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone || null
@@ -1202,7 +1209,9 @@ export async function ownerUpdateBookingStatus(
 
     const senderNumber = org?.telnyx_phone_number || org?.owner_phone
     const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
-    const manageUrl = `${appBaseUrl}/book/manage/${apt.manage_token}`
+    const manageUrl = appBaseUrl.includes('captodesk.com')
+      ? `https://book.captodesk.com/manage/${apt.manage_token}`
+      : `${appBaseUrl}/book/manage/${apt.manage_token}`
 
     if (newStatus === 'confirmed' && contact?.phone && senderNumber) {
       const slotStartDate = new Date(apt.start_time)

@@ -54,7 +54,7 @@ export interface AdminOnboardResult {
 export async function adminOnboardTenant(
   supabase: SupabaseClient,
   input: AdminOnboardInput,
-  options?: { baseUrl?: string; adminAuthClient?: any }
+  options?: { baseUrl?: string; adminAuthClient?: any; bookingBaseUrl?: string }
 ): Promise<AdminOnboardResult> {
   const rawBusinessName = (input.businessName || '').trim()
   if (!rawBusinessName) {

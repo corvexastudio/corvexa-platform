@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { isTcpaQuietHours } from '../services/safety-rules.ts'
+export { isTcpaQuietHours } from '../services/safety-rules.ts'
 import { sendTelnyxSms } from '../telnyx.ts'
 
 export type MessageClassification = 'transactional' | 'marketing'
@@ -117,7 +118,8 @@ export async function isPhoneSuppressed(
       .maybeSingle()
 
     if (error) {
-      return { suppressed: false }
+      console.error('[COMPLIANCE_ERROR] isPhoneSuppressed query failed; failing closed:', error.message)
+      return { suppressed: true, reason: 'compliance_database_error' }
     }
 
     if (data) {
@@ -127,8 +129,9 @@ export async function isPhoneSuppressed(
         keyword: data.keyword
       }
     }
-  } catch {
-    return { suppressed: false }
+  } catch (err: any) {
+    console.error('[COMPLIANCE_ERROR] isPhoneSuppressed exception; failing closed:', err?.message)
+    return { suppressed: true, reason: 'compliance_database_error' }
   }
 
   return { suppressed: false }
@@ -142,34 +145,41 @@ export async function checkFrequencyCap(
   orgId: string,
   phone: string,
   maxDailyLimit: number = 3
-): Promise<{ allowed: boolean; count24h: number }> {
+): Promise<{ allowed: boolean; count24h: number; reason?: string }> {
   try {
     const norm = normalizePhoneToE164(phone)
     const queryPhone = norm.isValid && norm.e164 ? norm.e164 : phone
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     // Count outbound messages in audit log
-    const { data, error, count } = await supabase
+    let countQuery = supabase
       .from('compliance_audit_logs')
       .select('id', { count: 'exact' })
       .eq('org_id', orgId)
       .eq('phone', queryPhone)
       .eq('action', 'message_sent')
-      .gte('created_at', cutoff24h)
+
+    if (typeof (countQuery as any)?.gte === 'function') {
+      countQuery = (countQuery as any).gte('created_at', cutoff24h)
+    }
+
+    const { data, error, count } = await countQuery
 
     if (error) {
-      return { allowed: true, count24h: 0 }
+      console.error('[COMPLIANCE_ERROR] checkFrequencyCap query failed; failing closed:', error.message)
+      return { allowed: false, count24h: 999, reason: 'compliance_database_error' }
     }
 
     const messageCount = count ?? (data ? data.length : 0)
 
     if (messageCount >= maxDailyLimit) {
-      return { allowed: false, count24h: messageCount }
+      return { allowed: false, count24h: messageCount, reason: 'frequency_cap_exceeded' }
     }
 
     return { allowed: true, count24h: messageCount }
-  } catch {
-    return { allowed: true, count24h: 0 }
+  } catch (err: any) {
+    console.error('[COMPLIANCE_ERROR] checkFrequencyCap exception; failing closed:', err?.message)
+    return { allowed: false, count24h: 999, reason: 'compliance_database_error' }
   }
 }
 
@@ -253,6 +263,7 @@ export interface OutboundComplianceCheckParams {
   contactId?: string
   overrideDate?: Date
   ignoreFrequencyCap?: boolean
+  checkQuietHours?: boolean
 }
 
 export interface ComplianceCheckResult {
@@ -330,7 +341,9 @@ export async function verifyOutboundCompliance(
     })
     return {
       allowed: false,
-      suppressionReason: 'suppression_list_active',
+      suppressionReason: suppressionCheck.reason === 'compliance_database_error'
+        ? 'compliance_database_error'
+        : 'suppression_list_active',
       formattedText,
       classification,
       businessName: bizName
@@ -404,8 +417,8 @@ export async function verifyOutboundCompliance(
     }
   }
 
-  // 5. TCPA Quiet Hours Guard (Mandatory for marketing messages)
-  if (classification === 'marketing' && enforceQuietHours) {
+  // 5. TCPA Quiet Hours Guard (Mandatory for marketing messages or explicit quiet-hours verification)
+  if ((classification === 'marketing' || params.checkQuietHours) && enforceQuietHours) {
     const inQuietHours = isTcpaQuietHours(timezone, overrideDate)
     if (inQuietHours) {
       await logComplianceAudit(supabase, {
@@ -437,12 +450,12 @@ export async function verifyOutboundCompliance(
         contactId: contact?.id,
         action: 'message_suppressed',
         messageType: classification,
-        reason: 'frequency_cap_exceeded',
+        reason: freqCheck.reason || 'frequency_cap_exceeded',
         metadata: { count24h: freqCheck.count24h, limit: maxDaily }
       })
       return {
         allowed: false,
-        suppressionReason: 'frequency_cap_exceeded',
+        suppressionReason: freqCheck.reason || 'frequency_cap_exceeded',
         formattedText,
         classification,
         businessName: bizName

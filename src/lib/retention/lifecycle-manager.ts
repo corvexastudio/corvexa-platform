@@ -168,7 +168,9 @@ export async function evaluateCustomerReactivation(
   const businessName = org.name || 'our team'
   const bookingSlug = org.slug || org.id
   const safeBaseUrl = baseUrl.replace(/\/$/, '')
-  const bookingUrl = `${safeBaseUrl}/book/${bookingSlug}`
+  const bookingUrl = safeBaseUrl.includes('captodesk.com')
+    ? `https://book.captodesk.com/${bookingSlug}`
+    : `${safeBaseUrl}/book/${bookingSlug}`
 
   const reactivated: Array<{ contactId: string; name?: string; status: LifecycleStatus }> = []
   const now = overrideDate ? overrideDate.getTime() : Date.now()

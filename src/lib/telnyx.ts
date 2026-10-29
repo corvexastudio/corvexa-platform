@@ -22,8 +22,18 @@ export async function sendTelnyxSms({
   text: string
   from?: string
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const isProduction =
+    process.env.NODE_ENV === 'production' ||
+    process.env.APP_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production'
+
   // Explicit test/sandbox mock guard to guarantee zero billable dispatches
+  // P2-001: In production, TELNYX_MOCK_DISPATCH must fail closed with an error rather than faking success.
   if (process.env.TELNYX_MOCK_DISPATCH === 'true') {
+    if (isProduction) {
+      console.error('[CRITICAL TELNYX ERROR] TELNYX_MOCK_DISPATCH is strictly prohibited in production.')
+      return { success: false, error: 'TELNYX_MOCK_DISPATCH cannot be enabled in production' }
+    }
     return { success: true, messageId: `mock_telnyx_${Date.now()}` }
   }
 
@@ -44,10 +54,12 @@ export async function sendTelnyxSms({
   }
 
   const apiKey = process.env.TELNYX_API_KEY
-  const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || '+18777713802' || process.env.TELNYX_PHONE_NUMBER || from
+  // P1-003: Remove hardcoded demo toll-free number from standard fallback chain.
+  // Sender must be an explicitly verified tenant number or configured environment sender.
+  const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || (isDemoOrE2E ? '+18777713802' : undefined)
 
   if (!apiKey) {
-    if (process.env.NODE_ENV === 'production' || process.env.APP_ENV === 'production') {
+    if (isProduction) {
       console.error('[TELNYX CONFIGURATION ERROR] TELNYX_API_KEY is missing in production environment. Refusing to fake SMS delivery.')
       return { success: false, error: 'TELNYX_API_KEY is not configured in production environment' }
     }
