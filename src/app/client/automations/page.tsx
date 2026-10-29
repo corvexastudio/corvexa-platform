@@ -257,9 +257,13 @@ export default function AutomationsPage() {
   // Live URL & Template Previews
   const fallbackOrigin = (process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com').replace(/\/$/, '')
   const appOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : fallbackOrigin
-  const bookingUrlPreview = settings.slug 
-    ? `${appOrigin}/book/${settings.slug}`
-    : `${appOrigin}/book/your-link`
+  const isCaptoDesk = typeof window !== 'undefined'
+    ? window.location.hostname.includes('captodesk.com')
+    : fallbackOrigin.includes('captodesk.com')
+
+  const bookingUrlPreview = isCaptoDesk
+    ? `https://book.captodesk.com/${settings.slug || 'your-link'}`
+    : `${appOrigin}/book/${settings.slug || 'your-link'}`
 
   const openPreviewText = useMemo(() => {
     return (settings.auto_reply_template || '')

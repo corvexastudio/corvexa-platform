@@ -99,10 +99,13 @@ export default function DashboardPage() {
     toast.success('Booking share banner dismissed from Today.')
   }
 
-  const appUrl = typeof window !== 'undefined' && window.location?.origin
-    ? window.location.origin
-    : (process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com').replace(/\/$/, '')
-  const bookingUrl = `${appUrl}/book/${orgSlug || 'contractor'}`
+  const isCaptoDesk = typeof window !== 'undefined'
+    ? window.location.hostname.includes('captodesk.com')
+    : (process.env.NEXT_PUBLIC_APP_URL || '').includes('captodesk.com')
+
+  const bookingUrl = isCaptoDesk
+    ? `https://book.captodesk.com/${orgSlug || 'contractor'}`
+    : `${(typeof window !== 'undefined' && window.location?.origin ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')).replace(/\/$/, '')}/book/${orgSlug || 'contractor'}`
 
   const handleCopyBookingUrl = async () => {
     try {

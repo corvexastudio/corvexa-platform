@@ -45,7 +45,9 @@ export async function GET(
     })
 
     const claimUrl = `${origin}/claim/${claimToken}`
-    const publicBookingUrl = `${origin}/book/${org.slug}`
+    const publicBookingUrl = origin.includes('captodesk.com')
+      ? `https://book.captodesk.com/${org.slug}`
+      : `${origin}/book/${org.slug}`
     const welcomeSmsText = `Hey ${ownerName}! I just set up the free online booking page for ${org.name} so customers on Google Maps can book slots directly: ${publicBookingUrl} - Tap this link on your cell phone to open your dashboard & test your practice job (no password needed): ${claimUrl}`
 
     return NextResponse.json({

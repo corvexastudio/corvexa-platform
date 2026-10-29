@@ -249,7 +249,7 @@ test('Admin Onboarding: creates tenant phone-first without ownerEmail', async ()
 
   // Verify Claim Link and Welcome SMS
   assert.ok(result.claimUrl.startsWith('https://captodesk.com/claim/'))
-  assert.equal(result.publicBookingUrl, 'https://captodesk.com/book/precision-comfort-hvac')
+  assert.equal(result.publicBookingUrl, 'https://book.captodesk.com/precision-comfort-hvac')
   assert.ok(result.welcomeSmsText.includes('Precision Comfort HVAC'))
   assert.ok(result.welcomeSmsText.includes(result.publicBookingUrl))
   assert.ok(result.welcomeSmsText.includes(result.claimUrl))

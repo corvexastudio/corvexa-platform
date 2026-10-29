@@ -295,7 +295,9 @@ export async function adminOnboardTenant(
   const baseUrl = options?.baseUrl || process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.captodesk.com'
   const claimToken = createClaimToken({ userId, email: effectiveEmail, orgId })
   const claimUrl = `${baseUrl}/claim/${claimToken}`
-  const publicBookingUrl = `${baseUrl}/book/${finalSlug}`
+  const publicBookingUrl = options?.bookingBaseUrl
+    ? `${options.bookingBaseUrl}/${finalSlug}`
+    : (baseUrl.includes('captodesk.com') ? `https://book.captodesk.com/${finalSlug}` : `${baseUrl}/book/${finalSlug}`)
   const welcomeSmsText = `Hey ${effectiveOwnerName}! I just set up the free online booking page for ${rawBusinessName} so customers on Google Maps can book slots directly: ${publicBookingUrl} - Tap this link on your cell phone to open your dashboard & test your practice job (no password needed): ${claimUrl}`
 
   return {
