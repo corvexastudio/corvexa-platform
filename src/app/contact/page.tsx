@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { BrandIcon } from '@/components/brand/brand-logo'
 import {
   Phone,
   Mail,
@@ -48,9 +49,7 @@ export default function ContactPage() {
       <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm shadow-emerald-600/20 group-hover:bg-emerald-500 transition-colors">
-              C
-            </div>
+            <BrandIcon className="w-8 h-8 rounded-xl shadow-xs group-hover:scale-105 transition-transform" priority />
             <div className="flex flex-col">
               <span className="text-base font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
                 CaptoDesk

@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { BrandIcon } from '@/components/brand/brand-logo'
 import { NotificationCenter } from '@/components/notifications/notification-center'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { UniversalQuickCreate } from '@/components/universal-quick-create'
@@ -568,9 +569,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-center animate-pulse">
-            <span className="text-blue-600 dark:text-blue-400 font-extrabold text-base">C</span>
-          </div>
+          <BrandIcon className="h-12 w-12 animate-pulse shadow-md" size={48} priority />
           <span className="text-xs text-slate-500 dark:text-zinc-500 font-medium">
             {authState === 'redirecting' ? 'Redirecting to workspace setup...' : 'Loading workspace...'}
           </span>
@@ -589,9 +588,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {/* Workspace Identity */}
         <div className="flex h-16 items-center justify-between border-b border-slate-200 dark:border-zinc-800 px-4">
           <Link href={isTechnician ? "/client/field" : "/client/dashboard"} className="flex items-center gap-2.5 min-w-0 group">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-blue-700 transition-colors">
-              <PhoneCall className="h-4 w-4" />
-            </div>
+            <BrandIcon className="h-8 w-8 rounded-lg shadow-2xs group-hover:scale-105 transition-transform" size={32} />
             <div className="min-w-0">
               <span className="block text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
                 {orgName || 'CaptoDesk'}
@@ -949,9 +946,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-zinc-800">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-                  <PhoneCall className="h-4 w-4" />
-                </div>
+                <BrandIcon className="h-8 w-8 rounded-lg shadow-2xs shrink-0" size={32} />
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">{orgName || 'CaptoDesk'}</div>
                   <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">{orgPhone || 'Digital Front Desk'}</div>

@@ -28,6 +28,7 @@ import {
 import { DualPhoneSimulator } from '@/components/landing/dual-phone-simulator'
 import { RevenueCalculator } from '@/components/landing/revenue-calculator'
 import { FaqSection } from '@/components/landing/faq-section'
+import { BrandIcon } from '@/components/brand/brand-logo'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LandingPage() {
@@ -55,9 +56,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm shadow-emerald-600/30 group-hover:bg-emerald-500 transition-colors">
-              C
-            </div>
+            <BrandIcon className="w-8 h-8 rounded-xl shadow-xs group-hover:scale-105 transition-transform" priority />
             <div className="flex flex-col">
               <span className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
                 CaptoDesk
@@ -835,10 +834,8 @@ export default function LandingPage() {
       {/* ── 12. Footer ── */}
       <footer className="border-t border-slate-200 bg-white py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-emerald-600 text-white font-bold flex items-center justify-center text-xs">
-              C
-            </div>
+          <div className="flex items-center gap-2.5">
+            <BrandIcon className="w-6 h-6 rounded-md shadow-2xs" size={24} />
             <span className="font-bold text-slate-800 text-sm">CaptoDesk</span>
             <span className="text-slate-300">•</span>
             <span>The Field Growth System for Trade Contractors</span>

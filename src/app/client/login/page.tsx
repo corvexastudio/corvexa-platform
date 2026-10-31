@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { BrandIcon } from '@/components/brand/brand-logo'
 import { Mail, Loader2, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -79,10 +80,8 @@ function LoginContent() {
       {/* ── Left panel — brand (hidden on mobile) ── */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-zinc-950 px-14 py-12">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center">
-            <span className="text-zinc-950 font-bold text-sm">C</span>
-          </div>
-          <span className="text-white text-lg font-semibold tracking-tight">CaptoDesk</span>
+          <BrandIcon className="h-10 w-10 rounded-xl" size={40} priority />
+          <span className="text-white text-xl font-bold tracking-tight">CaptoDesk</span>
         </div>
 
         <div>
@@ -113,10 +112,8 @@ function LoginContent() {
 
         {/* Mobile brand mark */}
         <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-          <div className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center">
-            <span className="text-blue-600 dark:text-white font-bold text-sm">C</span>
-          </div>
-          <span className="text-slate-900 dark:text-zinc-100 text-xl font-semibold tracking-tight">CaptoDesk</span>
+          <BrandIcon className="h-10 w-10 rounded-xl shadow-xs" size={40} priority />
+          <span className="text-slate-900 dark:text-zinc-100 text-xl font-bold tracking-tight">CaptoDesk</span>
         </div>
 
         <div className="w-full max-w-sm">

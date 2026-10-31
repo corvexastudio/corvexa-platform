@@ -13,8 +13,42 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://captodesk.com'),
   title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
   description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+      { url: '/brand/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
+      { url: '/brand/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+    ],
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  openGraph: {
+    title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
+    description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
+    url: "https://captodesk.com",
+    siteName: "CaptoDesk",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CaptoDesk - Capture more leads. Close more jobs. Keep more customers.",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
+    description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
+    images: ["/opengraph-image.png"],
+  },
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

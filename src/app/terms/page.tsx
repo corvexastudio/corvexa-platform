@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import { BrandIcon } from '@/components/brand/brand-logo'
 import {
   FileText,
   ShieldCheck,
@@ -30,9 +31,7 @@ export default function TermsOfServicePage() {
       <header className="sticky top-0 z-50 w-full border-b border-zinc-800/80 bg-[#090A0F]/85 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-extrabold text-base shadow-md shadow-emerald-600/30 group-hover:bg-emerald-500 transition-colors">
-              C
-            </div>
+            <BrandIcon className="w-8 h-8 rounded-xl shadow-xs group-hover:scale-105 transition-transform" priority />
             <div className="flex flex-col">
               <span className="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
                 CaptoDesk
