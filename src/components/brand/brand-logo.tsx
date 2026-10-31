@@ -12,6 +12,24 @@ interface BrandIconProps {
  */
 export function BrandIcon({ className = 'w-8 h-8', size = 32, priority = false }: BrandIconProps) {
   return (
+    <div className={`relative shrink-0 overflow-hidden ${className}`}>
+      <Image
+        src="/brand/captodesk-symbol-transparent.png"
+        alt="CaptoDesk Icon"
+        width={size}
+        height={size}
+        priority={priority}
+        className="w-full h-full object-contain"
+      />
+    </div>
+  )
+}
+
+/**
+ * Official CaptoDesk App Squircle Icon (iOS-style dark squircle)
+ */
+export function BrandSquircleIcon({ className = 'w-8 h-8', size = 32, priority = false }: BrandIconProps) {
+  return (
     <div className={`relative shrink-0 overflow-hidden rounded-xl shadow-xs ${className}`}>
       <Image
         src="/brand/captodesk-icon-rounded.png"

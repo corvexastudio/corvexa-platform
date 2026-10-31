@@ -45,10 +45,9 @@ export function FaqSection() {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
-          <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
-          <span>STRAIGHT TALK FOR TRADE CONTRACTORS</span>
-        </div>
+        <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block mb-2">
+          05 / CONTRACTOR QUESTIONS &amp; ANSWERS
+        </span>
         <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           Frequently Asked Questions
         </h2>

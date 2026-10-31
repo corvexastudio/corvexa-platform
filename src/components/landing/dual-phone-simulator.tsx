@@ -46,11 +46,12 @@ export function DualPhoneSimulator() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              LIVE INTERACTIVE SIMULATOR
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-mono font-bold text-emerald-700 uppercase tracking-wider">
+              INTERACTIVE TEST DRIVE
             </span>
-            <span className="text-xs text-slate-400 font-mono hidden sm:inline">15-SECOND TEST DRIVE</span>
+            <span className="text-xs text-slate-300">•</span>
+            <span className="text-xs text-slate-500 font-mono hidden sm:inline">15-SECOND WALKTHROUGH</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">
             Watch a $650 Job Get Saved, Tracked, and Paid

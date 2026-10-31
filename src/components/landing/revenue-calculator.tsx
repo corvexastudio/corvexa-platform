@@ -22,10 +22,9 @@ export function RevenueCalculator() {
       <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 mb-3">
-          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-          <span>REALISTIC TRADE REVENUE CALCULATOR</span>
-        </div>
+        <span className="text-xs font-mono font-bold text-rose-600 uppercase tracking-widest block mb-2">
+          02 / REVENUE LOSS CALCULATOR
+        </span>
         <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           How Much Are Missed Calls Costing Your Business?
         </h2>

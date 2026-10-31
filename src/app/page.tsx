@@ -54,37 +54,36 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#FAFAFB] text-slate-900 selection:bg-blue-600 selection:text-white font-[var(--font-sans)] antialiased overflow-x-hidden">
       
       {/* ── 1. Top Navigation Bar ── */}
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <BrandIcon className="w-8 h-8 rounded-xl shadow-xs group-hover:scale-105 transition-transform" priority />
+          <Link href="/" className="flex items-center gap-3 group">
+            <BrandIcon className="w-8 h-8 group-hover:scale-105 transition-transform" priority />
             <div className="flex flex-col">
-              <span className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
-                CaptoDesk
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold uppercase tracking-wider hidden sm:inline">
+              <div className="flex items-center gap-1.5">
+                <span className="text-lg font-black tracking-tight text-slate-900">
+                  Capto<span className="text-blue-600">Desk</span>
+                </span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold uppercase tracking-wider hidden sm:inline">
                   PRO
                 </span>
-              </span>
-              <span className="text-[9.5px] font-medium text-slate-500 tracking-wide uppercase font-mono -mt-1 hidden sm:block">
+              </div>
+              <span className="text-[10px] font-semibold text-slate-500 tracking-wide uppercase font-mono -mt-1 hidden sm:block">
                 For Trade Contractors
               </span>
             </div>
           </Link>
 
-          {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-6 text-xs sm:text-sm font-semibold text-slate-600">
+          {/* Desktop Nav Links (Streamlined High-Signal Links) */}
+          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
             <a href="#simulator" className="hover:text-blue-600 transition-colors">
-              Live Demo
+              How It Works
             </a>
             <a href="#engines" className="hover:text-blue-600 transition-colors">
-              4 Engines
+              Core Engines
             </a>
             <a href="#calculator" className="hover:text-blue-600 transition-colors">
               ROI Calculator
-            </a>
-            <a href="#comparison" className="hover:text-blue-600 transition-colors">
-              Comparison
             </a>
             <a href="#pricing" className="hover:text-blue-600 transition-colors">
               Pricing
@@ -92,9 +91,6 @@ export default function LandingPage() {
             <a href="#faq" className="hover:text-blue-600 transition-colors">
               FAQ
             </a>
-            <Link href="/contact" className="hover:text-blue-600 transition-colors">
-              Contact
-            </Link>
           </nav>
 
           {/* Action Buttons */}
@@ -116,14 +112,8 @@ export default function LandingPage() {
                   Sign In
                 </Link>
                 <Link
-                  href="/contact"
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all"
-                >
-                  Book Demo
-                </Link>
-                <Link
                   href="/client/login?mode=signup"
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/25 transition-all flex items-center gap-1"
+                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Claim Free Booking Page</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -152,14 +142,14 @@ export default function LandingPage() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-slate-50 rounded-lg"
               >
-                Live Demo
+                How It Works
               </a>
               <a
                 href="#engines"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-slate-50 rounded-lg"
               >
-                4 Engines
+                Core Engines
               </a>
               <a
                 href="#calculator"
@@ -167,13 +157,6 @@ export default function LandingPage() {
                 className="p-2 hover:bg-slate-50 rounded-lg"
               >
                 ROI Calculator
-              </a>
-              <a
-                href="#comparison"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg"
-              >
-                Comparison
               </a>
               <a
                 href="#pricing"
@@ -194,7 +177,7 @@ export default function LandingPage() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-slate-50 rounded-lg text-blue-600 font-bold"
               >
-                Contact &amp; Walkthrough
+                Contact &amp; Demo
               </Link>
             </div>
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
@@ -216,58 +199,56 @@ export default function LandingPage() {
       </header>
 
       {/* ── 2. Hero Section ── */}
-      <section className="relative pt-12 pb-16 sm:pt-20 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto text-center">
+      <section className="relative pt-12 pb-14 sm:pt-20 sm:pb-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
         {/* Soft Ambient Radial Lights */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-96 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(37,99,235,0.12),rgba(255,255,255,0))] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-96 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(37,99,235,0.10),rgba(255,255,255,0))] pointer-events-none" />
 
         <div className="space-y-6 relative z-10">
-          {/* Trade Authority Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/90 shadow-2xs">
+          {/* Editorial Category Eyebrow */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/80 shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            <span>Built for Plumbing, HVAC, Electrical, Roofing &amp; Home Services</span>
+            <span>BUILT FOR PLUMBING, HVAC, ELECTRICAL, ROOFING &amp; FIELD TRADES</span>
           </div>
 
-          {/* Primary Headline */}
+          {/* Primary Headline - Sharp, Visceral, Clean */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 leading-[1.08] max-w-4xl mx-auto">
-            Never lose another <span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-600 bg-clip-text text-transparent">$650 job</span> to voicemail.
+            Never lose another job <br className="hidden sm:inline" />
+            <span className="text-blue-600">while you&apos;re on a ladder.</span>
           </h1>
 
-          {/* Sub-Headline */}
-          <p className="text-base sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            When you&apos;re under a sink, in an attic, or driving, CaptoDesk catches missed calls in <strong>8 seconds</strong> with an automated 2-way text, tracks job arrivals live like Uber, and collects instant payment on site with Apple Pay or card.
+          {/* Sub-Headline - Direct Outcome */}
+          <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            When you can&apos;t pick up, CaptoDesk instantly texts the customer in 8 seconds, reserves the booking on your calendar, tracks your truck live, and collects payment on site with Apple Pay.
           </p>
 
           {/* Primary Call to Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto">
             <Link
               href="/client/login?mode=signup"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-slate-900/15 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
               <span>Claim Free Booking Page</span>
-              <ArrowRight className="w-4 h-4 text-emerald-400" />
+              <ArrowRight className="w-4 h-4 text-white" />
             </Link>
-            <Link
-              href="/contact"
-              className="w-full sm:w-auto px-6 py-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer"
+            <a
+              href="#simulator"
+              className="w-full sm:w-auto px-6 py-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer"
             >
-              <span>Request 10-Min Live Demo</span>
-              <ChevronRight className="w-4 h-4 text-blue-600" />
-            </Link>
+              <span>Watch 60-Sec Live Demo</span>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </a>
           </div>
 
           {/* Trust Guarantees */}
           <div className="pt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-500">
             <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Free booking page with zero credit card required
+              <Check className="w-4 h-4 text-emerald-600" /> Free booking link • Zero credit card required
             </span>
             <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Works with your existing business number
+              <Check className="w-4 h-4 text-emerald-600" /> Works with your existing number (*62)
             </span>
             <span className="flex items-center gap-1.5">
               <Check className="w-4 h-4 text-emerald-600" /> Zero customer app downloads
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Dedicated carrier line included with Pro
             </span>
           </div>
         </div>
@@ -310,36 +291,35 @@ export default function LandingPage() {
       {/* ── 4. The 4 Operational Revenue Engines (Bento Grid) ── */}
       <section id="engines" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <Wrench className="w-3.5 h-3.5 text-emerald-600" />
-            <span>BUILT FOR WORK GLOVES &amp; DUSTY TRUCKS</span>
-          </div>
+          <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
+            01 / FIELD OPERATIONS HUB
+          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             The 4 Engines That Stop Revenue Leaks
           </h2>
-          <p className="text-sm sm:text-base text-slate-600">
-            Every feature is designed to lock in jobs instantly, impress homeowners, and eliminate evening paperwork.
+          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto">
+            Engineered for work gloves and dusty trucks. Stop losing jobs, eliminate anxious &quot;Where are you?&quot; calls, and get paid before you leave the driveway.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
           
           {/* Bento 1: 8-Second Missed Call Catcher (7 Columns) */}
-          <div className="lg:col-span-7 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6">
+          <div className="lg:col-span-7 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center">
                 <PhoneMissed className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                1. The 8-Second Missed-Call Catch
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Stop losing $650 service calls to Google competitors.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                When you are in an attic, under a sink, or driving, you can&apos;t answer. 85% of missed callers immediately dial your competitor on Google Maps. CaptoDesk intercepts them in 8 seconds with an automated 2-way conversational text before they can search for anyone else.
+                85% of homeowners hang up on voicemail and immediately call the next contractor on Google. CaptoDesk intercepts them in 8 seconds with an automated 2-way conversational text, answers their emergency, and locks in their booking before they search anyone else.
               </p>
             </div>
 
             {/* Visual Chat Preview */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs font-sans">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs font-sans">
               <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 border-b border-slate-200/60 pb-2">
                 <span className="flex items-center gap-1.5 text-rose-600 font-bold">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
@@ -347,34 +327,35 @@ export default function LandingPage() {
                 </span>
                 <span>Auto-Text Sent in 6.2s</span>
               </div>
-              <div className="max-w-[90%] bg-white border border-slate-200 text-slate-800 p-2.5 rounded-xl rounded-tl-xs shadow-2xs">
-                &quot;Hey! Mike here with Apex Plumbing. Missed your call while finishing a service job—how can we help with your plumbing?&quot;
+              <div className="max-w-[90%] bg-white border border-slate-200 text-slate-800 p-3 rounded-xl rounded-tl-xs shadow-2xs leading-relaxed">
+                &quot;Hey Sarah! Mike here with Apex Plumbing. Missed your call while finishing a service job—what&apos;s going on with your plumbing?&quot;
               </div>
-              <div className="max-w-[90%] ml-auto bg-blue-600 text-white p-2.5 rounded-xl rounded-tr-xs shadow-2xs">
+              <div className="max-w-[90%] ml-auto bg-blue-600 text-white p-3 rounded-xl rounded-tr-xs shadow-2xs leading-relaxed">
                 &quot;Water heater is leaking all over my basement floor! Can someone come out today?&quot;
               </div>
-              <div className="text-[11px] text-emerald-700 font-bold text-right pt-1">
-                ✓ Homeowner stopped calling competitors • Job locked in
+              <div className="text-[11px] text-emerald-700 font-bold text-right pt-1 flex items-center justify-end gap-1">
+                <Check className="w-3.5 h-3.5" />
+                <span>Homeowner stopped calling competitors • Job locked in</span>
               </div>
             </div>
           </div>
 
           {/* Bento 2: Instant Mobile Invoicing (5 Columns) */}
-          <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6">
+          <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
                 <CreditCard className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                2. Instant On-Site Invoicing &amp; Apple Pay
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Get paid before you turn the truck key.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Homeowners tap Apple Pay, Google Pay, or card right from their live tracking link. No clunky card readers with dead batteries, no paper invoices, and no chasing overdue checks for weeks.
+                Tap &quot;Finish Job&quot; on your phone. An itemized invoice instantly appears on the homeowner&apos;s live tracking screen. They tap Apple Pay or card right from their driveway. Zero paper checks. Zero evening invoice chasing.
               </p>
             </div>
 
             {/* Visual Invoice Receipt Card */}
-            <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
+            <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3 shadow-md">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-400">Invoice #INV-2026-084:</span>
                 <span className="font-mono text-base font-bold text-white">$650.00</span>
@@ -390,59 +371,59 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-[11px] text-emerald-300 text-center font-bold">
-                ✓ Receipt texted to homeowner • Paid before backing out of driveway
+                ✓ Receipt texted to homeowner • Paid in 15 seconds
               </div>
             </div>
           </div>
 
           {/* Bento 3: Uber-Style Live GPS Arrival (5 Columns) */}
-          <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6">
+          <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
                 <Navigation className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                3. Uber-Style Live Technician ETA
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Kill &quot;Where is my technician?&quot; calls forever.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                When you tap &quot;On My Way&quot;, the customer automatically gets a link showing your technician&apos;s photo, truck, and live ETA. Completely eliminates anxious &quot;Where are you?&quot; phone calls while you&apos;re fighting traffic.
+                Tap &quot;On My Way&quot; with one thumb in your truck. The homeowner gets a live tracking link with your photo, truck, and real-time GPS arrival map. Anxious customers stay calm; your phone stays quiet.
               </p>
             </div>
 
             {/* Visual Tracker Card */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                 <span className="flex items-center gap-1.5 text-blue-600">
                   <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
                   Technician En Route
                 </span>
-                <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-[11px]">
                   ETA 12 Min
                 </span>
               </div>
-              <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-slate-200">
-                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm">
-                  👨‍🔧
+              <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center text-sm font-bold">
+                  MR
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">Mike R. (Master Tech)</p>
-                  <p className="text-[11px] text-slate-500">Apex Plumbing Truck #3</p>
+                  <p className="text-xs font-bold text-slate-900">Mike Rodriguez (Master Tech)</p>
+                  <p className="text-[11px] text-slate-500">Apex Plumbing Truck #3 • 4.9 ★ (142 reviews)</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Bento 4: 5-Star Reputation Shield (7 Columns) */}
-          <div className="lg:col-span-7 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6">
+          <div className="lg:col-span-7 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
                 <Star className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                4. Automated 5-Star Review Booster
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Dominate your local Google Maps rankings on autopilot.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                5 minutes after payment, homeowners get a 1-tap review text. 4 &amp; 5-star ratings route straight to your Google Maps listing to dominate local search. 1 to 3-star ratings are intercepted privately so you can fix issues before they become public complaints.
+                5 minutes after payment, CaptoDesk texts the customer a 1-tap review link. Happy customers are routed directly to leave 5 stars on Google. Unhappy feedback is routed privately to your inbox before it damages your public reputation.
               </p>
             </div>
 
@@ -451,7 +432,7 @@ export default function LandingPage() {
               <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
                 <div className="flex items-center gap-1 text-emerald-800 font-bold">
                   <Star className="w-4 h-4 fill-emerald-600 text-emerald-600" />
-                  <span>4 or 5 Stars</span>
+                  <span>4 or 5 Stars (Delighted)</span>
                 </div>
                 <p className="text-[11px] text-emerald-700">
                   Routes straight to your Google Business Profile to boost your SEO ranking.
@@ -461,7 +442,7 @@ export default function LandingPage() {
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 space-y-1">
                 <div className="flex items-center gap-1 text-rose-800 font-bold">
                   <ShieldCheck className="w-4 h-4 text-rose-600" />
-                  <span>1 to 3 Stars</span>
+                  <span>1 to 3 Stars (Private Shield)</span>
                 </div>
                 <p className="text-[11px] text-rose-700">
                   Sent privately to your dashboard so you can make it right before public damage.
@@ -481,14 +462,14 @@ export default function LandingPage() {
       {/* ── 6. Comparison Section ── */}
       <section id="comparison" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-            <span>THE REAL FIELD TRUTH</span>
-          </div>
+          <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
+            03 / THE FIELD TRUTH
+          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             Why Contractors Choose CaptoDesk
           </h2>
-          <p className="text-sm sm:text-base text-slate-600">
-            Compare CaptoDesk against legacy software and traditional voicemail.
+          <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto">
+            Compare CaptoDesk against traditional answering services and complex $400/mo enterprise software.
           </p>
         </div>
 
@@ -587,11 +568,10 @@ export default function LandingPage() {
 
       {/* ── 7. Transparent Pricing ── */}
       <section id="pricing" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-10">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-            <span>TRANSPARENT CONTRACTOR PRICING</span>
-          </div>
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <span className="text-xs font-mono font-bold text-emerald-600 uppercase tracking-widest block">
+            04 / TRANSPARENT PRICING
+          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             Simple Pricing. Zero Contracts.
           </h2>
