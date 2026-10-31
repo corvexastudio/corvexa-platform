@@ -163,13 +163,13 @@ export function RevenueCalculator() {
             href="/client/login?mode=signup"
             className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-extrabold text-sm shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <span>Start 30-Day Risk-Free Trial</span>
+            <span>Claim Your Free Booking Page</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Dedicated carrier number included • 30-day money-back guarantee</span>
+            <span>Free booking link included • Upgrade to Solo Pro anytime for 24/7 lead rescue</span>
           </div>
         </div>
       </div>

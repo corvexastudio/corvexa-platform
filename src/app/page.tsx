@@ -25,7 +25,7 @@ import {
   HelpCircle,
   Building,
   ExternalLink,
-  ShieldAlert
+  CalendarCheck
 } from 'lucide-react'
 import { DualPhoneSimulator } from '@/components/landing/dual-phone-simulator'
 import { RevenueCalculator } from '@/components/landing/revenue-calculator'
@@ -46,7 +46,7 @@ export default function LandingPage() {
         if (data?.user) setIsAuthenticated(true)
       })
     } catch {
-      // In case client initialization fails gracefully
+      // Graceful fallback
     }
   }, [])
 
@@ -125,7 +125,7 @@ export default function LandingPage() {
                   href="/client/login?mode=signup"
                   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/25 transition-all flex items-center gap-1"
                 >
-                  <span>Start Free Trial</span>
+                  <span>Claim Free Booking Page</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </>
@@ -208,7 +208,7 @@ export default function LandingPage() {
                 href="/client/login?mode=signup"
                 className="w-full py-2.5 text-center text-xs font-bold text-white bg-blue-600 rounded-xl shadow-sm"
               >
-                Start 30-Day Risk-Free Trial
+                Claim Free Booking Page
               </Link>
             </div>
           </div>
@@ -234,7 +234,7 @@ export default function LandingPage() {
 
           {/* Sub-Headline */}
           <p className="text-base sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            When you&apos;re under a sink, in an attic, or driving, CaptoDesk catches missed calls in <strong>8 seconds</strong> with an automated 2-way text, tracks job arrivals live like Uber, and collects payment on site with Apple Pay for just <strong>0.5% flat</strong>.
+            When you&apos;re under a sink, in an attic, or driving, CaptoDesk catches missed calls in <strong>8 seconds</strong> with an automated 2-way text, tracks job arrivals live like Uber, and collects instant payment on site with Apple Pay or card.
           </p>
 
           {/* Primary Call to Action Buttons */}
@@ -243,7 +243,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-slate-900/15 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <span>Start 30-Day Risk-Free Trial</span>
+              <span>Claim Free Booking Page</span>
               <ArrowRight className="w-4 h-4 text-emerald-400" />
             </Link>
             <Link
@@ -258,16 +258,16 @@ export default function LandingPage() {
           {/* Trust Guarantees */}
           <div className="pt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-500">
             <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-emerald-600" /> Free booking page with zero credit card required
+            </span>
+            <span className="flex items-center gap-1.5">
               <Check className="w-4 h-4 text-emerald-600" /> Works with your existing business number
             </span>
             <span className="flex items-center gap-1.5">
               <Check className="w-4 h-4 text-emerald-600" /> Zero customer app downloads
             </span>
             <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> 30-day money-back guarantee
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Carrier 10DLC registration included
+              <Check className="w-4 h-4 text-emerald-600" /> Dedicated carrier line included with Pro
             </span>
           </div>
         </div>
@@ -286,23 +286,23 @@ export default function LandingPage() {
             <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Average Text Response Time</span>
           </div>
           <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 block">0.5% Flat</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Invoicing Take-Rate (Half of Jobber)</span>
+            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 block">100% Free</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Online Booking Page Included</span>
           </div>
           <div className="p-2">
             <span className="font-mono text-3xl sm:text-4xl font-extrabold text-emerald-600 block">0 Apps</span>
             <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Zero Customer Friction (Mobile Web)</span>
           </div>
           <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-indigo-600 block">48 Hours</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Rolling Bank Payouts via Stripe</span>
+            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-indigo-600 block">Instant</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Digital On-Site Invoicing</span>
           </div>
         </div>
 
         <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[11px] font-mono text-slate-400">
           <span>✓ TELNYX TIER-1 TELECOM RAILS</span>
-          <span>✓ STRIPE CONNECT VERIFIED</span>
-          <span>✓ 10DLC CARRIER COMPLIANT</span>
+          <span>✓ 10DLC CARRIER REGISTERED</span>
+          <span>✓ TCPA COMPLIANT ARCHITECTURE</span>
           <span>✓ 99.9% UPTIME INFRASTRUCTURE</span>
         </div>
       </section>
@@ -318,7 +318,7 @@ export default function LandingPage() {
             The 4 Engines That Stop Revenue Leaks
           </h2>
           <p className="text-sm sm:text-base text-slate-600">
-            Every feature is designed to lock in jobs instantly, impress homeowners, and put money directly into your bank account.
+            Every feature is designed to lock in jobs instantly, impress homeowners, and eliminate evening paperwork.
           </p>
         </div>
 
@@ -359,38 +359,38 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Bento 2: 0.5% Invoicing & Apple Pay (5 Columns) */}
+          {/* Bento 2: Instant Mobile Invoicing (5 Columns) */}
           <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
                 <CreditCard className="w-5 h-5" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                2. 0.5% Mobile Payment &amp; Apple Pay
+                2. Instant On-Site Invoicing &amp; Apple Pay
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Homeowners tap Apple Pay or card right from their live tracking link. No card readers to charge, no paper receipts. CaptoDesk charges just <strong>0.5% flat</strong>—saving you thousands compared to CRMs charging 1.5% to 2.5% platform markups.
+                Homeowners tap Apple Pay, Google Pay, or card right from their live tracking link. No clunky card readers with dead batteries, no paper invoices, and no chasing overdue checks for weeks.
               </p>
             </div>
 
-            {/* Visual Fee Comparison Card */}
+            {/* Visual Invoice Receipt Card */}
             <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">Job Total (Diagnostic &amp; Repair):</span>
+                <span className="text-slate-400">Invoice #INV-2026-084:</span>
                 <span className="font-mono text-base font-bold text-white">$650.00</span>
               </div>
               <div className="space-y-1.5 text-[11px] pt-2 border-t border-slate-800">
-                <div className="flex justify-between text-rose-300">
-                  <span>Legacy CRM Fee (2.0% markup):</span>
-                  <span className="font-mono">-$13.00</span>
+                <div className="flex justify-between text-slate-300">
+                  <span>Service:</span>
+                  <span>Water Heater Relief Valve &amp; Flush</span>
                 </div>
                 <div className="flex justify-between text-emerald-400 font-bold">
-                  <span>CaptoDesk Platform Fee (0.5%):</span>
-                  <span className="font-mono">-$3.25</span>
+                  <span>Payment Status:</span>
+                  <span>Paid via Apple Pay (On Site)</span>
                 </div>
               </div>
               <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-[11px] text-emerald-300 text-center font-bold">
-                You keep $9.75 more on EVERY job ticket
+                ✓ Receipt texted to homeowner • Paid before backing out of driveway
               </div>
             </div>
           </div>
@@ -485,7 +485,7 @@ export default function LandingPage() {
             <span>THE REAL FIELD TRUTH</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            Why Contractors Are Ditching Clunky Software
+            Why Contractors Choose CaptoDesk
           </h2>
           <p className="text-sm sm:text-base text-slate-600">
             Compare CaptoDesk against legacy software and traditional voicemail.
@@ -525,11 +525,11 @@ export default function LandingPage() {
               <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider block">Option 2</span>
               <h3 className="text-lg font-bold text-slate-900">Jobber / ServiceTitan</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Complex enterprise platforms that require weeks of training, force customers to install apps, and take 1.5% to 2.5% of your invoice revenue.
+                Complex enterprise platforms that require weeks of training, force customers to install apps, and take excessive cuts of your revenue.
               </p>
               <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
                 <li className="flex items-start gap-2 text-amber-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> 1.5% to 2.5% invoice fee eats your profit
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Chasing late invoices and manual billing
                 </li>
                 <li className="flex items-start gap-2 text-amber-600">
                   <X className="w-4 h-4 shrink-0 mt-0.5" /> Forces customers to download an app
@@ -553,14 +553,14 @@ export default function LandingPage() {
               <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider block">The Modern Standard</span>
               <h3 className="text-xl font-bold text-slate-900">CaptoDesk Platform</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Fires in 8 seconds, gives customers an Uber-like experience with zero app downloads, and charges a flat 0.5% fee.
+                Fires in 8 seconds, gives customers an Uber-like experience with zero app downloads, and collects instant payment on site.
               </p>
               <ul className="space-y-2.5 text-xs text-slate-800 pt-2 border-t border-blue-100">
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 8-second 2-way text locks in leads
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 0.5% flat payment take-rate (save thousands)
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Instant on-site Apple Pay &amp; card checkout
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Zero customer app downloads required
@@ -569,7 +569,7 @@ export default function LandingPage() {
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Live in 2 minutes with simple carrier forwarding
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 30-day money-back guarantee
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Free booking link tier with no card required
                 </li>
               </ul>
             </div>
@@ -578,7 +578,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/20 transition-all block cursor-pointer"
             >
-              Start 30-Day Risk-Free Trial
+              Get Started Free
             </Link>
           </div>
 
@@ -596,7 +596,7 @@ export default function LandingPage() {
             Simple Pricing. Zero Contracts.
           </h2>
           <p className="text-xs sm:text-sm text-slate-600">
-            One extra booked job covers your entire year of CaptoDesk. Choose the tier that matches your business size.
+            Claim your free booking page today, or choose a Pro tier to activate 24/7 missed-call rescue.
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -628,12 +628,10 @@ export default function LandingPage() {
             </button>
           </div>
 
-          {/* Setup Fee Waived Pill */}
           <div className="pt-2">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span><strong>Limited Launch Special:</strong> White-glove carrier 10DLC registration &amp; dedicated number fee (<span className="line-through text-slate-400">$199 - $299</span>) is <strong>100% WAIVED ($0.00)</strong> with any Pro plan!</span>
-            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              Dedicated business phone number and carrier setup included with all Pro plans.
+            </span>
           </div>
         </div>
 
@@ -645,7 +643,7 @@ export default function LandingPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-                  FREE TIER
+                  FREE FOREVER
                 </span>
                 <span className="text-xs text-slate-500 font-mono">Solo Tradesman</span>
               </div>
@@ -655,21 +653,21 @@ export default function LandingPage() {
                   <span className="text-4xl font-extrabold text-slate-900 font-mono">$0</span>
                   <span className="text-xs font-semibold text-slate-500">/ forever</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Basic emergency web profile &amp; booking page.</p>
+                <p className="text-xs text-slate-500 mt-1">Free public booking link for your website &amp; cards.</p>
               </div>
 
               <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-100 pt-4">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Public customer booking link (book.captodesk.com)</span>
+                  <span><strong>Dedicated booking link</strong> (book.captodesk.com/your-business)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Basic job scheduling &amp; calendar</span>
+                  <span>Self-service customer appointment scheduling</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Manual invoice creation</span>
+                  <span>Job calendar &amp; manual invoice creation</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-400">
                   <X className="w-4 h-4 shrink-0" />
@@ -684,9 +682,9 @@ export default function LandingPage() {
 
             <Link
               href="/client/login?mode=signup"
-              className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs text-center transition-all block"
+              className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs text-center transition-all block cursor-pointer"
             >
-              Get Started Free
+              Claim Free Booking Link
             </Link>
           </div>
 
@@ -731,7 +729,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span><strong>0.5% Flat Invoicing</strong> via Stripe Connect &amp; Apple Pay</span>
+                  <span><strong>Instant Mobile Invoicing</strong> &amp; Apple Pay checkout</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -748,7 +746,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/25 transition-all block cursor-pointer"
             >
-              Start 30-Day Risk-Free Trial
+              Get Started with Solo Pro
             </Link>
           </div>
 
@@ -818,23 +816,23 @@ export default function LandingPage() {
         <FaqSection />
       </section>
 
-      {/* ── 9. Final High-Trust Risk-Free Guarantee Banner ── */}
+      {/* ── 9. Final High-Trust CTA Banner ── */}
       <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="rounded-3xl border border-slate-200/90 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white p-8 sm:p-14 text-center space-y-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold">
-            <ShieldCheck className="w-4 h-4" />
-            <span>100% UNCONDITIONAL 30-DAY GUARANTEE</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold">
+            <CalendarCheck className="w-4 h-4" />
+            <span>START WITH A FREE BOOKING PAGE</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight max-w-3xl mx-auto leading-tight">
-            Try CaptoDesk on Your Next 20 Service Calls. If You Don&apos;t Save at Least 2 Jobs, You Pay Nothing.
+            Stop Losing Jobs While You&apos;re on Ladders. Get Started Today.
           </h2>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Activate CaptoDesk on your next 20 service calls. If you don&apos;t save at least two jobs that would have slipped through the cracks to a competitor, we will refund 100% of your software fee with no hassle.
+            Claim your free personalized booking link in 60 seconds with no credit card required, or upgrade to Solo Pro to activate 24/7 automated missed-call rescue and live arrival tracking.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -842,14 +840,14 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Activate CaptoDesk Pro Risk-Free</span>
+              <span>Claim Free Booking Page</span>
               <ArrowRight className="w-4 h-4 text-emerald-300" />
             </Link>
             <Link
               href="/contact"
               className="w-full sm:w-auto px-6 py-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Request 10-Min Walkthrough</span>
+              <span>Request 10-Min Live Demo</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </Link>
           </div>
@@ -893,7 +891,7 @@ export default function LandingPage() {
 
         <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
           <p>© {new Date().getFullYear()} CaptoDesk Platform. All rights reserved. 10DLC &amp; TCPA Compliant Carrier Architecture.</p>
-          <p>Carrier Telephony Powered by Telnyx Tier-1 Telecom Rails • Payments by Stripe Connect</p>
+          <p>Carrier Telephony Powered by Telnyx Tier-1 Telecom Rails</p>
         </div>
       </footer>
 

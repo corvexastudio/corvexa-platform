@@ -128,9 +128,9 @@ export default function ContactPage() {
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900">30-Day Money-Back Guarantee</h3>
+                  <h3 className="text-xs font-bold text-slate-900">Month-to-Month Freedom</h3>
                   <p className="text-[12px] text-slate-500 mt-0.5 leading-snug">
-                    If CaptoDesk doesn&apos;t save you at least two jobs in your first month, we refund 100% of your fee.
+                    Zero annual lock-ins. Keep your dedicated carrier number as long as you want and pause or cancel anytime.
                   </p>
                 </div>
               </div>

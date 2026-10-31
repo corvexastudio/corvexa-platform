@@ -106,7 +106,7 @@ export function DualPhoneSimulator() {
           {
             stage: 3 as DemoStage,
             number: '03',
-            title: '0.5% Mobile Payment',
+            title: 'Instant Mobile Payment',
             desc: 'Homeowner taps Apple Pay on the spot',
             icon: CreditCard,
             color: 'text-emerald-500'
@@ -282,12 +282,12 @@ export function DualPhoneSimulator() {
                       <span className="font-mono text-base font-bold text-white">$385.00</span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
-                      <span>CaptoDesk Platform Fee (0.5%):</span>
-                      <span className="font-mono text-slate-300">-$1.93</span>
+                      <span>Payment Method:</span>
+                      <span className="font-mono text-emerald-300">Apple Pay (Instant)</span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
-                      <span>Depositing to your bank:</span>
-                      <span className="font-mono text-emerald-400">$383.07</span>
+                      <span>Payment Status:</span>
+                      <span className="font-mono text-emerald-400">✓ Paid in Full</span>
                     </div>
                   </div>
 
@@ -296,7 +296,7 @@ export function DualPhoneSimulator() {
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Paid via Apple Pay (Just now)
                     </span>
-                    <p className="text-[10px] text-slate-400">Funds rolling to your linked bank account via Stripe Connect.</p>
+                    <p className="text-[10px] text-slate-400">Digital receipt texted to customer automatically. No chasing checks.</p>
                   </div>
 
                   <button
@@ -494,9 +494,9 @@ export function DualPhoneSimulator() {
                         <span>Diagnostic &amp; Parts:</span>
                         <span className="font-mono text-slate-300">$385.00</span>
                       </div>
-                      <div className="flex justify-between text-slate-500 text-[10px]">
-                        <span>Secure Checkout via Stripe:</span>
-                        <span>0.5% standard fee</span>
+                      <div className="flex justify-between text-emerald-400 text-[10px]">
+                        <span>Instant Digital Receipt:</span>
+                        <span>Sent via SMS</span>
                       </div>
                     </div>
 
@@ -603,7 +603,7 @@ export function DualPhoneSimulator() {
           href="/client/login?mode=signup"
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs whitespace-nowrap shadow-sm transition-all"
         >
-          <span>Get Started Today</span>
+          <span>Claim Free Booking Page</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
