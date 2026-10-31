@@ -29,7 +29,8 @@ export default function ContactPage() {
     email: '',
     trade: 'hvac',
     fleetSize: '1',
-    message: ''
+    message: '',
+    smsConsent: false
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -44,16 +45,16 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFB] text-slate-900 selection:bg-emerald-500 selection:text-white font-[var(--font-sans)] antialiased">
+    <div className="min-h-screen bg-[#FAFAFB] text-slate-900 selection:bg-blue-600 selection:text-white font-[var(--font-sans)] antialiased">
       {/* ── Top Header ── */}
       <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <BrandIcon className="w-8 h-8 rounded-xl shadow-xs group-hover:scale-105 transition-transform" priority />
+            <BrandIcon className="w-8 h-8 group-hover:scale-105 transition-transform" priority />
             <div className="flex flex-col">
               <span className="text-base font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
-                CaptoDesk
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold uppercase tracking-wider">
+                Capto<span className="text-blue-600">Desk</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold uppercase tracking-wider">
                   CONTACT
                 </span>
               </span>
@@ -70,7 +71,7 @@ export default function ContactPage() {
             </Link>
             <Link
               href="/client/login"
-              className="hidden sm:inline-flex px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all shadow-sm shadow-emerald-600/20"
+              className="hidden sm:inline-flex px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-sm shadow-blue-600/20"
             >
               Sign In
             </Link>
@@ -85,8 +86,8 @@ export default function ContactPage() {
           {/* Left Column: Context & Proof */}
           <div className="lg:col-span-5 space-y-6">
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                 <span>Trade Specialist Consultation</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
@@ -100,7 +101,7 @@ export default function ContactPage() {
             {/* Benefit Highlights */}
             <div className="space-y-3 pt-2">
               <div className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                   <Clock className="w-4 h-4" />
                 </div>
                 <div>
@@ -112,7 +113,7 @@ export default function ContactPage() {
               </div>
 
               <div className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                   <Truck className="w-4 h-4" />
                 </div>
                 <div>
@@ -124,7 +125,7 @@ export default function ContactPage() {
               </div>
 
               <div className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
+                <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
@@ -141,11 +142,11 @@ export default function ContactPage() {
               <span className="font-bold text-slate-800 block">Direct Support & Inquiries:</span>
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-slate-500" />
-                <span>General: <a href="mailto:support@captodesk.com" className="text-emerald-700 font-medium hover:underline">support@captodesk.com</a></span>
+                <span>General: <a href="mailto:support@captodesk.com" className="text-blue-600 font-medium hover:underline">support@captodesk.com</a></span>
               </div>
               <div className="flex items-center gap-2">
                 <Building className="w-3.5 h-3.5 text-slate-500" />
-                <span>Carrier Compliance: <a href="mailto:privacy@captodesk.com" className="text-emerald-700 font-medium hover:underline">privacy@captodesk.com</a></span>
+                <span>Carrier Compliance: <a href="mailto:privacy@captodesk.com" className="text-blue-600 font-medium hover:underline">privacy@captodesk.com</a></span>
               </div>
             </div>
           </div>
@@ -197,7 +198,7 @@ export default function ContactPage() {
                           placeholder="Mike Johnson"
                           value={formData.name}
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
                         />
                       </div>
                     </div>
@@ -215,7 +216,7 @@ export default function ContactPage() {
                           placeholder="Johnson HVAC & Plumbing"
                           value={formData.businessName}
                           onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
                         />
                       </div>
                     </div>
@@ -235,7 +236,7 @@ export default function ContactPage() {
                           placeholder="(555) 234-5678"
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
                         />
                       </div>
                     </div>
@@ -253,7 +254,7 @@ export default function ContactPage() {
                           placeholder="mike@johnsonhvac.com"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900"
                         />
                       </div>
                     </div>
@@ -270,7 +271,7 @@ export default function ContactPage() {
                         <select
                           value={formData.trade}
                           onChange={(e) => setFormData({ ...formData, trade: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900 cursor-pointer"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900 cursor-pointer"
                         >
                           <option value="hvac">HVAC / Heating & Air</option>
                           <option value="plumbing">Plumbing</option>
@@ -293,7 +294,7 @@ export default function ContactPage() {
                         <select
                           value={formData.fleetSize}
                           onChange={(e) => setFormData({ ...formData, fleetSize: e.target.value })}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900 cursor-pointer"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900 cursor-pointer"
                         >
                           <option value="1">Solo Operator (1 Tech)</option>
                           <option value="2-5">2 to 5 Trucks / Technicians</option>
@@ -314,26 +315,35 @@ export default function ContactPage() {
                       placeholder="e.g. Missing calls while on roofs, want Uber-style tracking for our 3 trucks..."
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden bg-slate-50/50 text-slate-900 resize-none"
+                      className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-hidden bg-slate-50/50 text-slate-900 resize-none"
                     />
                   </div>
 
-                  {/* ── MANDATORY CARRIER B2B SMS OPT-IN DISCLOSURE BLOCK ── */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-[11px] text-slate-600 space-y-1.5 leading-relaxed">
+                  {/* ── MANDATORY 10DLC / TCPA EXPLICIT SMS OPT-IN CHECKBOX ── */}
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                     <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>SMS Communication Consent &amp; Privacy Notice</span>
+                      <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>SMS Communication &amp; Privacy Consent</span>
                     </div>
-                    <p className="text-[10.5px] text-slate-500">
-                      By providing your mobile phone number and clicking <strong>&quot;Request 10-Min Walkthrough&quot;</strong>, you authorize CaptoDesk to contact you via SMS regarding your walkthrough scheduling, product demonstration, and account onboarding updates. Consent is not a condition of purchasing any software or services. Message frequency varies. Standard message and data rates may apply. You may cancel at any time by replying <strong>STOP</strong>. Reply <strong>HELP</strong> for assistance.
-                    </p>
-                    <div className="pt-1 text-[10px] text-slate-500 flex items-center gap-2">
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={formData.smsConsent}
+                        onChange={(e) => setFormData({ ...formData, smsConsent: e.target.checked })}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                      />
+                      <span className="text-[11px] text-slate-600 leading-relaxed">
+                        I agree to receive SMS text messages from <strong>CaptoDesk</strong> regarding my walkthrough scheduling, product demonstration, and account onboarding updates at the mobile number provided above. Consent is not a condition of purchase. Message frequency varies. Standard message and data rates may apply. Reply <strong>STOP</strong> to cancel at any time, or reply <strong>HELP</strong> for assistance.
+                      </span>
+                    </label>
+                    <div className="pt-1.5 border-t border-slate-200/80 text-[10px] text-slate-500 flex items-center gap-2">
                       <span>View our:</span>
-                      <Link href="/privacy" target="_blank" className="text-emerald-700 hover:underline font-semibold">
+                      <Link href="/privacy" target="_blank" className="text-blue-600 hover:underline font-semibold">
                         Privacy Policy
                       </Link>
                       <span>•</span>
-                      <Link href="/terms" target="_blank" className="text-emerald-700 hover:underline font-semibold">
+                      <Link href="/terms" target="_blank" className="text-blue-600 hover:underline font-semibold">
                         Terms of Service
                       </Link>
                     </div>
@@ -344,7 +354,7 @@ export default function ContactPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                       {loading ? (
                         <>
