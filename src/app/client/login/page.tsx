@@ -1,11 +1,12 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BrandIcon } from '@/components/brand/brand-logo'
-import { Mail, Loader2, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, AlertCircle, Check, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -34,6 +35,8 @@ function GoogleIcon({ className }: { className?: string }) {
 function LoginContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
+  const isSignUp = searchParams.get('mode') === 'signup'
+
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -63,7 +66,6 @@ function LoginContent() {
     e.preventDefault()
     if (!email) return
     setLoading(true)
-    // Use the auth/callback route so the PKCE code can be exchanged server-side
     const callbackUrl = `${window.location.origin}/client/auth/callback?next=/client/dashboard`
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -75,146 +77,230 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-[#FAFAFB] text-slate-900 font-[var(--font-sans)] antialiased">
 
-      {/* ── Left panel — brand (hidden on mobile) ── */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-zinc-950 px-14 py-12">
-        <div className="flex items-center gap-3">
-          <BrandIcon className="h-10 w-10 rounded-xl" size={40} priority />
-          <span className="text-white text-xl font-bold tracking-tight">CaptoDesk</span>
+      {/* ── Left panel — brand showcase (hidden on small mobile, visible on desktop) ── */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-gradient-to-br from-[#070D1E] via-[#0B1528] to-[#050B17] text-white p-12 lg:p-16 relative overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
+          <Link href="/" className="inline-flex items-center gap-3 group">
+            <BrandIcon className="h-9 w-9 group-hover:scale-105 transition-transform" size={36} priority />
+            <div className="flex flex-col">
+              <span className="text-white text-xl font-extrabold tracking-tight">
+                Capto<span className="text-blue-400">Desk</span>
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+                The Field Operations System
+              </span>
+            </div>
+          </Link>
         </div>
 
-        <div>
-          <p className="text-5xl font-bold text-white leading-tight tracking-tight mb-6">
-            Stop losing leads<br />
-            to missed calls.<br />
-            <span className="text-zinc-400">Get more reviews.</span>
+        <div className="relative z-10 space-y-6 max-w-lg my-auto py-8">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-500/15 border border-blue-400/25 text-blue-300 text-xs font-mono">
+            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+            <span>BUILT FOR TRADESMEN &amp; CONTRACTORS</span>
+          </div>
+
+          <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
+            Never lose another job while you&apos;re on a ladder.
+          </h1>
+
+          <p className="text-slate-300 text-base lg:text-lg leading-relaxed">
+            Your missed calls caught in 8 seconds, appointments booked online, truck arrivals tracked live, and payment collected on site with Apple Pay.
           </p>
-          <p className="text-zinc-500 text-lg leading-relaxed max-w-sm">
-            Your missed-call texts, review requests, and lead alerts run on their own while you work.
-          </p>
+
+          <div className="space-y-3 pt-2 text-sm text-slate-200">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span><strong>Free online booking link</strong> for your website, cards &amp; truck wraps</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span><strong>Works with your existing number</strong> with simple forwarding (*62)</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span><strong>Zero customer app downloads</strong> or complicated passwords</span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-8">
-          <div>
-            <p className="text-2xl font-bold text-white">87%</p>
-            <p className="text-zinc-500 text-sm mt-0.5">of missed calls never call back</p>
+        <div className="relative z-10 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>10DLC Certified • TCPA Compliant Architecture</span>
           </div>
-          <div>
-            <p className="text-2xl font-bold text-white">3×</p>
-            <p className="text-zinc-500 text-sm mt-0.5">more reviews with automated follow-up</p>
-          </div>
+          <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
+            <span>Back to captodesk.com</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
 
-      {/* ── Right panel — form ── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 bg-slate-50 dark:bg-zinc-950 min-h-screen">
-
-        {/* Mobile brand mark */}
-        <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-          <BrandIcon className="h-10 w-10 rounded-xl shadow-xs" size={40} priority />
-          <span className="text-slate-900 dark:text-zinc-100 text-xl font-bold tracking-tight">CaptoDesk</span>
+      {/* ── Right panel — Form ── */}
+      <div className="flex flex-1 flex-col justify-between p-6 sm:p-12 lg:p-16 min-h-screen">
+        {/* Top bar for mobile */}
+        <div className="flex items-center justify-between lg:hidden mb-8">
+          <Link href="/" className="flex items-center gap-2">
+            <BrandIcon className="h-8 w-8" size={32} priority />
+            <span className="text-slate-900 text-lg font-extrabold tracking-tight">Capto<span className="text-blue-600">Desk</span></span>
+          </Link>
+          <Link href="/" className="text-xs font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </Link>
         </div>
 
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-md mx-auto my-auto py-6">
           {!sent ? (
-            <>
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-sm space-y-6">
               {linkError && (
-                <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-sm rounded-xl px-4 py-3 mb-6">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm rounded-xl p-4">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
                   <div>
-                    <p className="font-semibold">That link has expired</p>
-                    <p className="text-red-600 dark:text-red-400 mt-0.5">Sign-in links only work once and expire after 1 hour. Enter your email below to get a new one.</p>
+                    <p className="font-bold">That sign-in link has expired</p>
+                    <p className="text-rose-700 mt-0.5 leading-snug">Sign-in links only work once and expire after 1 hour. Enter your email below to get a fresh link.</p>
                   </div>
                 </div>
               )}
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-zinc-100 mb-1.5 tracking-tight">Sign in to CaptoDesk</h1>
-              <p className="text-sm text-slate-500 dark:text-zinc-400 mb-6 leading-relaxed">
-                Access your front desk, message inbox, and dispatch board.
-              </p>
+
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {isSignUp ? 'Claim Your Free Booking Page' : 'Sign in to CaptoDesk'}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
+                  {isSignUp
+                    ? 'Get your dedicated contractor booking link in 60 seconds. Zero credit card required.'
+                    : 'Access your dispatch calendar, message inbox, and customer leads.'}
+                </p>
+              </div>
 
               {/* ── 1-Click Google OAuth button ── */}
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={googleLoading || loading}
-                className="w-full h-11 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-100 text-sm font-semibold rounded-lg border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
+                className="w-full h-12 bg-white hover:bg-slate-50 text-slate-800 text-sm font-bold rounded-xl border border-slate-300 hover:border-slate-400 shadow-2xs flex items-center justify-center gap-3 transition-all disabled:opacity-60 cursor-pointer"
               >
                 {googleLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin text-slate-400 dark:text-zinc-500" />
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
                     <span>Connecting to Google...</span>
                   </>
                 ) : (
                   <>
                     <GoogleIcon className="h-5 w-5 shrink-0" />
-                    <span>Continue with Google</span>
+                    <span>{isSignUp ? 'Continue with Google' : 'Sign in with Google'}</span>
                   </>
                 )}
               </button>
 
-              <div className="relative my-6">
+              <div className="relative my-2">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200 dark:border-zinc-800" />
+                  <div className="w-full border-t border-slate-200" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-50 dark:bg-zinc-950 px-3 text-slate-400 dark:text-zinc-500 font-medium tracking-wider">
-                    Or continue with email
+                  <span className="bg-white px-3 text-slate-400 font-mono font-medium">
+                    Or with work email
                   </span>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5" htmlFor="email">
-                    Email address
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="email">
+                    Work Email Address
                   </label>
                   <input
                     id="email"
                     type="email"
-                    placeholder="you@yourbusiness.com"
+                    placeholder="mike@apexplumbing.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     autoCapitalize="none"
                     autoComplete="email"
                     required
-                    className="w-full h-11 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3.5 text-base sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all shadow-2xs"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-60 shadow-sm"
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white text-sm font-extrabold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-60 shadow-md shadow-blue-600/25 cursor-pointer"
                 >
                   {loading ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Sending sign-in link...</>
                   ) : (
-                    <>Send sign-in link <ArrowRight className="h-4 w-4" /></>
+                    <>
+                      <span>{isSignUp ? 'Claim Free Booking Link' : 'Send Sign-In Link'}</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
                   )}
                 </button>
               </form>
-            </>
+
+              {/* Mode switch */}
+              <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-100">
+                {isSignUp ? (
+                  <p>
+                    Already have an account?{' '}
+                    <Link href="/client/login" className="text-blue-600 font-bold hover:underline">
+                      Sign in here
+                    </Link>
+                  </p>
+                ) : (
+                  <p>
+                    New to CaptoDesk?{' '}
+                    <Link href="/client/login?mode=signup" className="text-blue-600 font-bold hover:underline">
+                      Claim your free booking page
+                    </Link>
+                  </p>
+                )}
+              </div>
+            </div>
           ) : (
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="h-16 w-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+            <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center gap-4">
+              <div className="h-16 w-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mb-2 tracking-tight">Check your inbox</h2>
-                <p className="text-slate-500 dark:text-zinc-400 leading-relaxed">
-                  We sent a sign-in link to<br />
-                  <strong className="text-slate-900 dark:text-zinc-100">{email}</strong>
+                <h2 className="text-2xl font-extrabold text-slate-900 mb-2 tracking-tight">Check your email</h2>
+                <p className="text-slate-600 leading-relaxed text-sm">
+                  We sent a secure sign-in link to<br />
+                  <strong className="text-slate-900 font-bold">{email}</strong>
                 </p>
               </div>
-              <p className="text-sm text-slate-400 dark:text-zinc-500">Tap the link in the email to sign in.</p>
+              <p className="text-xs text-slate-500">Tap the link in your email to instantly open your dashboard.</p>
               <button
+                type="button"
                 onClick={() => setSent(false)}
-                className="text-sm text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 underline underline-offset-4 transition-colors mt-2"
+                className="text-xs text-slate-500 hover:text-slate-900 underline underline-offset-4 transition-colors mt-2 cursor-pointer"
               >
-                Use a different email
+                Use a different email address
               </button>
             </div>
           )}
+        </div>
+
+        {/* Footer legal links */}
+        <div className="text-center text-xs text-slate-400 py-4 flex flex-wrap items-center justify-center gap-4">
+          <span>© {new Date().getFullYear()} CaptoDesk Platform</span>
+          <span>•</span>
+          <Link href="/privacy" className="hover:text-slate-700 transition-colors">Privacy Policy</Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-slate-700 transition-colors">Terms of Service</Link>
+          <span>•</span>
+          <Link href="/contact" className="hover:text-slate-700 transition-colors">Contact Support</Link>
         </div>
       </div>
     </div>
@@ -223,7 +309,11 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950"><Loader2 className="h-6 w-6 animate-spin text-slate-400 dark:text-zinc-500" /></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFB]">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    }>
       <LoginContent />
     </Suspense>
   )
