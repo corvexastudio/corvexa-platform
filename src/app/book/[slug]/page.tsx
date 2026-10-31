@@ -960,9 +960,35 @@ export default function PublicBookingPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500 dark:text-zinc-400">
-              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>No account required. You will receive a direct link to reschedule or cancel anytime.</span>
+            {/* Carrier-Compliant SMS Opt-In & Privacy Disclosure Card */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 space-y-2">
+              <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-200 font-semibold text-xs">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Instant Confirmation & Flexible Management</span>
+              </div>
+              <p className="leading-relaxed text-[11px] text-slate-500 dark:text-zinc-400">
+                No account required. You will receive a direct link to reschedule or cancel anytime.
+              </p>
+              <div className="pt-1.5 border-t border-slate-200/80 dark:border-zinc-800/80 text-[10.5px] text-slate-500 dark:text-zinc-500 leading-relaxed">
+                By providing your mobile number and clicking <strong className="text-slate-700 dark:text-zinc-300 font-medium">{org.booking_mode === 'instant' ? 'Confirm Appointment' : 'Submit Booking Request'}</strong>, you consent to receive appointment notifications, reminders, and service text messages from <span className="font-semibold text-slate-700 dark:text-zinc-300">{org.name}</span> powered by CaptoDesk. Consent is not a condition of service. Msg &amp; data rates may apply. Msg frequency varies. Reply <strong>STOP</strong> to cancel or <strong>HELP</strong> for assistance. View{' '}
+                <a
+                  href="https://captodesk.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-emerald-400 hover:underline font-medium"
+                >
+                  Privacy Policy
+                </a>{' '}
+                and{' '}
+                <a
+                  href="https://captodesk.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-emerald-400 hover:underline font-medium"
+                >
+                  Terms
+                </a>.
+              </div>
             </div>
 
             <div className="flex gap-3 pt-3">

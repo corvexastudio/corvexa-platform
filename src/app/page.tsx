@@ -848,12 +848,22 @@ export default function LandingPage() {
             <a href="#faq" className="hover:text-zinc-300 transition-colors">
               FAQ
             </a>
+            <Link href="/privacy" className="hover:text-zinc-300 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-zinc-300 transition-colors">
+              Terms of Service
+            </Link>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-zinc-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-600">
           <p>© {new Date().getFullYear()} CaptoDesk Platform. All rights reserved. 10DLC & TCPA Compliant Carrier Architecture.</p>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:underline">Privacy</Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:underline">Terms</Link>
+            <span>•</span>
             <span>Powered by Telnyx & Stripe Connect</span>
           </div>
         </div>
