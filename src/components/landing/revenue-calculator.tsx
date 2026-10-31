@@ -160,10 +160,10 @@ export function RevenueCalculator() {
           </div>
 
           <Link
-            href="/client/login"
-            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-md shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
+            href="/client/login?mode=signup"
+            className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-extrabold text-sm shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <span>Activate CaptoDesk Pro</span>
+            <span>Start 30-Day Risk-Free Trial</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
 
