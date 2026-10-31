@@ -1310,7 +1310,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Apple Pay &amp; Card Invoicing (0.5% flat)</span>
+                              <span>Apple Pay &amp; Digital Invoicing</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />

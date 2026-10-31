@@ -61,7 +61,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
       'Instant 8-second AI missed-call recovery text-back',
       'Public booking page & customer self-scheduling',
       'Mobile Field Portal (GPS navigation & job photos)',
-      '1-tap mobile card & Apple Pay invoicing (0.5% flat)',
+      '1-tap mobile card & Apple Pay on-site invoicing',
       'Live Domino\'s tracking links (/t/[token])',
       'Automated 5-star Google review booster & shield'
     ]
@@ -84,7 +84,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
       'Instant 8-second AI missed-call recovery text-back',
       'Public booking page & customer self-scheduling',
       'Mobile Field Portal (GPS navigation & job photos)',
-      '1-tap mobile card & Apple Pay invoicing (0.5% flat)',
+      '1-tap mobile card & Apple Pay on-site invoicing',
       'Live Domino\'s tracking links (/t/[token])',
       'Automated 5-star Google review booster & shield'
     ]

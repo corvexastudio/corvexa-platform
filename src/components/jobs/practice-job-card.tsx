@@ -284,7 +284,7 @@ export function PracticeJobCard({ job, onDismiss, currentPlanId = 'free' }: Prac
               </span>
             </div>
             <p className="text-[11px] text-slate-600 dark:text-zinc-400">
-              Your customer pays instantly on their phone. Funds settle directly to your bank account with low 0.5% flat SaaS payment rates.
+              Your customer pays instantly on their phone. Funds settle directly to your connected bank account with instant verification.
             </p>
           </div>
 

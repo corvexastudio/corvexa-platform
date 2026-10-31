@@ -162,8 +162,8 @@ export default function TermsOfServicePage() {
             </div>
 
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/60 space-y-1">
-              <span className="font-bold text-zinc-200 block">30-Day Money-Back Guarantee</span>
-              <span>If you are not satisfied with CaptoDesk during your first 30 days of active service, you may request a 100% refund of your initial software fee. Telephony usage charges or carrier setup fees (when not explicitly waived) are non-refundable.</span>
+              <span className="font-bold text-zinc-200 block">Month-to-Month Freedom &amp; Transparent Billing</span>
+              <span>Paid subscriptions operate on a month-to-month basis with zero long-term commitments. Telephony usage charges or carrier setup fees are non-refundable once provisioned with carriers.</span>
             </div>
 
             <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/60 space-y-1">
