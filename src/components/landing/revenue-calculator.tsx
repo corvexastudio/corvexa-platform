@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { DollarSign, AlertTriangle, ArrowRight, ShieldCheck, TrendingUp, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { DollarSign, AlertTriangle, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react'
 
 export function RevenueCalculator() {
   const [callsPerWeek, setCallsPerWeek] = useState<number>(6)
@@ -16,20 +17,20 @@ export function RevenueCalculator() {
   const projectedRecovery = Math.round(annualLostRevenue * 0.68) // 68% average recovery rate via instant SMS text-back
 
   return (
-    <div className="w-full max-w-5xl mx-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-6 sm:p-10 shadow-2xl relative overflow-hidden">
-      {/* Decorative background glow */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="w-full max-w-5xl mx-auto rounded-3xl border border-slate-200 bg-white p-6 sm:p-10 shadow-sm relative overflow-hidden">
+      {/* Decorative ambient gradient */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-3">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>THE UNANSWERED CALL REVENUE BLEED</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 mb-3">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+          <span>REALISTIC TRADE REVENUE CALCULATOR</span>
         </div>
-        <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+        <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           How Much Are Missed Calls Costing Your Business?
         </h2>
-        <p className="text-sm sm:text-base text-zinc-400 mt-2">
-          When a homeowner with an emergency reaches your voicemail, they don&apos;t wait. They hang up and call the next contractor on Google Maps. Slide the numbers below to see your leak.
+        <p className="text-sm sm:text-base text-slate-600 mt-2">
+          When a homeowner with an urgent service need hits voicemail, they hang up and call the next contractor on Google Maps. Adjust the numbers below to see what you could be recovering.
         </p>
       </div>
 
@@ -37,13 +38,13 @@ export function RevenueCalculator() {
         {/* Sliders Input Column */}
         <div className="lg:col-span-7 space-y-6">
           {/* Slider 1: Unanswered Calls */}
-          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
             <div className="flex justify-between items-center">
-              <label htmlFor="calls-per-week-slider" className="text-xs sm:text-sm font-semibold text-zinc-200">
+              <label htmlFor="calls-per-week-slider" className="text-xs sm:text-sm font-bold text-slate-800">
                 Unanswered calls while working or driving:
               </label>
-              <span className="font-mono text-base font-bold text-rose-400">
-                {callsPerWeek} <span className="text-xs font-normal text-zinc-500">calls / week</span>
+              <span className="font-mono text-base font-extrabold text-rose-600">
+                {callsPerWeek} <span className="text-xs font-normal text-slate-500">calls / week</span>
               </span>
             </div>
             <input
@@ -55,9 +56,9 @@ export function RevenueCalculator() {
               value={callsPerWeek}
               onChange={(e) => setCallsPerWeek(Number(e.target.value))}
               aria-label="Unanswered calls while working or driving"
-              className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-rose-600"
             />
-            <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono">
               <span>1 call/wk</span>
               <span>12 calls/wk</span>
               <span>25 calls/wk</span>
@@ -65,13 +66,13 @@ export function RevenueCalculator() {
           </div>
 
           {/* Slider 2: Average Ticket Value */}
-          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
             <div className="flex justify-between items-center">
-              <label htmlFor="avg-ticket-slider" className="text-xs sm:text-sm font-semibold text-zinc-200">
-                Average job ticket price:
+              <label htmlFor="avg-ticket-slider" className="text-xs sm:text-sm font-bold text-slate-800">
+                Average job ticket size:
               </label>
-              <span className="font-mono text-base font-bold text-white">
-                ${avgTicket.toLocaleString()} <span className="text-xs font-normal text-zinc-500">per job</span>
+              <span className="font-mono text-base font-extrabold text-slate-900">
+                ${avgTicket.toLocaleString()} <span className="text-xs font-normal text-slate-500">per job</span>
               </span>
             </div>
             <input
@@ -83,23 +84,23 @@ export function RevenueCalculator() {
               value={avgTicket}
               onChange={(e) => setAvgTicket(Number(e.target.value))}
               aria-label="Average job ticket price"
-              className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
             />
-            <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono">
               <span>$150 (Service call)</span>
-              <span>$1,500 (Water heater)</span>
-              <span>$3,500+ (Full install)</span>
+              <span>$1,500 (Water heater/Panel)</span>
+              <span>$3,500+ (Full replacement)</span>
             </div>
           </div>
 
           {/* Slider 3: Close Rate */}
-          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
             <div className="flex justify-between items-center">
-              <label htmlFor="close-rate-slider" className="text-xs sm:text-sm font-semibold text-zinc-200">
-                Your estimated close rate if you respond first:
+              <label htmlFor="close-rate-slider" className="text-xs sm:text-sm font-bold text-slate-800">
+                Estimated booking rate if you respond immediately:
               </label>
-              <span className="font-mono text-base font-bold text-cyan-400">
-                {closeRate}% <span className="text-xs font-normal text-zinc-500">booked</span>
+              <span className="font-mono text-base font-extrabold text-emerald-700">
+                {closeRate}% <span className="text-xs font-normal text-slate-500">booked</span>
               </span>
             </div>
             <input
@@ -111,66 +112,64 @@ export function RevenueCalculator() {
               value={closeRate}
               onChange={(e) => setCloseRate(Number(e.target.value))}
               aria-label="Your estimated close rate if you respond first"
-              className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
             />
-            <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
-              <span>20% (Low)</span>
-              <span>45% (Industry avg)</span>
-              <span>80% (High referrals)</span>
+            <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+              <span>20% (Conservative)</span>
+              <span>45% (Trade average)</span>
+              <span>80% (Repeat/High trust)</span>
             </div>
           </div>
         </div>
 
         {/* Calculated Results Card */}
-        <div className="lg:col-span-5 bg-gradient-to-b from-zinc-900 to-zinc-950 p-6 sm:p-7 rounded-2xl border-2 border-rose-500/30 shadow-xl space-y-6">
+        <div className="lg:col-span-5 bg-slate-900 p-6 sm:p-7 rounded-3xl text-white shadow-xl space-y-6">
           <div>
             <span className="text-[11px] font-mono font-bold uppercase text-rose-400 tracking-wider block mb-1">
-              Estimated Revenue Leaked to Competitors
+              Estimated Missed Opportunity
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl sm:text-5xl font-extrabold text-white font-mono tracking-tight">
                 ${monthlyLostRevenue.toLocaleString()}
               </span>
-              <span className="text-xs sm:text-sm text-zinc-400 font-medium">/ month</span>
+              <span className="text-xs sm:text-sm text-slate-400 font-medium">/ month</span>
             </div>
-            <p className="text-xs text-rose-400/90 mt-1 font-mono font-semibold">
-              ≈ ${annualLostRevenue.toLocaleString()} / year in lost jobs
+            <p className="text-xs text-rose-300/90 mt-1 font-mono font-medium">
+              ≈ ${annualLostRevenue.toLocaleString()} / year in missed service work
             </p>
           </div>
 
           {/* Projected Recovery with CaptoDesk */}
-          <div className="pt-4 border-t border-zinc-800 space-y-2">
+          <div className="pt-4 border-t border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="text-emerald-400 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                Projected CaptoDesk Recovery
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                Projected Recovery via CaptoDesk
               </span>
-              <span className="font-mono text-white text-sm font-bold">
+              <span className="font-mono text-emerald-400 text-sm font-bold">
                 +${Math.round(projectedRecovery / 12).toLocaleString()}/mo
               </span>
             </div>
-            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-300">
-              <p className="leading-relaxed">
-                By responding in <strong>8 seconds</strong> via automated 2-way SMS, you keep approximately{' '}
-                <strong className="text-white underline decoration-emerald-500">
-                  ${projectedRecovery.toLocaleString()} / year
-                </strong>{' '}
-                that currently goes straight to your competitors.
-              </p>
+            <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-200 leading-relaxed">
+              By responding in <strong>8 seconds</strong> via automated 2-way SMS, you keep approximately{' '}
+              <strong className="text-white font-bold underline decoration-emerald-500">
+                ${projectedRecovery.toLocaleString()} / year
+              </strong>{' '}
+              that currently slips to competitor listings.
             </div>
           </div>
 
-          <a
+          <Link
             href="/client/login"
-            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5"
+            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-md shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
           >
-            <span>Stop Leaking Revenue — Get Started</span>
+            <span>Activate CaptoDesk Pro</span>
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
 
-          <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-500">
-            <ShieldCheck className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Dedicated phone line included • 30-day money-back guarantee • Cancel anytime</span>
+          <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Dedicated carrier number included • 30-day money-back guarantee</span>
           </div>
         </div>
       </div>

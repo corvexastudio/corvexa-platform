@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import {
   PhoneMissed,
   MessageSquare,
@@ -36,7 +37,7 @@ export function DualPhoneSimulator() {
   }, [isPlaying])
 
   return (
-    <div className="w-full max-w-6xl mx-auto rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 sm:p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+    <div className="w-full max-w-6xl mx-auto rounded-3xl border border-slate-800 bg-slate-950 p-4 sm:p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden">
       {/* Background ambient lighting */}
       <div className="absolute -top-32 -left-32 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -99,7 +100,7 @@ export function DualPhoneSimulator() {
             stage: 2 as DemoStage,
             number: '02',
             title: '1-Tap Live Tracker',
-            desc: "Domino's-style ETA sent to customer via SMS",
+            desc: 'Live GPS arrival tracker texted to customer',
             icon: Navigation,
             color: 'text-amber-400',
             border: 'border-amber-500/30'
@@ -598,13 +599,13 @@ export function DualPhoneSimulator() {
           </div>
         </div>
 
-        <a
-          href="/client/login"
+        <Link
+          href="/client/login?mode=signup"
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs whitespace-nowrap shadow-md shadow-emerald-600/20 transition-all"
         >
           <span>Get Started Today</span>
           <ArrowRight className="w-3.5 h-3.5" />
-        </a>
+        </Link>
       </div>
     </div>
   )
