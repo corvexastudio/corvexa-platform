@@ -604,7 +604,7 @@ export function DualPhoneSimulator() {
           href="/client/login?mode=signup"
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs whitespace-nowrap shadow-sm transition-all"
         >
-          <span>Claim Free Booking Page</span>
+          <span>Claim Free 3-Job Pass</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>

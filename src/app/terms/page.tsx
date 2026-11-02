@@ -166,7 +166,7 @@ export default function TermsOfServicePage() {
 
             <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-1">
               <span className="font-bold text-slate-900 block">Graceful Cancellation &amp; Downgrade</span>
-              <span>You may cancel your subscription at any time via your Settings &amp; Billing dashboard or PayPal billing agreement. Upon cancellation, your account transitions to the Free tier, preserving your historical customer records and public booking URL without surprise fees.</span>
+              <span>You may cancel your subscription at any time via your Settings &amp; Billing dashboard or PayPal billing agreement. Upon cancellation, your account transitions to the Free Starter Pass, preserving your historical customer records and public booking URL without surprise fees.</span>
             </div>
           </div>
         </section>

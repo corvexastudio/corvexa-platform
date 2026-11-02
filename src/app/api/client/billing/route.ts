@@ -128,7 +128,7 @@ export async function POST(request: Request, context?: BillingRouteContext) {
     if (org?.paypal_subscription_id) {
       await PayPalService.cancelPayPalSubscription(org.paypal_subscription_id, reason)
 
-      // Gracefully transition organization back to Free Booking Link tier
+      // Gracefully transition organization back to Free Starter Pass
       const now = new Date().toISOString()
       await supabase
         .from('organizations')
@@ -152,13 +152,13 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       await logAuditEvent(supabase, {
         org_id: orgId,
         event_type: 'billing.subscription_canceled',
-        description: `PayPal subscription ${org.paypal_subscription_id} canceled by customer. Returned to Free tier.`,
+        description: `PayPal subscription ${org.paypal_subscription_id} canceled by customer. Returned to Free Starter Pass.`,
         metadata: { actor_id: user.id, reason }
       })
 
       return NextResponse.json({
         success: true,
-        message: 'Your subscription has been canceled. Your account and public booking link remain active on the Free tier.'
+        message: 'Your subscription has been canceled. Your account and public booking link remain active on the Free Starter Pass.'
       })
     }
 
@@ -366,11 +366,11 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       .eq('id', orgId)
       .maybeSingle()
 
-    // Downgrade to Free Tier ($0/mo)
+    // Downgrade to Free Starter Pass ($0)
     if (targetPlan.tier === 'free' || targetPlan.id === 'free') {
       const now = new Date().toISOString()
       if (org?.paypal_subscription_id) {
-        await PayPalService.cancelPayPalSubscription(org.paypal_subscription_id, body.notes || 'Downgraded to Free tier via portal')
+        await PayPalService.cancelPayPalSubscription(org.paypal_subscription_id, body.notes || 'Downgraded to Free Starter Pass via portal')
       }
 
       await supabase
@@ -397,7 +397,7 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       await logAuditEvent(supabase, {
         org_id: orgId,
         event_type: 'billing.subscription_canceled',
-        description: `Organization downgraded to Free Booking tier by user`,
+        description: `Organization downgraded to Free Starter Pass by user`,
         metadata: {
           actor_id: user.id,
           actor_email: user.email,
@@ -409,7 +409,7 @@ export async function POST(request: Request, context?: BillingRouteContext) {
       return NextResponse.json({
         success: true,
         downgraded: true,
-        message: 'Your plan has been downgraded to the Free Booking tier. Your public booking link, schedule, and customer directory remain 100% active.'
+        message: 'Your plan has been downgraded to the Free Starter Pass. Your public booking link, schedule, and customer directory remain 100% active.'
       })
     }
 

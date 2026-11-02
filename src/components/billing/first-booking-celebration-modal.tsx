@@ -98,7 +98,7 @@ export function FirstBookingCelebrationModal({
             <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
               {isMissedCall
                 ? '⚡ 3-Second Missed Call Recovery'
-                : '🎉 Your Free Booking Link Is Working!'}
+                : '🎉 Your Free Starter Pass Is Working!'}
             </h2>
           </div>
         </div>
@@ -230,7 +230,7 @@ export function FirstBookingCelebrationModal({
             onClick={onClose}
             className="w-full py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200 transition-colors cursor-pointer text-center"
           >
-            Keep using free booking link ($0/mo) for now
+            Keep using free starter pass ($0) for now
           </button>
         </div>
       </div>

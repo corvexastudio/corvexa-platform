@@ -1066,13 +1066,13 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Current Plan</span>
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/40">
-                            {isCurrentMultiCrew ? 'CaptoDesk Multi-Crew' : isCurrentSolo ? 'CaptoDesk Solo' : 'Free Booking Tier'}
+                            {isCurrentMultiCrew ? 'CaptoDesk Multi-Crew' : isCurrentSolo ? 'CaptoDesk Solo' : 'Free 3-Job Starter Pass'}
                           </span>
                           <span className={cn(
                             "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border",
-                            isPayingActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700"
+                            isPayingActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
                           )}>
-                            ● {isPayingActive ? 'Active Subscription' : 'Free Forever (Active)'}
+                            ● {isPayingActive ? 'Active Subscription' : 'Free Starter Pass Active'}
                           </span>
                         </div>
 
@@ -1082,7 +1082,7 @@ export default function SettingsPage() {
                           ) : isPayingActive ? (
                             'Billed monthly via direct card processing'
                           ) : (
-                            'Free forever. No card required. Unlimited public booking link and calendar scheduling.'
+                            'Free 3-Job Starter Pass. Process your first 3 customer jobs 100% free with automated dispatch, Stripe card invoicing, and Google reviews.'
                           )}
                         </p>
                       </div>
@@ -1092,7 +1092,7 @@ export default function SettingsPage() {
                           <span className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono tabular-nums">
                             ${isCurrentMultiCrew ? (billingCycle === 'yearly' ? '1,990' : '199') : isCurrentSolo ? (billingCycle === 'yearly' ? '990' : '99') : '0'}
                           </span>
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400"> / {isCurrentFree ? 'month forever' : (billingCycle === 'yearly' ? 'year' : 'month')}</span>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400"> / {isCurrentFree ? 'first 3 jobs ($0 fees)' : (billingCycle === 'yearly' ? 'year' : 'month')}</span>
                         </div>
 
                         {isPayingActive && (
@@ -1156,7 +1156,7 @@ export default function SettingsPage() {
                     {/* 3-Tier Canonical Plan Cards */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
 
-                      {/* Card 1: Free Booking Tier */}
+                      {/* Card 1: Free Starter Pass */}
                       <div className={cn(
                         "rounded-xl border bg-white dark:bg-zinc-900 p-5 flex flex-col justify-between space-y-5 shadow-2xs transition-colors",
                         isCurrentFree
@@ -1165,8 +1165,8 @@ export default function SettingsPage() {
                       )}>
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                              Free Organizer
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              Starter Pass
                             </span>
                             {isCurrentFree && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-full">
@@ -1177,9 +1177,9 @@ export default function SettingsPage() {
                           </div>
 
                           <div>
-                            <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Free Booking Tier</h4>
+                            <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Free 3-Job Starter Pass</h4>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                              100% free booking link, unmasked customer leads, visual calendar, and job work orders.
+                              Complete your first 3 customer jobs 100% free with automated dispatch, Stripe card invoicing, and Google reviews.
                             </p>
                           </div>
 
@@ -1188,7 +1188,7 @@ export default function SettingsPage() {
                               $0
                             </span>
                             <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                              / month forever
+                              / first 3 jobs ($0 platform fees)
                             </span>
                           </div>
 
@@ -1200,6 +1200,10 @@ export default function SettingsPage() {
                           <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span><strong>First 3 completed jobs 100% free</strong> ($0 fees)</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                               <span><strong>Unlimited Public Booking Link</strong> (/book/[slug])</span>
                             </li>
                             <li className="flex items-center gap-2">
@@ -1208,7 +1212,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Visual Calendar &amp; Job scheduling</span>
+                              <span>Visual Calendar &amp; Job dispatch scheduling</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1216,11 +1220,15 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Before &amp; After job photos</span>
+                              <span>Mobile field portal &amp; Before/After photos</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Native 1-tap phone SMS sharing (free)</span>
+                              <span>Digital invoicing &amp; on-site card checkout</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Automated Google review booster</span>
                             </li>
                           </ul>
                         </div>
@@ -1234,10 +1242,10 @@ export default function SettingsPage() {
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => handleOpenChangePlan({ id: 'free', name: 'Free Booking Tier', amount: 0, interval: 'month' })}
+                              onClick={() => handleOpenChangePlan({ id: 'free', name: 'Free 3-Job Starter Pass', amount: 0, interval: 'month' })}
                               className="w-full h-10 sm:h-9 text-xs font-semibold border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer min-h-[48px] sm:min-h-0"
                             >
-                              Downgrade to Free ($0/mo)
+                              Downgrade to Free Starter Pass ($0)
                             </Button>
                           )}
                         </div>
@@ -2021,7 +2029,7 @@ export default function SettingsPage() {
       <Modal
         open={changePlanModalOpen}
         onOpenChange={setChangePlanModalOpen}
-        title={selectedTargetPlan?.amount === 0 ? 'Downgrade to Free Booking Tier' : `Switch to ${selectedTargetPlan?.name || 'Selected Plan'}`}
+        title={selectedTargetPlan?.amount === 0 ? 'Downgrade to Free Starter Pass' : `Switch to ${selectedTargetPlan?.name || 'Selected Plan'}`}
         description={
           selectedTargetPlan?.amount === 0
             ? 'Your public booking link, calendar schedule, customer CRM, and job history remain 100% active.'
@@ -2032,7 +2040,7 @@ export default function SettingsPage() {
         <div className="space-y-4 py-2">
           {selectedTargetPlan?.amount === 0 ? (
             <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-              Your dedicated 10DLC phone line and automated text-back will be paused at the end of the current billing cycle. You will keep unlimited online customer bookings, calendar scheduling, customer CRM, and job photos with $0 monthly fee forever.
+              Your dedicated 10DLC phone line and automated text-back will be paused at the end of the current billing cycle. You will keep your Free Starter Pass with unlimited online customer bookings, calendar scheduling, customer CRM, and job photos with $0 platform fees.
             </div>
           ) : (
             <p className="text-xs text-zinc-600 dark:text-zinc-400">

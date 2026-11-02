@@ -215,7 +215,7 @@ export async function POST(request: Request) {
           await logAuditEvent(supabase, {
             org_id: org.id,
             event_type: 'billing.subscription_canceled',
-            description: `PayPal subscription ${subscriptionId} ended (${eventType}). Organization transitioned gracefully to Free Booking Link tier.`,
+            description: `PayPal subscription ${subscriptionId} ended (${eventType}). Organization transitioned gracefully to Free Starter Pass.`,
             metadata: { subscriptionId, eventType }
           })
         }

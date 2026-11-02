@@ -811,17 +811,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   </div>
 
                   <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-amber-100 tracking-tight">
-                    Lock In Your Free Booking Link &amp; Workspace
+                    Lock In Your Free Starter Pass &amp; Workspace
                   </h2>
 
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">
-                    You&apos;re currently signed in via a temporary quick-access session. If you close this tab or switch devices, your public booking link and customer requests will be lost. Save your real email and password below to secure permanent, 100% free access:
+                    You&apos;re currently signed in via a temporary quick-access session. If you close this tab or switch devices, your public booking link and customer requests will be lost. Save your real email and password below to secure permanent access to your 3-Job Starter Pass ($0 fees):
                   </p>
 
                   <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-600 dark:text-zinc-400 font-medium">
                     <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      100% Free Forever
+                      3 Jobs Free ($0 Fees)
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
@@ -879,7 +879,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     className="w-full mt-2 text-xs sm:text-sm font-extrabold px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-[0.99] text-black shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 tracking-wide"
                   >
                     <Lock className="w-4 h-4" />
-                    <span>{savingClaimAccount ? 'Saving Account...' : 'Save & Secure My Free Account'}</span>
+                    <span>{savingClaimAccount ? 'Saving Account...' : 'Save & Secure Free Starter Pass'}</span>
                   </button>
 
                   <p className="text-[11px] text-center text-slate-500 dark:text-zinc-400 pt-0.5">

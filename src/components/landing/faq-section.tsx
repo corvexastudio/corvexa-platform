@@ -35,7 +35,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Can I cancel or change plans at any time?',
-    a: 'Yes. CaptoDesk operates month-to-month with zero long-term contracts. If you ever cancel your Pro subscription, your account transitions to the Free tier, preserving your customer history and booking link with no surprise fees.'
+    a: 'Yes. CaptoDesk operates month-to-month with zero long-term contracts. If you ever cancel your Pro subscription, your account transitions to the Free Starter Pass, preserving your customer history and booking link with no surprise fees.'
   }
 ]
 

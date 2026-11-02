@@ -115,7 +115,7 @@ export default function LandingPage() {
                   href="/client/login?mode=signup"
                   className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Claim Free Booking Page</span>
+                  <span>Claim Free 3-Job Pass</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </>
@@ -191,7 +191,7 @@ export default function LandingPage() {
                 href="/client/login?mode=signup"
                 className="w-full py-2.5 text-center text-xs font-bold text-white bg-blue-600 rounded-xl shadow-sm"
               >
-                Claim Free Booking Page
+                Claim Free 3-Job Pass
               </Link>
             </div>
           </div>
@@ -227,7 +227,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <span>Claim Free Booking Page</span>
+              <span>Claim Free 3-Job Pass</span>
               <ArrowRight className="w-4 h-4 text-white" />
             </Link>
             <a
@@ -242,10 +242,10 @@ export default function LandingPage() {
           {/* Trust Guarantees */}
           <div className="pt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-500">
             <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Free booking link • Zero credit card required
+              <Check className="w-4 h-4 text-emerald-600" /> Free 3-Job Starter Pass • $0 platform fees
             </span>
             <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Works with your existing number (*62)
+              <Check className="w-4 h-4 text-emerald-600" /> Automated dispatch, card pay &amp; reviews
             </span>
             <span className="flex items-center gap-1.5">
               <Check className="w-4 h-4 text-emerald-600" /> Zero customer app downloads
@@ -267,8 +267,8 @@ export default function LandingPage() {
             <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Average Text Response Time</span>
           </div>
           <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 block">100% Free</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Online Booking Page Included</span>
+            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 block">3 Jobs Free</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">$0 Starter Pass • Full Dispatch &amp; Card Pay</span>
           </div>
           <div className="p-2">
             <span className="font-mono text-3xl sm:text-4xl font-extrabold text-emerald-600 block">0 Apps</span>
@@ -550,7 +550,7 @@ export default function LandingPage() {
                   <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Live in 2 minutes with simple carrier forwarding
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Free booking link tier with no card required
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Free 3-Job Starter Pass ($0 fees, no card required)
                 </li>
               </ul>
             </div>
@@ -559,7 +559,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/20 transition-all block cursor-pointer"
             >
-              Get Started Free
+              Start Free (3 Jobs)
             </Link>
           </div>
 
@@ -576,7 +576,7 @@ export default function LandingPage() {
             Simple Pricing. Zero Contracts.
           </h2>
           <p className="text-xs sm:text-sm text-slate-600">
-            Claim your free booking page today, or choose a Pro tier to activate 24/7 missed-call rescue.
+            Process your first 3 jobs 100% free with the Starter Pass, or upgrade to Solo Pro for 24/7 missed-call rescue.
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -622,8 +622,8 @@ export default function LandingPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs relative flex flex-col justify-between space-y-6">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
-                  FREE FOREVER
+                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  FREE STARTER PASS
                 </span>
                 <span className="text-xs text-slate-500 font-mono">Solo Tradesman</span>
               </div>
@@ -631,31 +631,43 @@ export default function LandingPage() {
               <div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-extrabold text-slate-900 font-mono">$0</span>
-                  <span className="text-xs font-semibold text-slate-500">/ forever</span>
+                  <span className="text-xs font-semibold text-slate-500">/ first 3 jobs ($0 fees)</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Free public booking link for your website &amp; cards.</p>
+                <p className="text-xs text-slate-500 mt-1">Process your first 3 customer jobs 100% free with automated dispatch &amp; card checkout.</p>
               </div>
 
               <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-100 pt-4">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span><strong>Dedicated booking link</strong> (book.captodesk.com/your-business)</span>
+                  <span><strong>First 3 completed jobs 100% free</strong> ($0 fees)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Self-service customer appointment scheduling</span>
+                  <span><strong>Dedicated booking link</strong> (captodesk.com/book/[slug])</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Job calendar &amp; manual invoice creation</span>
+                  <span>Unlimited homeowner bookings (never blocked)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Visual calendar &amp; job dispatch scheduling</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Mobile field portal &amp; Before/After photos</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Digital invoicing &amp; on-site card checkout</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Automated 5-star Google review booster</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-400">
                   <X className="w-4 h-4 shrink-0" />
-                  <span>No dedicated carrier phone number</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-400">
-                  <X className="w-4 h-4 shrink-0" />
-                  <span>No automated missed-call text-back</span>
+                  <span>Dedicated carrier phone number &amp; 24/7 missed-call rescue (Pro)</span>
                 </div>
               </div>
             </div>
@@ -664,7 +676,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs text-center transition-all block cursor-pointer"
             >
-              Claim Free Booking Link
+              Claim Free 3-Job Pass
             </Link>
           </div>
 
@@ -804,7 +816,7 @@ export default function LandingPage() {
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold">
             <CalendarCheck className="w-4 h-4" />
-            <span>START WITH A FREE BOOKING PAGE</span>
+            <span>START WITH A FREE 3-JOB STARTER PASS</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight max-w-3xl mx-auto leading-tight">
@@ -812,7 +824,7 @@ export default function LandingPage() {
           </h2>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Claim your free personalized booking link in 60 seconds with no credit card required, or upgrade to Solo Pro to activate 24/7 automated missed-call rescue and live arrival tracking.
+            Process your first 3 customer jobs 100% free with no credit card required, or upgrade to Solo Pro to activate 24/7 automated missed-call rescue and live arrival tracking.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -820,7 +832,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Claim Free Booking Page</span>
+              <span>Claim Free 3-Job Pass</span>
               <ArrowRight className="w-4 h-4 text-emerald-300" />
             </Link>
             <Link

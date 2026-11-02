@@ -176,11 +176,11 @@ function LoginContent() {
 
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {isSignUp ? 'Claim Your Free Booking Page' : 'Sign in to CaptoDesk'}
+                  {isSignUp ? 'Claim Your Free 3-Job Starter Pass' : 'Sign in to CaptoDesk'}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
                   {isSignUp
-                    ? 'Get your dedicated contractor booking link in 60 seconds. Zero credit card required.'
+                    ? 'Process your first 3 customer jobs 100% free with automated dispatch & card checkout. Zero credit card required.'
                     : 'Access your dispatch calendar, message inbox, and customer leads.'}
                 </p>
               </div>
@@ -242,7 +242,7 @@ function LoginContent() {
                     <><Loader2 className="h-4 w-4 animate-spin" /> Sending sign-in link...</>
                   ) : (
                     <>
-                      <span>{isSignUp ? 'Claim Free Booking Link' : 'Send Sign-In Link'}</span>
+                      <span>{isSignUp ? 'Claim Free 3-Job Pass' : 'Send Sign-In Link'}</span>
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
@@ -262,7 +262,7 @@ function LoginContent() {
                   <p>
                     New to CaptoDesk?{' '}
                     <Link href="/client/login?mode=signup" className="text-blue-600 font-bold hover:underline">
-                      Claim your free booking page
+                      Claim your free 3-job starter pass
                     </Link>
                   </p>
                 )}

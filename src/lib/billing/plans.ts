@@ -27,7 +27,7 @@ export const FREE_TIER_COMPLETED_JOB_LIMIT = 3
 export const SAAS_PLANS: Record<string, SaasPlan> = {
   free: {
     id: 'free',
-    name: 'CaptoDesk Free',
+    name: 'Free 3-Job Starter Pass',
     description: 'Free Starter Pass. Process your first 3 customer jobs completely free from booking to on-site card payment and review request.',
     amount: 0,
     currency: 'USD',

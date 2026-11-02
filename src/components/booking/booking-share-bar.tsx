@@ -232,7 +232,7 @@ export function BookingShareBar({
               <Sparkles className="w-3 h-3" />
             </span>
             <p className="text-slate-700 dark:text-zinc-300">
-              <span className="font-semibold text-slate-900 dark:text-white">Active Plan: Free Booking &amp; Field Organizer ($0/mo).</span>{' '}
+              <span className="font-semibold text-slate-900 dark:text-white">Active Plan: Free 3-Job Starter Pass ($0).</span>{' '}
               Want automated 3-second text-back when you miss calls in the field?
             </p>
           </div>
