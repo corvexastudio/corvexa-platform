@@ -1,9 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '../telnyx.ts'
+import { verifyOutboundCompliance } from '../compliance/compliance-engine.ts'
 import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { updateCustomerServiceDate } from '../retention/lifecycle-manager.ts'
 import { scheduleJobReviewAutomation } from '../reviews/review-manager.ts'
+import { renderSituationAwareText } from '../notifications/situation-templates.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
 
 export type JobStatus =
@@ -135,7 +137,7 @@ export async function updateJobStatus(
     technicianName?: string
     etaMinutes?: number
   }
-): Promise<{ success: boolean; job?: any; invoice?: any; error?: string; alreadyInStatus?: boolean }> {
+): Promise<{ success: boolean; job?: any; invoice?: any; error?: string; alreadyInStatus?: boolean; upgradeRequired?: boolean; code?: string; checkoutUrl?: string }> {
   const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes } = params
 
   const { data: job, error: findError } = await supabase
@@ -160,6 +162,31 @@ export async function updateJobStatus(
   }
   if (job.status === 'cancelled' && newStatus !== 'cancelled') {
     return { success: false, error: 'Cannot change status of a cancelled job' }
+  }
+
+  // Finish-Line Sunk Cost Paywall Guard (Starter Pass: Job #4+)
+  // Advancing status to active/dispatched/completed states requires Pro once 3 free jobs are completed
+  if (['en_route', 'in_progress', 'completed'].includes(newStatus)) {
+    const { isPracticeJob } = await import('./practice-job.ts')
+    if (!isPracticeJob(job) && job.status !== 'completed') {
+      const { SubscriptionService } = await import('../billing/subscription-service.ts')
+      const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+      const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+      if (!isPaidPro) {
+        const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+        if (starterUsage?.isLimitReached) {
+          return {
+            success: false,
+            upgradeRequired: true,
+            code: 'STARTER_LIMIT_REACHED',
+            error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to dispatch crew and manage additional jobs.",
+            checkoutUrl: '/client/billing?reason=starter_limit',
+            job
+          }
+        }
+      }
+    }
   }
 
   const nowIso = new Date().toISOString()
@@ -274,7 +301,7 @@ export async function updateJobStatus(
     try {
       const { data: org } = await supabase
         .from('organizations')
-        .select('name, telnyx_phone_number, owner_phone')
+        .select('name, telnyx_phone_number, owner_phone, operation_mode')
         .eq('id', orgId)
         .maybeSingle()
 
@@ -291,13 +318,36 @@ export async function updateJobStatus(
         const etaPart = etaVal ? ` (ETA: ~${etaVal} mins)` : ''
         const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
         const trackingToken = updatedJob.tracking_token || job.tracking_token
-        const trackPart = trackingToken ? ` Live arrival tracker: ${baseUrl}/t/${trackingToken}` : ''
-
-        await sendTelnyxSms({
-          to: contact.phone,
-          from: senderNumber,
-          text: `Hi ${contact.name || 'there'}! ${techDisplay} from ${org?.name || 'us'} is on the way${etaPart}.${trackPart}`
+        const trackingUrl = trackingToken ? `${baseUrl}/t/${trackingToken}` : undefined
+        const opMode = org?.operation_mode === 'multi_crew' ? 'multi_crew' : 'solo'
+        const text = renderSituationAwareText('customer_en_route', {
+          operationMode: opMode,
+          customerName: contact.name || 'there',
+          businessName: org?.name || 'us',
+          technicianName: techDisplay,
+          etaMinutes: etaVal,
+          trackingUrl
         })
+
+        const compliance = await verifyOutboundCompliance(supabase, {
+          orgId,
+          toPhone: contact.phone,
+          fromPhone: senderNumber,
+          flowType: 'job_en_route',
+          messageType: 'transactional',
+          body: text,
+          contactId: job.contact_id
+        })
+
+        if (compliance.allowed) {
+          await sendTelnyxSms({
+            to: contact.phone,
+            from: senderNumber,
+            text: compliance.formattedText
+          })
+        } else {
+          console.warn(`[EN_ROUTE_SMS_SUPPRESSED] Compliance check suppressed SMS: ${compliance.suppressionReason}`)
+        }
       }
     } catch (smsErr) {
       console.warn('[EN_ROUTE_SMS_WARNING] SMS delivery failed or was skipped:', smsErr)
@@ -393,11 +443,27 @@ export async function updateJobStatus(
         }
 
         if (invoiceItems.length === 0) {
+          let servicePrice = 0
+          if (job.service_id) {
+            try {
+              const { data: svc } = await supabase
+                .from('services')
+                .select('price, name')
+                .eq('id', job.service_id)
+                .maybeSingle()
+              if (svc && typeof svc.price === 'number') {
+                servicePrice = svc.price
+              }
+            } catch {
+              // Non-blocking fallback
+            }
+          }
+
           invoiceItems = [
             {
               description: job.title || 'Completed Field Service',
               quantity: 1,
-              unit_price: 0
+              unit_price: servicePrice
             }
           ]
         }
@@ -460,6 +526,46 @@ export async function updateJobStatus(
       )
     } catch (automationErr) {
       console.warn('[JOB_COMPLETED_AUTOMATION_WARNING]', automationErr)
+    }
+
+    // Starter Pass Milestone Notification (Situation-Aware & Dopamine Milestones)
+    try {
+      const { isPracticeJob } = await import('./practice-job.ts')
+      if (!isPracticeJob(job)) {
+        const { SubscriptionService } = await import('../billing/subscription-service.ts')
+        const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+        
+        if (!entitlement || entitlement.planId === 'free' || entitlement.status === 'starter_limit_reached') {
+          const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId)
+          const jobRev = Number(draftInvoice?.total ?? draftInvoice?.total_amount ?? draftInvoice?.amount ?? 0)
+          const milestone = Math.min(3, starterUsage.completedJobsCount)
+          const remaining = Math.max(0, 3 - starterUsage.completedJobsCount)
+          const cumulativeRevenue = starterUsage.totalRevenueEarned + (draftInvoice?.status === 'paid' ? 0 : jobRev)
+
+          let customerName = 'Customer'
+          if (job.contact_id) {
+            const { data: c } = await supabase.from('contacts').select('name').eq('id', job.contact_id).maybeSingle()
+            if (c?.name) customerName = c.name
+          }
+
+          const { notifyOwner } = await import('../notifications/notification-service.ts')
+          await notifyOwner(supabase, {
+            event: 'starter_job_completed',
+            organizationId: orgId,
+            data: {
+              customerName,
+              jobRevenue: jobRev,
+              totalRevenue: cumulativeRevenue,
+              jobMilestone: milestone,
+              remainingJobs: remaining,
+              jobId: job.id,
+              upgradeUrl: '/client/billing?reason=starter_limit'
+            }
+          }).catch(() => {})
+        }
+      }
+    } catch (milestoneErr) {
+      console.warn('[STARTER_PASS_COMPLETION_ALERT_WARNING]', milestoneErr)
     }
   }
 

@@ -52,6 +52,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { INDUSTRY_LIST, getIndustryPreset, type IndustryPreset } from '@/lib/constants/industries'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 
 interface InvoiceItem {
   id?: string
@@ -164,10 +165,16 @@ function ClientInvoicesContent() {
   const [newItems, setNewItems] = useState<InvoiceItem[]>([
     { description: 'Service Labor & Callout', quantity: 1, unit_price: 150 }
   ])
-  const { orgIndustry } = useWorkspace()
+  const { orgIndustry, operationMode } = useWorkspace()
   const [savingInvoice, setSavingInvoice] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all')
   const [showAllTrades, setShowAllTrades] = useState(false)
+  const [foundMoneyModalOpen, setFoundMoneyModalOpen] = useState(false)
+  const [gatedInvoiceData, setGatedInvoiceData] = useState<{
+    amount?: number
+    customerName?: string
+    invoiceNumber?: string
+  } | null>(null)
 
   // Align default trade with organization onboarding trade
   useEffect(() => {
@@ -305,8 +312,21 @@ function ClientInvoicesContent() {
       }
 
       if (sendImmediately && data.invoice?.id) {
-        await fetch(`/api/client/invoices/${data.invoice.id}/send`, { method: 'POST' })
-        toast.success('Invoice created and sent via SMS')
+        const sendRes = await fetch(`/api/client/invoices/${data.invoice.id}/send`, { method: 'POST' })
+        const sendData = await sendRes.json().catch(() => ({}))
+        if (sendRes.ok) {
+          toast.success('Invoice created and sent via SMS')
+        } else if (sendRes.status === 402 || sendData.upgradeRequired) {
+          setGatedInvoiceData({
+            amount: total,
+            customerName: contacts.find(c => c.id === selectedContactId)?.name || 'Customer',
+            invoiceNumber: data.invoice.invoice_number
+          })
+          setFoundMoneyModalOpen(true)
+          toast.info('Draft invoice saved safely. Upgrade to Pro to send to customer.')
+        } else {
+          toast.error(sendData.error || 'Invoice saved, but sending failed')
+        }
       } else {
         toast.success('Draft invoice created successfully')
       }
@@ -324,11 +344,19 @@ function ClientInvoicesContent() {
     setActionLoadingId(invoiceId)
     try {
       const res = await fetch(`/api/client/invoices/${invoiceId}/send`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
         toast.success('Payment link dispatched to customer via SMS')
         await loadInvoices()
+      } else if (res.status === 402 || data.upgradeRequired) {
+        const inv = invoices.find(i => i.id === invoiceId)
+        setGatedInvoiceData({
+          amount: inv ? (inv.amount_due || inv.total) : 250,
+          customerName: inv?.contact?.name || 'Customer',
+          invoiceNumber: inv?.invoice_number
+        })
+        setFoundMoneyModalOpen(true)
       } else {
-        const data = await res.json().catch(() => ({}))
         toast.error(data.error || 'Failed to send invoice')
       }
     } catch {
@@ -1315,6 +1343,17 @@ function ClientInvoicesContent() {
         onConfirm={() => {
           if (voidInvoiceId) executeVoidInvoice(voidInvoiceId)
         }}
+      />
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={foundMoneyModalOpen}
+        onClose={() => setFoundMoneyModalOpen(false)}
+        amountDue={gatedInvoiceData?.amount}
+        customerName={gatedInvoiceData?.customerName}
+        invoiceNumber={gatedInvoiceData?.invoiceNumber}
+        operationMode={operationMode}
+        onSuccess={loadInvoices}
       />
 
     </div>

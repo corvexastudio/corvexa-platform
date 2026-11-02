@@ -113,7 +113,8 @@ async function handleSendSms(
     flowType,
     messageType,
     body: text,
-    contactId: context.contactId
+    contactId: context.contactId,
+    checkQuietHours: params.checkQuietHours !== false
   })
 
   if (!compliance.allowed) {

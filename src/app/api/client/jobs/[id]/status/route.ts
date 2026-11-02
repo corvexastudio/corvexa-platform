@@ -38,6 +38,9 @@ export async function PATCH(
     })
 
     if (!result.success) {
+      if (result.upgradeRequired) {
+        return NextResponse.json(result, { status: 402 })
+      }
       return NextResponse.json({ error: result.error || 'Failed to update job status' }, { status: 400 })
     }
 

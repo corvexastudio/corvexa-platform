@@ -1,5 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getSaasPlan, calculatePeriodEnd, DEFAULT_SAAS_PLAN_ID, isProAutomationEntitled, isTollFreeNumberRestricted } from './plans.ts'
+import {
+  getSaasPlan,
+  calculatePeriodEnd,
+  DEFAULT_SAAS_PLAN_ID,
+  isProAutomationEntitled,
+  isTollFreeNumberRestricted,
+  FREE_TIER_COMPLETED_JOB_LIMIT
+} from './plans.ts'
+import { isPracticeJob } from '../jobs/practice-job.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
 import type { SaasSubscription, SaasPayment, SaasSubscriptionStatus } from '../types/database.ts'
 
@@ -7,6 +15,14 @@ export interface ActorContext {
   id: string
   email?: string | null
   role?: string
+}
+
+export interface StarterPassUsage {
+  completedJobsCount: number
+  limit: number
+  remainingJobs: number
+  isLimitReached: boolean
+  totalRevenueEarned: number
 }
 
 export interface EntitlementResult {
@@ -17,6 +33,7 @@ export interface EntitlementResult {
   currentPeriodStart?: string | null
   currentPeriodEnd?: string | null
   cancelAtPeriodEnd?: boolean
+  starterUsage?: StarterPassUsage
 }
 
 export interface TrialQuotaResult {
@@ -152,6 +169,24 @@ export class SubscriptionService {
             cancelAtPeriodEnd: sub.cancel_at_period_end
           }
         }
+
+        const normalizedPlan = (sub.plan_id || '').toLowerCase()
+        if (normalizedPlan === 'free' || normalizedPlan === 'trial_free' || normalizedPlan === 'standard_free') {
+          const starterUsage = await this.getFreeTierJobUsage(supabase, orgId)
+          return {
+            isEntitled: true,
+            status: starterUsage.isLimitReached ? 'starter_limit_reached' : 'free',
+            reason: starterUsage.isLimitReached
+              ? 'Free Starter Pass completed (3 of 3 jobs finished). Upgrade to Solo Pro ($99/mo) to continue.'
+              : `Free Starter Pass: ${starterUsage.completedJobsCount} of ${starterUsage.limit} jobs completed ($0/mo)`,
+            planId: 'free',
+            currentPeriodStart: sub.current_period_start,
+            currentPeriodEnd: sub.current_period_end,
+            cancelAtPeriodEnd: sub.cancel_at_period_end,
+            starterUsage
+          }
+        }
+
         return {
           isEntitled: true,
           status: 'active',
@@ -233,11 +268,15 @@ export class SubscriptionService {
     const planId = (org?.plan_id || '').toLowerCase()
 
     if (orgStatus === 'free' || planId === 'free' || planId === 'trial_free' || planId === 'standard_free') {
+      const starterUsage = await this.getFreeTierJobUsage(supabase, orgId)
       return {
         isEntitled: true,
-        status: 'free',
+        status: starterUsage.isLimitReached ? 'starter_limit_reached' : 'free',
         planId: 'free',
-        reason: 'Free Forever Booking & Field Organizer ($0/mo)'
+        reason: starterUsage.isLimitReached
+          ? 'Free Starter Pass completed (3 of 3 jobs finished). Upgrade to Solo Pro ($99/mo) to continue.'
+          : `Free Starter Pass: ${starterUsage.completedJobsCount} of ${starterUsage.limit} jobs completed ($0/mo)`,
+        starterUsage
       }
     }
 
@@ -253,6 +292,65 @@ export class SubscriptionService {
       isEntitled: false,
       status: orgStatus,
       reason: `Organization status is '${orgStatus}' with no active SaaS subscription`
+    }
+  }
+
+  /**
+   * Evaluates usage against the Free Starter Pass (3 completed jobs limit).
+   * Excludes sandbox practice jobs (PRACTICE-101) so testing never consumes free quota.
+   * Calculates total customer revenue collected through completed invoices.
+   */
+  static async getFreeTierJobUsage(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<StarterPassUsage> {
+    const limit = FREE_TIER_COMPLETED_JOB_LIMIT || 3
+
+    // 1. Fetch completed real jobs (excluding sandbox practice jobs)
+    let completedJobsCount = 0
+    try {
+      const { data: jobs } = await supabase
+        .from('jobs')
+        .select('id, notes, title, job_number, status')
+        .eq('org_id', orgId)
+        .eq('status', 'completed')
+
+      if (jobs && Array.isArray(jobs)) {
+        const realJobs = jobs.filter(job => !isPracticeJob(job))
+        completedJobsCount = realJobs.length
+      }
+    } catch (err) {
+      console.warn('[SUBSCRIPTION_SERVICE] Error checking completed jobs count:', err)
+    }
+
+    // 2. Fetch total customer revenue collected from paid invoices
+    let totalRevenueEarned = 0
+    try {
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('total, amount_paid, status')
+        .eq('org_id', orgId)
+        .eq('status', 'paid')
+
+      if (invoices && Array.isArray(invoices)) {
+        for (const inv of invoices) {
+          const val = Number(inv.amount_paid) || Number(inv.total) || 0
+          totalRevenueEarned += val
+        }
+      }
+    } catch (err) {
+      console.warn('[SUBSCRIPTION_SERVICE] Error checking total revenue:', err)
+    }
+
+    const remainingJobs = Math.max(0, limit - completedJobsCount)
+    const isLimitReached = completedJobsCount >= limit
+
+    return {
+      completedJobsCount,
+      limit,
+      remainingJobs,
+      isLimitReached,
+      totalRevenueEarned: Math.round(totalRevenueEarned * 100) / 100
     }
   }
 

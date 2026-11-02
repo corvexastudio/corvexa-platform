@@ -70,7 +70,12 @@ class TelemetryStore {
 
     // P3-002: Durable operational telemetry drain for serverless environments
     // Structured JSON to stdout allows external log drains (Axiom, Datadog, Vercel) to persist metrics across cold starts
-    if (process.env.NODE_ENV !== 'test' && (fullEntry.statusCode >= 400 || (fullEntry.durationMs && fullEntry.durationMs > 1000))) {
+    const shouldLog =
+      process.env.NODE_ENV !== 'test' &&
+      (process.env.EMIT_ALL_API_METRICS === 'true' ||
+        fullEntry.statusCode >= 400 ||
+        (fullEntry.durationMs && fullEntry.durationMs > 1000))
+    if (shouldLog) {
       console.log(JSON.stringify({
         telemetry_type: 'api_metric',
         ...fullEntry

@@ -8,13 +8,14 @@ export async function POST(
   request: Request,
   props: { params: Promise<{ slug: string }> }
 ) {
+  let rateHeaders: Record<string, string> | undefined
   try {
     const { slug } = await props.params
 
     // 1. Distributed Rate limiting on public booking submission (HIGH-05)
     const clientIp = extractClientIp(request)
     const rateLimit = await checkRateLimitAsync(`booking:slug:${slug}:${clientIp}`, RATE_LIMITS.BOOKING_SUBMIT)
-    const rateHeaders = getRateLimitHeaders(rateLimit)
+    rateHeaders = getRateLimitHeaders(rateLimit)
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -119,6 +120,21 @@ export async function POST(
     }, { headers: rateHeaders })
   } catch (err: any) {
     console.error('[BOOKING_SUBMIT_ERROR]', err)
+    if (
+      err?.code === '23P01' ||
+      err?.code === '23505' ||
+      err?.message?.toLowerCase().includes('exclusion') ||
+      err?.message?.toLowerCase().includes('overlap') ||
+      err?.message?.toLowerCase().includes('duplicate') ||
+      err?.message?.toLowerCase().includes('slot') ||
+      err?.message?.includes('appointments_no_overlapping_bookings') ||
+      err?.message?.includes('idx_appointments_org_active_slot')
+    ) {
+      return NextResponse.json(
+        { error: 'This time slot is no longer available. Please select another time.' },
+        { status: 400, headers: rateHeaders }
+      )
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

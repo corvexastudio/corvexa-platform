@@ -14,6 +14,7 @@ export interface SaasPlan {
   standardSetupFee: number // one-time setup and carrier registration fee ($199.00 Solo, $299.00 Fleet)
   maxUsers: number
   tier: 'free' | 'solo' | 'multi_crew' | 'fleet'
+  maxFreeCompletedJobs?: number
   features: string[]
 }
 
@@ -21,12 +22,13 @@ export const DEFAULT_SAAS_PLAN_ID = 'captodesk_standard'
 export const DEFAULT_SETUP_FEE = 199.00
 export const DEMO_TOLL_FREE_NUMBER = '+18777713802'
 export const DEMO_ORG_ID = '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7'
+export const FREE_TIER_COMPLETED_JOB_LIMIT = 3
 
 export const SAAS_PLANS: Record<string, SaasPlan> = {
   free: {
     id: 'free',
     name: 'CaptoDesk Free',
-    description: 'Free Online Booking & Field Organizer. Unlimited customer bookings, scheduling & customer management.',
+    description: 'Free Starter Pass. Process your first 3 customer jobs completely free from booking to on-site card payment and review request.',
     amount: 0,
     currency: 'USD',
     billingInterval: 'month',
@@ -34,14 +36,18 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     standardSetupFee: 0,
     maxUsers: 1,
     tier: 'free',
+    maxFreeCompletedJobs: FREE_TIER_COMPLETED_JOB_LIMIT,
     features: [
+      'First 3 completed customer jobs 100% free',
       'Unlimited public web bookings (/book/[slug])',
       'Full unmasked customer contact info',
       'Calendar & Job scheduling',
       'Customer CRM & Service catalog',
+      'Mobile field portal with GPS navigation',
       'Before & After job photos',
-      'Browser web push & in-app alerts',
-      'Native 1-tap phone SMS sharing (free)'
+      'Digital invoicing & on-site card checkout',
+      'Automated 5-star Google review booster',
+      'Upgrade to Solo Pro ($99/mo) after 3 jobs'
     ]
   },
   solo: {
@@ -302,6 +308,29 @@ export function getPayPalPlanId(planTier: 'solo' | 'fleet' | 'multi_crew' | stri
     return process.env.NEXT_PUBLIC_PAYPAL_FLEET_PLAN_ID || 'P-FLEET-199'
   }
   return process.env.NEXT_PUBLIC_PAYPAL_SOLO_PLAN_ID || 'P-SOLO-99'
+}
+
+/**
+ * Resolves the canonical SaaS plan tier from a PayPal Plan ID.
+ * Accurately matches configured environment variables, fallback identifiers, and tier names.
+ */
+export function resolveTierFromPayPalPlanId(planId: string | null | undefined): 'solo' | 'multi_crew' {
+  if (!planId) return 'solo'
+  const cleanId = planId.trim()
+  const fleetIds = [
+    process.env.NEXT_PUBLIC_PAYPAL_FLEET_PLAN_ID,
+    process.env.PAYPAL_FLEET_PLAN_ID,
+    'P-FLEET-199'
+  ].filter(Boolean).map(id => id!.trim())
+
+  if (
+    fleetIds.includes(cleanId) ||
+    cleanId.toLowerCase().includes('fleet') ||
+    cleanId.toLowerCase().includes('multi_crew')
+  ) {
+    return 'multi_crew'
+  }
+  return 'solo'
 }
 
 /**

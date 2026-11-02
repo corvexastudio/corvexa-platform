@@ -17,6 +17,10 @@ import {
   sanitizeTargetUrl,
   resolveDefaultTargetUrl
 } from './notification-policy.ts'
+import {
+  renderSituationAwareText,
+  resolveOperationMode
+} from './situation-templates.ts'
 import { sendWebPushNotification } from './push/web-push-service.ts'
 import {
   notifyOwnerOfMissedCall,
@@ -159,6 +163,76 @@ export async function notifyOwner(
         notificationBody =
           notificationBody || `${customerName} booked ${serviceName} for ${bookingTime}.`
         smsCopy = `CaptoDesk: New booking: ${customerName} booked ${serviceName} for ${bookingTime}.`
+        break
+      }
+      case 'starter_pass_welcome': {
+        const mode = resolveOperationMode(org)
+        notificationTitle = notificationTitle || 'Welcome to CaptoDesk Free Starter Pass'
+        notificationBody =
+          notificationBody ||
+          renderSituationAwareText('starter_pass_welcome', {
+            operationMode: mode,
+            businessName: org?.name,
+            targetUrl
+          })
+        smsCopy = notificationBody
+        break
+      }
+      case 'starter_job_booked': {
+        const mode = resolveOperationMode(org)
+        const milestone = data.jobMilestone || 1
+        notificationTitle =
+          notificationTitle || `🎉 [Job ${milestone} of 3 Free] New Booking`
+        notificationBody =
+          notificationBody ||
+          renderSituationAwareText('starter_job_booked', {
+            operationMode: mode,
+            customerName,
+            serviceName: data.serviceName,
+            bookingTime: data.bookingTime,
+            jobMilestone: milestone,
+            remainingJobs: data.remainingJobs,
+            targetUrl
+          })
+        smsCopy = notificationBody
+        break
+      }
+      case 'starter_job_completed': {
+        const mode = resolveOperationMode(org)
+        const milestone = data.jobMilestone || 1
+        notificationTitle =
+          notificationTitle ||
+          (milestone >= 3
+            ? '🏆 Starter Pass Completed!'
+            : `💰 [Job ${milestone} of 3 Free Completed]`)
+        notificationBody =
+          notificationBody ||
+          renderSituationAwareText('starter_job_completed', {
+            operationMode: mode,
+            customerName,
+            jobRevenue: data.jobRevenue,
+            totalRevenue: data.totalRevenue,
+            jobMilestone: milestone,
+            remainingJobs: data.remainingJobs,
+            upgradeUrl: data.upgradeUrl || '/client/billing?reason=starter_limit'
+          })
+        smsCopy = notificationBody
+        break
+      }
+      case 'starter_job_gated': {
+        const mode = resolveOperationMode(org)
+        notificationTitle =
+          notificationTitle || '🚨 New Job Waiting - Upgrade to Unlock'
+        notificationBody =
+          notificationBody ||
+          renderSituationAwareText('starter_job_gated', {
+            operationMode: mode,
+            customerName,
+            serviceName: data.serviceName,
+            jobRevenue: data.jobRevenue,
+            upgradeUrl: data.upgradeUrl || '/client/billing?reason=starter_limit'
+          })
+        smsCopy = notificationBody
         break
       }
       default: {

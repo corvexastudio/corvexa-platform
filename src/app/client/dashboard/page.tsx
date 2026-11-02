@@ -59,15 +59,19 @@ import { BookingShareBar } from '@/components/booking/booking-share-bar'
 import { PracticeJobCard } from '@/components/jobs/practice-job-card'
 import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
+import { JobWonBadge } from '@/components/jobs/job-won-badge'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgId, orgName, orgSlug, subscriptionStatus, planId, role, userFullName } = useWorkspace()
+  const { orgId, orgName, orgSlug, subscriptionStatus, planId, role, userFullName, operationMode } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
   const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
   const [enRouteModalOpen, setEnRouteModalOpen] = useState(false)
+  const [foundMoneyModalOpen, setFoundMoneyModalOpen] = useState(false)
+  const [gatedJobData, setGatedJobData] = useState<{ amount?: number; customerName?: string } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [celebrationModal, setCelebrationModal] = useState<{
     open: boolean
@@ -286,6 +290,13 @@ export default function DashboardPage() {
             : 'Job marked en route.'
         )
         await refetch()
+      } else if (res.status === 402 || result.upgradeRequired) {
+        setGatedJobData({
+          amount: 250,
+          customerName: activeJob.customerName
+        })
+        setEnRouteModalOpen(false)
+        setFoundMoneyModalOpen(true)
       } else {
         toast.error(result.error || 'Failed to update status to en route.')
       }
@@ -313,6 +324,12 @@ export default function DashboardPage() {
           toast.success('✅ Job completed! Draft invoice generated automatically.')
         }
         await refetch()
+      } else if (res.status === 402 || result.upgradeRequired) {
+        setGatedJobData({
+          amount: 250,
+          customerName: activeJob.customerName
+        })
+        setFoundMoneyModalOpen(true)
       } else {
         toast.error(result.error || 'Failed to update job status.')
       }
@@ -876,6 +893,9 @@ export default function DashboardPage() {
                       >
                         {job.status ? job.status.replace('_', ' ') : 'Scheduled'}
                       </Badge>
+                      {(job.status === 'scheduled' || job.status === 'confirmed') && (
+                        <JobWonBadge compact label="Job Won" />
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
                       <span className="font-medium text-slate-700 dark:text-zinc-300">{job.customerName}</span>
@@ -1144,6 +1164,16 @@ export default function DashboardPage() {
           onConfirm={handleConfirmEnRoute}
         />
       )}
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={foundMoneyModalOpen}
+        onClose={() => setFoundMoneyModalOpen(false)}
+        amountDue={gatedJobData?.amount}
+        customerName={gatedJobData?.customerName}
+        operationMode={operationMode}
+        onSuccess={refetch}
+      />
     </div>
   )
 }

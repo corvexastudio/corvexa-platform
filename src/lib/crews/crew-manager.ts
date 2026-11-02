@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '../telnyx.ts'
+import { verifyOutboundCompliance } from '../compliance/compliance-engine.ts'
 import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 
@@ -389,7 +390,7 @@ export async function reassignJobCrew(
 
   const senderNumber = org?.telnyx_phone_number || org?.owner_phone
 
-  const jobContact = (Array.isArray(job.contact) ? job.contact[0] : job.contact) as { name?: string; phone?: string; address?: string } | null
+  const jobContact = (Array.isArray(job.contact) ? job.contact[0] : job.contact) as { id?: string; name?: string; phone?: string; address?: string } | null
   const prevCrew = (Array.isArray(job.crew) ? job.crew[0] : job.crew) as { id?: string; name?: string } | null
   const updatedCrew = (Array.isArray(updatedJob.crew) ? updatedJob.crew[0] : updatedJob.crew) as { id?: string; name?: string } | null
 
@@ -441,11 +442,25 @@ export async function reassignJobCrew(
 
     const text = `Hi ${jobContact.name || 'there'}! ${crewName} from ${org?.name || 'our team'} has been assigned to your scheduled service.${trackingUrl ? ` Track live updates: ${trackingUrl}` : ''}`
 
-    await sendTelnyxSms({
-      to: jobContact.phone,
-      from: senderNumber,
-      text
-    }).catch(err => console.warn('[CUSTOMER_REASSIGN_SMS_FAILED]', err))
+    const compliance = await verifyOutboundCompliance(supabase, {
+      orgId,
+      toPhone: jobContact.phone,
+      fromPhone: senderNumber,
+      flowType: 'job_reassigned',
+      messageType: 'transactional',
+      body: text,
+      contactId: jobContact.id
+    })
+
+    if (compliance.allowed) {
+      await sendTelnyxSms({
+        to: jobContact.phone,
+        from: senderNumber,
+        text: compliance.formattedText
+      }).catch(err => console.warn('[CUSTOMER_REASSIGN_SMS_FAILED]', err))
+    } else {
+      console.warn(`[CUSTOMER_REASSIGN_SMS_SUPPRESSED] Compliance check suppressed SMS: ${compliance.suppressionReason}`)
+    }
   }
 
   // 7. Emit Domain Automation Event

@@ -53,6 +53,22 @@ export const NOTIFICATION_EVENT_POLICIES: Record<NotificationEventType, EventCha
   system_action_required: {
     priority: 'critical',
     channels: ['push', 'sms', 'in_app']
+  },
+  starter_pass_welcome: {
+    priority: 'important',
+    channels: ['push', 'sms', 'in_app']
+  },
+  starter_job_booked: {
+    priority: 'critical',
+    channels: ['push', 'sms', 'in_app']
+  },
+  starter_job_completed: {
+    priority: 'critical',
+    channels: ['push', 'sms', 'in_app']
+  },
+  starter_job_gated: {
+    priority: 'critical',
+    channels: ['push', 'sms', 'in_app']
   }
 }
 
@@ -135,6 +151,14 @@ export function resolveDefaultTargetUrl(event: NotificationEventType, data?: Rec
       return '/client/invoices'
     case 'review_received':
       return '/client/reviews'
+    case 'starter_pass_welcome':
+      return '/client/settings'
+    case 'starter_job_booked':
+      return '/client/jobs'
+    case 'starter_job_completed':
+      return '/client/invoices'
+    case 'starter_job_gated':
+      return '/client/billing'
     default:
       return '/client/dashboard'
   }

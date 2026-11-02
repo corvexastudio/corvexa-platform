@@ -38,6 +38,7 @@ import { NotificationCenter } from '@/components/notifications/notification-cent
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { UniversalQuickCreate } from '@/components/universal-quick-create'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { StarterPassMeter } from '@/components/billing/starter-pass-meter'
 import { WorkspaceContext, WorkspaceContextValue } from '@/lib/context/workspace-context'
 import { PostSubscribe10DlcModal } from '@/components/compliance/post-subscribe-10dlc-modal'
 
@@ -785,6 +786,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             ? "p-0 pb-16 md:p-6 md:pb-6 max-w-7xl"
             : "p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl"
         )}>
+          {/* Starter Pass Progress Meter (Mobile-First Top Banner) */}
+          {!isTechnician && !pathname.startsWith('/client/inbox') && !pathname.startsWith('/client/settings') && (
+            <div className="mb-4">
+              <StarterPassMeter />
+            </div>
+          )}
           {/* White-Glove Phone-First Claim Welcome Banner -> Prominent Hero Account Protection Card */}
           {userEmail?.endsWith('@claim.captodesk.com') && (
             <div className="mb-6 rounded-2xl border-2 border-amber-400/80 dark:border-amber-500/60 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-orange-500/10 dark:from-amber-950/40 dark:via-zinc-900/90 dark:to-orange-950/30 p-5 sm:p-6 shadow-md backdrop-blur-sm relative overflow-hidden">

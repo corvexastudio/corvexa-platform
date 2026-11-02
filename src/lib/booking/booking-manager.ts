@@ -492,30 +492,70 @@ export async function createBooking(
       reason: 'free_tier_no_telecom'
     })
 
-    // Surface contractor in-app notification with unmasked customer details
-    try {
-      await supabase.from('notifications').insert({
-        org_id: orgId,
-        title: 'New Online Booking Received',
-        message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. Automated SMS confirmation is a Pro feature ($99/mo).`,
-        link: '/client/jobs'
-      })
-    } catch {
-      // Non-fatal
-    }
+    // Starter Pass Milestone & Situation-Aware Alerts (Phase 2)
+    const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => ({
+      completedJobsCount: 0,
+      limit: 3,
+      remainingJobs: 3,
+      isLimitReached: false,
+      totalRevenueEarned: 0
+    }))
+    const isLimitReached = starterUsage.isLimitReached
+    const milestone = Math.min(3, starterUsage.completedJobsCount + 1)
+    const remaining = Math.max(0, 3 - milestone)
 
-    await notifyOwner(supabase, {
-      event: 'new_booking',
-      organizationId: orgId,
-      data: {
-        title: 'New Online Booking Received',
-        body: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}.`,
-        targetUrl: '/client/jobs',
-        customerName,
-        customerPhone: normalizedPhone.e164,
-        appointmentId: appointment.id
+    if (isLimitReached) {
+      try {
+        await supabase.from('notifications').insert({
+          org_id: orgId,
+          title: '🚨 New Online Booking Waiting - Upgrade to Unlock',
+          message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to unlock this job and dispatch immediately.`,
+          link: '/client/billing?reason=starter_limit'
+        })
+      } catch {
+        // Non-fatal
       }
-    }).catch(() => {})
+
+      await notifyOwner(supabase, {
+        event: 'starter_job_gated',
+        organizationId: orgId,
+        data: {
+          customerName,
+          customerPhone: normalizedPhone.e164,
+          serviceName: activeService.name,
+          bookingTime: displayTime,
+          jobRevenue: (activeService.price ? Number(activeService.price) : undefined) || 250,
+          appointmentId: appointment.id,
+          upgradeUrl: '/client/billing?reason=starter_limit'
+        }
+      }).catch(() => {})
+    } else {
+      try {
+        await supabase.from('notifications').insert({
+          org_id: orgId,
+          title: `🎉 [Job ${milestone} of 3 Free] New Online Booking Received`,
+          message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. ${remaining > 0 ? `${remaining} free job(s) remaining on Starter Pass.` : 'This is your final free starter job!'}`,
+          link: '/client/jobs'
+        })
+      } catch {
+        // Non-fatal
+      }
+
+      await notifyOwner(supabase, {
+        event: 'starter_job_booked',
+        organizationId: orgId,
+        data: {
+          customerName,
+          customerPhone: normalizedPhone.e164,
+          serviceName: activeService.name,
+          bookingTime: displayTime,
+          jobMilestone: milestone,
+          remainingJobs: remaining,
+          appointmentId: appointment.id,
+          targetUrl: '/client/jobs'
+        }
+      }).catch(() => {})
+    }
   } else if (isTfnRestricted) {
     // Toll-Free Number (+18777713802) is strictly isolated to Demo tenant
     await logComplianceAudit(supabase, {

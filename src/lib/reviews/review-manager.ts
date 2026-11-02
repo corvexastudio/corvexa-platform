@@ -5,6 +5,7 @@ import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
 import { isPhoneSuppressed, isTcpaQuietHours, verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { calculateNextMorning805 } from '../services/call-recovery.ts'
+import { renderSituationAwareText, resolveOperationMode } from '../notifications/situation-templates.ts'
 
 export interface ReviewEligibilityResult {
   eligible: boolean
@@ -120,7 +121,24 @@ export async function checkReviewEligibility(
  * Formats compliant review invitation text
  * IMPORTANT: In accordance with Google policies, never ask specifically for a 5-star review.
  */
-export function formatCompliantReviewMessage(businessName: string, reviewUrl: string): string {
+export function formatCompliantReviewMessage(
+  businessName: string,
+  reviewUrl: string,
+  options?: {
+    operationMode?: 'solo' | 'multi_crew'
+    technicianName?: string
+    customerName?: string
+  }
+): string {
+  if (options?.operationMode) {
+    return renderSituationAwareText('customer_review_request', {
+      operationMode: options.operationMode,
+      businessName,
+      reviewUrl,
+      technicianName: options.technicianName,
+      customerName: options.customerName
+    })
+  }
   return `Thanks for choosing ${businessName}. We'd really appreciate your feedback. You can leave us a Google review here: ${reviewUrl}`
 }
 
@@ -175,7 +193,7 @@ export async function dispatchReviewRequest(
     }
   }
 
-  const { contact, org } = eligibility
+  const { contact, org, job: jobData } = eligibility
 
   // 1.5 Idempotency guard: If an active review request already exists for this job, return it without duplicate SMS
   if (jobId) {
@@ -245,7 +263,11 @@ export async function dispatchReviewRequest(
       messageBody = `${messageBody.trim()} ${trackableReviewUrl}`
     }
   } else {
-    messageBody = formatCompliantReviewMessage(businessName, trackableReviewUrl)
+    messageBody = formatCompliantReviewMessage(businessName, trackableReviewUrl, {
+      operationMode: resolveOperationMode(org),
+      customerName: contact?.name,
+      technicianName: (jobData as any)?.technician_name
+    })
   }
 
   // 4. Resolve sender number

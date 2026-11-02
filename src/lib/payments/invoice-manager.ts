@@ -302,7 +302,7 @@ export async function convertQuoteToInvoice(
 export async function sendInvoice(
   supabase: SupabaseClient,
   input: { invoiceId: string; orgId: string; baseUrl: string }
-): Promise<{ success: boolean; invoice?: any; checkoutUrl?: string; error?: string }> {
+): Promise<{ success: boolean; invoice?: any; checkoutUrl?: string; error?: string; upgradeRequired?: boolean; code?: string }> {
   const { invoiceId, orgId, baseUrl } = input
 
   const { data: invoice, error: invoiceError } = await supabase
@@ -314,6 +314,49 @@ export async function sendInvoice(
 
   if (invoiceError || !invoice) {
     return { success: false, error: invoiceError?.message || 'Invoice not found' }
+  }
+
+  // Finish-Line Sunk Cost Paywall Guard (Starter Pass: Job #4+)
+  // Contractor can draft and view, but sending live invoice & collecting card payment gates at the finish line
+  try {
+    const { SubscriptionService } = await import('../billing/subscription-service.ts')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        let isHistoricalJob = false
+        if (invoice.job_id) {
+          const { data: linkedJob } = await supabase
+            .from('jobs')
+            .select('id, title, notes, job_number, status')
+            .eq('id', invoice.job_id)
+            .eq('org_id', orgId)
+            .maybeSingle()
+
+          if (linkedJob) {
+            const { isPracticeJob } = await import('../jobs/practice-job.ts')
+            if (isPracticeJob(linkedJob) || linkedJob.status === 'completed') {
+              isHistoricalJob = true
+            }
+          }
+        }
+
+        if (!isHistoricalJob) {
+          return {
+            success: false,
+            upgradeRequired: true,
+            code: 'STARTER_LIMIT_REACHED',
+            error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to send live customer invoices and collect card payments.",
+            checkoutUrl: '/client/billing?reason=starter_limit',
+            invoice
+          }
+        }
+      }
+    }
+  } catch (entitlementErr) {
+    console.warn('[INVOICE_SEND_ENTITLEMENT_CHECK_WARNING]', entitlementErr)
   }
 
   let contact = invoice.contacts
@@ -367,9 +410,11 @@ export async function sendInvoice(
   const smsBody = `Hi ${contact?.name || 'there'}! Here is your invoice ${invoice.invoice_number} from ${businessName} for $${invoice.amount_due || invoice.total}. Pay securely online here: ${customerInvoiceUrl}`
 
   if (contact?.phone) {
+    const senderPhone = org?.telnyx_phone_number || org?.owner_phone
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,
       toPhone: contact.phone,
+      fromPhone: senderPhone,
       flowType: 'invoice_sent',
       messageType: 'transactional',
       body: smsBody,
@@ -379,6 +424,7 @@ export async function sendInvoice(
     if (compliance.allowed) {
       await sendTelnyxSms({
         to: contact.phone,
+        from: senderPhone,
         text: compliance.formattedText
       })
 
@@ -653,6 +699,13 @@ export async function recordPayment(
       }
 
       if (contact?.phone) {
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('id, name, telnyx_phone_number, owner_phone')
+          .eq('id', invoice.org_id)
+          .maybeSingle()
+        const senderPhone = org?.telnyx_phone_number || org?.owner_phone
+
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com'
         const receiptUrl = invoice.manage_token ? `${baseUrl}/invoice/${invoice.manage_token}` : ''
         const rawReceiptText = receiptUrl
@@ -662,6 +715,7 @@ export async function recordPayment(
         const compliance = await verifyOutboundCompliance(supabase, {
           orgId: invoice.org_id,
           toPhone: contact.phone,
+          fromPhone: senderPhone,
           flowType: 'invoice_paid',
           messageType: 'transactional',
           body: rawReceiptText,
@@ -671,6 +725,7 @@ export async function recordPayment(
         if (compliance.allowed) {
           await sendTelnyxSms({
             to: contact.phone,
+            from: senderPhone,
             text: compliance.formattedText
           })
         }

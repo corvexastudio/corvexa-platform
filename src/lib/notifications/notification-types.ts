@@ -16,6 +16,11 @@ export type NotificationEventType =
   | 'messaging_failure'
   | 'phone_number_failure'
   | 'system_action_required'
+  // Starter Pass & Growth events (Situation-aware)
+  | 'starter_pass_welcome'
+  | 'starter_job_booked'
+  | 'starter_job_completed'
+  | 'starter_job_gated'
   // Important events (Push + In-app by default)
   | 'payment_received'
   | 'review_received'

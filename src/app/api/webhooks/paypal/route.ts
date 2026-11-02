@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PayPalService } from '@/lib/services/paypal-service'
-import { getSaasPlan } from '@/lib/billing/plans'
+import { getSaasPlan, resolveTierFromPayPalPlanId } from '@/lib/billing/plans'
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import {
   claimWebhookEvent,
@@ -77,9 +77,7 @@ export async function POST(request: Request) {
       }
 
       if (targetOrgId) {
-        const fleetPlanId = process.env.NEXT_PUBLIC_PAYPAL_FLEET_PLAN_ID
-        const isFleet = resource.plan_id === fleetPlanId
-        const planTier = isFleet ? 'multi_crew' : 'solo'
+        const planTier = resolveTierFromPayPalPlanId(resource.plan_id)
         const plan = getSaasPlan(planTier)
 
         await supabase
@@ -156,9 +154,7 @@ export async function POST(request: Request) {
     } else if (eventType === 'BILLING.SUBSCRIPTION.UPDATED') {
       const subscriptionId = resource.id
       const newPlanId = resource.plan_id
-      const fleetPlanId = process.env.NEXT_PUBLIC_PAYPAL_FLEET_PLAN_ID
-      const isFleet = newPlanId === fleetPlanId
-      const planTier = isFleet ? 'multi_crew' : 'solo'
+      const planTier = resolveTierFromPayPalPlanId(newPlanId)
       const plan = getSaasPlan(planTier)
 
       if (subscriptionId) {
