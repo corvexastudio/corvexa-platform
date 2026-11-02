@@ -12,8 +12,6 @@ import {
   Loader2, 
   ShieldCheck, 
   ArrowRight, 
-  ArrowLeft, 
-  Building2, 
   CheckCircle2,
   Thermometer, 
   Droplets, 
@@ -27,7 +25,8 @@ import {
   Briefcase,
   Truck,
   Users,
-  Check
+  Check,
+  ChevronDown
 } from 'lucide-react'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
 
@@ -44,12 +43,33 @@ const INDUSTRY_ICON_MAP: Record<string, React.ComponentType<{ className?: string
   Briefcase
 }
 
+const PRIMARY_TRADE_IDS = [
+  'hvac',
+  'plumbing',
+  'electrical',
+  'roofing',
+  'landscaping',
+  'cleaning',
+  'pest_control',
+  'handyman'
+]
+
+function toTitleCase(str: string): string {
+  if (!str) return ''
+  return str
+    .trim()
+    .split(/\s+/)
+    .map(word => {
+      if (word.toUpperCase() === word && word.length > 1) return word
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
+    .join(' ')
+}
+
 export default function OnboardingPage() {
   const supabase = createClient()
   const router = useRouter()
   
-  // Wizard state
-  const [step, setStep] = useState<1 | 2>(1)
   const [saving, setSaving] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
@@ -59,7 +79,8 @@ export default function OnboardingPage() {
   const [selectedIndustry, setSelectedIndustry] = useState<string>('hvac')
   const [operationMode, setOperationMode] = useState<'solo' | 'multi_crew'>('solo')
 
-  // Step 2: 10DLC Carrier & Legal Verification
+  // Optional 10DLC Carrier & Legal Verification
+  const [show10Dlc, setShow10Dlc] = useState(false)
   const [legalBusinessName, setLegalBusinessName] = useState('')
   const [businessType, setBusinessType] = useState('llc')
   const [ein, setEin] = useState('')
@@ -97,16 +118,17 @@ export default function OnboardingPage() {
           return
         }
 
-        // Prefill suggested business name from metadata or email
+        // Prefill suggested Title-Cased business name from metadata or email
         const metaName = user.user_metadata?.full_name || user.user_metadata?.name
         if (metaName && !businessName) {
-          setBusinessName(`${metaName}'s Business`)
-          setLegalBusinessName(`${metaName}'s Business`)
+          const formatted = toTitleCase(metaName)
+          setBusinessName(`${formatted}'s Services`)
+          setLegalBusinessName(`${formatted}'s Services`)
         } else if (user.email && !businessName) {
-          const prefix = user.email.split('@')[0]
-          const capitalized = prefix.charAt(0).toUpperCase() + prefix.slice(1)
-          setBusinessName(`${capitalized}'s Services`)
-          setLegalBusinessName(`${capitalized}'s Services`)
+          const rawPrefix = user.email.split('@')[0].replace(/[._-]/g, ' ')
+          const formatted = toTitleCase(rawPrefix)
+          setBusinessName(`${formatted}'s Services`)
+          setLegalBusinessName(`${formatted}'s Services`)
         }
       } catch (err) {
         console.warn('[ONBOARDING] Initial auth check warning:', err)
@@ -120,7 +142,7 @@ export default function OnboardingPage() {
     return () => {
       isMounted = false
     }
-  }, [supabase, router])
+  }, [supabase, router, businessName])
 
   const handlePhone = (e: React.ChangeEvent<HTMLInputElement>) => {
     const x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/)
@@ -137,35 +159,18 @@ export default function OnboardingPage() {
     }
   }
 
-  const handleStep1Next = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!businessName.trim()) {
-      toast.error('Please enter your business name.')
-      return
-    }
-    const cleanDigits = phone.replace(/\D/g, '')
-    if (phone.trim() && cleanDigits.length > 0 && cleanDigits.length < 10) {
-      toast.error('Please enter a valid 10-digit mobile number, or leave it blank.')
-      return
-    }
-    if (!legalBusinessName.trim()) {
-      setLegalBusinessName(businessName.trim())
-    }
-    setStep(2)
-  }
 
-  const submitOnboarding = async (include10Dlc: boolean = true) => {
     const nameToSubmit = businessName.trim()
     if (!nameToSubmit) {
       toast.error('Please enter your business name.')
-      setStep(1)
       return
     }
 
     const cleanDigits = phone.replace(/\D/g, '')
     if (phone.trim() && cleanDigits.length > 0 && cleanDigits.length < 10) {
       toast.error('Please enter a valid 10-digit mobile number, or leave it blank.')
-      setStep(1)
       return
     }
 
@@ -185,7 +190,7 @@ export default function OnboardingPage() {
         operationMode: operationMode
       }
 
-      if (include10Dlc) {
+      if (show10Dlc) {
         payload.legalBusinessName = legalBusinessName.trim() || nameToSubmit
         payload.businessType = businessType
         payload.ein = isSoleProprietor ? null : ein.trim()
@@ -223,7 +228,7 @@ export default function OnboardingPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shadow-sm animate-pulse">
+          <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shadow-xs animate-pulse">
             <span className="text-blue-600 dark:text-zinc-200 font-bold text-sm">C</span>
           </div>
           <span className="text-xs text-slate-500 dark:text-zinc-500">Checking account...</span>
@@ -232,441 +237,428 @@ export default function OnboardingPage() {
     )
   }
 
+  const primaryTrades = INDUSTRY_LIST.filter(preset => PRIMARY_TRADE_IDS.includes(preset.id))
+  const otherTrades = INDUSTRY_LIST.filter(preset => !PRIMARY_TRADE_IDS.includes(preset.id))
+  const activePreset = getIndustryPreset(selectedIndustry)
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 px-4 py-8">
-      <div className={`w-full ${step === 2 ? 'max-w-lg' : 'max-w-xl'} transition-all duration-300`}>
+      <div className="w-full max-w-2xl transition-all duration-300">
         {/* Brand Header */}
-        <div className="flex items-center justify-center gap-2.5 mb-6">
-          <div className="h-9 w-9 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center">
+        <div className="flex items-center justify-center gap-2.5 mb-4">
+          <div className="h-9 w-9 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-center">
             <span className="text-blue-600 dark:text-white font-bold text-sm">C</span>
           </div>
           <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-zinc-100">CaptoDesk</span>
         </div>
 
-        {/* Step Progress Pill */}
-        <div className="flex items-center justify-center gap-2 mb-4 text-xs font-medium text-slate-500 dark:text-zinc-400">
-          <span className={`px-2.5 py-1 rounded-full border ${step === 1 ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 shadow-sm'}`}>
-            1. Workspace Profile
-          </span>
-          <ArrowRight className="h-3 w-3 text-slate-400 dark:text-zinc-600" />
-          <span className={`px-2.5 py-1 rounded-full border ${step === 2 ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 shadow-sm'}`}>
-            2. Carrier &amp; 10DLC Verification
-          </span>
+        {/* Free Starter Pass Value Badge */}
+        <div className="flex items-center justify-center mb-5">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs font-medium shadow-xs">
+            <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Free 3-Job Starter Pass Active • $0 Setup • No Credit Card Required</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-sm p-6 sm:p-7">
-          {step === 1 ? (
-            /* ──────────────── STEP 1: WORKSPACE PROFILE ──────────────── */
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100 mb-1 tracking-tight">Workspace Setup</h1>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mb-5 leading-relaxed">
-                Choose your industry trade and enter your business details. CaptoDesk automatically configures realistic starter services and missed-call recovery templates tailored to your work.
-              </p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-xs p-6 sm:p-7">
+          <div className="mb-5">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-1 tracking-tight">Workspace Setup</h1>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+              Tailor CaptoDesk to your specific trade. We will auto-configure realistic starter services, missed-call recovery templates, and your online booking link.
+            </p>
+          </div>
 
-              <form onSubmit={handleStep1Next} className="space-y-4">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="biz" className="text-xs text-slate-700 dark:text-zinc-300">
-                    Business / Company Name <span className="text-red-500 dark:text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="biz"
-                    placeholder="e.g. Acme Heating & Air"
-                    value={businessName}
-                    onChange={e => setBusinessName(e.target.value)}
-                    className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
-                    required
-                  />
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Business Name */}
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="biz" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  Business / Company Name <span className="text-red-500 dark:text-red-400">*</span>
+                </Label>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                  Visible to homeowners
+                </span>
+              </div>
+              <Input
+                id="biz"
+                placeholder="e.g. Acme Heating & Air"
+                value={businessName}
+                onChange={e => {
+                  setBusinessName(e.target.value)
+                  if (!legalBusinessName) setLegalBusinessName(e.target.value)
+                }}
+                className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
+                required
+              />
+            </div>
 
-                {/* Industry Category Selector */}
-                <div className="grid gap-1.5 pt-1">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-slate-700 dark:text-zinc-300">
-                      Business Industry / Trade <span className="text-red-500 dark:text-red-400">*</span>
-                    </Label>
-                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                      Customizable anytime
-                    </span>
-                  </div>
+            {/* Trade Category Selector (No Inner Scroll) */}
+            <div className="grid gap-2 pt-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  Select Your Industry Trade <span className="text-red-500 dark:text-red-400">*</span>
+                </Label>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                  Customizable anytime
+                </span>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
-                    {INDUSTRY_LIST.map((preset) => {
-                      const IconComponent = INDUSTRY_ICON_MAP[preset.icon] || Briefcase
-                      const isSelected = selectedIndustry === preset.id
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => setSelectedIndustry(preset.id)}
-                          className={`flex items-start gap-2.5 p-2 rounded-lg border text-left transition-all ${
+              {/* 8 Primary Trades Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {primaryTrades.map((preset) => {
+                  const IconComponent = INDUSTRY_ICON_MAP[preset.icon] || Briefcase
+                  const isSelected = selectedIndustry === preset.id
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setSelectedIndustry(preset.id)}
+                      className={`min-h-[58px] p-2.5 rounded-lg border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-50/80 dark:bg-blue-950/60 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40 shadow-xs'
+                          : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1 w-full mb-1">
+                        <div
+                          className={`p-1.5 rounded-md shrink-0 ${
                             isSelected
-                              ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500/50'
-                              : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-200/80 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
                           }`}
                         >
-                          <div
-                            className={`p-1.5 rounded-md shrink-0 mt-0.5 ${
-                              isSelected
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
-                            }`}
-                          >
-                            <IconComponent className="h-3.5 w-3.5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="text-xs font-medium truncate">
-                                {preset.name.split('&')[0].trim()}
-                              </span>
-                              {isSelected && (
-                                <Check className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
-                              )}
-                            </div>
-                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 block truncate">
-                              {preset.badge}
-                            </span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Starter Services Callout */}
-                  {(() => {
-                    const preset = getIndustryPreset(selectedIndustry)
-                    return (
-                      <div className="p-2.5 rounded-md bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800/80 text-xs">
-                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium text-[11px] mb-1">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Pre-configures 3 starter services for {preset.name.split('&')[0].trim()}:</span>
+                          <IconComponent className="h-3.5 w-3.5" />
                         </div>
-                        <ul className="text-[11px] text-slate-600 dark:text-zinc-400 space-y-0.5 pl-4 list-disc">
-                          {preset.services.map((svc, i) => (
-                            <li key={i}>
-                              <span className="text-slate-800 dark:text-zinc-200 font-medium">{svc.name}</span>
-                              <span className="text-slate-500 dark:text-zinc-500"> — {svc.price === 0 || svc.price === null ? 'Free estimate' : `$${svc.price}`} ({svc.duration_minutes}m)</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1.5">
-                          Note: You can freely edit prices, change names, or delete these services later in Services.
-                        </p>
+                        {isSelected && (
+                          <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                        )}
                       </div>
-                    )
-                  })()}
-                </div>
+                      <div>
+                        <span className="text-xs font-semibold truncate block">
+                          {preset.name.split('&')[0].trim()}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-zinc-500 block truncate">
+                          {preset.badge}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
 
-                {/* Operation Scale: Solo vs Multi-Crew */}
-                <div className="grid gap-2 pt-1">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs text-slate-700 dark:text-zinc-300">
-                        Field Operations Setup <span className="text-red-500 dark:text-red-400">*</span>
-                      </Label>
-                      <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                        Tailors dispatch &amp; plan options
+              {/* Additional Trades Dropdown */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-slate-500 dark:text-zinc-400 text-xs">Other trade?</span>
+                <select
+                  value={PRIMARY_TRADE_IDS.includes(selectedIndustry) ? '' : selectedIndustry}
+                  onChange={e => {
+                    if (e.target.value) setSelectedIndustry(e.target.value)
+                  }}
+                  className="h-8 px-2.5 text-xs rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="" disabled>Select from 13 additional trades...</option>
+                  {otherTrades.map(preset => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+                {!PRIMARY_TRADE_IDS.includes(selectedIndustry) && (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                    <Check className="h-3.5 w-3.5" /> Selected: {activePreset.badge}
+                  </span>
+                )}
+              </div>
+
+              {/* Starter Services Callout Cards */}
+              <div className="p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 mt-1">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-300 font-semibold text-xs">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>Auto-configured starter services for {activePreset.name.split('&')[0].trim()}:</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Edit prices anytime</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {activePreset.services.map((svc, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-zinc-900 border border-blue-100/80 dark:border-zinc-800 text-xs shadow-2xs">
+                      <span className="font-medium text-slate-800 dark:text-zinc-200 truncate pr-1" title={svc.name}>
+                        {svc.name}
+                      </span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs shrink-0">
+                        {svc.price === 0 || svc.price === null ? 'Free Est.' : `$${svc.price}`}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                      Working with a helper or apprentice in 1 truck? Choose Solo Operator.
-                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Operation Scale: Solo vs Multi-Crew */}
+            <div className="grid gap-2 pt-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  Field Operations Setup <span className="text-red-500 dark:text-red-400">*</span>
+                </Label>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                  Working with an apprentice? Choose Solo
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOperationMode('solo')}
+                  className={`min-h-[58px] p-3 rounded-lg border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                    operationMode === 'solo'
+                      ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40 shadow-xs'
+                      : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1.5 mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-md ${operationMode === 'solo' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
+                        <Truck className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block">Solo Operator</span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">1 Truck (Solo or with helper)</span>
+                      </div>
+                    </div>
+                    {operationMode === 'solo' && (
+                      <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400 pt-1.5 border-t border-slate-200/60 dark:border-zinc-800/60">
+                    • 1 clean daily route • Instant 1-tap fast booking
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOperationMode('multi_crew')}
+                  className={`min-h-[58px] p-3 rounded-lg border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                    operationMode === 'multi_crew'
+                      ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40 shadow-xs'
+                      : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1.5 mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-md ${operationMode === 'multi_crew' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
+                        <Users className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block">Multi-Crew / Fleet</span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">2+ Trucks Dispatched Daily</span>
+                      </div>
+                    </div>
+                    {operationMode === 'multi_crew' && (
+                      <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400 pt-1.5 border-t border-slate-200/60 dark:border-zinc-800/60">
+                    • Multi-truck dispatch swimlanes • Morning crew SMS
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Booking Text Alert Mobile Number */}
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="phone" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  Where should we text your booking alerts? <span className="text-slate-400 dark:text-zinc-500 font-normal">(optional)</span>
+                </Label>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  Instant SMS notifications
+                </span>
+              </div>
+              <Input
+                id="phone"
+                placeholder="(555) 000-0000"
+                value={phone}
+                onChange={handlePhone}
+                maxLength={14}
+                className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 font-mono"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                We will text you the moment a homeowner books online or calls so you never miss a job.
+              </p>
+            </div>
+
+            {/* Optional 10DLC Accordion Toggle */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setShow10Dlc(!show10Dlc)}
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-between w-full py-1.5 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="font-medium">
+                    {show10Dlc ? 'Hide Legal Entity & 10DLC Verification' : 'Need to register your Federal EIN for 10DLC carrier lines now? (Optional)'}
+                  </span>
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${show10Dlc ? 'rotate-180' : ''}`} />
+              </button>
+
+              {show10Dlc && (
+                <div className="mt-3 p-4 rounded-lg bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 space-y-3.5 animate-in fade-in duration-200">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-md p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                    <strong>Carrier A2P 10DLC:</strong> Registers your brand with US carriers (AT&amp;T, Verizon, T-Mobile) for dedicated business numbers. You can also complete this anytime in Settings.
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="legalName" className="text-xs text-slate-700 dark:text-zinc-300">
+                      Official Legal Entity Name
+                    </Label>
+                    <Input
+                      id="legalName"
+                      placeholder="e.g. Acme Plumbing LLC or John Doe"
+                      value={legalBusinessName}
+                      onChange={e => setLegalBusinessName(e.target.value)}
+                      className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setOperationMode('solo')}
-                      className={`min-h-[52px] p-3 rounded-lg border text-left transition-all flex flex-col justify-between ${
-                        operationMode === 'solo'
-                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40'
-                          : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-md ${operationMode === 'solo' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
-                              <Truck className="h-4 w-4" />
-                            </div>
-                            <span className="text-xs font-semibold">Solo Operator</span>
-                          </div>
-                          {operationMode === 'solo' && (
-                            <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
-                          1 Truck (Solo or with helper)
-                        </p>
-                      </div>
-                      <div className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-zinc-800 text-[10px] text-slate-500 dark:text-zinc-400 space-y-0.5">
-                        <div className="flex items-center gap-1">
-                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> 1 clean daily route, zero fleet clutter
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> Auto-assigned 1-tap fast booking
-                        </div>
-                      </div>
-                    </button>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="bType" className="text-xs text-slate-700 dark:text-zinc-300">Business Structure</Label>
+                      <select
+                        id="bType"
+                        value={businessType}
+                        onChange={e => setBusinessType(e.target.value)}
+                        className="h-8.5 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-800 dark:text-zinc-200 px-2.5"
+                      >
+                        <option value="llc">LLC (Limited Liability Co)</option>
+                        <option value="corporation">Corporation (C-Corp / S-Corp)</option>
+                        <option value="sole_proprietorship">Sole Proprietorship</option>
+                        <option value="partnership">Partnership</option>
+                        <option value="non_profit">Non-Profit (501c3)</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setOperationMode('multi_crew')}
-                      className={`min-h-[52px] p-3 rounded-lg border text-left transition-all flex flex-col justify-between ${
-                        operationMode === 'multi_crew'
-                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/40'
-                          : 'bg-slate-50/60 dark:bg-zinc-950/60 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-900/60'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-md ${operationMode === 'multi_crew' ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
-                              <Users className="h-4 w-4" />
-                            </div>
-                            <span className="text-xs font-semibold">Multi-Crew / Fleet</span>
-                          </div>
-                          {operationMode === 'multi_crew' && (
-                            <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
-                          2+ Trucks Dispatched Daily
-                        </p>
-                      </div>
-                      <div className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-zinc-800 text-[10px] text-slate-500 dark:text-zinc-400 space-y-0.5">
-                        <div className="flex items-center gap-1">
-                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> Multi-truck dispatch swimlanes
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-blue-500 dark:text-blue-400 font-bold">•</span> Morning crew SMS broadcast
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="phone" className="text-xs text-slate-700 dark:text-zinc-300">
-                    Notification Mobile Number <span className="text-slate-400 dark:text-zinc-500 font-normal">(optional)</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    placeholder="(555) 555-5555"
-                    value={phone}
-                    onChange={handlePhone}
-                    maxLength={14}
-                    className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 font-mono"
-                  />
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-500">
-                    Used for instant owner notifications and missed-call test alerts. Leave blank if not needed.
-                  </p>
-                </div>
-
-                <div className="pt-2 flex flex-col gap-2">
-                  <Button
-                    type="submit"
-                    className="w-full h-10 sm:h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm sm:text-xs flex items-center justify-center gap-1.5"
-                  >
-                    <span>Next: Carrier &amp; 10DLC Verification</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-
-                  <button
-                    type="button"
-                    onClick={() => submitOnboarding(false)}
-                    disabled={saving}
-                    className="text-[11px] text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 text-center py-1.5 underline-offset-4 hover:underline transition-colors"
-                  >
-                    {saving ? 'Setting up workspace...' : 'Quick setup without carrier registration (verify later in Settings)'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            /* ──────────────── STEP 2: 10DLC CARRIER VERIFICATION ──────────────── */
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <h1 className="text-lg font-semibold text-slate-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  US Carrier &amp; 10DLC Registration
-                </h1>
-              </div>
-
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-md p-3 mb-5 text-[11px] text-emerald-800 dark:text-emerald-300/90 leading-relaxed">
-                <strong>Why is this required?</strong> US carriers (AT&amp;T, Verizon, T-Mobile) require all automated business text messages to be pre-registered under the A2P 10DLC standard so your missed-call text-backs are verified and never flagged as spam.
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="legalName" className="text-xs text-slate-700 dark:text-zinc-300">
-                    Official Legal Entity Name <span className="text-red-500 dark:text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="legalName"
-                    placeholder="e.g. Acme Plumbing LLC or John Doe"
-                    value={legalBusinessName}
-                    onChange={e => setLegalBusinessName(e.target.value)}
-                    className="h-9 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
-                  />
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">As registered with IRS or state registration documents.</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="bType" className="text-xs text-slate-700 dark:text-zinc-300">Business Structure</Label>
-                    <select
-                      id="bType"
-                      value={businessType}
-                      onChange={e => setBusinessType(e.target.value)}
-                      className="h-9 rounded-md bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-800 dark:text-zinc-200 px-2.5 focus:outline-none focus:border-blue-500 dark:focus:border-zinc-700"
-                    >
-                      <option value="llc">LLC (Limited Liability Co)</option>
-                      <option value="corporation">Corporation (C-Corp / S-Corp)</option>
-                      <option value="sole_proprietorship">Sole Proprietorship</option>
-                      <option value="partnership">Partnership</option>
-                      <option value="non_profit">Non-Profit (501c3)</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="ein" className="text-xs text-slate-700 dark:text-zinc-300">
+                        Federal EIN / Tax ID {isSoleProprietor ? '(N/A)' : ''}
+                      </Label>
+                      <Input
+                        id="ein"
+                        placeholder="12-3456789"
+                        value={isSoleProprietor ? '' : ein}
+                        onChange={handleEin}
+                        disabled={isSoleProprietor}
+                        maxLength={10}
+                        className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 font-mono disabled:opacity-50"
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="ein" className="text-xs text-slate-700 dark:text-zinc-300">
-                      Federal EIN / Tax ID {isSoleProprietor ? '(N/A)' : <span className="text-red-500 dark:text-red-400">*</span>}
-                    </Label>
-                    <Input
-                      id="ein"
-                      placeholder="12-3456789"
-                      value={isSoleProprietor ? '' : ein}
-                      onChange={handleEin}
-                      disabled={isSoleProprietor}
-                      maxLength={10}
-                      className="h-9 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 font-mono disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="soleProp"
-                    checked={isSoleProprietor}
-                    onChange={e => {
-                      setIsSoleProprietor(e.target.checked)
-                      if (e.target.checked) setBusinessType('sole_proprietorship')
-                    }}
-                    className="rounded bg-white dark:bg-zinc-950 border-slate-300 dark:border-zinc-800 text-blue-600 h-3.5 w-3.5 cursor-pointer"
-                  />
-                  <label htmlFor="soleProp" className="text-[11px] text-slate-600 dark:text-zinc-400 cursor-pointer select-none">
-                    I operate as an individual / Sole Proprietor without a Federal EIN
-                  </label>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="street" className="text-xs text-slate-700 dark:text-zinc-300">Official Street Address</Label>
-                  <Input
-                    id="street"
-                    placeholder="123 Main St, Suite 100"
-                    value={addressStreet}
-                    onChange={e => setAddressStreet(e.target.value)}
-                    className="h-9 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-1 grid gap-1">
-                    <Label htmlFor="city" className="text-[11px] text-slate-500 dark:text-zinc-400">City</Label>
-                    <Input
-                      id="city"
-                      placeholder="Austin"
-                      value={addressCity}
-                      onChange={e => setAddressCity(e.target.value)}
-                      className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
-                    />
-                  </div>
-                  <div className="col-span-1 grid gap-1">
-                    <Label htmlFor="state" className="text-[11px] text-slate-500 dark:text-zinc-400">State (2-letter)</Label>
-                    <Input
-                      id="state"
-                      placeholder="TX"
-                      maxLength={2}
-                      value={addressState}
-                      onChange={e => setAddressState(e.target.value.toUpperCase())}
-                      className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 font-mono"
-                    />
-                  </div>
-                  <div className="col-span-1 grid gap-1">
-                    <Label htmlFor="zip" className="text-[11px] text-slate-500 dark:text-zinc-400">ZIP</Label>
-                    <Input
-                      id="zip"
-                      placeholder="78701"
-                      maxLength={10}
-                      value={addressPostalCode}
-                      onChange={e => setAddressPostalCode(e.target.value)}
-                      className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="web" className="text-xs text-slate-700 dark:text-zinc-300">Website or Public Social Profile</Label>
-                  <Input
-                    id="web"
-                    placeholder="https://acmeplumbing.com or https://facebook.com/acme"
-                    value={websiteUrl}
-                    onChange={e => setWebsiteUrl(e.target.value)}
-                    className="h-9 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
-                  />
-                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">Required by US telecom carriers for online presence verification.</p>
-                </div>
-
-                <div className="pt-3 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setStep(1)}
-                      disabled={saving}
-                      className="h-9 px-3 rounded-md border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs flex items-center gap-1"
-                    >
-                      <ArrowLeft className="h-3 w-3" />
-                      <span>Back</span>
-                    </Button>
-
-                    <Button
-                      type="button"
-                      onClick={() => submitOnboarding(true)}
-                      disabled={saving}
-                      className="flex-1 h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center justify-center gap-1.5"
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Submitting Registration...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Complete Setup &amp; Submit Registration</span>
-                        </>
-                      )}
-                    </Button>
+                    <input
+                      type="checkbox"
+                      id="soleProp"
+                      checked={isSoleProprietor}
+                      onChange={e => {
+                        setIsSoleProprietor(e.target.checked)
+                        if (e.target.checked) setBusinessType('sole_proprietorship')
+                      }}
+                      className="rounded bg-white dark:bg-zinc-950 border-slate-300 dark:border-zinc-800 text-blue-600 h-3.5 w-3.5 cursor-pointer"
+                    />
+                    <label htmlFor="soleProp" className="text-[11px] text-slate-600 dark:text-zinc-400 cursor-pointer select-none">
+                      I operate as an individual / Sole Proprietor without an EIN
+                    </label>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => submitOnboarding(false)}
-                    disabled={saving}
-                    className="text-[11px] text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 text-center py-1 underline-offset-4 hover:underline transition-colors"
-                  >
-                    Skip 10DLC verification for now (complete later in Settings)
-                  </button>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="street" className="text-xs text-slate-700 dark:text-zinc-300">Official Street Address</Label>
+                    <Input
+                      id="street"
+                      placeholder="123 Main St, Suite 100"
+                      value={addressStreet}
+                      onChange={e => setAddressStreet(e.target.value)}
+                      className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-1 grid gap-1">
+                      <Label htmlFor="city" className="text-[11px] text-slate-500">City</Label>
+                      <Input
+                        id="city"
+                        placeholder="Austin"
+                        value={addressCity}
+                        onChange={e => setAddressCity(e.target.value)}
+                        className="h-8 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                      />
+                    </div>
+                    <div className="col-span-1 grid gap-1">
+                      <Label htmlFor="state" className="text-[11px] text-slate-500">State (2-letter)</Label>
+                      <Input
+                        id="state"
+                        placeholder="TX"
+                        maxLength={2}
+                        value={addressState}
+                        onChange={e => setAddressState(e.target.value.toUpperCase())}
+                        className="h-8 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 font-mono"
+                      />
+                    </div>
+                    <div className="col-span-1 grid gap-1">
+                      <Label htmlFor="zip" className="text-[11px] text-slate-500">ZIP</Label>
+                      <Input
+                        id="zip"
+                        placeholder="78701"
+                        maxLength={10}
+                        value={addressPostalCode}
+                        onChange={e => setAddressPostalCode(e.target.value)}
+                        className="h-8 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="web" className="text-xs text-slate-700 dark:text-zinc-300">Website or Public Social Profile</Label>
+                    <Input
+                      id="web"
+                      placeholder="https://acmeplumbing.com or https://facebook.com/acme"
+                      value={websiteUrl}
+                      onChange={e => setWebsiteUrl(e.target.value)}
+                      className="h-8.5 rounded-md text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+
+            {/* Direct High-Momentum CTA */}
+            <div className="pt-2 flex flex-col gap-2.5">
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Configuring Your Free Workspace...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Launch Workspace &amp; Claim 3 Free Jobs</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+
+              <p className="text-[11px] text-center text-slate-500 dark:text-zinc-400">
+                🔒 No credit card required • First 3 customer jobs 100% free with automated dispatch &amp; payments
+              </p>
+            </div>
+          </form>
         </div>
       </div>
     </div>
   )
 }
-
