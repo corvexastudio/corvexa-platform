@@ -25,6 +25,7 @@ import {
   BadgeCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { cn } from '@/lib/utils'
 
 interface InvoiceItem {
@@ -246,13 +247,18 @@ export default function CustomerInvoicePage() {
           {/* Official Letterhead Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pb-6 border-b border-slate-200 dark:border-zinc-800">
             <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  <Building className="w-5 h-5" />
+              <div className="flex items-center gap-3 mb-2">
+                <ContractorBrandAvatar
+                  logoUrl={org?.logo_url}
+                  name={org?.name || 'Local Service Provider'}
+                  industry={org?.industry}
+                  size="md"
+                />
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                    {org?.name || 'Local Service Provider'}
+                  </h2>
                 </div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
-                  {org?.name || 'Local Service Provider'}
-                </h2>
               </div>
 
               {/* State Trade License Badge */}

@@ -34,6 +34,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { BrandIcon } from '@/components/brand/brand-logo'
+import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { NotificationCenter } from '@/components/notifications/notification-center'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { UniversalQuickCreate } from '@/components/universal-quick-create'
@@ -173,6 +174,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [orgPhone, setOrgPhone] = useState<string>('')
   const [orgTimezone, setOrgTimezone] = useState<string>('America/Chicago')
   const [orgIndustry, setOrgIndustry] = useState<string>('general')
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null)
   const [operationMode, setOperationMode] = useState<'solo' | 'multi_crew'>('solo')
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>('free')
   const [planId, setPlanId] = useState<string | null>('free')
@@ -426,6 +428,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             setOrgPhone(effectiveOrg.telnyx_phone_number || '')
             if (effectiveOrg.timezone) setOrgTimezone(effectiveOrg.timezone)
             if (effectiveOrg.industry) setOrgIndustry(effectiveOrg.industry)
+            if (effectiveOrg.logo_url) setOrgLogoUrl(effectiveOrg.logo_url)
             setOperationMode(effectiveOrg.operation_mode === 'multi_crew' ? 'multi_crew' : 'solo')
             if (effectiveOrg.subscription_status) setSubscriptionStatus(effectiveOrg.subscription_status)
             if (effectiveOrg.plan_id) setPlanId(effectiveOrg.plan_id)
@@ -589,7 +592,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {/* Workspace Identity */}
         <div className="flex h-16 items-center justify-between border-b border-slate-200 dark:border-zinc-800 px-4">
           <Link href={isTechnician ? "/client/field" : "/client/dashboard"} className="flex items-center gap-2.5 min-w-0 group">
-            <BrandIcon className="h-8 w-8 rounded-lg shadow-2xs group-hover:scale-105 transition-transform" size={32} />
+            <ContractorBrandAvatar
+              logoUrl={orgLogoUrl}
+              name={orgName || 'CaptoDesk'}
+              industry={orgIndustry}
+              size="sm"
+              className="group-hover:scale-105 transition-transform"
+            />
             <div className="min-w-0">
               <span className="block text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
                 {orgName || 'CaptoDesk'}
@@ -953,7 +962,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-zinc-800">
               <div className="flex items-center gap-2 min-w-0">
-                <BrandIcon className="h-8 w-8 rounded-lg shadow-2xs shrink-0" size={32} />
+                <ContractorBrandAvatar
+                  logoUrl={orgLogoUrl}
+                  name={orgName || 'CaptoDesk'}
+                  industry={orgIndustry}
+                  size="sm"
+                />
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">{orgName || 'CaptoDesk'}</div>
                   <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">{orgPhone || 'Digital Front Desk'}</div>

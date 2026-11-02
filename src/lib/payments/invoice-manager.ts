@@ -749,7 +749,7 @@ export async function customerViewInvoice(
 ): Promise<{ success: boolean; invoice?: any; items?: any[]; org?: any; jobPhotos?: any[]; error?: string }> {
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
-    .select('*, invoice_items(*), contacts(id, name, phone, email, address_street, address_city, address_state, address_postal_code), organizations(id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, address_street, address_city, address_state, address_postal_code)')
+    .select('*, invoice_items(*), contacts(id, name, phone, email, address_street, address_city, address_state, address_postal_code), organizations(id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, logo_url, address_street, address_city, address_state, address_postal_code)')
     .eq('manage_token', manageToken)
     .single()
 
@@ -761,7 +761,7 @@ export async function customerViewInvoice(
   if (!org && invoice.org_id) {
     const { data: o, error: oErr } = await supabase
       .from('organizations')
-      .select('id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, address_street, address_city, address_state, address_postal_code')
+      .select('id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, logo_url, address_street, address_city, address_state, address_postal_code')
       .eq('id', invoice.org_id)
       .single()
     if (oErr) {

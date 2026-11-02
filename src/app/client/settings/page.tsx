@@ -45,8 +45,12 @@ import {
   Shield,
   Layers,
   Repeat,
-  Info
+  Info,
+  Upload,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react'
+import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { cn } from '@/lib/utils'
 import { PushNotificationSettings } from '@/components/notifications/push-notification-settings'
 import { ThemeSettingsSelector } from '@/components/theme-toggle'
@@ -146,6 +150,8 @@ export default function SettingsPage() {
   const [copiedTmobile, setCopiedTmobile] = useState(false)
   const [testingSms, setTestingSms] = useState(false)
   const [testingDigest, setTestingDigest] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [removingLogo, setRemovingLogo] = useState(false)
 
   // Billing State
   const [billingData, setBillingData] = useState<BillingData | null>(null)
@@ -191,6 +197,7 @@ export default function SettingsPage() {
     address_postal_code: '',
     website_url: '',
     industry: 'general',
+    logo_url: '',
     license_number: '',
     carrier_registration_status: 'unregistered',
     tcr_brand_id: '',
@@ -263,6 +270,7 @@ export default function SettingsPage() {
           address_postal_code: org.address_postal_code || '',
           website_url: org.website_url || '',
           industry: org.industry || 'general',
+          logo_url: org.logo_url || '',
           license_number: org.license_number || '',
           carrier_registration_status: org.carrier_registration_status || 'unregistered',
           tcr_brand_id: org.tcr_brand_id || '',
@@ -334,6 +342,64 @@ export default function SettingsPage() {
     }
   }, [activeTab, loadBilling, loadStripeStatus])
 
+  // Logo Upload Handlers
+  const handleLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'].includes(file.type.toLowerCase())) {
+      toast.error('Please upload a PNG, JPG, WebP, or SVG image.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image exceeds 5MB limit. Please choose a smaller image.')
+      return
+    }
+
+    setUploadingLogo(true)
+    try {
+      const data = new FormData()
+      data.append('file', file)
+
+      const res = await fetch('/api/client/organization/logo', {
+        method: 'POST',
+        body: data
+      })
+
+      const result = await res.json()
+      if (res.ok && result.logo_url) {
+        setFormData(prev => ({ ...prev, logo_url: result.logo_url }))
+        toast.success('Brand logo uploaded and applied to invoices & booking page!')
+      } else {
+        toast.error(result.error || 'Failed to upload logo.')
+      }
+    } catch {
+      toast.error('A network error occurred while uploading your logo.')
+    } finally {
+      setUploadingLogo(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const handleRemoveLogo = async () => {
+    setRemovingLogo(true)
+    try {
+      const res = await fetch('/api/client/organization/logo', {
+        method: 'DELETE'
+      })
+      if (res.ok) {
+        setFormData(prev => ({ ...prev, logo_url: '' }))
+        toast.success('Logo removed. Reset to trade monogram avatar.')
+      } else {
+        toast.error('Failed to remove logo.')
+      }
+    } catch {
+      toast.error('Error removing logo.')
+    } finally {
+      setRemovingLogo(false)
+    }
+  }
+
   // Save Settings Handler - uses authoritative /api/client/organization PATCH endpoint
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -361,6 +427,7 @@ export default function SettingsPage() {
           address_state: formData.address_state,
           address_postal_code: formData.address_postal_code,
           website_url: formData.website_url,
+          logo_url: formData.logo_url || null,
           industry: formData.industry,
           license_number: formData.license_number,
           tracking_mode: formData.tracking_mode,
@@ -746,6 +813,85 @@ export default function SettingsPage() {
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Visible to customers on quotes, invoices, SMS, and public booking.
                 </p>
+              </div>
+            </div>
+
+            {/* Brand Logo & Avatar Upload Section */}
+            <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <ContractorBrandAvatar
+                  logoUrl={formData.logo_url}
+                  name={formData.name || 'My Business'}
+                  industry={formData.industry}
+                  size="xl"
+                  rounded="2xl"
+                  className="shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                      {formData.logo_url ? 'Custom Brand Logo Active' : 'Automated Trade Monogram Active'}
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                      formData.logo_url ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                    )}>
+                      {formData.logo_url ? 'Custom Logo' : 'Smart Monogram'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
+                    Appears on homeowner invoices, online booking, live GPS tracking, and your workspace sidebar.
+                  </p>
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                    Recommended: Square or horizontal PNG/JPG with transparent or light background (max 5MB).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+                <input
+                  type="file"
+                  id="logo-upload-input"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoFileChange}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={uploadingLogo}
+                  onClick={() => document.getElementById('logo-upload-input')?.click()}
+                  className="flex-1 sm:flex-none h-9 text-xs font-semibold gap-1.5 border-zinc-300 dark:border-zinc-700 hover:bg-white dark:hover:bg-zinc-800 cursor-pointer min-h-[44px] sm:min-h-0"
+                >
+                  {uploadingLogo ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
+                      <span>{formData.logo_url ? 'Replace Logo' : 'Upload Brand Logo'}</span>
+                    </>
+                  )}
+                </Button>
+
+                {formData.logo_url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={removingLogo}
+                    onClick={handleRemoveLogo}
+                    className="h-9 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer min-h-[44px] sm:min-h-0"
+                    title="Remove logo and use trade monogram"
+                  >
+                    {removingLogo ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 

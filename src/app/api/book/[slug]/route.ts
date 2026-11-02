@@ -26,13 +26,26 @@ export async function GET(
     }
 
     // 1. Fetch Organization by Slug
-    const { data: org, error: orgError } = await supabase
+    let org: any = null
+    const { data: orgData, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates')
+      .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry, logo_url')
       .eq('slug', slug)
       .single()
 
-    if (orgError || !org) {
+    if (orgError) {
+      // Fallback query if logo_url is not yet in schema cache
+      const fallback = await supabase
+        .from('organizations')
+        .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry')
+        .eq('slug', slug)
+        .single()
+      org = fallback.data
+    } else {
+      org = orgData
+    }
+
+    if (!org) {
       console.warn('[BOOKING_GET_ORG_NOT_FOUND]', { slug, error: orgError?.message })
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
@@ -65,7 +78,9 @@ export async function GET(
         business_hours: org.business_hours,
         blocked_dates: org.blocked_dates || [],
         minimum_notice_hours: org.minimum_notice_hours ?? 2,
-        max_booking_days_ahead: org.max_booking_days_ahead ?? 30
+        max_booking_days_ahead: org.max_booking_days_ahead ?? 30,
+        industry: org.industry || 'general',
+        logo_url: org.logo_url || null
       },
       services: activeServices,
       bookingToken: generateBookingToken(org.slug, org.id)

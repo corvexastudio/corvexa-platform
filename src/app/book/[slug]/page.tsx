@@ -24,6 +24,7 @@ import {
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
+import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { cn } from '@/lib/utils'
 
 interface ServiceItem {
@@ -45,6 +46,8 @@ interface OrgInfo {
   business_hours: any
   minimum_notice_hours: number
   max_booking_days_ahead: number
+  industry?: string | null
+  logo_url?: string | null
 }
 
 interface AvailableSlot {
@@ -347,7 +350,14 @@ export default function PublicBookingPage() {
       <div className="max-w-xl mx-auto space-y-6">
 
         {/* Business Header */}
-        <div className="text-center space-y-2 pb-2">
+        <div className="text-center space-y-2.5 pb-2 flex flex-col items-center">
+          <ContractorBrandAvatar
+            logoUrl={org.logo_url}
+            name={org.name}
+            industry={org.industry}
+            size="lg"
+            className="shadow-sm ring-2 ring-white dark:ring-zinc-900"
+          />
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold">
             <CalendarDays className="h-3.5 w-3.5" />
             <span>Instant Online Booking</span>

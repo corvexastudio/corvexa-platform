@@ -82,6 +82,7 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       license_number,
       tracking_mode,
       tracking_geofence_miles,
+      logo_url,
       created_at
     `)
     .eq('id', orgId)
@@ -454,6 +455,13 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       if (!isNaN(val) && val > 0 && val <= 50) {
         allowedUpdates.tracking_geofence_miles = val
       }
+    }
+
+    // Brand Logo URL (custom contractor identity across invoices, tracker, and booking)
+    if (typeof body.logo_url === 'string') {
+      allowedUpdates.logo_url = body.logo_url.trim() || null
+    } else if (body.logo_url === null) {
+      allowedUpdates.logo_url = null
     }
 
     // If client submits updated carrier verification fields, update status to pending review
