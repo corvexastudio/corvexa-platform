@@ -29,6 +29,7 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
+import { BrandIcon } from '@/components/brand/brand-logo'
 
 const INDUSTRY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Thermometer,
@@ -228,9 +229,7 @@ export default function OnboardingPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center shadow-xs animate-pulse">
-            <span className="text-blue-600 dark:text-zinc-200 font-bold text-sm">C</span>
-          </div>
+          <BrandIcon className="h-8 w-8 animate-pulse shadow-2xs" size={32} priority />
           <span className="text-xs text-slate-500 dark:text-zinc-500">Checking account...</span>
         </div>
       </div>
@@ -246,9 +245,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-2xl transition-all duration-300">
         {/* Brand Header */}
         <div className="flex items-center justify-center gap-2.5 mb-4">
-          <div className="h-9 w-9 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center justify-center">
-            <span className="text-blue-600 dark:text-white font-bold text-sm">C</span>
-          </div>
+          <BrandIcon className="h-8 w-8 rounded-lg shadow-2xs" size={32} priority />
           <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-zinc-100">CaptoDesk</span>
         </div>
 
