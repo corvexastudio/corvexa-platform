@@ -88,25 +88,25 @@ export function FirstBookingCelebrationModal({
             )}
           </div>
           <div>
-            <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider ${
+            <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider ${
               isMissedCall ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'
             }`}>
               {isMissedCall
-                ? (isInteractiveTest ? 'Live Interactive Test' : 'Achievement Unlocked • Missed Call Text-Back')
-                : 'Milestone Reached • Customer Booked'}
+                ? (isInteractiveTest ? 'Live Interactive Test' : 'Missed Call Text-Back')
+                : 'Customer Booking Received'}
             </span>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
               {isMissedCall
-                ? '⚡ 3-Second Missed Call Recovery'
-                : '🎉 Your Free Starter Pass Is Working!'}
+                ? 'Automated Missed Call Recovery'
+                : 'Online Booking Confirmed'}
             </h2>
           </div>
         </div>
       }
       description={
         isMissedCall
-          ? 'Turn every missed phone call into a confirmed customer in under 3 seconds before they call a competitor.'
-          : "A customer just booked directly on your schedule. You've proven your online link brings in real jobs without phone tag."
+          ? 'CaptoDesk texts callers in under 8 seconds when you are on a ladder or cannot answer.'
+          : 'A customer booked an appointment directly on your schedule. You can review details and dispatch crew anytime.'
       }
     >
       <div className="space-y-4 pt-2">
@@ -219,7 +219,7 @@ export function FirstBookingCelebrationModal({
             ) : (
               <>
                 <Zap className="w-4 h-4 fill-current" />
-                <span>⚡ Upgrade to Solo Pro ($99/mo)</span>
+                <span>Upgrade to Solo Pro ($99/mo)</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -230,7 +230,7 @@ export function FirstBookingCelebrationModal({
             onClick={onClose}
             className="w-full py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200 transition-colors cursor-pointer text-center"
           >
-            Keep using free starter pass ($0) for now
+            Continue with Free Starter Pass
           </button>
         </div>
       </div>

@@ -56,7 +56,6 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { BookingShareBar } from '@/components/booking/booking-share-bar'
-import { PracticeJobCard } from '@/components/jobs/practice-job-card'
 import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
 import { JobWonBadge } from '@/components/jobs/job-won-badge'
@@ -68,7 +67,6 @@ export default function DashboardPage() {
   const router = useRouter()
   const { orgId, orgName, orgSlug, subscriptionStatus, planId, role, userFullName, operationMode } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
-  const [dismissedPracticeIds, setDismissedPracticeIds] = useState<string[]>([])
   const [enRouteModalOpen, setEnRouteModalOpen] = useState(false)
   const [foundMoneyModalOpen, setFoundMoneyModalOpen] = useState(false)
   const [gatedJobData, setGatedJobData] = useState<{ amount?: number; customerName?: string } | null>(null)
@@ -404,7 +402,7 @@ export default function DashboardPage() {
       
       {/* ── Page Header: Today's Briefing ── */}
       <PageHeader
-        title="Today's Command Center"
+        title="Today's Overview"
         badge={
           <Badge variant="neutral" size="default" suppressHydrationWarning>
             {todayFormatted}
@@ -497,6 +495,30 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Free 3-Job Starter Pass Status Banner */}
+      {!isPayingCustomer && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+            <div>
+              <span className="font-bold text-slate-900 dark:text-zinc-100">
+                Free 3-Job Starter Pass Active
+              </span>
+              <span className="text-slate-400 dark:text-zinc-500 mx-2 hidden sm:inline">•</span>
+              <span className="text-slate-600 dark:text-zinc-400 block sm:inline mt-0.5 sm:mt-0">
+                First 3 customer jobs include automated dispatch, Stripe card invoicing, and Google reviews with $0 platform fees.
+              </span>
+            </div>
+          </div>
+          <Link
+            href="/client/settings?tab=billing"
+            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0 self-start sm:self-auto"
+          >
+            Plan details &rarr;
+          </Link>
+        </div>
+      )}
+
       {/* Day-1 Native SMS & Quick Share Booking Link Bar (Only for Free / Unpaid accounts that haven't dismissed it) */}
       {!isPayingCustomer && !bookingShareDismissed && (
         <BookingShareBar
@@ -515,7 +537,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Needs Immediate Attention
+                Action Required
               </h2>
               <Badge variant="warning" size="sm" className="font-bold tabular-nums">
                 {visibleAttentionItems.length}
@@ -605,7 +627,7 @@ export default function DashboardPage() {
                 <div key={i} className="h-20 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 animate-pulse" />
               ))}
             </div>
-          ) : jobsToday.length === 0 ? (
+          ) : nonPracticeJobs.length === 0 ? (
             <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-0.5 min-w-0">
                 <div className="flex items-center gap-2">
@@ -813,10 +835,10 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
-                        All field jobs completed for today!
+                        All appointments completed for today
                       </p>
                       <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                        {nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'appointment' : 'appointments'} finished. Great job!
+                        {nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'appointment' : 'appointments'} completed.
                       </p>
                     </div>
                   </div>
@@ -834,27 +856,7 @@ export default function DashboardPage() {
               <div className="space-y-2.5">
               {jobsToday.map((job) => {
                 if (isPracticeJob(job)) {
-                  const realJobsCount = jobsToday.filter(j => !isPracticeJob(j)).length
-                  if (realJobsCount > 0 || dismissedPracticeIds.includes(job.id)) {
-                    return null
-                  }
-                  return (
-                    <PracticeJobCard
-                      key={job.id}
-                      job={{
-                        id: job.id,
-                        title: job.title,
-                        status: job.status,
-                        contact: {
-                          name: job.customerName,
-                          phone: '+1 (555) 019-9999',
-                          address: job.address
-                        }
-                      }}
-                      currentPlanId={planId}
-                      onDismiss={(id) => setDismissedPracticeIds(prev => [...prev, id])}
-                    />
-                  )
+                  return null
                 }
 
                 const isActiveCurrent = activeJob?.id === job.id
@@ -935,7 +937,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-5 space-y-3.5">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Pipeline Status
+              Pipeline Overview
             </h2>
           </div>
 
@@ -1030,11 +1032,11 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* ── Section 3: Performance & Cash Flow ── */}
+      {/* ── Section 3: Performance ── */}
       <section className="space-y-3.5">
         <div className="flex items-center justify-between border-t border-slate-200 dark:border-zinc-800 pt-6">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-            Performance &amp; Cash Flow
+            Performance
           </h2>
           <Badge variant="neutral" size="default">
             {period === '7d' ? 'Last 7 Days' : 'Last 30 Days'}
@@ -1067,9 +1069,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 3. Bookings Won */}
+          {/* 3. Bookings */}
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Appointments Won</div>
+            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Booked Appointments</div>
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">
               {outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0}
             </div>
@@ -1094,11 +1096,11 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ── Section 4: Recent Inbound Calls ── */}
+      {/* ── Section 4: Recent Calls ── */}
       <section className="space-y-3.5 border-t border-slate-200 dark:border-zinc-800 pt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-            Recent Inbound Calls & Auto-Replies
+            Recent Calls
           </h2>
           <Link href="/client/inbox" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors">
             View All in Inbox &rarr;

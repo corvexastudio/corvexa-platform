@@ -604,7 +604,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 {orgName || 'CaptoDesk'}
               </span>
               <span className="block text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">
-                {isTechnician ? 'Field Technician' : (orgPhone ? orgPhone : 'Digital Front Desk')}
+                {isTechnician ? 'Field Technician' : (orgPhone ? orgPhone : 'Workspace')}
               </span>
             </div>
           </Link>
@@ -749,7 +749,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </h1>
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span>Digital Front Desk: {orgPhone || 'Active'}</span>
+              <span>{orgPhone ? `Line: ${orgPhone}` : 'Online Booking Active'}</span>
             </div>
           </div>
 
@@ -970,7 +970,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 />
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">{orgName || 'CaptoDesk'}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">{orgPhone || 'Digital Front Desk'}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono truncate">{orgPhone || 'Workspace'}</div>
                 </div>
               </div>
               <button

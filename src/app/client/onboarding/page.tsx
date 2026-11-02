@@ -251,9 +251,9 @@ export default function OnboardingPage() {
 
         {/* Free Starter Pass Value Badge */}
         <div className="flex items-center justify-center mb-5">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs font-medium shadow-xs">
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>Free 3-Job Starter Pass Active • $0 Setup • No Credit Card Required</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+            <span>Free 3-Job Starter Pass • No credit card required</span>
           </div>
         </div>
 
@@ -261,21 +261,16 @@ export default function OnboardingPage() {
           <div className="mb-5">
             <h1 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-1 tracking-tight">Workspace Setup</h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-              Tailor CaptoDesk to your specific trade. We will auto-configure realistic starter services, missed-call recovery templates, and your online booking link.
+              Select your trade to set up your dispatch calendar, service catalog, and online booking link.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Business Name */}
             <div className="grid gap-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="biz" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Business / Company Name <span className="text-red-500 dark:text-red-400">*</span>
-                </Label>
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                  Visible to homeowners
-                </span>
-              </div>
+              <Label htmlFor="biz" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Business Name <span className="text-red-500 dark:text-red-400">*</span>
+              </Label>
               <Input
                 id="biz"
                 placeholder="e.g. Acme Heating & Air"
@@ -291,14 +286,9 @@ export default function OnboardingPage() {
 
             {/* Trade Category Selector (No Inner Scroll) */}
             <div className="grid gap-2 pt-1">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Select Your Industry Trade <span className="text-red-500 dark:text-red-400">*</span>
-                </Label>
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                  Customizable anytime
-                </span>
-              </div>
+              <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Primary Trade <span className="text-red-500 dark:text-red-400">*</span>
+              </Label>
 
               {/* 8 Primary Trades Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -370,11 +360,10 @@ export default function OnboardingPage() {
               {/* Starter Services Callout Cards */}
               <div className="p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 mt-1">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-300 font-semibold text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                    <span>Auto-configured starter services for {activePreset.name.split('&')[0].trim()}:</span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Edit prices anytime</span>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                    Starter services included for {activePreset.name.split('&')[0].trim()}:
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Prices editable in settings</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {activePreset.services.map((svc, i) => (
@@ -393,14 +382,9 @@ export default function OnboardingPage() {
 
             {/* Operation Scale: Solo vs Multi-Crew */}
             <div className="grid gap-2 pt-1">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Field Operations Setup <span className="text-red-500 dark:text-red-400">*</span>
-                </Label>
-                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                  Working with an apprentice? Choose Solo
-                </span>
-              </div>
+              <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Operations Model <span className="text-red-500 dark:text-red-400">*</span>
+              </Label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
@@ -419,7 +403,7 @@ export default function OnboardingPage() {
                       </div>
                       <div>
                         <span className="text-xs font-bold block">Solo Operator</span>
-                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">1 Truck (Solo or with helper)</span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">1 Truck (solo or with a helper)</span>
                       </div>
                     </div>
                     {operationMode === 'solo' && (
@@ -427,7 +411,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-zinc-400 pt-1.5 border-t border-slate-200/60 dark:border-zinc-800/60">
-                    • 1 clean daily route • Instant 1-tap fast booking
+                    Single daily route • Direct booking
                   </div>
                 </button>
 
@@ -447,7 +431,7 @@ export default function OnboardingPage() {
                       </div>
                       <div>
                         <span className="text-xs font-bold block">Multi-Crew / Fleet</span>
-                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">2+ Trucks Dispatched Daily</span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">2+ Trucks dispatched daily</span>
                       </div>
                     </div>
                     {operationMode === 'multi_crew' && (
@@ -455,7 +439,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <div className="text-[10px] text-slate-500 dark:text-zinc-400 pt-1.5 border-t border-slate-200/60 dark:border-zinc-800/60">
-                    • Multi-truck dispatch swimlanes • Morning crew SMS
+                    Multi-truck dispatch • Crew assignment
                   </div>
                 </button>
               </div>
@@ -463,14 +447,9 @@ export default function OnboardingPage() {
 
             {/* Booking Text Alert Mobile Number */}
             <div className="grid gap-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="phone" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                  Where should we text your booking alerts? <span className="text-slate-400 dark:text-zinc-500 font-normal">(optional)</span>
-                </Label>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                  Instant SMS notifications
-                </span>
-              </div>
+              <Label htmlFor="phone" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Mobile Phone for Job Alerts <span className="text-slate-400 dark:text-zinc-500 font-normal">(optional)</span>
+              </Label>
               <Input
                 id="phone"
                 placeholder="(555) 000-0000"
@@ -480,7 +459,7 @@ export default function OnboardingPage() {
                 className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 font-mono"
               />
               <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                We will text you the moment a homeowner books online or calls so you never miss a job.
+                Receive SMS notifications when customers book an appointment online or request an estimate.
               </p>
             </div>
 
@@ -494,7 +473,7 @@ export default function OnboardingPage() {
                 <span className="flex items-center gap-1.5">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <span className="font-medium">
-                    {show10Dlc ? 'Hide Legal Entity & 10DLC Verification' : 'Need to register your Federal EIN for 10DLC carrier lines now? (Optional)'}
+                    {show10Dlc ? 'Hide carrier messaging verification' : 'Register EIN for carrier messaging verification (optional)'}
                   </span>
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${show10Dlc ? 'rotate-180' : ''}`} />
@@ -503,7 +482,7 @@ export default function OnboardingPage() {
               {show10Dlc && (
                 <div className="mt-3 p-4 rounded-lg bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 space-y-3.5 animate-in fade-in duration-200">
                   <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-md p-2.5 text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                    <strong>Carrier A2P 10DLC:</strong> Registers your brand with US carriers (AT&amp;T, Verizon, T-Mobile) for dedicated business numbers. You can also complete this anytime in Settings.
+                    <strong>Carrier Registration:</strong> Optional if you want a dedicated local number. You can complete this anytime in Settings.
                   </div>
 
                   <div className="grid gap-1.5">
@@ -639,18 +618,18 @@ export default function OnboardingPage() {
                 {saving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Configuring Your Free Workspace...</span>
+                    <span>Setting up workspace...</span>
                   </>
                 ) : (
                   <>
-                    <span>Launch Workspace &amp; Claim 3 Free Jobs</span>
+                    <span>Complete Setup</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
               </Button>
 
               <p className="text-[11px] text-center text-slate-500 dark:text-zinc-400">
-                🔒 No credit card required • First 3 customer jobs 100% free with automated dispatch &amp; payments
+                First 3 customer jobs are free with online booking, automated dispatch, and card invoicing.
               </p>
             </div>
           </form>

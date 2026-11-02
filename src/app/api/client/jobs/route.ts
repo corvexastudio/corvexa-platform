@@ -101,7 +101,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  const items = [...(rawJobs || [])]
+  const realJobs = (rawJobs || []).filter((j: any) => 
+    !j.job_number?.includes('PRACTICE') && 
+    !j.title?.includes('[PRACTICE]')
+  )
+
+  const items = [...realJobs]
   const hasMore = items.length > limit
   if (hasMore) {
     items.pop()

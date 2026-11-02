@@ -686,11 +686,11 @@ export async function getOperationalMetrics(
       return { count, total }
     })(),
 
-    // 5. Jobs Today
+    // 5. Jobs Today (Excludes practice sandbox jobs)
     (async () => {
       let q = supabase
         .from('jobs')
-        .select('id, scheduled_start, deleted_at')
+        .select('id, job_number, title, scheduled_start, deleted_at')
         .eq('org_id', orgId)
         .gte('scheduled_start', todayStart.toISOString())
         .lte('scheduled_start', todayEnd.toISOString())
@@ -699,7 +699,11 @@ export async function getOperationalMetrics(
         q = (q as any).is('deleted_at', null)
       }
       const { data } = await q
-      const active = (data || []).filter((item: any) => !item.deleted_at)
+      const active = (data || []).filter((item: any) => 
+        !item.deleted_at && 
+        !item.job_number?.includes('PRACTICE') && 
+        !item.title?.includes('[PRACTICE]')
+      )
       return active.length
     })(),
 
@@ -796,7 +800,12 @@ export async function getJobsToday(
     .lte('scheduled_start', todayEnd.toISOString())
     .order('scheduled_start', { ascending: true })
 
-  return (jobs || []).map((j: any) => ({
+  const realJobs = (jobs || []).filter((j: any) => 
+    !j.job_number?.includes('PRACTICE') && 
+    !j.title?.includes('[PRACTICE]')
+  )
+
+  return realJobs.map((j: any) => ({
     id: j.id,
     jobNumber: j.job_number,
     title: j.title,

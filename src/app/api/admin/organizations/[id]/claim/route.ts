@@ -48,7 +48,7 @@ export async function GET(
     const publicBookingUrl = origin.includes('captodesk.com')
       ? `https://book.captodesk.com/${org.slug}`
       : `${origin}/book/${org.slug}`
-    const welcomeSmsText = `Hey ${ownerName}! I just set up the free online booking page for ${org.name} so customers on Google Maps can book slots directly: ${publicBookingUrl} - Tap this link on your cell phone to open your dashboard & test your practice job (no password needed): ${claimUrl}`
+    const welcomeSmsText = `Hey ${ownerName}! I just set up the free online booking page for ${org.name} so customers on Google Maps can book slots directly: ${publicBookingUrl} - Tap this link on your cell phone to open your dashboard: ${claimUrl}`
 
     return NextResponse.json({
       success: true,

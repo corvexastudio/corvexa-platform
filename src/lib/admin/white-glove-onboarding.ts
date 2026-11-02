@@ -38,7 +38,7 @@ export interface AdminOnboardResult {
     phone: string
     isPlaceholderEmail: boolean
   }
-  practiceJob: {
+  practiceJob?: {
     id: string
     jobNumber: string
     title: string
@@ -242,40 +242,6 @@ export async function adminOnboardTenant(
     console.warn('[Admin Onboarding] Services seed warning:', err.message)
   }
 
-  // Seed Sandbox Practice Job
-  const practiceContactId = crypto.randomUUID()
-  const practiceJobId = crypto.randomUUID()
-  const practiceJobNumber = 'PRACTICE-101'
-  const practiceJobTitle = '🧪 [PRACTICE] Water Heater Diagnostic ($89.00)'
-
-  try {
-    await supabase.from('contacts').insert({
-      id: practiceContactId,
-      org_id: orgId,
-      name: '[PRACTICE] Alex Homeowner',
-      phone: '+15550199999',
-      address: '123 Practice Lane, Test City, TX 75001',
-      lifecycle_status: 'active'
-    })
-
-    const now = new Date()
-    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000)
-
-    await supabase.from('jobs').insert({
-      id: practiceJobId,
-      org_id: orgId,
-      contact_id: practiceContactId,
-      job_number: practiceJobNumber,
-      title: practiceJobTitle,
-      status: 'scheduled',
-      scheduled_start: now.toISOString(),
-      scheduled_end: inOneHour.toISOString(),
-      notes: 'SANDBOX_PRACTICE_JOB: Tap the buttons below to test 1-click dispatch, quotes, and invoices!'
-    })
-  } catch (err: any) {
-    console.warn('[Admin Onboarding] Practice job seed warning:', err.message)
-  }
-
   // Seed Missed Call Automation Settings
   try {
     await supabase.from('automation_settings').insert({
@@ -298,7 +264,7 @@ export async function adminOnboardTenant(
   const publicBookingUrl = options?.bookingBaseUrl
     ? `${options.bookingBaseUrl}/${finalSlug}`
     : (baseUrl.includes('captodesk.com') ? `https://book.captodesk.com/${finalSlug}` : `${baseUrl}/book/${finalSlug}`)
-  const welcomeSmsText = `Hey ${effectiveOwnerName}! I just set up the free online booking page for ${rawBusinessName} so customers on Google Maps can book slots directly: ${publicBookingUrl} - Tap this link on your cell phone to open your dashboard & test your practice job (no password needed): ${claimUrl}`
+  const welcomeSmsText = `Hey ${effectiveOwnerName}! I just set up the free online booking page for ${rawBusinessName} so customers on Google Maps can book slots directly: ${publicBookingUrl} - Tap this link on your cell phone to open your dashboard: ${claimUrl}`
 
   return {
     success: true,
@@ -320,11 +286,6 @@ export async function adminOnboardTenant(
       fullName: effectiveOwnerName,
       phone: normCell.e164,
       isPlaceholderEmail
-    },
-    practiceJob: {
-      id: practiceJobId,
-      jobNumber: practiceJobNumber,
-      title: practiceJobTitle
     },
     claimUrl,
     publicBookingUrl,

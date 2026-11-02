@@ -418,7 +418,11 @@ export async function searchAndFilterCustomers(
     return { success: false, customers: [], totalCount: 0, error: contactError.message }
   }
 
-  let filtered = (contacts || []).filter(c => includeDeleted || !c.deleted_at)
+  let filtered = (contacts || []).filter(c => 
+    (includeDeleted || !c.deleted_at) &&
+    !c.name?.includes('[PRACTICE]') &&
+    !(Array.isArray(c.tags) && c.tags.includes('practice'))
+  )
 
   // Filter by lifecycle status (supports both stored column and dynamic computation)
   if (status && status !== 'all') {
