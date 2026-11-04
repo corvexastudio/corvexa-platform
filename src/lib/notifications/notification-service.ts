@@ -31,6 +31,7 @@ import { sendTelnyxSms } from '../telnyx.ts'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { checkRateLimitAsync } from '../security/rate-limiter.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 
 /**
  * Reusable notification engine entrypoint.
@@ -429,21 +430,12 @@ export async function notifyOwner(
           })
         } else {
           const ownerPhone = ownerRes.phone
-          const senderNorm = org?.telnyx_phone_number ? normalizePhoneToE164(org.telnyx_phone_number) : null
+          const senderPhone = resolveSenderPhone(org)
 
-          if (!senderNorm?.isValid || !senderNorm.e164 || senderNorm.e164.startsWith('+1999')) {
-            deliveries.push({
-              channel: 'sms',
-              success: false,
-              destination: ownerPhone,
-              skippedReason: 'invalid_sender_phone'
-            })
-          } else {
-            const senderPhone = senderNorm.e164
-            const smsRateLimit = await checkRateLimitAsync(`sms:owner_alert:${organizationId}`, {
-              max: 10,
-              windowMs: 60 * 1000
-            })
+          const smsRateLimit = await checkRateLimitAsync(`sms:owner_alert:${organizationId}`, {
+            max: 10,
+            windowMs: 60 * 1000
+          })
 
             if (!smsRateLimit.allowed) {
               deliveries.push({
@@ -517,7 +509,6 @@ export async function notifyOwner(
           }
         }
       }
-    }
 
     return {
       attempted: true,

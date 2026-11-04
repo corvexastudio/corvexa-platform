@@ -2,9 +2,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const resolveFile = (rel) => fileURLToPath(new URL(`../${rel}`, import.meta.url))
 
 test('Phase 4 - StarterPassMeter: Mobile-first 44px+ touch ergonomics and milestone nodes', () => {
-  const filePath = path.resolve('src/components/billing/starter-pass-meter.tsx')
+  const filePath = resolveFile('src/components/billing/starter-pass-meter.tsx')
   const content = fs.readFileSync(filePath, 'utf8')
 
   // Mobile ergonomics: minimum 44px touch target
@@ -29,7 +32,7 @@ test('Phase 4 - StarterPassMeter: Mobile-first 44px+ touch ergonomics and milest
 })
 
 test('Phase 4 - JobWonBadge: Dopamine release badge for won bookings', () => {
-  const filePath = path.resolve('src/components/jobs/job-won-badge.tsx')
+  const filePath = resolveFile('src/components/jobs/job-won-badge.tsx')
   const content = fs.readFileSync(filePath, 'utf8')
 
   // Dopamine copy and icons
@@ -46,7 +49,7 @@ test('Phase 4 - JobWonBadge: Dopamine release badge for won bookings', () => {
 })
 
 test('Phase 4 - MilestoneUpgradeModal: Mobile-first 3-job celebration & dual-tier upgrade', () => {
-  const filePath = path.resolve('src/components/billing/milestone-upgrade-modal.tsx')
+  const filePath = resolveFile('src/components/billing/milestone-upgrade-modal.tsx')
   const content = fs.readFileSync(filePath, 'utf8')
 
   // Celebration headline & revenue callout
@@ -65,7 +68,7 @@ test('Phase 4 - MilestoneUpgradeModal: Mobile-first 3-job celebration & dual-tie
 })
 
 test('Phase 4 - FoundMoneyUnlockModal: Sunk-cost finish line paywall with zero data loss', () => {
-  const filePath = path.resolve('src/components/billing/found-money-unlock-modal.tsx')
+  const filePath = resolveFile('src/components/billing/found-money-unlock-modal.tsx')
   const content = fs.readFileSync(filePath, 'utf8')
 
   // Revenue headline
@@ -84,15 +87,15 @@ test('Phase 4 - FoundMoneyUnlockModal: Sunk-cost finish line paywall with zero d
 
 test('Phase 4 - Layout & Dashboard Integration: StarterPassMeter and FoundMoneyUnlockModal mounted', () => {
   // 1. Client layout has StarterPassMeter
-  const layoutContent = fs.readFileSync(path.resolve('src/app/client/layout.tsx'), 'utf8')
+  const layoutContent = fs.readFileSync(resolveFile('src/app/client/layout.tsx'), 'utf8')
   assert.ok(layoutContent.includes('<StarterPassMeter'), 'Layout mounts StarterPassMeter')
 
   // 2. Dashboard has JobWonBadge and FoundMoneyUnlockModal
-  const dashboardContent = fs.readFileSync(path.resolve('src/app/client/dashboard/page.tsx'), 'utf8')
+  const dashboardContent = fs.readFileSync(resolveFile('src/app/client/dashboard/page.tsx'), 'utf8')
   assert.ok(dashboardContent.includes('<JobWonBadge'), 'Dashboard mounts JobWonBadge')
   assert.ok(dashboardContent.includes('<FoundMoneyUnlockModal'), 'Dashboard mounts FoundMoneyUnlockModal')
 
   // 3. Invoices page has FoundMoneyUnlockModal
-  const invoicesContent = fs.readFileSync(path.resolve('src/app/client/invoices/page.tsx'), 'utf8')
+  const invoicesContent = fs.readFileSync(resolveFile('src/app/client/invoices/page.tsx'), 'utf8')
   assert.ok(invoicesContent.includes('<FoundMoneyUnlockModal'), 'Invoices page mounts FoundMoneyUnlockModal')
 })

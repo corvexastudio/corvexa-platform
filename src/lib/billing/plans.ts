@@ -21,8 +21,22 @@ export interface SaasPlan {
 export const DEFAULT_SAAS_PLAN_ID = 'captodesk_standard'
 export const DEFAULT_SETUP_FEE = 199.00
 export const DEMO_TOLL_FREE_NUMBER = '+18777713802'
+export const PLATFORM_TOLL_FREE_NUMBER = '+18777713802'
 export const DEMO_ORG_ID = '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7'
 export const FREE_TIER_COMPLETED_JOB_LIMIT = 3
+
+/**
+ * Resolves the compliant outbound SMS sender phone number.
+ * 1. If organization has an active dedicated Telnyx number (Paid Plan 10DLC), use it.
+ * 2. Otherwise (Free Starter Pass or internal platform alerts), use the verified platform number.
+ */
+export function resolveSenderPhone(org?: { telnyx_phone_number?: string | null } | null): string {
+  const orgNumber = org?.telnyx_phone_number?.trim()
+  if (orgNumber && !orgNumber.startsWith('+1999')) {
+    return orgNumber
+  }
+  return process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || PLATFORM_TOLL_FREE_NUMBER
+}
 
 export const SAAS_PLANS: Record<string, SaasPlan> = {
   free: {
@@ -228,22 +242,14 @@ export function isProAutomationEntitled(org: {
 }
 
 /**
- * Demo Toll-Free Number Isolation Guard
- * The platform demo TFN (+18777713802) must NEVER be used to send real customer SMS for client orgs.
- * It is strictly isolated to the Demo tenant (org.slug === 'demo' or DEMO_ORG_ID).
+ * Platform Toll-Free Number Guard
+ * The verified platform Toll-Free number (+18777713802) is authorized for all platform notifications,
+ * demo walkthroughs, and Free 3-Job Starter Pass transactions.
  */
 export function isTollFreeNumberRestricted(
-  senderPhone: string,
-  org: { id?: string | null; slug?: string | null } | null | undefined
+  _senderPhone: string,
+  _org: { id?: string | null; slug?: string | null } | null | undefined
 ): boolean {
-  if (!senderPhone) return false
-  const cleanSender = senderPhone.replace(/\D/g, '')
-  const cleanTfn = DEMO_TOLL_FREE_NUMBER.replace(/\D/g, '')
-  if (cleanSender === cleanTfn || cleanSender === '8777713802') {
-    if (!org) return true
-    const isDemo = org.id === DEMO_ORG_ID || (typeof org.slug === 'string' && org.slug.toLowerCase().includes('demo'))
-    return !isDemo
-  }
   return false
 }
 

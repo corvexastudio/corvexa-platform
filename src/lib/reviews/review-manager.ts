@@ -6,6 +6,7 @@ import { logAuditEvent } from '../security/audit-logger.ts'
 import { isPhoneSuppressed, isTcpaQuietHours, verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { calculateNextMorning805 } from '../services/call-recovery.ts'
 import { renderSituationAwareText, resolveOperationMode } from '../notifications/situation-templates.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 
 export interface ReviewEligibilityResult {
   eligible: boolean
@@ -270,18 +271,8 @@ export async function dispatchReviewRequest(
     })
   }
 
-  // 4. Resolve sender number
-  let senderNumber = org.telnyx_phone_number
-  if (!senderNumber) {
-    const { data: numRow } = await supabase
-      .from('telnyx_phone_numbers')
-      .select('phone_number')
-      .eq('org_id', orgId)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle()
-    senderNumber = numRow?.phone_number
-  }
+  // 4. Resolve sender number (dedicated 10DLC for paid tiers, verified toll-free for free starter pass)
+  let senderNumber = resolveSenderPhone(org)
 
   // 4.5. TCPA Quiet Hours & Pre-Flight Compliance Interception (P2-003)
   const timezone = org.timezone || 'America/New_York'

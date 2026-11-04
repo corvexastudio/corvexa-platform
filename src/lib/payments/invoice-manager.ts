@@ -8,6 +8,7 @@ import { createStripeCheckoutSession } from './stripe-adapter.ts'
 import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
 import { scheduleInvoiceReviewAutomation } from '../reviews/review-manager.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 
 export type InvoiceStatus =
   | 'draft'
@@ -410,7 +411,7 @@ export async function sendInvoice(
   const smsBody = `Hi ${contact?.name || 'there'}! Here is your invoice ${invoice.invoice_number} from ${businessName} for $${invoice.amount_due || invoice.total}. Pay securely online here: ${customerInvoiceUrl}`
 
   if (contact?.phone) {
-    const senderPhone = org?.telnyx_phone_number || org?.owner_phone
+    const senderPhone = resolveSenderPhone(org)
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,
       toPhone: contact.phone,
@@ -704,7 +705,7 @@ export async function recordPayment(
           .select('id, name, telnyx_phone_number, owner_phone')
           .eq('id', invoice.org_id)
           .maybeSingle()
-        const senderPhone = org?.telnyx_phone_number || org?.owner_phone
+        const senderPhone = resolveSenderPhone(org)
 
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.captodesk.com'
         const receiptUrl = invoice.manage_token ? `${baseUrl}/invoice/${invoice.manage_token}` : ''

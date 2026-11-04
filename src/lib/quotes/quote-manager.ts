@@ -11,6 +11,7 @@ import {
   logComplianceAudit
 } from '../compliance/compliance-engine.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 
 export interface QuoteLineItemInput {
   description: string
@@ -257,7 +258,7 @@ export async function sendQuote(
     return { success: false, error: 'Customer phone number not available' }
   }
 
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+  const senderNumber = resolveSenderPhone(org)
   const manageUrl = `${appBaseUrl}/quote/${quote.manage_token}`
 
   // 3. Update Quote to 'sent'
@@ -696,7 +697,7 @@ export async function customerAcceptQuote(
     .eq('id', quote.contact_id)
     .single()
 
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+  const senderNumber = resolveSenderPhone(org)
   if (senderNumber && contact?.phone) {
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
     const depositPrompt = depositInvoiceUrl

@@ -54,9 +54,8 @@ export async function sendTelnyxSms({
   }
 
   const apiKey = process.env.TELNYX_API_KEY
-  // P1-003: Remove hardcoded demo toll-free number from standard fallback chain.
-  // Sender must be an explicitly verified tenant number or configured environment sender.
-  const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || (isDemoOrE2E ? '+18777713802' : undefined)
+  // Sender falls back to verified platform toll-free number (+18777713802) when tenant has no dedicated number
+  const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || '+18777713802'
 
   if (!apiKey) {
     if (isProduction) {

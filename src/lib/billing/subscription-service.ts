@@ -5,6 +5,8 @@ import {
   DEFAULT_SAAS_PLAN_ID,
   isProAutomationEntitled,
   isTollFreeNumberRestricted,
+  resolveSenderPhone,
+  PLATFORM_TOLL_FREE_NUMBER,
   FREE_TIER_COMPLETED_JOB_LIMIT
 } from './plans.ts'
 import { isPracticeJob } from '../jobs/practice-job.ts'
@@ -1007,4 +1009,4 @@ export async function evaluateTrialQuota(
   return SubscriptionService.evaluateTrialQuota(supabase, orgId)
 }
 
-export { isProAutomationEntitled, isTollFreeNumberRestricted }
+export { isProAutomationEntitled, isTollFreeNumberRestricted, resolveSenderPhone, PLATFORM_TOLL_FREE_NUMBER }

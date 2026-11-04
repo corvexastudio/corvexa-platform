@@ -16,7 +16,7 @@ import { handleAutomationEvent } from '../automations/engine.ts'
 import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.ts'
 import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
-import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted } from '../billing/subscription-service.ts'
+import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted, resolveSenderPhone } from '../billing/subscription-service.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -462,7 +462,7 @@ export async function createBooking(
     proofText: `Appointment booking for ${activeService.name} on ${displayTime}`
   })
 
-  const senderNumber = org.telnyx_phone_number || org.owner_phone
+  const senderNumber = resolveSenderPhone(org)
   let confirmationText = ''
   if (isInstant) {
     confirmationText = `Hi ${customerName}! Your appointment with ${org.name} for ${activeService.name} is confirmed for ${displayTime}. Manage or reschedule: ${manageUrl}`
@@ -477,59 +477,62 @@ export async function createBooking(
     confirmationText += `\n\nExperience the Live Owner Dashboard (no login required): ${appUrl}/demo`
   }
 
-  // 10. Check Telecom Entitlement ($0 Free Tier Guard & BILL-001 Trial Limits)
+  // 10. Check Telecom Entitlement ($0 Free Tier 3-Job Starter Pass & Paid Plans)
   const isEntitled = isProAutomationEntitled(org)
-  const isTfnRestricted = senderNumber ? isTollFreeNumberRestricted(senderNumber, org) : false
 
-  if (!isEntitled) {
-    // Free Tier Guard: strictly $0 telecom cost. Skip Telnyx SMS confirmation.
+  // Evaluate Starter Pass usage for free tier
+  const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => ({
+    completedJobsCount: 0,
+    limit: 3,
+    remainingJobs: 3,
+    isLimitReached: false,
+    totalRevenueEarned: 0
+  }))
+
+  const isStarterLimitReached = !isEntitled && starterUsage.isLimitReached
+  const milestone = Math.min(3, starterUsage.completedJobsCount + 1)
+  const remaining = Math.max(0, 3 - milestone)
+
+  let isTrialLimitReached = false
+
+  if (isStarterLimitReached) {
+    // 3 Free jobs completed. Customer SMS paused until contractor upgrades.
     await logComplianceAudit(supabase, {
       orgId,
       phone: normalizedPhone.e164,
       contactId: contactId || undefined,
       action: 'message_suppressed',
       messageType: 'transactional',
-      reason: 'free_tier_no_telecom'
+      reason: 'starter_limit_reached'
     })
 
-    // Starter Pass Milestone & Situation-Aware Alerts (Phase 2)
-    const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => ({
-      completedJobsCount: 0,
-      limit: 3,
-      remainingJobs: 3,
-      isLimitReached: false,
-      totalRevenueEarned: 0
-    }))
-    const isLimitReached = starterUsage.isLimitReached
-    const milestone = Math.min(3, starterUsage.completedJobsCount + 1)
-    const remaining = Math.max(0, 3 - milestone)
+    try {
+      await supabase.from('notifications').insert({
+        org_id: orgId,
+        title: '🚨 New Online Booking Waiting - Upgrade to Unlock',
+        message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to unlock this job and dispatch immediately.`,
+        link: '/client/billing?reason=starter_limit'
+      })
+    } catch {
+      // Non-fatal
+    }
 
-    if (isLimitReached) {
-      try {
-        await supabase.from('notifications').insert({
-          org_id: orgId,
-          title: '🚨 New Online Booking Waiting - Upgrade to Unlock',
-          message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to unlock this job and dispatch immediately.`,
-          link: '/client/billing?reason=starter_limit'
-        })
-      } catch {
-        // Non-fatal
+    await notifyOwner(supabase, {
+      event: 'starter_job_gated',
+      organizationId: orgId,
+      data: {
+        customerName,
+        customerPhone: normalizedPhone.e164,
+        serviceName: activeService.name,
+        bookingTime: displayTime,
+        jobRevenue: (activeService.price ? Number(activeService.price) : undefined) || 250,
+        appointmentId: appointment.id,
+        upgradeUrl: '/client/billing?reason=starter_limit'
       }
-
-      await notifyOwner(supabase, {
-        event: 'starter_job_gated',
-        organizationId: orgId,
-        data: {
-          customerName,
-          customerPhone: normalizedPhone.e164,
-          serviceName: activeService.name,
-          bookingTime: displayTime,
-          jobRevenue: (activeService.price ? Number(activeService.price) : undefined) || 250,
-          appointmentId: appointment.id,
-          upgradeUrl: '/client/billing?reason=starter_limit'
-        }
-      }).catch(() => {})
-    } else {
+    }).catch(() => {})
+  } else {
+    // Free tier milestone alerts to owner
+    if (!isEntitled) {
       try {
         await supabase.from('notifications').insert({
           org_id: orgId,
@@ -556,23 +559,12 @@ export async function createBooking(
         }
       }).catch(() => {})
     }
-  } else if (isTfnRestricted) {
-    // Toll-Free Number (+18777713802) is strictly isolated to Demo tenant
-    await logComplianceAudit(supabase, {
-      orgId,
-      phone: normalizedPhone.e164,
-      contactId: contactId || undefined,
-      action: 'message_suppressed',
-      messageType: 'transactional',
-      reason: 'tfn_demo_isolation'
-    })
-  } else {
-    // Check Trial Quota Safety: evaluate if outbound SMS should be paused (BILL-001)
-    const trialQuota = await SubscriptionService.evaluateTrialQuota(supabase, orgId)
-    const isTrialLimitReached = trialQuota.isTrial && trialQuota.isExceeded
+
+    // Evaluate trial quota safety if on trial
+    const trialQuota = isEntitled ? await SubscriptionService.evaluateTrialQuota(supabase, orgId).catch(() => null) : null
+    isTrialLimitReached = Boolean(trialQuota?.isTrial && trialQuota?.isExceeded)
 
     if (isTrialLimitReached) {
-      // Log suppression audit
       await logComplianceAudit(supabase, {
         orgId,
         phone: normalizedPhone.e164,
@@ -582,12 +574,11 @@ export async function createBooking(
         reason: 'trial_limit_reached'
       })
 
-      // Surface contractor in-app warning notification
       try {
         await supabase.from('notifications').insert({
           org_id: orgId,
           title: 'Trial Quota Reached — Outbound SMS Paused',
-          message: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
+          message: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached. Upgrade your subscription to resume automated customer messaging.`,
           link: '/client/billing'
         })
       } catch {
@@ -599,7 +590,7 @@ export async function createBooking(
         organizationId: orgId,
         data: {
           title: 'Trial Quota Reached — Outbound SMS Paused',
-          body: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Upgrade your subscription to resume automated customer messaging.`,
+          body: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached.`,
           targetUrl: '/client/billing',
           customerName,
           customerPhone: normalizedPhone.e164,
@@ -607,97 +598,97 @@ export async function createBooking(
         }
       }).catch(() => {})
     } else if (senderNumber) {
-    const compliance = await verifyOutboundCompliance(supabase, {
-      orgId,
-      toPhone: normalizedPhone.e164,
-      fromPhone: senderNumber,
-      flowType: 'booking_confirmation',
-      messageType: 'transactional',
-      body: confirmationText,
-      contactId: contactId || undefined
-    })
-
-    if (compliance.allowed) {
-      const smsResult = await sendTelnyxSms({
-        to: normalizedPhone.e164,
-        from: senderNumber,
-        text: compliance.formattedText
-      })
-
-      await logComplianceAudit(supabase, {
+      const compliance = await verifyOutboundCompliance(supabase, {
         orgId,
-        phone: normalizedPhone.e164,
-        contactId: contactId || undefined,
-        action: 'message_sent',
+        toPhone: normalizedPhone.e164,
+        fromPhone: senderNumber,
+        flowType: 'booking_confirmation',
         messageType: 'transactional',
-        reason: 'booking_confirmation'
+        body: confirmationText,
+        contactId: contactId || undefined
       })
 
-      // LIFECYCLE-001: Sync confirmation SMS into Inbox conversations thread
-      try {
-        if (contactId) {
-          let { data: conversation } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('org_id', orgId)
-            .eq('contact_id', contactId)
-            .maybeSingle()
+      if (compliance.allowed) {
+        const smsResult = await sendTelnyxSms({
+          to: normalizedPhone.e164,
+          from: senderNumber,
+          text: compliance.formattedText
+        })
 
-          if (!conversation) {
-            const { data: newConv } = await supabase
+        await logComplianceAudit(supabase, {
+          orgId,
+          phone: normalizedPhone.e164,
+          contactId: contactId || undefined,
+          action: 'message_sent',
+          messageType: 'transactional',
+          reason: 'booking_confirmation'
+        })
+
+        // LIFECYCLE-001: Sync confirmation SMS into Inbox conversations thread
+        try {
+          if (contactId) {
+            let { data: conversation } = await supabase
               .from('conversations')
-              .insert({
-                org_id: orgId,
-                contact_id: contactId,
-                last_message_preview: compliance.formattedText
-              })
               .select('id')
-              .single()
-            conversation = newConv
-          } else {
-            await supabase
-              .from('conversations')
-              .update({
-                last_message_preview: compliance.formattedText,
-                last_message_at: new Date().toISOString()
-              })
-              .eq('id', conversation.id)
-          }
+              .eq('org_id', orgId)
+              .eq('contact_id', contactId)
+              .maybeSingle()
 
-          if (conversation) {
-            await supabase.from('messages').insert({
-              org_id: orgId,
-              conversation_id: conversation.id,
-              direction: 'outbound',
-              sender_type: 'system',
-              body: compliance.formattedText,
-              delivery_status: smsResult?.success ? 'sent' : 'failed',
-              telnyx_message_id: smsResult?.messageId,
-              automation_source: 'booking_confirmation',
-              failure_reason: smsResult?.error || null
-            })
+            if (!conversation) {
+              const { data: newConv } = await supabase
+                .from('conversations')
+                .insert({
+                  org_id: orgId,
+                  contact_id: contactId,
+                  last_message_preview: compliance.formattedText
+                })
+                .select('id')
+                .single()
+              conversation = newConv
+            } else {
+              await supabase
+                .from('conversations')
+                .update({
+                  last_message_preview: compliance.formattedText,
+                  last_message_at: new Date().toISOString()
+                })
+                .eq('id', conversation.id)
+            }
+
+            if (conversation) {
+              await supabase.from('messages').insert({
+                org_id: orgId,
+                conversation_id: conversation.id,
+                direction: 'outbound',
+                sender_type: 'system',
+                body: compliance.formattedText,
+                delivery_status: smsResult?.success ? 'sent' : 'failed',
+                telnyx_message_id: smsResult?.messageId,
+                automation_source: 'booking_confirmation',
+                failure_reason: smsResult?.error || null
+              })
+            }
           }
+        } catch (convErr) {
+          console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
         }
-      } catch (convErr) {
-        console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
       }
     }
   }
 
-    // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed
-    if (isInstant && senderNumber && !isTrialLimitReached) {
-      await scheduleAppointmentReminders(supabase, {
-        appointmentId: appointment.id,
-        orgId,
-        orgName: org.name,
-        senderNumber: senderNumber,
-        customerPhone: normalizedPhone.e164,
-        serviceName: activeService.name,
-        startTime,
-        displayTime,
-        manageUrl
-      })
-    }
+  // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed
+  if (isInstant && senderNumber && !isTrialLimitReached && !isStarterLimitReached) {
+    await scheduleAppointmentReminders(supabase, {
+      appointmentId: appointment.id,
+      orgId,
+      orgName: org.name,
+      senderNumber: senderNumber,
+      customerPhone: normalizedPhone.e164,
+      serviceName: activeService.name,
+      startTime,
+      displayTime,
+      manageUrl
+    })
   }
 
   // 12. Dispatch Owner Notification (Push + SMS via Notification Platform)
@@ -903,7 +894,7 @@ export async function customerCancelBooking(
     contact = contactData
   }
 
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+  const senderNumber = resolveSenderPhone(org)
   if (senderNumber && contact?.phone) {
     const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
     const rebookUrl = rawAppUrl.includes('captodesk.com')
@@ -1079,7 +1070,7 @@ export async function customerRescheduleBooking(
     : `${appBaseUrl}/book/manage/${manageToken}`
 
   // 4. Schedule new reminders
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone || null
+  const senderNumber = resolveSenderPhone(org) || null
   if (contact?.phone && senderNumber) {
     await scheduleAppointmentReminders(supabase, {
       appointmentId: apt.id,
@@ -1247,7 +1238,7 @@ export async function ownerUpdateBookingStatus(
       contact = contactData
     }
 
-    const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+    const senderNumber = resolveSenderPhone(org)
     const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
     const manageUrl = appBaseUrl.includes('captodesk.com')
       ? `https://book.captodesk.com/manage/${apt.manage_token}`

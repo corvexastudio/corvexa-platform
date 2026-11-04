@@ -7,6 +7,7 @@ import { updateCustomerServiceDate } from '../retention/lifecycle-manager.ts'
 import { scheduleJobReviewAutomation } from '../reviews/review-manager.ts'
 import { renderSituationAwareText } from '../notifications/situation-templates.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 
 export type JobStatus =
   | 'scheduled'
@@ -311,7 +312,7 @@ export async function updateJobStatus(
         .eq('id', job.contact_id)
         .maybeSingle()
 
-      const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+      const senderNumber = resolveSenderPhone(org)
       if (senderNumber && contact?.phone) {
         const techDisplay = technicianName?.trim() || updatedJob.technician_name || 'Your technician'
         const etaVal = typeof etaMinutes === 'number' && etaMinutes > 0 ? etaMinutes : updatedJob.eta_minutes

@@ -726,18 +726,20 @@ test('Phase 5 E2E: Precise Fractional Revenue Tracking ($0 Platform Fees)', asyn
 
 test('Phase 5 E2E: Mobile Ergonomics & Found-Money Visual Integrity', async () => {
   const fs = await import('node:fs')
-  const path = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
 
-  const meterFile = fs.readFileSync(path.resolve('src/components/billing/starter-pass-meter.tsx'), 'utf-8')
+  const resolveFile = (rel) => fileURLToPath(new URL(`../${rel}`, import.meta.url))
+
+  const meterFile = fs.readFileSync(resolveFile('src/components/billing/starter-pass-meter.tsx'), 'utf-8')
   assert.ok(meterFile.includes('min-h-[44px]'), 'StarterPassMeter provides minimum 44px mobile touch target')
   assert.ok(meterFile.includes('active:scale-[0.99]'), 'Tactile touch press feedback')
   assert.ok(meterFile.includes('$0 platform fees'), 'Reassures zero platform fees')
 
-  const modalFile = fs.readFileSync(path.resolve('src/components/billing/found-money-unlock-modal.tsx'), 'utf-8')
+  const modalFile = fs.readFileSync(resolveFile('src/components/billing/found-money-unlock-modal.tsx'), 'utf-8')
   assert.ok(modalFile.includes('min-h-[48px]'), 'FoundMoneyUnlockModal primary button is 48px touch ergonomic')
   assert.ok(modalFile.includes('100% saved'), 'Reassures contractor their draft is safely preserved')
 
-  const badgeFile = fs.readFileSync(path.resolve('src/components/jobs/job-won-badge.tsx'), 'utf-8')
+  const badgeFile = fs.readFileSync(resolveFile('src/components/jobs/job-won-badge.tsx'), 'utf-8')
   assert.ok(badgeFile.includes('CONTRACT WON'), 'JobWonBadge triggers dopamine badge')
   assert.ok(badgeFile.includes('Sparkles'), 'Sparkles celebration visual')
 })
