@@ -60,6 +60,7 @@ import { FirstBookingCelebrationModal } from '@/components/billing/first-booking
 import { isPracticeJob } from '@/lib/jobs/practice-job'
 import { JobWonBadge } from '@/components/jobs/job-won-badge'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
+import { PushNotificationBanner } from '@/components/notifications/push-notification-banner'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
@@ -530,6 +531,9 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      {/* 1-Tap Web & Mobile Push Soft-Prompt Banner (Never interrupts if already subscribed or dismissed) */}
+      <PushNotificationBanner />
 
       {/* ── Section 1: Needs Attention (Only surfaces when there is an active unread message or missed call) ── */}
       {!loading && visibleAttentionItems.length > 0 && (

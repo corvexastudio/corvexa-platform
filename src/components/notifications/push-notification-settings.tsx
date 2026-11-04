@@ -1,11 +1,13 @@
 'use client'
 
 import { usePushNotifications } from '@/hooks/use-push-notifications'
+import { useWorkspace } from '@/lib/context/workspace-context'
 import { Button } from '@/components/ui/button'
 import { Bell, BellRing, Check, ShieldAlert, Loader2, Smartphone, MessageSquare, PhoneMissed, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function PushNotificationSettings() {
+  const { orgPhone } = useWorkspace()
   const {
     isSupported,
     permission,
@@ -98,6 +100,48 @@ export function PushNotificationSettings() {
           {error}
         </div>
       )}
+
+      {/* Active Delivery Channels Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        {/* Channel 1: SMS (Always Active by Default) */}
+        <div className="rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+              <Smartphone className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Direct SMS Alerts
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+              <Check className="h-2.5 w-2.5" /> Always On (Default)
+            </span>
+          </div>
+          <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80">
+            Urgent booking notifications and customer replies are delivered directly to {orgPhone ? <span className="font-semibold text-emerald-950 dark:text-emerald-100">{orgPhone}</span> : 'your mobile number'}.
+          </p>
+        </div>
+
+        {/* Channel 2: Push Notifications */}
+        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-3.5 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-900 dark:text-zinc-200 flex items-center gap-1.5">
+              <BellRing className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              Browser &amp; Screen Alerts
+            </span>
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+              isSubscribed
+                ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                : 'bg-slate-200/60 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-300/60 dark:border-zinc-700'
+            }`}>
+              {isSubscribed ? <Check className="h-2.5 w-2.5" /> : null}
+              {isSubscribed ? 'Active on This Device' : 'Inactive on This Device'}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+            {isSubscribed
+              ? 'Instant sound chimes and screen banners will pop up on this device whenever a customer interacts.'
+              : 'Turn on push alerts to hear an instant chime even if your CaptoDesk tab is in the background.'}
+          </p>
+        </div>
+      </div>
 
       {/* Channel Matrix & Event Policies */}
       <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 space-y-2">
