@@ -319,22 +319,21 @@ export default function ContactPage() {
                     />
                   </div>
 
-                  {/* ── MANDATORY 10DLC / TCPA EXPLICIT SMS OPT-IN CHECKBOX ── */}
+                  {/* ── OPTIONAL 10DLC / TCPA EXPLICIT SMS OPT-IN CHECKBOX ── */}
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                     <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
                       <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span>SMS Communication &amp; Privacy Consent</span>
+                      <span>SMS Communication &amp; Privacy Consent <span className="font-normal text-slate-500">(Optional)</span></span>
                     </div>
                     <label className="flex items-start gap-3 cursor-pointer select-none">
                       <input
                         type="checkbox"
-                        required
                         checked={formData.smsConsent}
                         onChange={(e) => setFormData({ ...formData, smsConsent: e.target.checked })}
                         className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
                       />
                       <span className="text-[11px] text-slate-600 leading-relaxed">
-                        I agree to receive SMS text messages from <strong>CaptoDesk</strong> regarding my walkthrough scheduling, product demonstration, and account onboarding updates at the mobile number provided above. Consent is not a condition of purchase. Message frequency varies. Standard message and data rates may apply. Reply <strong>STOP</strong> to cancel at any time, or reply <strong>HELP</strong> for assistance.
+                        (Optional) I agree to receive SMS text messages from <strong>CaptoDesk</strong> regarding my walkthrough scheduling, product demonstration, and account onboarding updates at the mobile number provided above. Consent is optional and not a condition of purchase or receiving services. Message frequency varies. Standard message and data rates may apply. Reply <strong>STOP</strong> to cancel at any time, or reply <strong>HELP</strong> for assistance.
                       </span>
                     </label>
                     <div className="pt-1.5 border-t border-slate-200/80 text-[10px] text-slate-500 flex items-center gap-2">
