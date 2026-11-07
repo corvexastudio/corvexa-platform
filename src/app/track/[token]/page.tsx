@@ -27,6 +27,7 @@ import {
   UserCheck
 } from 'lucide-react'
 import Link from 'next/link'
+import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 
 interface TrackingPayload {
   job: {
@@ -933,12 +934,10 @@ export default function CustomerJobTrackerPage({
         )}
 
         {/* Footer */}
-        <footer className="pt-4 pb-2 text-center text-[11px] text-slate-400 dark:text-zinc-600 space-y-1">
-          <p>
-            Service Tracker powered by <span className="font-semibold text-slate-600 dark:text-zinc-400">CaptoDesk</span>
-          </p>
+        <footer className="pt-4 pb-2 text-center text-[11px] text-slate-400 dark:text-zinc-600 space-y-1.5">
+          <PoweredByBadge source="tracking" />
           <p className="font-mono text-[9px] text-slate-400 dark:text-zinc-700">
-            Updated: {lastUpdated.toLocaleTimeString()}
+            Live Tracker Updated: {lastUpdated.toLocaleTimeString()}
           </p>
         </footer>
 

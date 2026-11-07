@@ -17,6 +17,7 @@ import {
   ArrowLeft
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
+import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 
 interface AppointmentDetail {
   id: string
@@ -579,10 +580,8 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        <div className="text-center text-[11px] text-slate-400 dark:text-zinc-500 flex items-center justify-center gap-1.5 pt-4">
-          <ShieldCheck className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
-          <span>Secure direct link powered by CaptoDesk</span>
-        </div>
+        {/* Universal Clickable Powered by CaptoDesk Badge */}
+        <PoweredByBadge source="manage" className="pt-4 pb-2" />
 
       </div>
     </div>

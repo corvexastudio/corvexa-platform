@@ -25,6 +25,7 @@ import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calen
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
+import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 import { cn } from '@/lib/utils'
 
 interface ServiceItem {
@@ -1164,6 +1165,8 @@ export default function PublicBookingPage() {
           </div>
         )}
 
+        {/* Universal Clickable Powered by CaptoDesk Badge */}
+        <PoweredByBadge source="booking" className="pt-6 pb-2" />
       </div>
     </div>
   )

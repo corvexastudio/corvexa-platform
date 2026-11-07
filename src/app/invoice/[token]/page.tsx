@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
+import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 import { cn } from '@/lib/utils'
 
 interface InvoiceItem {
@@ -663,6 +664,9 @@ export default function CustomerInvoicePage() {
                 </a>
               </p>
             )}
+
+            {/* Universal Clickable Powered by CaptoDesk Badge (Screen only) */}
+            <PoweredByBadge source="invoice" className="pt-3 print:hidden" />
           </div>
         </div>
       </div>

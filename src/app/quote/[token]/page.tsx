@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Printer
 } from 'lucide-react'
+import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 
 interface QuoteItem {
   id: string
@@ -764,10 +765,8 @@ export default function CustomerQuotePage() {
           </div>
         )}
 
-        <div className="text-center text-[11px] text-slate-400 dark:text-zinc-500 flex items-center justify-center gap-1.5 pt-4">
-          <ShieldCheck className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-400" />
-          <span>Secure direct quote powered by CaptoDesk</span>
-        </div>
+        {/* Universal Clickable Powered by CaptoDesk Badge */}
+        <PoweredByBadge source="quote" className="pt-4 pb-2" />
 
       </div>
     </div>
