@@ -33,7 +33,8 @@ import {
   Key,
   DollarSign,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  LayoutDashboard
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
@@ -78,13 +79,25 @@ interface FieldJob {
   } | null
 }
 
+interface CrewItem {
+  id: string
+  name: string
+  color_code?: string | null
+  color?: string | null
+  van_identifier?: string | null
+  phone_number?: string | null
+  crew_lead_id?: string | null
+  member_ids?: string[]
+}
+
 export default function FieldPage() {
   const router = useRouter()
-  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone, role, isSuperAdmin } = useWorkspace()
+  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone, role, isSuperAdmin, userId } = useWorkspace()
   const isOwnerOrAdmin = role === 'owner' || role === 'admin' || isSuperAdmin
   const orgTimezone = wsOrgTimezone || 'America/Chicago'
   const orgName = wsOrgName || 'Our team'
   const [selectedDate, setSelectedDate] = useState(() => getTodayInTimezone(orgTimezone))
+  const [selectedCrewId, setSelectedCrewId] = useState<string>('all')
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null)
 
   // En Route Modal
@@ -111,6 +124,29 @@ export default function FieldPage() {
     staleTime: 45 * 1000
   })
 
+  // Fetch Crews for Multi-Van routing & filtering
+  const { data: crewsData } = useQuery({
+    queryKey: ['field-crews'],
+    queryFn: async () => {
+      const res = await fetch('/api/client/crews')
+      if (!res.ok) return { crews: [] }
+      return res.json()
+    },
+    staleTime: 60 * 1000
+  })
+
+  const crews: CrewItem[] = crewsData?.crews || []
+
+  // Auto-select technician's assigned van if logged in as technician
+  useEffect(() => {
+    if (!isOwnerOrAdmin && userId && crews.length > 0) {
+      const myCrew = crews.find(c => c.crew_lead_id === userId || (Array.isArray(c.member_ids) && c.member_ids.includes(userId)))
+      if (myCrew) {
+        setSelectedCrewId(myCrew.id)
+      }
+    }
+  }, [isOwnerOrAdmin, userId, crews])
+
   const jobs: FieldJob[] = data?.jobs || data?.items || []
   const error = isError ? 'Failed to load field jobs' : null
 
@@ -118,8 +154,8 @@ export default function FieldPage() {
     await refetch()
   }, [refetch])
 
-  // Filter jobs for selected date
-  const filteredJobs = useMemo(() => {
+  // All jobs on selected date across the whole company
+  const jobsForDay = useMemo(() => {
     return jobs.filter(j => {
       if (!j.scheduled_start) return false
       let jDate = ''
@@ -131,6 +167,15 @@ export default function FieldPage() {
       return jDate === selectedDate
     })
   }, [jobs, selectedDate, orgTimezone])
+
+  // Filter jobs for selected date AND selected crew/van
+  const filteredJobs = useMemo(() => {
+    return jobsForDay.filter(j => {
+      if (selectedCrewId === 'all') return true
+      if (selectedCrewId === 'unassigned') return !j.crew_id
+      return j.crew_id === selectedCrewId
+    })
+  }, [jobsForDay, selectedCrewId])
 
   // Route HUD Summary Stats
   const routeStats = useMemo(() => {
@@ -282,43 +327,105 @@ export default function FieldPage() {
           </div>
         }
         actions={
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-slate-200 dark:border-zinc-700/60 shadow-2xs">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleDateChange(-1)}
-              className="h-10 w-10 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200 cursor-pointer"
-              aria-label="Previous day"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <div className="px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 min-w-32 text-center tabular-nums">
-              {new Intl.DateTimeFormat('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric'
-              }).format(new Date(`${selectedDate}T12:00:00.000Z`))}
+          <div className="flex items-center gap-2">
+            {isOwnerOrAdmin && (
+              <Link
+                href="/client/dashboard"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs transition-colors cursor-pointer min-h-[44px]"
+                title="Return to Office Dashboard"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5 text-slate-500" />
+                <span>Office</span>
+              </Link>
+            )}
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-slate-200 dark:border-zinc-700/60 shadow-2xs">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDateChange(-1)}
+                className="h-10 w-10 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200 cursor-pointer"
+                aria-label="Previous day"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 min-w-32 text-center tabular-nums">
+                {new Intl.DateTimeFormat('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric'
+                }).format(new Date(`${selectedDate}T12:00:00.000Z`))}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleDateChange(1)}
+                className="h-10 w-10 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200 cursor-pointer"
+                aria-label="Next day"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDateChange(0)}
+                className="min-h-[44px] text-xs font-bold text-blue-600 dark:text-blue-400 px-3.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 cursor-pointer"
+              >
+                Today
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleDateChange(1)}
-              className="h-10 w-10 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200 cursor-pointer"
-              aria-label="Next day"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDateChange(0)}
-              className="min-h-[44px] text-xs font-bold text-blue-600 dark:text-blue-400 px-3.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 cursor-pointer"
-            >
-              Today
-            </Button>
           </div>
         }
       />
+
+      {/* MULTI-VAN / FLEET CREW SELECTOR PILL BAR */}
+      {crews.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedCrewId('all')}
+            className={cn(
+              "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap min-h-[38px] flex items-center gap-1.5 shrink-0",
+              selectedCrewId === 'all'
+                ? "bg-slate-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs"
+                : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+            )}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>All Vans ({jobsForDay.length})</span>
+          </button>
+          {crews.map(crew => {
+            const count = jobsForDay.filter(j => j.crew_id === crew.id).length
+            const isSelected = selectedCrewId === crew.id
+            return (
+              <button
+                key={crew.id}
+                type="button"
+                onClick={() => setSelectedCrewId(crew.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap min-h-[38px] flex items-center gap-1.5 shrink-0 border",
+                  isSelected
+                    ? "bg-blue-600 border-blue-600 text-white shadow-2xs"
+                    : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
+                )}
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: crew.color_code || crew.color || '#3b82f6' }}
+                />
+                <span>{crew.name}{crew.van_identifier ? ` (${crew.van_identifier})` : ''}</span>
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded-full font-mono",
+                  isSelected
+                    ? "bg-blue-700 text-white"
+                    : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400"
+                )}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* ROUTE HEADS-UP DISPLAY (HUD) METRIC TOKENS */}
       {filteredJobs.length > 0 && (
@@ -442,6 +549,12 @@ export default function FieldPage() {
                         <span>{startTimeStr}</span>
                         {job.job_number && (
                           <span className="text-[11px] font-mono text-slate-400 font-normal">({job.job_number})</span>
+                        )}
+                        {job.crew?.name && (
+                          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md ml-1 border border-slate-200 dark:border-zinc-700">
+                            <Truck className="w-3 h-3 text-slate-500" />
+                            <span>{job.crew.name}</span>
+                          </span>
                         )}
                       </div>
                     </div>

@@ -916,6 +916,15 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
           {/* Quick Action CTAs */}
           <div className="flex items-center gap-1.5">
+            <Link
+              href="/client/field"
+              title="Open Mobile Truck Route (Steering Wheel Mode)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs h-8 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
+            >
+              <Truck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Truck View</span>
+            </Link>
+
             {orgSlug && (
               <Link
                 href={`/book/${orgSlug}`}

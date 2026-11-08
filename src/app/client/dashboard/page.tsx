@@ -614,16 +614,34 @@ export default function DashboardPage() {
 
         {/* Left Column (7 cols): Today's Field Schedule */}
         <div className="lg:col-span-7 space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Today&apos;s Field Schedule
-            </h2>
-            <Link 
-              href="/client/calendar" 
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-            >
-              Full Calendar &rarr;
-            </Link>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Today&apos;s Field Schedule
+              </h2>
+              {nonPracticeJobs.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'Stop' : 'Stops'}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Link 
+                href="/client/field" 
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                title="Launch Glove-Friendly Truck Route Portal"
+              >
+                <Truck className="h-3.5 w-3.5" />
+                <span>Launch Truck Mode</span>
+              </Link>
+              <Link 
+                href="/client/calendar" 
+                className="text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition-colors hidden sm:inline"
+              >
+                Calendar &rarr;
+              </Link>
+            </div>
           </div>
 
           {loading ? (
@@ -821,10 +839,12 @@ export default function DashboardPage() {
 
                     <div className="ml-auto">
                       <Link
-                        href={`/client/jobs`}
-                        className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+                        href="/client/field"
+                        className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                        title="Open in Truck Route Companion"
                       >
-                        <span>Details &rarr;</span>
+                        <Truck className="h-3.5 w-3.5" />
+                        <span>Truck Mode &rarr;</span>
                       </Link>
                     </div>
                   </div>

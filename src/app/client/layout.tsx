@@ -49,8 +49,9 @@ export const navSections = [
     title: 'Daily Operations',
     items: [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
-      { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
+      { href: '/client/field', label: 'Field Route (Truck)', icon: Truck },
       { href: '/client/calendar', label: 'Schedule & Jobs', icon: Calendar }, // Consolidated /client/jobs into unified Schedule & Jobs hub
+      { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
     ]
   },
   {
@@ -78,7 +79,7 @@ export const technicianNavSections = [
   {
     title: 'Field Operations',
     items: [
-      { href: '/client/field', label: "Today's Route", icon: Navigation },
+      { href: '/client/field', label: "Today's Route", icon: Truck },
       { href: '/client/calendar', label: 'My Schedule', icon: Calendar },
       { href: '/client/inbox', label: 'Customer Chat', icon: MessageSquare, badgeKey: 'inbox' },
     ]
@@ -91,6 +92,7 @@ export const dispatcherNavSections = [
     title: 'Daily Work',
     items: [
       { href: '/client/dashboard', label: 'Today', icon: LayoutDashboard },
+      { href: '/client/field', label: 'Field Route (Truck)', icon: Truck },
       { href: '/client/inbox', label: 'Inbox', icon: MessageSquare, badgeKey: 'inbox' },
       { href: '/client/leads', label: 'Leads', icon: Target },
       { href: '/client/calendar', label: 'Schedule & Jobs', icon: Calendar }, // Consolidated /client/jobs into unified Schedule & Jobs hub
@@ -1106,19 +1108,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </Link>
 
             <Link
-              href="/client/inbox"
+              href="/client/field"
               className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
-              <div className="relative">
-                <MessageSquare className="h-4 w-4" />
-                {unreadTotal > 0 && (
-                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
-                )}
-              </div>
-              <span>Messages</span>
+              <Truck className="h-4 w-4" />
+              <span>Route</span>
             </Link>
 
             <Link
@@ -1133,14 +1130,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </Link>
 
             <Link
-              href="/client/invoices"
+              href="/client/inbox"
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname.startsWith('/client/invoices') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
-              <CreditCard className="h-4 w-4" />
-              <span>Invoices</span>
+              <div className="relative">
+                <MessageSquare className="h-4 w-4" />
+                {unreadTotal > 0 && (
+                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
+                )}
+              </div>
+              <span>Messages</span>
             </Link>
 
             <button
