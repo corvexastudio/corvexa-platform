@@ -160,6 +160,21 @@ export async function updateJobStatus(
     return { success: true, job, alreadyInStatus: true }
   }
 
+  // P0 Guard: If already completed and target is completed, update notes only and do not re-emit completion side effects
+  if (job.status === 'completed' && newStatus === 'completed') {
+    if (notes) {
+      await supabase
+        .from('jobs')
+        .update({
+          notes: job.notes ? `${job.notes}\n${notes}` : notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .eq('org_id', orgId)
+    }
+    return { success: true, job, alreadyInStatus: true }
+  }
+
   // Terminal lifecycle guard: completed and cancelled jobs cannot regress
   if (job.status === 'completed' && newStatus !== 'completed') {
     return { success: false, error: 'Cannot change status of an already completed job' }
@@ -1051,6 +1066,11 @@ export async function recordJobTimestamp(
 
   if (jobError || !job) {
     return { success: false, error: 'Job not found' }
+  }
+
+  // P0 Guard: Cannot restart or record timestamps on completed or cancelled jobs
+  if (['completed', 'cancelled'].includes(job.status) && action !== 'completed') {
+    return { success: false, error: `Cannot record timestamp or restart an already ${job.status} job.` }
   }
 
   const updateFields: Record<string, any> = {

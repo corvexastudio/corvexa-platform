@@ -79,14 +79,14 @@ export async function checkReviewEligibility(
   if (jobId) {
     const { data: job } = await supabase
       .from('jobs')
-      .select('id, status, job_number')
+      .select('id, status, job_number, deleted_at')
       .eq('id', jobId)
       .eq('org_id', orgId)
       .maybeSingle()
 
     jobData = job
-    if (job && (job.status === 'cancelled' || job.status === 'no_show')) {
-      return { eligible: false, reason: 'job_cancelled', details: `Job is ${job.status}` }
+    if (job && (job.status === 'cancelled' || job.status === 'no_show' || job.status === 'disputed' || job.deleted_at)) {
+      return { eligible: false, reason: 'job_cancelled', details: `Job is ${job.status || 'deleted'}` }
     }
   }
 
@@ -99,7 +99,7 @@ export async function checkReviewEligibility(
     .select('id, created_at, status')
     .eq('org_id', orgId)
     .eq('contact_id', contactId)
-    .in('status', ['sent', 'delivered', 'clicked'])
+    .in('status', ['pending', 'scheduled', 'sent', 'delivered', 'clicked'])
     .gte('created_at', cooldownCutoff)
 
   if (recentRequests && recentRequests.length > 0) {
@@ -530,7 +530,7 @@ export async function scheduleInvoiceReviewAutomation(
   // Fetch org review settings
   const { data: org } = await supabase
     .from('organizations')
-    .select('review_delay_hours, review_requests_enabled, is_review_engine_active, google_review_url')
+    .select('review_delay_hours, review_requests_enabled, is_review_engine_active, google_review_url, timezone')
     .eq('id', orgId)
     .single()
 
@@ -539,9 +539,27 @@ export async function scheduleInvoiceReviewAutomation(
     return { scheduled: false, reason: 'reviews_disabled_or_no_url' }
   }
 
+  // Resolve linked job if invoice is tied to a field service job
+  let linkedJobId: string | undefined
+  const { data: invRow } = await supabase
+    .from('invoices')
+    .select('job_id')
+    .eq('id', invoiceId)
+    .maybeSingle()
+  if (invRow?.job_id) {
+    linkedJobId = invRow.job_id
+  }
+
   // 15 minutes after payment in full (or custom delay)
   const scheduledTimeMs = Date.now() + delayMinutes * 60 * 1000
-  const scheduledAt = new Date(scheduledTimeMs).toISOString()
+  let effectiveScheduledAt = new Date(scheduledTimeMs).toISOString()
+
+  // P1 TCPA Quiet Hours Guard: Never dispatch review SMS during 9:00 PM - 8:00 AM
+  const tz = org?.timezone || 'America/New_York'
+  if (isTcpaQuietHours(tz, new Date(scheduledTimeMs))) {
+    const { scheduledAt: nextMorning } = calculateNextMorning805(tz, new Date(scheduledTimeMs))
+    effectiveScheduledAt = nextMorning
+  }
 
   await supabase.from('automation_runs').insert({
     org_id: orgId,
@@ -551,16 +569,18 @@ export async function scheduleInvoiceReviewAutomation(
     event_type: 'invoice.paid',
     event_payload: {
       invoice_id: invoiceId,
-      contact_id: contactId
+      contact_id: contactId,
+      job_id: linkedJobId
     },
     action_type: 'send_review_request',
     action_params: {
       invoice_id: invoiceId,
-      contact_id: contactId
+      contact_id: contactId,
+      job_id: linkedJobId
     },
     status: 'scheduled',
-    scheduled_at: scheduledAt
+    scheduled_at: effectiveScheduledAt
   })
 
-  return { scheduled: true, scheduledAt }
+  return { scheduled: true, scheduledAt: effectiveScheduledAt }
 }

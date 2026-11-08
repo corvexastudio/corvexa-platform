@@ -136,6 +136,9 @@ export async function createBooking(
   const durationMinutes = activeService.duration_minutes || 60
   const durationMs = durationMinutes * 60 * 1000
   const slotStartMs = new Date(startTime).getTime()
+  if (isNaN(slotStartMs) || slotStartMs < Date.now() - 5 * 60 * 1000) {
+    return { success: false, error: 'Appointments cannot be scheduled in the past. Please select a future date and time.' }
+  }
   const slotEndMs = slotStartMs + durationMs
   const endTime = new Date(slotEndMs).toISOString()
 
@@ -838,7 +841,7 @@ export async function customerCancelBooking(
     }
   }
 
-  // Guard: Check if linked field job is already completed
+  // Guard: Check if linked field job is already completed or in-progress
   const { data: linkedCancelJob } = await supabase
     .from('jobs')
     .select('id, status, completed_at')
@@ -850,6 +853,35 @@ export async function customerCancelBooking(
     return {
       success: false,
       error: 'This service job has already been completed and cannot be cancelled.'
+    }
+  }
+
+  // P0 Guard: A technician already dispatched (en route) or on-site (in progress) cannot be cancelled via portal
+  if (linkedCancelJob && ['en_route', 'in_progress'].includes(linkedCancelJob.status)) {
+    const actionLabel = linkedCancelJob.status === 'en_route' ? 'is already on the way' : 'is currently on-site working'
+    return {
+      success: false,
+      error: `Your technician ${actionLabel}. To cancel your appointment, please contact us directly.`
+    }
+  }
+
+  // P0 Guard: If payment or deposit has already been processed, require direct office contact for cancellation/refund
+  if (linkedCancelJob?.id) {
+    const { data: paidInv } = await supabase
+      .from('invoices')
+      .select('id, amount_paid')
+      .eq('job_id', linkedCancelJob.id)
+      .eq('org_id', apt.org_id)
+      .gt('amount_paid', 0)
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle()
+
+    if (paidInv) {
+      return {
+        success: false,
+        error: 'A payment or deposit has already been processed for this service. Please contact our office directly to cancel and arrange your refund.'
+      }
     }
   }
 
@@ -944,6 +976,18 @@ export async function customerCancelBooking(
     }
   }
 
+  // 4. Notify Business Owner of Customer Cancellation
+  try {
+    await supabase.from('notifications').insert({
+      org_id: apt.org_id,
+      title: 'Appointment Cancelled by Customer',
+      message: `${contact?.name || 'Customer'} cancelled appointment for ${apt.service_type || 'Service'}${reason ? `: ${reason}` : ''}`,
+      link: '/client/calendar?tab=dispatch'
+    })
+  } catch {
+    // Non-blocking notification
+  }
+
   return { success: true, appointment: updatedApt }
 }
 
@@ -995,6 +1039,15 @@ export async function customerRescheduleBooking(
     }
   }
 
+  // P0 Guard: A technician already dispatched (en route) or on-site (in progress) cannot be rescheduled via portal
+  if (linkedRescheduleJob && ['en_route', 'in_progress'].includes(linkedRescheduleJob.status)) {
+    const actionLabel = linkedRescheduleJob.status === 'en_route' ? 'is already on the way' : 'is currently on-site working'
+    return {
+      success: false,
+      error: `Your technician ${actionLabel}. To reschedule your appointment, please contact us directly.`
+    }
+  }
+
   let org = apt.organization
   if (!org) {
     const { data: orgData } = await supabase
@@ -1034,6 +1087,15 @@ export async function customerRescheduleBooking(
   const durationMs = (service.duration_minutes || 60) * 60 * 1000
   const bufferMs = (org?.buffer_minutes ?? 15) * 60 * 1000
   const newStartMs = new Date(newStartTime).getTime()
+
+  // P1 Guard: Block rescheduling to past dates/times
+  if (isNaN(newStartMs) || newStartMs < Date.now() - 5 * 60 * 1000) {
+    return {
+      success: false,
+      error: 'Appointments cannot be rescheduled to the past. Please select a future date and time.'
+    }
+  }
+
   const newEndMs = newStartMs + durationMs
   const newEndTime = new Date(newEndMs).toISOString()
 
@@ -1055,17 +1117,7 @@ export async function customerRescheduleBooking(
     }
   }
 
-  // 2. Invalidate old scheduled reminder runs
-  await evaluateAndApplyStopConditions(
-    supabase,
-    createEventEnvelope('booking.cancelled', apt.org_id, {
-      appointment_id: apt.id,
-      contact_id: apt.contact_id,
-      reason: 'Rescheduled'
-    }, { entityId: apt.id, contactId: apt.contact_id })
-  )
-
-  // 3. Update appointment
+  // 2. Update appointment
   const { data: updatedApt, error: updateError } = await supabase
     .from('appointments')
     .update({
@@ -1095,8 +1147,18 @@ export async function customerRescheduleBooking(
         error: 'This time slot is no longer available. Please select another time.'
       }
     }
-    return { success: false, error: 'Failed to update appointment' }
+    return { success: false, error: 'Failed to reschedule appointment' }
   }
+
+  // 2b. Invalidate old scheduled reminder runs ONLY after successful update commit
+  await evaluateAndApplyStopConditions(
+    supabase,
+    createEventEnvelope('booking.cancelled', apt.org_id, {
+      appointment_id: apt.id,
+      contact_id: apt.contact_id,
+      reason: 'Rescheduled'
+    }, { entityId: apt.id, contactId: apt.contact_id })
+  )
 
   // 3b. Synchronize linked field job
   try {
@@ -1156,6 +1218,18 @@ export async function customerRescheduleBooking(
         text: compliance.formattedText
       })
     }
+  }
+
+  // 4. Notify Business Owner of Customer Reschedule
+  try {
+    await supabase.from('notifications').insert({
+      org_id: apt.org_id,
+      title: 'Appointment Rescheduled by Customer',
+      message: `${contact?.name || 'Customer'} rescheduled appointment for ${service?.name || apt.service_type || 'Service'} to ${displayTime}`,
+      link: '/client/calendar?tab=dispatch'
+    })
+  } catch {
+    // Non-blocking notification
   }
 
   return { success: true, appointment: updatedApt }

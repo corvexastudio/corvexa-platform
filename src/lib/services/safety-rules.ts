@@ -84,6 +84,7 @@ export function isTcpaQuietHours(timezone: string = 'America/Chicago', overrideD
     // Quiet hours: before 8 AM or after 8 PM (20:00)
     return nowHour < 8 || nowHour >= 20
   } catch {
-    return false
+    // Fail-closed to prevent statutory TCPA violations if timezone formatting fails
+    return true
   }
 }

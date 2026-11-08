@@ -158,6 +158,30 @@ export async function executeAutomationJob(
   }
 
   // 5. Job Failed - Evaluate Retry vs Dead-Letter
+  const isComplianceSuppressed = result.error?.toLowerCase().includes('opted_out') ||
+    result.error?.toLowerCase().includes('suppressed') ||
+    result.error?.toLowerCase().includes('suppression')
+
+  if (isComplianceSuppressed) {
+    // Non-retryable permanent compliance suppression: cancel immediately without retrying (TCPA Protection)
+    await supabase
+      .from('automation_runs')
+      .update({
+        status: 'cancelled',
+        completed_at: new Date().toISOString(),
+        failure_reason: `Permanent compliance suppression: ${result.error}`,
+        locked_at: null,
+        locked_by: null
+      })
+      .eq('id', job.id)
+
+    return {
+      ...result,
+      isDeadLetter: false,
+      isRetried: false
+    }
+  }
+
   telemetryStore.recordJobTransition('failed')
   telemetryStore.recordAutomation('failed')
   const nextRetryCount = job.retry_count + 1

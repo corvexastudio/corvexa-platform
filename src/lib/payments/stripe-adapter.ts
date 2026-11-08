@@ -102,7 +102,10 @@ export async function createStripeCheckoutSession(
   }
 
   // 2. Real Stripe Checkout Session with 1% Application Fee for Connected Accounts
-  const amountInCents = Math.max(50, Math.round(amountDue * 100))
+  const amountInCents = Math.round(amountDue * 100)
+  if (amountInCents < 50) {
+    throw new Error(`Invoice amount due ($${Number(amountDue).toFixed(2)}) is below the card processing minimum ($0.50).`)
+  }
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'payment',

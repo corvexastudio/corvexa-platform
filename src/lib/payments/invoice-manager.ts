@@ -315,6 +315,22 @@ export async function convertJobToInvoice(
 ): Promise<{ success: boolean; invoice?: any; items?: any[]; error?: string }> {
   const { jobId, orgId, dueDate, taxRate = 0, discountAmount = 0 } = input
 
+  // Guard against duplicate invoices for the same job
+  let existingInvQuery: any = supabase
+    .from('invoices')
+    .select('*, invoice_items(*)')
+    .eq('job_id', jobId)
+    .eq('org_id', orgId)
+
+  if (typeof existingInvQuery?.is === 'function') {
+    existingInvQuery = existingInvQuery.is('deleted_at', null)
+  }
+
+  const { data: existingInv } = await existingInvQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (existingInv && !existingInv.deleted_at) {
+    return { success: true, invoice: existingInv, items: existingInv.invoice_items || [] }
+  }
+
   const { data: job, error: jobError } = await supabase
     .from('jobs')
     .select('*, job_items(*)')
@@ -366,6 +382,26 @@ export async function convertQuoteToInvoice(
     return { success: false, error: quoteError?.message || 'Quote not found' }
   }
 
+  if (quote.status !== 'accepted') {
+    return { success: false, error: `Quote must be accepted before converting to invoice (current status: ${quote.status})` }
+  }
+
+  // Guard against duplicate invoices for the same quote
+  let existingInvQuery: any = supabase
+    .from('invoices')
+    .select('*, invoice_items(*)')
+    .eq('quote_id', quoteId)
+    .eq('org_id', orgId)
+
+  if (typeof existingInvQuery?.is === 'function') {
+    existingInvQuery = existingInvQuery.is('deleted_at', null)
+  }
+
+  const { data: existingInv } = await existingInvQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (existingInv && !existingInv.deleted_at) {
+    return { success: true, invoice: existingInv, items: existingInv.invoice_items || [] }
+  }
+
   const items: InvoiceItemInput[] = (quote.quote_items || []).map((qi: any) => ({
     description: qi.description,
     quantity: qi.quantity,
@@ -402,6 +438,19 @@ export async function sendInvoice(
 
   if (invoiceError || !invoice) {
     return { success: false, error: invoiceError?.message || 'Invoice not found' }
+  }
+
+  // P0 Financial Guard: Block sending deleted, voided, or already paid invoices
+  if (invoice.deleted_at) {
+    return { success: false, error: 'Cannot send a deleted invoice' }
+  }
+
+  if (invoice.status === 'void') {
+    return { success: false, error: 'Cannot send a voided invoice' }
+  }
+
+  if (invoice.status === 'paid') {
+    return { success: false, error: 'This invoice is already paid in full' }
   }
 
   // Finish-Line Sunk Cost Paywall Guard (Starter Pass: Job #4+)
@@ -657,6 +706,19 @@ export async function recordPayment(
 
   if (invoiceError || !invoice) {
     return { success: false, error: invoiceError?.message || 'Invoice not found' }
+  }
+
+  // P0 Financial Guard: Block sending deleted, voided, or already paid invoices
+  if (invoice.deleted_at) {
+    return { success: false, error: 'Cannot send a deleted invoice' }
+  }
+
+  if (invoice.status === 'void') {
+    return { success: false, error: 'Cannot send a voided invoice' }
+  }
+
+  if (invoice.status === 'paid') {
+    return { success: false, error: 'This invoice is already paid in full' }
   }
 
   // 0. Idempotency check: Guard against duplicate Stripe webhook processing
@@ -968,6 +1030,29 @@ export async function voidInvoice(
 ): Promise<{ success: boolean; invoice?: any; error?: string }> {
   const { invoiceId, orgId, reason } = input
 
+  // P0 Guard: Verify invoice exists and has not received payments
+  const { data: existing, error: findError } = await supabase
+    .from('invoices')
+    .select('id, status, amount_paid')
+    .eq('id', invoiceId)
+    .eq('org_id', orgId)
+    .single()
+
+  if (findError || !existing) {
+    return { success: false, error: 'Invoice not found' }
+  }
+
+  if (existing.status === 'paid' || Number(existing.amount_paid) > 0) {
+    return {
+      success: false,
+      error: 'Cannot void an invoice that has received payments. Issue a refund or credit memo instead.'
+    }
+  }
+
+  if (existing.status === 'void') {
+    return { success: false, error: 'Invoice is already voided' }
+  }
+
   const now = new Date().toISOString()
   const { data: invoice, error: updateError } = await supabase
     .from('invoices')
@@ -1003,6 +1088,25 @@ export async function softDeleteInvoice(
   supabase: SupabaseClient,
   input: { orgId: string; invoiceId: string }
 ): Promise<{ success: boolean; error?: string }> {
+  // P0 Guard: Invoices with recorded payments cannot be soft-deleted (violates financial auditability)
+  const { data: existing, error: findError } = await supabase
+    .from('invoices')
+    .select('id, status, amount_paid')
+    .eq('id', input.invoiceId)
+    .eq('org_id', input.orgId)
+    .single()
+
+  if (findError || !existing) {
+    return { success: false, error: 'Invoice not found' }
+  }
+
+  if (existing.status === 'paid' || Number(existing.amount_paid) > 0) {
+    return {
+      success: false,
+      error: 'Cannot delete an invoice that has received payments. Paid invoices must be preserved for tax and audit compliance.'
+    }
+  }
+
   const { error } = await supabase
     .from('invoices')
     .update({
@@ -1015,6 +1119,15 @@ export async function softDeleteInvoice(
   if (error) {
     return { success: false, error: error.message }
   }
+
+  // Cancel pending automation reminders upon deletion so customer does not get overdue SMS
+  await supabase
+    .from('automation_runs')
+    .update({ status: 'cancelled' })
+    .eq('org_id', input.orgId)
+    .in('status', ['pending', 'scheduled'])
+    .like('job_id', `%_${input.invoiceId}`)
+
   return { success: true }
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
-import { createInvoice, updateInvoice, convertJobToInvoice, convertQuoteToInvoice } from '../../../../lib/payments/invoice-manager.ts'
+import { createInvoice, updateInvoice, convertJobToInvoice, convertQuoteToInvoice, softDeleteInvoice } from '../../../../lib/payments/invoice-manager.ts'
 
 import { encodeCursor, decodeCursor } from '../../../../lib/pagination/cursor.ts'
 
@@ -278,17 +278,9 @@ export async function DELETE(
     return NextResponse.json({ error: 'Invoice ID is required.' }, { status: 400 })
   }
 
-  const { error } = await supabase
-    .from('invoices')
-    .update({
-      deleted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', invoiceId)
-    .eq('org_id', orgId)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  const deleteResult = await softDeleteInvoice(supabase, { orgId, invoiceId })
+  if (!deleteResult.success) {
+    return NextResponse.json({ error: deleteResult.error || 'Failed to delete invoice' }, { status: 400 })
   }
 
   return NextResponse.json({ success: true, message: 'Invoice successfully soft-deleted.' })

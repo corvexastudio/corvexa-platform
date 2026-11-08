@@ -137,18 +137,51 @@ export async function POST(request: Request) {
           const periodStart = now
           const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
-          await supabase.from('saas_payments').insert({
-            org_id: matchedOrg.id,
-            amount: amountPaid,
-            currency,
-            status: 'completed',
-            payment_reference: resource.id,
-            provider: 'paypal',
-            billing_period_start: periodStart,
-            billing_period_end: periodEnd,
-            notes: `PayPal Recurring Sale ${resource.id}`,
-            created_at: now
-          })
+          let subId: string | null = null
+          const { data: activeSub } = await supabase
+            .from('saas_subscriptions')
+            .select('id')
+            .eq('org_id', matchedOrg.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (activeSub?.id) {
+            subId = activeSub.id
+          } else {
+            const { data: newSub } = await supabase
+              .from('saas_subscriptions')
+              .insert({
+                org_id: matchedOrg.id,
+                plan_id: matchedOrg.plan_id || 'solo',
+                status: 'active',
+                current_period_start: periodStart,
+                current_period_end: periodEnd,
+                provider: 'paypal',
+                paypal_subscription_id: subscriptionId,
+                created_at: now,
+                updated_at: now
+              })
+              .select('id')
+              .single()
+            if (newSub?.id) subId = newSub.id
+          }
+
+          if (subId) {
+            await supabase.from('saas_payments').insert({
+              org_id: matchedOrg.id,
+              subscription_id: subId,
+              amount: amountPaid,
+              currency,
+              payment_status: 'completed',
+              provider_payment_reference: resource.id,
+              provider: 'paypal',
+              billing_period_start: periodStart,
+              billing_period_end: periodEnd,
+              payment_date: now,
+              notes: `PayPal Recurring Sale ${resource.id}`
+            })
+          }
         }
       }
     } else if (eventType === 'BILLING.SUBSCRIPTION.UPDATED') {

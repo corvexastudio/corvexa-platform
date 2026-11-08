@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
-import { createQuote } from '../../../../lib/quotes/quote-manager.ts'
+import { createQuote, softDeleteQuote } from '../../../../lib/quotes/quote-manager.ts'
 
 import { encodeCursor, decodeCursor } from '../../../../lib/pagination/cursor.ts'
 
@@ -204,17 +204,9 @@ export async function DELETE(
     return NextResponse.json({ error: 'Quote ID is required.' }, { status: 400 })
   }
 
-  const { error } = await supabase
-    .from('quotes')
-    .update({
-      deleted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', quoteId)
-    .eq('org_id', orgId)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  const deleteResult = await softDeleteQuote(supabase, { orgId, quoteId })
+  if (!deleteResult.success) {
+    return NextResponse.json({ error: deleteResult.error || 'Failed to delete quote' }, { status: 400 })
   }
 
   return NextResponse.json({ success: true, message: 'Quote successfully soft-deleted.' })

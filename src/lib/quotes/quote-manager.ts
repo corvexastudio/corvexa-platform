@@ -241,6 +241,11 @@ export async function sendQuote(
     return { success: false, error: 'Quote not found' }
   }
 
+  // P0 Guard: Do not allow re-sending quotes that have already been accepted or declined
+  if (['accepted', 'declined'].includes(quote.status)) {
+    return { success: false, error: `Cannot re-send quote #${quote.quote_number}: quote is already ${quote.status}` }
+  }
+
   // 2. Fetch Organization & Contact
   const { data: org } = await supabase
     .from('organizations')
@@ -575,11 +580,28 @@ export async function customerAcceptQuote(
   }
 
   if (quote.status === 'accepted') {
-    return { success: true, quote }
+    let depositUrl: string | undefined
+    if (quote.deposit_invoice_id) {
+      const { data: depInv } = await supabase.from('invoices').select('manage_token').eq('id', quote.deposit_invoice_id).maybeSingle()
+      if (depInv?.manage_token) depositUrl = `/invoice/${depInv.manage_token}`
+    }
+    return {
+      success: true,
+      quote,
+      requiresDeposit: !!quote.requires_deposit,
+      depositAmount: quote.deposit_amount,
+      depositInvoiceUrl: depositUrl
+    }
   }
 
-  if (quote.status === 'declined' || quote.status === 'expired') {
-    return { success: false, error: `Quote is already ${quote.status}` }
+  // P0 Guard: Wall-clock expiration check
+  const now = new Date()
+  const isExpiredByTime = quote.expires_at && new Date(quote.expires_at).getTime() < now.getTime()
+  if (quote.status === 'declined' || quote.status === 'expired' || isExpiredByTime) {
+    if (isExpiredByTime && quote.status !== 'expired') {
+      await supabase.from('quotes').update({ status: 'expired', updated_at: now.toISOString() }).eq('id', quote.id)
+    }
+    return { success: false, error: 'This estimate has expired. Please contact us for an updated quote.' }
   }
 
   // 1. Update Quote to 'accepted' with electronic signature metadata
@@ -960,6 +982,21 @@ export async function softDeleteQuote(
   supabase: SupabaseClient,
   input: { orgId: string; quoteId: string }
 ): Promise<{ success: boolean; error?: string }> {
+  // P0 Legal Guard: An accepted quote with electronic signatures cannot be deleted
+  const { data: targetQuote } = await supabase
+    .from('quotes')
+    .select('id, status, quote_number')
+    .eq('id', input.quoteId)
+    .eq('org_id', input.orgId)
+    .maybeSingle()
+
+  if (targetQuote?.status === 'accepted') {
+    return {
+      success: false,
+      error: `Cannot delete accepted estimate #${targetQuote.quote_number}. Accepted estimates are executed legal agreements.`
+    }
+  }
+
   const { error } = await supabase
     .from('quotes')
     .update({

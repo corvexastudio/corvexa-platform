@@ -140,16 +140,25 @@ export async function deleteJobPhoto(
   photoId: string,
   orgId: string
 ): Promise<{ success: boolean; error?: string }> {
-  // 1. Fetch photo to get storage path
+  // 1. Fetch photo to get storage path and verify job state
   const { data: photo, error: fetchError } = await supabase
     .from('job_photos')
-    .select('id, url, org_id')
+    .select('id, url, org_id, job_id, jobs(status)')
     .eq('id', photoId)
     .eq('org_id', orgId)
     .maybeSingle()
 
   if (fetchError || !photo) {
     return { success: false, error: 'Photo not found or inaccessible' }
+  }
+
+  // P1 Legal Guard: Preserve forensic before/after photo evidence on completed or cancelled jobs
+  const jobStatus = (photo as any).jobs?.status
+  if (['completed', 'cancelled'].includes(jobStatus)) {
+    return {
+      success: false,
+      error: `Diagnostic photos cannot be deleted from an already ${jobStatus} job for warranty and compliance integrity.`
+    }
   }
 
   // 2. Perform database deletion with RLS enforcement

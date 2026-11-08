@@ -33,8 +33,20 @@ export async function POST(
     invoice = rawInvoice
   }
 
-  if (invoice.status === 'paid') {
-    return NextResponse.json({ error: 'Invoice is already paid' }, { status: 400 })
+  if (invoice.deleted_at) {
+    return NextResponse.json({ error: 'This invoice is no longer available.' }, { status: 410 })
+  }
+
+  if (invoice.status === 'void') {
+    return NextResponse.json({ error: 'This invoice has been voided and cannot be paid.' }, { status: 400 })
+  }
+
+  const effectiveDue = Number(invoice.amount_due) !== undefined && invoice.amount_due !== null
+    ? Number(invoice.amount_due)
+    : Number(invoice.total)
+
+  if (invoice.status === 'paid' || effectiveDue <= 0) {
+    return NextResponse.json({ error: 'Invoice has zero balance due or is already paid.' }, { status: 400 })
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin

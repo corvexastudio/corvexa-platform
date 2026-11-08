@@ -544,6 +544,26 @@ export async function handleInboundComplianceKeyword(
       metadata: { keyword, inboundText: text }
     })
 
+    // 3b. Immediately cancel pending and scheduled automation runs for this recipient (TCPA § 227 Protection)
+    try {
+      const cancelFilters = [`action_params->>to.eq.${cleanFrom}`]
+      if (contact?.id) {
+        cancelFilters.push(`event_payload->>contact_id.eq.${contact.id}`)
+      }
+      await supabase
+        .from('automation_runs')
+        .update({
+          status: 'cancelled',
+          failure_reason: `Recipient opted out via ${keyword} keyword`,
+          completed_at: new Date().toISOString()
+        })
+        .eq('org_id', org.id)
+        .in('status', ['pending', 'scheduled'])
+        .or(cancelFilters.join(','))
+    } catch (cancelErr) {
+      console.warn('[COMPLIANCE_OPT_OUT_PURGE_WARNING]', cancelErr)
+    }
+
     // 4. Send single carrier-mandated confirmation SMS
     await sendTelnyxSms({
       to: cleanFrom,

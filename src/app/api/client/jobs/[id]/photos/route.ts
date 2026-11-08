@@ -22,7 +22,7 @@ export async function GET(
   // Ensure job belongs to tenant
   const { data: job, error: jobErr } = await supabase
     .from('jobs')
-    .select('id')
+    .select('id, status')
     .eq('id', jobId)
     .eq('org_id', orgId)
     .maybeSingle()
@@ -50,13 +50,17 @@ export async function POST(
   // Ensure job belongs to tenant
   const { data: job, error: jobErr } = await supabase
     .from('jobs')
-    .select('id')
+    .select('id, status')
     .eq('id', jobId)
     .eq('org_id', orgId)
     .maybeSingle()
 
   if (jobErr || !job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+  }
+
+  if (job.status === 'cancelled') {
+    return NextResponse.json({ error: 'Cannot upload photos to a cancelled job.' }, { status: 400 })
   }
 
   const contentType = request.headers.get('content-type') || ''
