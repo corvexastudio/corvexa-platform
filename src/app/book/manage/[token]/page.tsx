@@ -356,6 +356,27 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
+        {/* Completed Service Callout */}
+        {isCompleted && (
+          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 text-center space-y-3 shadow-xs">
+            <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mx-auto" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Service Completed</h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                This service appointment was completed by {apt.business.name}. Completed jobs cannot be rescheduled.
+              </p>
+            </div>
+            {apt.business.slug && (
+              <a
+                href={`/book/${apt.business.slug}`}
+                className="inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20"
+              >
+                Book a New Service →
+              </a>
+            )}
+          </div>
+        )}
+
         {/* Customer Action Buttons */}
         {isActionable && !showReschedule && !showCancel && (
           <div className="flex flex-col sm:flex-row gap-3">

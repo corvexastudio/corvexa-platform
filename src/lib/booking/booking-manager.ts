@@ -830,6 +830,29 @@ export async function customerCancelBooking(
     return { success: false, error: 'Appointment not found' }
   }
 
+  // P0 Business Rule: Completed appointments and jobs cannot be cancelled
+  if (apt.status === 'completed') {
+    return {
+      success: false,
+      error: 'This service appointment has already been completed and cannot be cancelled.'
+    }
+  }
+
+  // Guard: Check if linked field job is already completed
+  const { data: linkedCancelJob } = await supabase
+    .from('jobs')
+    .select('id, status, completed_at')
+    .eq('appointment_id', apt.id)
+    .eq('org_id', apt.org_id)
+    .maybeSingle()
+
+  if (linkedCancelJob && (linkedCancelJob.status === 'completed' || linkedCancelJob.completed_at)) {
+    return {
+      success: false,
+      error: 'This service job has already been completed and cannot be cancelled.'
+    }
+  }
+
   if (apt.status === 'cancelled') {
     return { success: true, appointment: apt }
   }
@@ -940,6 +963,36 @@ export async function customerRescheduleBooking(
 
   if (error || !apt) {
     return { success: false, error: 'Appointment not found' }
+  }
+
+  // P0 Business Rule: Completed appointments and jobs cannot be rescheduled
+  if (apt.status === 'completed') {
+    return {
+      success: false,
+      error: 'This service appointment has already been completed and cannot be rescheduled. Please book a new service.'
+    }
+  }
+
+  if (apt.status === 'cancelled') {
+    return {
+      success: false,
+      error: 'This appointment has been cancelled and cannot be rescheduled. Please book a new appointment.'
+    }
+  }
+
+  // Guard: Check if linked field job is already completed
+  const { data: linkedRescheduleJob } = await supabase
+    .from('jobs')
+    .select('id, status, completed_at')
+    .eq('appointment_id', apt.id)
+    .eq('org_id', apt.org_id)
+    .maybeSingle()
+
+  if (linkedRescheduleJob && (linkedRescheduleJob.status === 'completed' || linkedRescheduleJob.completed_at)) {
+    return {
+      success: false,
+      error: 'This service job has already been completed and cannot be rescheduled. Please book a new service.'
+    }
   }
 
   let org = apt.organization
