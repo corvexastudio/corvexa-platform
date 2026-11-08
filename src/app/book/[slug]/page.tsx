@@ -19,7 +19,9 @@ import {
   Gift,
   Camera,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Truck,
+  Navigation
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
@@ -161,6 +163,8 @@ export default function PublicBookingPage() {
     appointment: any
     manageToken: string
     manageUrl: string
+    trackingToken?: string | null
+    trackingUrl?: string | null
     status: string
   } | null>(null)
 
@@ -1100,6 +1104,50 @@ export default function PublicBookingPage() {
                   {confirmedBooking.status}
                 </span>
               </div>
+            </div>
+
+            {/* Live Service Arrival Tracker Card */}
+            <div className="rounded-2xl bg-gradient-to-br from-blue-50/70 via-white to-sky-50/40 dark:from-blue-950/20 dark:via-zinc-900 dark:to-zinc-900 border border-blue-200/80 dark:border-blue-900/50 p-4 text-left space-y-2.5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-600 text-white shrink-0">
+                    <Navigation className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      Live Technician Tracker
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      Real-time ETA &amp; live GPS arrival map
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                  Included
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+                When your technician heads your way on your service day, you will be able to track their live location and arrival progress in real time.
+              </p>
+              {confirmedBooking.trackingToken ? (
+                <a
+                  href={`/t/${confirmedBooking.trackingToken}`}
+                  className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-750 text-slate-800 dark:text-zinc-100 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>View Live Service Tracker</span>
+                  <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-400" />
+                </a>
+              ) : (
+                <a
+                  href={`/book/manage/${confirmedBooking.manageToken}`}
+                  className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-750 text-slate-800 dark:text-zinc-100 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Open Tracker via Appointment Manager</span>
+                  <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-400" />
+                </a>
+              )}
             </div>
 
             {/* Add to Calendar Sync Buttons */}

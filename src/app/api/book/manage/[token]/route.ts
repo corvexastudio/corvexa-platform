@@ -33,6 +33,50 @@ export async function GET(
     const contact = Array.isArray(apt.contact) ? apt.contact[0] : apt.contact
     const service = Array.isArray(apt.service) ? apt.service[0] : apt.service
 
+    // Query linked job for real-time technician tracking & status sync
+    let trackingInfo: {
+      token: string
+      url: string
+      jobNumber?: string | null
+      jobStatus: string
+      etaMinutes?: number | null
+      enRouteAt?: string | null
+      arrivedAt?: string | null
+      startedAt?: string | null
+      completedAt?: string | null
+    } | null = null
+
+    const { data: linkedJob } = await supabase
+      .from('jobs')
+      .select('id, job_number, status, tracking_token, en_route_at, arrived_at, started_at, completed_at, eta_minutes')
+      .eq('appointment_id', apt.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .maybeSingle()
+
+    if (linkedJob) {
+      let trackingToken = linkedJob.tracking_token
+      if (!trackingToken) {
+        trackingToken = crypto.randomUUID().replace(/-/g, '')
+        await supabase
+          .from('jobs')
+          .update({ tracking_token: trackingToken })
+          .eq('id', linkedJob.id)
+      }
+
+      trackingInfo = {
+        token: trackingToken,
+        url: `/t/${trackingToken}`,
+        jobNumber: linkedJob.job_number,
+        jobStatus: linkedJob.status || apt.status,
+        etaMinutes: linkedJob.eta_minutes,
+        enRouteAt: linkedJob.en_route_at,
+        arrivedAt: linkedJob.arrived_at,
+        startedAt: linkedJob.started_at,
+        completedAt: linkedJob.completed_at
+      }
+    }
+
     return NextResponse.json({
       appointment: {
         id: apt.id,
@@ -60,7 +104,8 @@ export async function GET(
           name: service.name,
           durationMinutes: service.duration_minutes,
           price: service.price
-        } : null
+        } : null,
+        tracking: trackingInfo
       }
     })
   } catch (err: any) {

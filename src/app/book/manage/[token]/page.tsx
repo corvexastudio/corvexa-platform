@@ -14,12 +14,17 @@ import {
   CalendarDays,
   ChevronRight,
   ShieldCheck,
-  ArrowLeft
+  ArrowLeft,
+  Truck,
+  Navigation,
+  Wrench,
+  ExternalLink
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 import { formatDateInTz, formatTimeInTz, getFriendlyTimezoneLabel } from '@/lib/temporal/timezone'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
+import { cn } from '@/lib/utils'
 
 interface AppointmentDetail {
   id: string
@@ -47,6 +52,17 @@ interface AppointmentDetail {
     name: string
     durationMinutes: number
     price?: number | null
+  } | null
+  tracking?: {
+    token: string
+    url: string
+    jobNumber?: string | null
+    jobStatus: string
+    etaMinutes?: number | null
+    enRouteAt?: string | null
+    arrivedAt?: string | null
+    startedAt?: string | null
+    completedAt?: string | null
   } | null
 }
 
@@ -221,8 +237,10 @@ export default function CustomerManageAppointmentPage() {
 
   const startDate = new Date(apt.startTime)
   const isCancelled = apt.status === 'cancelled'
-  const isCompleted = apt.status === 'completed'
-  const isActionable = !isCancelled && !isCompleted
+  const isCompleted = apt.status === 'completed' || apt.tracking?.jobStatus === 'completed'
+  const isEnRoute = apt.tracking?.jobStatus === 'en_route'
+  const isInProgress = apt.tracking?.jobStatus === 'in_progress' || apt.tracking?.jobStatus === 'arrived'
+  const isActionable = !isCancelled && !isCompleted && !isEnRoute && !isInProgress
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 py-8 px-4 sm:px-6">
@@ -311,6 +329,104 @@ export default function CustomerManageAppointmentPage() {
           </div>
         </div>
 
+        {/* LIVE SERVICE ARRIVAL TRACKER CARD (State-Aware) */}
+        {apt.status !== 'cancelled' && apt.tracking && (
+          <div className={cn(
+            "rounded-2xl border p-4 sm:p-5 space-y-3 shadow-xs transition-all",
+            isEnRoute
+              ? "bg-gradient-to-br from-blue-500/10 via-sky-500/5 to-transparent border-blue-400 dark:border-blue-700 ring-2 ring-blue-500/20"
+              : isInProgress
+              ? "bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-500/20"
+              : isCompleted
+              ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
+              : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
+          )}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "p-2 rounded-xl text-white shadow-2xs shrink-0",
+                  isEnRoute ? "bg-blue-600 animate-pulse" :
+                  isInProgress ? "bg-emerald-600" :
+                  isCompleted ? "bg-emerald-700" : "bg-slate-900 dark:bg-zinc-100 dark:text-zinc-900"
+                )}>
+                  {isEnRoute ? <Truck className="h-4 w-4" /> :
+                   isInProgress ? <Wrench className="h-4 w-4" /> :
+                   isCompleted ? <CheckCircle2 className="h-4 w-4" /> :
+                   <Navigation className="h-4 w-4" />}
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    {isEnRoute ? "Technician On The Way!" :
+                     isInProgress ? "Service In Progress" :
+                     isCompleted ? "Service Completed" :
+                     "Live Arrival Tracking"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    {isEnRoute && apt.tracking.etaMinutes ? `Estimated Arrival: ~${apt.tracking.etaMinutes} mins` :
+                     isEnRoute ? "Technician is driving to your property" :
+                     isInProgress ? "Technician is on-site performing work" :
+                     isCompleted ? "Work has been completed and verified" :
+                     "Real-time GPS tracking on service day"}
+                  </p>
+                </div>
+              </div>
+
+              {isEnRoute ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-ping" />
+                  <span>En Route</span>
+                </span>
+              ) : isInProgress ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  <span>On Site</span>
+                </span>
+              ) : isCompleted ? (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  Finished
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+                  Active On Day
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+              {isEnRoute ? "Your service technician is in transit. Open live map to track their real-time location and arrival progress." :
+               isInProgress ? "Your technician has arrived at your address and work is underway. You can view progress photos and job updates live." :
+               isCompleted ? "Your service is complete. You can inspect technician before/after proof photos and view your final receipt." :
+               "Once our technician dispatches to your address on your scheduled day, you can view their real-time location, live ETA, and photo updates."}
+            </p>
+
+            <a
+              href={apt.tracking.url}
+              className={cn(
+                "w-full py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer",
+                isEnRoute
+                  ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/25 ring-2 ring-blue-600/30"
+                  : isInProgress
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/25"
+                  : isCompleted
+                  ? "bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-slate-900/10"
+                  : "bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-slate-800 dark:text-zinc-100 border border-slate-200 dark:border-zinc-700 shadow-2xs"
+              )}
+            >
+              {isEnRoute ? <Truck className="h-4 w-4" /> :
+               isInProgress ? <Wrench className="h-4 w-4" /> :
+               isCompleted ? <CheckCircle2 className="h-4 w-4" /> :
+               <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+              <span>
+                {isEnRoute ? "Track Technician Live Arrival →" :
+                 isInProgress ? "View Live Work & Progress Photos →" :
+                 isCompleted ? "View Work Summary, Photos & Receipt →" :
+                 "Open Live Service Tracker"}
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
+            </a>
+          </div>
+        )}
+
         {/* Add to Calendar Sync Buttons */}
         {apt.status !== 'cancelled' && (
           <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/90 p-4 space-y-2.5 shadow-xs">
@@ -374,6 +490,21 @@ export default function CustomerManageAppointmentPage() {
                 Book a New Service →
               </a>
             )}
+          </div>
+        )}
+
+        {/* Active En Route / On-Site Self-Service Paused Banner */}
+        {(isEnRoute || isInProgress) && (
+          <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3 shadow-2xs">
+            <AlertCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold block">
+                {isEnRoute ? "Technician is already en route to your address" : "Technician is currently working on-site"}
+              </span>
+              <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
+                Self-service rescheduling and online cancellations are paused while field service is actively in progress. To request emergency changes, please contact {apt.business.name} directly at {apt.business.phone || "the phone number above"}.
+              </p>
+            </div>
           </div>
         )}
 

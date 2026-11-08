@@ -116,6 +116,8 @@ export async function POST(
       appointment: result.appointment,
       manageToken: result.manageToken,
       manageUrl: result.manageUrl,
+      trackingToken: (result as any).trackingToken || null,
+      trackingUrl: (result as any).trackingUrl || null,
       status: result.status
     }, { headers: rateHeaders })
   } catch (err: any) {

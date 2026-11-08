@@ -38,6 +38,8 @@ export interface BookingResult {
   appointment?: any
   manageToken?: string
   manageUrl?: string
+  trackingToken?: string | null
+  trackingUrl?: string | null
   status?: string
   error?: string
 }
@@ -729,6 +731,8 @@ export async function createBooking(
     appointment,
     manageToken,
     manageUrl,
+    trackingToken: linkedJob?.tracking_token || null,
+    trackingUrl: linkedJob?.tracking_token ? `${appBaseUrl || ''}/t/${linkedJob.tracking_token}` : null,
     status: initialStatus
   }
 }
