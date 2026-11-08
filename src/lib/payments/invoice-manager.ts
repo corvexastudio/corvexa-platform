@@ -220,6 +220,93 @@ export async function createInvoice(
 }
 
 /**
+ * Updates a draft invoice with new line items, financial totals, and due date
+ */
+export async function updateInvoice(
+  supabase: SupabaseClient,
+  input: {
+    invoiceId: string
+    orgId: string
+    title?: string
+    description?: string
+    items?: InvoiceItemInput[]
+    taxRate?: number
+    discountAmount?: number
+    dueDate?: string
+    notes?: string
+  }
+): Promise<{ success: boolean; invoice?: any; items?: any[]; error?: string }> {
+  const { invoiceId, orgId, title, description, items, taxRate = 0, discountAmount = 0, dueDate, notes } = input
+
+  const { data: existing, error: findError } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('id', invoiceId)
+    .eq('org_id', orgId)
+    .single()
+
+  if (findError || !existing) {
+    return { success: false, error: 'Invoice not found' }
+  }
+
+  if (existing.status !== 'draft') {
+    return { success: false, error: 'Only draft invoices can be edited' }
+  }
+
+  const resolvedItems = items || []
+  const financials = calculateInvoiceFinancials(resolvedItems, taxRate, discountAmount)
+
+  const updatePayload: Record<string, any> = {
+    subtotal: financials.subtotal,
+    tax: financials.tax,
+    discount: financials.discount,
+    total: financials.total,
+    amount_due: Math.max(0, financials.total - (Number(existing.amount_paid) || 0)),
+    updated_at: new Date().toISOString()
+  }
+
+  if (title) updatePayload.title = title
+  if (description !== undefined) updatePayload.description = description
+  if (dueDate) updatePayload.due_date = dueDate
+  if (notes !== undefined) updatePayload.notes = notes
+
+  const { data: updatedInvoice, error: updateError } = await supabase
+    .from('invoices')
+    .update(updatePayload)
+    .eq('id', invoiceId)
+    .eq('org_id', orgId)
+    .select('*')
+    .single()
+
+  if (updateError || !updatedInvoice) {
+    return { success: false, error: updateError?.message || 'Failed to update invoice' }
+  }
+
+  // Update line items in invoice_items table
+  if (items && items.length > 0) {
+    await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId).eq('org_id', orgId)
+
+    const invoiceItemsToInsert = items.map((item) => ({
+      invoice_id: invoiceId,
+      org_id: orgId,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total: Math.round(Number(item.quantity || 1) * Number(item.unit_price || 0) * 100) / 100
+    }))
+
+    const { data: newItems } = await supabase
+      .from('invoice_items')
+      .insert(invoiceItemsToInsert)
+      .select('*')
+
+    return { success: true, invoice: updatedInvoice, items: newItems || [] }
+  }
+
+  return { success: true, invoice: updatedInvoice, items: [] }
+}
+
+/**
  * Bridges a completed job into a draft invoice
  */
 export async function convertJobToInvoice(

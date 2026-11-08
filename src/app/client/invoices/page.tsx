@@ -30,7 +30,8 @@ import {
   Sparkles,
   Smartphone,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Edit2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -144,6 +145,8 @@ function ClientInvoicesContent() {
   const searchParams = useSearchParams()
   const contactIdParam = searchParams.get('contact_id') || searchParams.get('contactId')
   const titleParam = searchParams.get('title')
+  const jobIdParam = searchParams.get('job_id') || searchParams.get('jobId')
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
 
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -183,8 +186,11 @@ function ClientInvoicesContent() {
     }
   }, [orgIndustry])
 
-  // Listen to contact_id / title / create query param
+  // Listen to contact_id / title / job_id / create query param
   useEffect(() => {
+    if (jobIdParam) {
+      setSelectedJobId(jobIdParam)
+    }
     if (contactIdParam) {
       setSelectedContactId(contactIdParam)
       if (titleParam) {
@@ -194,7 +200,7 @@ function ClientInvoicesContent() {
     } else if (searchParams.get('create') === 'true' || searchParams.get('new') === 'true') {
       setShowCreateModal(true)
     }
-  }, [contactIdParam, titleParam, searchParams])
+  }, [contactIdParam, titleParam, jobIdParam, searchParams])
 
   // Truck-Ready Offline Payment Modal
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null)
@@ -202,6 +208,94 @@ function ClientInvoicesContent() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'check' | 'card_offline' | 'other'>('cash')
   const [referenceNote, setReferenceNote] = useState('Cash handed on site')
   const [recordingPayment, setRecordingPayment] = useState(false)
+
+  // Edit Draft Invoice Modal State (P0: Truck-Ready Editing)
+  const [editingDraftInvoice, setEditingDraftInvoice] = useState<Invoice | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [editLineItems, setEditLineItems] = useState<Array<{ description: string; quantity: number; unit_price: number }>>([])
+  const [editTaxRate, setEditTaxRate] = useState<number>(0)
+  const [editDiscount, setEditDiscount] = useState<number>(0)
+  const [savingDraftEdit, setSavingDraftEdit] = useState(false)
+
+  const openEditDraftModal = async (inv: Invoice) => {
+    setEditingDraftInvoice(inv)
+    setEditTitle(inv.title || '')
+    setEditDueDate(inv.due_date ? inv.due_date.split('T')[0] : '')
+    setEditTaxRate(Number(inv.tax) > 0 && Number(inv.subtotal) > 0 ? (Number(inv.tax) / Number(inv.subtotal)) * 100 : 0)
+    setEditDiscount(Number(inv.discount) || 0)
+
+    try {
+      const res = await fetch(`/api/client/invoices/${inv.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.invoice?.items && data.invoice.items.length > 0) {
+          setEditLineItems(data.invoice.items.map((it: any) => ({
+            description: it.description,
+            quantity: Number(it.quantity) || 1,
+            unit_price: Number(it.unit_price) || 0
+          })))
+          return
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (inv.items && inv.items.length > 0) {
+      setEditLineItems(inv.items.map(it => ({
+        description: it.description,
+        quantity: Number(it.quantity) || 1,
+        unit_price: Number(it.unit_price) || 0
+      })))
+    } else {
+      setEditLineItems([
+        { description: inv.title || 'Completed Service', quantity: 1, unit_price: Number(inv.total) || 100 }
+      ])
+    }
+  }
+
+  const handleSaveDraftEdit = async () => {
+    if (!editingDraftInvoice) return
+    if (!editTitle.trim()) {
+      toast.error('Invoice title is required')
+      return
+    }
+    if (editLineItems.length === 0) {
+      toast.error('Please add at least one line item')
+      return
+    }
+
+    setSavingDraftEdit(true)
+    try {
+      const res = await fetch('/api/client/invoices', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceId: editingDraftInvoice.id,
+          title: editTitle.trim(),
+          items: editLineItems,
+          taxRate: editTaxRate,
+          discountAmount: editDiscount,
+          dueDate: editDueDate ? new Date(`${editDueDate}T12:00:00Z`).toISOString() : undefined
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'Failed to update invoice.')
+        return
+      }
+
+      toast.success(`Draft invoice #${editingDraftInvoice.invoice_number} updated!`)
+      setEditingDraftInvoice(null)
+      loadInvoices()
+    } catch {
+      toast.error('Network error updating invoice.')
+    } finally {
+      setSavingDraftEdit(false)
+    }
+  }
 
   const loadInvoices = useCallback(async () => {
     setLoading(true)
@@ -296,6 +390,7 @@ function ClientInvoicesContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contactId: selectedContactId,
+          jobId: selectedJobId || undefined,
           title: invoiceTitle,
           items: newItems,
           taxRate: Number(taxRate) || 0,
@@ -332,6 +427,7 @@ function ClientInvoicesContent() {
       }
 
       setShowCreateModal(false)
+      setSelectedJobId(null)
       await loadInvoices()
     } catch (err: any) {
       toast.error(err.message || 'Error creating invoice')
@@ -748,6 +844,20 @@ function ClientInvoicesContent() {
 
                       <TableCell className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
+                          {/* 1-Tap Inline Edit Draft Button */}
+                          {inv.status === 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditDraftModal(inv)}
+                              className="h-7.5 px-2.5 text-xs text-slate-700 hover:text-slate-900 border-slate-200 dark:text-zinc-300 dark:border-zinc-800 font-semibold rounded-md shadow-2xs cursor-pointer"
+                              title="Edit draft invoice amounts and items"
+                            >
+                              <Edit2 className="h-3 w-3 mr-1 text-slate-500" />
+                              <span>Edit</span>
+                            </Button>
+                          )}
+
                           {/* 1-Tap Offline Payment Button */}
                           {!isPaid && !isVoid && (
                             <Button
@@ -896,6 +1006,18 @@ function ClientInvoicesContent() {
                     </div>
 
                     <div className="flex items-center gap-1.5">
+                      {inv.status === 'draft' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditDraftModal(inv)}
+                          className="h-9 px-2.5 text-xs border-slate-200 dark:border-zinc-800 font-semibold shadow-2xs"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                          <span>Edit</span>
+                        </Button>
+                      )}
+
                       {!isPaid && !isVoid && (
                         <>
                           <Button
@@ -943,6 +1065,162 @@ function ClientInvoicesContent() {
           </div>
         </div>
       )}
+
+      {/* EDIT DRAFT INVOICE MODAL (P0: Truck-Ready Editing) */}
+      <Modal
+        open={!!editingDraftInvoice}
+        onOpenChange={(open) => !open && setEditingDraftInvoice(null)}
+        title={`Edit Draft #${editingDraftInvoice?.invoice_number || ''}`}
+        description="Update line items, amounts, or payment terms before sending to customer."
+        size="lg"
+      >
+        <div className="space-y-4 py-1">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 text-xs">
+            <div>
+              <span className="font-bold text-slate-900 dark:text-zinc-100 block">
+                {editingDraftInvoice?.contact?.name || 'Customer'}
+              </span>
+              <span className="text-[11px] text-slate-500 font-mono">
+                {editingDraftInvoice?.contact?.phone}
+              </span>
+            </div>
+            {editingDraftInvoice?.job && (
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
+                Job #{editingDraftInvoice.job.job_number}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                Invoice Title <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="e.g. Service & Labor Completion"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                Due Date
+              </label>
+              <Input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Line items editor */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">Line Items</span>
+              <button
+                type="button"
+                onClick={() => setEditLineItems(prev => [...prev, { description: 'Additional Service / Parts', quantity: 1, unit_price: 50 }])}
+                className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Item
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {editLineItems.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                  <Input
+                    value={item.description}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setEditLineItems(prev => {
+                        const copy = [...prev]
+                        copy[idx] = { ...copy[idx], description: val }
+                        return copy
+                      })
+                    }}
+                    placeholder="Description"
+                    className="h-8 text-xs flex-1"
+                  />
+                  <div className="w-16">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 1
+                        setEditLineItems(prev => {
+                          const copy = [...prev]
+                          copy[idx] = { ...copy[idx], quantity: val }
+                          return copy
+                        })
+                      }}
+                      className="h-8 text-xs text-center"
+                    />
+                  </div>
+                  <div className="w-24 relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.unit_price}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0
+                        setEditLineItems(prev => {
+                          const copy = [...prev]
+                          copy[idx] = { ...copy[idx], unit_price: val }
+                          return copy
+                        })
+                      }}
+                      className="h-8 text-xs pl-5 font-mono text-right"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditLineItems(prev => prev.filter((_, i) => i !== idx))}
+                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Totals Summary */}
+          <div className="p-3 rounded-xl bg-slate-900 text-white dark:bg-zinc-950 dark:border dark:border-zinc-800 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">Updated Total</span>
+            <span className="text-xl font-bold font-mono">
+              ${editLineItems.reduce((acc, it) => acc + (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), 0).toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingDraftInvoice(null)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={savingDraftEdit}
+              onClick={handleSaveDraftEdit}
+              className="h-10 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs gap-1.5 shadow-xs"
+            >
+              {savingDraftEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              <span>Save Changes</span>
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Redesigned "Record Offline Payment" Modal (48px Truck Ergonomics) */}
       <Modal

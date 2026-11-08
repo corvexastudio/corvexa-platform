@@ -354,7 +354,19 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
         .limit(1)
 
       if (!existingServices || existingServices.length === 0) {
-        for (const svc of industryPreset.services) {
+        const servicesToSeed = (Array.isArray(body.services) && body.services.length > 0)
+          ? body.services.map((svc: any, idx: number) => ({
+              name: String(svc.name || 'Standard Service'),
+              description: svc.description || (svc.price === null ? '[pricing:quote_on_site] Exact quote provided on site.' : '[pricing:fixed] Standard flat rate service.'),
+              duration_minutes: Number(svc.duration_minutes) || 60,
+              price: svc.price !== undefined && svc.price !== null && svc.price !== '' ? Number(svc.price) : null,
+              requires_address: svc.requires_address !== false,
+              is_active: svc.is_active !== false,
+              sort_order: Number(svc.sort_order) || (idx + 1)
+            }))
+          : industryPreset.services
+
+        for (const svc of servicesToSeed) {
           const servicePayload = {
             org_id: orgId,
             name: svc.name,

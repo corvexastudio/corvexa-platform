@@ -81,6 +81,8 @@ export default function OnboardingPage() {
   const [phone, setPhone] = useState('')
   const [selectedIndustry, setSelectedIndustry] = useState<string>('hvac')
   const [operationMode, setOperationMode] = useState<'solo' | 'multi_crew'>('solo')
+  const [serviceOverrides, setServiceOverrides] = useState<Record<string, { price: number | null }>>({})
+  const [editingServiceName, setEditingServiceName] = useState<string | null>(null)
 
   // Optional 10DLC Carrier & Legal Verification
   const [show10Dlc, setShow10Dlc] = useState(false)
@@ -203,7 +205,14 @@ export default function OnboardingPage() {
         phone: phone.trim() || null,
         industry: selectedIndustry,
         operationMode: operationMode,
-        timezone: detectedTz
+        timezone: detectedTz,
+        services: activePreset.services.map(svc => {
+          const override = serviceOverrides[svc.name]
+          return {
+            ...svc,
+            price: override !== undefined ? override.price : svc.price
+          }
+        })
       }
 
       if (show10Dlc) {
@@ -392,19 +401,75 @@ export default function OnboardingPage() {
                   <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
                     Starter services included for {activePreset.name.split('&')[0].trim()}:
                   </span>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Prices editable in settings</span>
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">Tap to customize your pricing</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {activePreset.services.map((svc, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-zinc-900 border border-blue-100/80 dark:border-zinc-800 text-xs shadow-2xs">
-                      <span className="font-medium text-slate-800 dark:text-zinc-200 truncate pr-1" title={svc.name}>
-                        {svc.name}
-                      </span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs shrink-0">
-                        {svc.price === 0 || svc.price === null ? 'Free Est.' : `$${svc.price}`}
-                      </span>
-                    </div>
-                  ))}
+                  {activePreset.services.map((svc, i) => {
+                    const currentPrice = serviceOverrides[svc.name]?.price !== undefined ? serviceOverrides[svc.name].price : svc.price
+                    const isEditing = editingServiceName === svc.name
+
+                    return (
+                      <div key={i} className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-blue-100/80 dark:border-zinc-800 text-xs shadow-2xs space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-medium text-slate-800 dark:text-zinc-200 truncate pr-1" title={svc.name}>
+                            {svc.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingServiceName(isEditing ? null : svc.name)}
+                            className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
+                          >
+                            {isEditing ? 'Done' : 'Edit Rate'}
+                          </button>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <div className="relative flex-1">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="Quote"
+                                value={currentPrice === null ? '' : currentPrice}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? null : Number(e.target.value)
+                                  setServiceOverrides(prev => ({
+                                    ...prev,
+                                    [svc.name]: { price: val }
+                                  }))
+                                }}
+                                className="w-full pl-5 pr-2 py-1 text-xs rounded border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setServiceOverrides(prev => ({
+                                  ...prev,
+                                  [svc.name]: { price: null }
+                                }))
+                              }}
+                              className={`px-2 py-1 text-[10px] font-semibold rounded border cursor-pointer ${
+                                currentPrice === null
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
+                              }`}
+                            >
+                              Quote on Site
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
+                            <span>{currentPrice === null ? 'On-site estimate' : 'Fixed rate'}</span>
+                            <span className={`font-bold ${currentPrice === null ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {currentPrice === null ? 'Quote on Site' : `$${currentPrice}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>

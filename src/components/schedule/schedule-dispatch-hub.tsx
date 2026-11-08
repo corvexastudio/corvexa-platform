@@ -53,7 +53,13 @@ import {
   PlayCircle,
   Trash2,
   Sliders,
-  Users
+  Users,
+  FileText,
+  DollarSign,
+  Sparkles,
+  Send,
+  Check,
+  PenTool
 } from 'lucide-react'
 
 export interface JobItem {
@@ -96,7 +102,16 @@ export interface JobItem {
     id: string
     quote_number: string
     total: number
+    status?: string
+    manage_token?: string
   } | null
+  invoices?: Array<{
+    id: string
+    invoice_number: string
+    total: number
+    status: string
+    manage_token?: string
+  }>
   appointment?: {
     id: string
     start_time: string
@@ -153,6 +168,23 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [showCrewModal, setShowCrewModal] = useState(false)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
+
+  // Completion Dialog State (P0: Eliminates $0 Invoices & Enforces Safe Net-14 Due Dates)
+  const [completionJob, setCompletionJob] = useState<JobItem | null>(null)
+  const [completionAmount, setCompletionAmount] = useState<string>('')
+  const [completionDueDate, setCompletionDueDate] = useState<'net14' | 'immediate'>('net14')
+  const [completionCreateInvoice, setCompletionCreateInvoice] = useState<boolean>(true)
+  const [submittingCompletion, setSubmittingCompletion] = useState(false)
+
+  // Quick On-Site Estimate Modal State (P0: Truck-Ready Minimal Writing)
+  const [quoteDrawerJob, setQuoteDrawerJob] = useState<JobItem | null>(null)
+  const [quoteLineItems, setQuoteLineItems] = useState<Array<{ description: string; quantity: number; unit_price: number }>>([])
+  const [quoteTaxRate, setQuoteTaxRate] = useState<number>(0)
+  const [submittingQuote, setSubmittingQuote] = useState(false)
+  const [signOnGlassMode, setSignOnGlassMode] = useState(false)
+  const [customerSignerName, setCustomerSignerName] = useState('')
+  const [isSignatureEmpty, setIsSignatureEmpty] = useState(true)
+  const [signatureDataUrl, setSignatureDataUrl] = useState('')
 
   // Recurring Plans State
   const [recurringTemplates, setRecurringTemplates] = useState<any[]>([])
@@ -321,7 +353,14 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
   const handleUpdateStatus = async (
     jobId: string,
     newStatus: JobItem['status'],
-    options?: { etaMinutes?: number; notifyCustomer?: boolean; technicianName?: string }
+    options?: {
+      etaMinutes?: number
+      notifyCustomer?: boolean
+      technicianName?: string
+      finalAmount?: number
+      items?: any[]
+      dueDate?: string
+    }
   ) => {
     setStatusUpdatingId(jobId)
     try {
@@ -332,19 +371,30 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
           status: newStatus,
           etaMinutes: options?.etaMinutes,
           notifyCustomer: options?.notifyCustomer ?? false,
-          technicianName: options?.technicianName
+          technicianName: options?.technicianName,
+          finalAmount: options?.finalAmount,
+          items: options?.items,
+          dueDate: options?.dueDate
         })
       })
 
       const data = await res.json()
       if (res.ok && data.success) {
-        const statusLabels: Record<string, string> = {
-          en_route: 'Marked En Route. Homeowner notified via SMS.',
-          in_progress: 'Job started. Clock is running.',
-          completed: 'Job marked complete.',
-          cancelled: 'Job cancelled.'
+        if (newStatus === 'completed') {
+          if (data.draft_invoice) {
+            toast.success(`Job marked complete! Draft invoice #${data.draft_invoice.invoice_number} created ($${Number(data.draft_invoice.total).toFixed(2)}).`)
+          } else {
+            toast.success('Job marked complete. Ready for invoice creation.')
+          }
+        } else {
+          const statusLabels: Record<string, string> = {
+            en_route: 'Marked En Route. Homeowner notified via SMS.',
+            in_progress: 'Job started. Clock is running.',
+            completed: 'Job marked complete.',
+            cancelled: 'Job cancelled.'
+          }
+          toast.success(statusLabels[newStatus] || `Status updated to ${newStatus}`)
         }
-        toast.success(statusLabels[newStatus] || `Status updated to ${newStatus}`)
         loadJobs()
 
         // Keep active drawer in sync
@@ -352,7 +402,8 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
           setActiveDrawerJob({
             ...activeDrawerJob,
             status: newStatus,
-            eta_minutes: options?.etaMinutes ?? activeDrawerJob.eta_minutes
+            eta_minutes: options?.etaMinutes ?? activeDrawerJob.eta_minutes,
+            invoices: data.draft_invoice ? [data.draft_invoice] : activeDrawerJob.invoices
           })
         }
       } else {
@@ -362,6 +413,181 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
       toast.error('Network error updating status.')
     } finally {
       setStatusUpdatingId(null)
+    }
+  }
+
+  // P0 Completion Workflow: Intercepts complete action to ensure accurate pricing & safe due date
+  const onInitiateCompleteJob = (job: JobItem) => {
+    setCompletionJob(job)
+    if (job.quote && Number(job.quote.total) > 0) {
+      setCompletionAmount(String(job.quote.total))
+      setCompletionCreateInvoice(true)
+    } else if (job.service?.price && Number(job.service.price) > 0) {
+      setCompletionAmount(String(job.service.price))
+      setCompletionCreateInvoice(true)
+    } else {
+      setCompletionAmount('')
+      setCompletionCreateInvoice(true)
+    }
+    setCompletionDueDate('net14')
+  }
+
+  const handleConfirmCompletion = async () => {
+    if (!completionJob) return
+    setSubmittingCompletion(true)
+    try {
+      const parsedAmount = completionCreateInvoice ? (Number(completionAmount) || 0) : 0
+      const calculatedDueDate = completionDueDate === 'immediate'
+        ? new Date().toISOString()
+        : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+
+      await handleUpdateStatus(completionJob.id, 'completed', {
+        finalAmount: parsedAmount,
+        dueDate: calculatedDueDate
+      })
+      setCompletionJob(null)
+    } finally {
+      setSubmittingCompletion(false)
+    }
+  }
+
+  // P0 Quick Estimate Workflow: "Truck-Ready" On-Site Quote Builder
+  const onOpenQuickQuote = (job: JobItem) => {
+    setQuoteDrawerJob(job)
+    setSignOnGlassMode(false)
+    setCustomerSignerName(job.contact?.name || '')
+    setIsSignatureEmpty(true)
+    setSignatureDataUrl('')
+    if (job.service?.price && Number(job.service.price) > 0) {
+      setQuoteLineItems([
+        { description: job.service.name, quantity: 1, unit_price: Number(job.service.price) }
+      ])
+    } else {
+      setQuoteLineItems([
+        { description: 'Diagnostic & Inspection Fee', quantity: 1, unit_price: 89 }
+      ])
+    }
+  }
+
+  const handleAddQuotePreset = (description: string, unit_price: number) => {
+    setQuoteLineItems(prev => [...prev, { description, quantity: 1, unit_price }])
+  }
+
+  const handleUpdateQuoteItem = (index: number, field: string, value: any) => {
+    setQuoteLineItems(prev => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const handleRemoveQuoteItem = (index: number) => {
+    setQuoteLineItems(prev => prev.filter((_, idx) => idx !== index))
+  }
+
+  const handleCreateQuickQuote = async (mode: 'sms' | 'sign_on_glass') => {
+    if (!quoteDrawerJob) return
+    if (!quoteDrawerJob.contact?.id) {
+      toast.error('Customer profile required to generate an estimate.')
+      return
+    }
+    if (quoteLineItems.length === 0) {
+      toast.error('Please add at least one line item to the estimate.')
+      return
+    }
+
+    const subtotal = quoteLineItems.reduce(
+      (acc, it) => acc + (Number(it.quantity) || 1) * (Number(it.unit_price) || 0),
+      0
+    )
+    if (subtotal <= 0) {
+      toast.error('Estimate total must be greater than $0.')
+      return
+    }
+
+    setSubmittingQuote(true)
+    try {
+      const res = await fetch('/api/client/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: quoteDrawerJob.id,
+          contactId: quoteDrawerJob.contact.id,
+          title: `Estimate for Job #${quoteDrawerJob.job_number}`,
+          description: `On-site estimate for ${quoteDrawerJob.title}`,
+          items: quoteLineItems,
+          taxRate: quoteTaxRate,
+          notes: mode === 'sign_on_glass' ? 'Authorized on site via Sign-on-Glass' : undefined
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.success || !data.quote) {
+        toast.error(data.error || 'Failed to create estimate.')
+        setSubmittingQuote(false)
+        return
+      }
+
+      const createdQuote = data.quote
+
+      if (mode === 'sms') {
+        const sendRes = await fetch(`/api/client/quotes/${createdQuote.id}/send`, { method: 'POST' })
+        if (sendRes.ok) {
+          toast.success(`Estimate #${createdQuote.quote_number} ($${Number(createdQuote.total).toFixed(2)}) sent via SMS!`)
+        } else {
+          toast.success(`Estimate #${createdQuote.quote_number} created ($${Number(createdQuote.total).toFixed(2)}).`)
+        }
+        setQuoteDrawerJob(null)
+        loadJobs()
+        if (activeDrawerJob && activeDrawerJob.id === quoteDrawerJob.id) {
+          setActiveDrawerJob({
+            ...activeDrawerJob,
+            quote: {
+              id: createdQuote.id,
+              quote_number: createdQuote.quote_number,
+              total: createdQuote.total,
+              status: 'sent',
+              manage_token: createdQuote.manage_token
+            }
+          })
+        }
+      } else {
+        // Sign on Glass: Accept quote with captured signature
+        const acceptRes = await fetch(`/api/quote/${createdQuote.manage_token}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: customerSignerName || quoteDrawerJob.contact?.name || 'Customer',
+            signatureData: signatureDataUrl || 'Signed on glass on-site'
+          })
+        })
+
+        const acceptData = await acceptRes.json()
+        if (acceptRes.ok && acceptData.success) {
+          toast.success(`Estimate #${createdQuote.quote_number} ($${Number(createdQuote.total).toFixed(2)}) approved on site!`)
+          setQuoteDrawerJob(null)
+          setSignOnGlassMode(false)
+          loadJobs()
+          if (activeDrawerJob && activeDrawerJob.id === quoteDrawerJob.id) {
+            setActiveDrawerJob({
+              ...activeDrawerJob,
+              quote: {
+                id: createdQuote.id,
+                quote_number: createdQuote.quote_number,
+                total: createdQuote.total,
+                status: 'accepted',
+                manage_token: createdQuote.manage_token
+              }
+            })
+          }
+        } else {
+          toast.error(acceptData.error || 'Failed to record on-site signature.')
+        }
+      }
+    } catch {
+      toast.error('Network error creating estimate.')
+    } finally {
+      setSubmittingQuote(false)
     }
   }
 
@@ -938,7 +1164,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                           type="button"
                           size="sm"
                           disabled={statusUpdatingId === job.id}
-                          onClick={() => handleUpdateStatus(job.id, 'completed')}
+                          onClick={() => onInitiateCompleteJob(job)}
                           className="h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 shadow-xs cursor-pointer"
                         >
                           {statusUpdatingId === job.id ? (
@@ -1152,7 +1378,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                               {job.status === 'in_progress' && (
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateStatus(job.id, 'completed')}
+                                  onClick={() => onInitiateCompleteJob(job)}
                                   className="px-2 py-1 text-[11px] font-semibold rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
                                 >
                                   Complete
@@ -1607,11 +1833,23 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                     <Button
                       type="button"
                       disabled={statusUpdatingId === activeDrawerJob.id}
-                      onClick={() => handleUpdateStatus(activeDrawerJob.id, 'completed')}
+                      onClick={() => onInitiateCompleteJob(activeDrawerJob)}
                       className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 col-span-2"
                     >
                       {statusUpdatingId === activeDrawerJob.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                       Mark Job Complete
+                    </Button>
+                  )}
+
+                  {!activeDrawerJob.quote && activeDrawerJob.status !== 'completed' && activeDrawerJob.status !== 'cancelled' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => onOpenQuickQuote(activeDrawerJob)}
+                      className="h-11 border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100/60 text-xs font-bold gap-1.5"
+                    >
+                      <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      Create Estimate
                     </Button>
                   )}
 
@@ -1638,6 +1876,30 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                   )}
                 </div>
               </div>
+
+              {/* Estimate Status Callout if attached */}
+              {activeDrawerJob.quote && (
+                <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span>Estimate #{activeDrawerJob.quote.quote_number}</span>
+                    </span>
+                    <span className="font-mono font-bold text-xs text-blue-950 dark:text-blue-100">
+                      ${Number(activeDrawerJob.quote.total).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-blue-700 dark:text-blue-300">
+                    <span className="inline-flex items-center gap-1 font-medium">
+                      <Check className="h-3 w-3 text-emerald-600" />
+                      {activeDrawerJob.quote.status === 'accepted' ? 'Approved on site' : 'Attached to job'}
+                    </span>
+                    <Link href="/client/quotes" className="hover:underline font-semibold text-blue-600 dark:text-blue-400">
+                      View Quote →
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {/* Customer Contact Details */}
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-950/70 border border-slate-200/80 dark:border-zinc-800 space-y-3">
@@ -1725,13 +1987,32 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
               {/* Bottom Financial Conversion Actions */}
               <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2">
-                <Link
-                  href={`/client/invoices?create=true&contact_id=${activeDrawerJob.contact?.id || ''}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs cursor-pointer"
-                >
-                  <Receipt className="h-3.5 w-3.5" />
-                  <span>Generate Invoice</span>
-                </Link>
+                {activeDrawerJob.invoices && activeDrawerJob.invoices.length > 0 ? (
+                  <Link
+                    href={`/client/invoices?search=${encodeURIComponent(activeDrawerJob.invoices[0].invoice_number)}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    <span>Invoice #{activeDrawerJob.invoices[0].invoice_number} (${Number(activeDrawerJob.invoices[0].total).toFixed(2)})</span>
+                  </Link>
+                ) : activeDrawerJob.status === 'completed' ? (
+                  <Button
+                    type="button"
+                    onClick={() => onInitiateCompleteJob(activeDrawerJob)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    <span>Finalize Invoice</span>
+                  </Button>
+                ) : (
+                  <Link
+                    href={`/client/invoices?create=true&contact_id=${activeDrawerJob.contact?.id || ''}&job_id=${activeDrawerJob.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs cursor-pointer"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    <span>Generate Invoice</span>
+                  </Link>
+                )}
 
                 <Button
                   type="button"
@@ -2006,6 +2287,423 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
         </div>
       </Modal>
 
+      {/* COMPLETE JOB MODAL (P0: Zero $0 Invoices & Safe Due Date) */}
+      <Modal
+        open={!!completionJob}
+        onOpenChange={(open) => !open && setCompletionJob(null)}
+        title={`Complete Job #${completionJob?.job_number || ''}`}
+        description="Verify the billable service total and generate the customer invoice."
+        size="md"
+      >
+        <div className="space-y-4 py-1">
+          {/* Customer & Service Header */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block">
+                {completionJob?.contact?.name || 'Customer'}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                {completionJob?.service?.name || completionJob?.title || 'Field Service'}
+              </span>
+            </div>
+            {completionJob?.quote && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <Check className="h-3 w-3" /> Estimate Attached: ${Number(completionJob.quote.total).toFixed(2)}
+              </span>
+            )}
+          </div>
+
+          {/* Billable Amount Input with Quick-Tap Chips */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+              Final Billable Amount ($)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">$</span>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={completionAmount}
+                onChange={(e) => setCompletionAmount(e.target.value)}
+                className="pl-8 text-base font-mono font-bold h-11 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+              />
+            </div>
+
+            {/* Quick Tap Amount Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] text-slate-400 shrink-0">Quick Tap:</span>
+              {[85, 120, 150, 225, 350, 500].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setCompletionAmount(String(amt))}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 cursor-pointer shadow-2xs"
+                >
+                  ${amt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Safe Due Date Picker */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+              Invoice Payment Terms
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setCompletionDueDate('net14')}
+                className={`p-2.5 rounded-lg border text-left text-xs font-semibold transition-all cursor-pointer ${
+                  completionDueDate === 'net14'
+                    ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300'
+                }`}
+              >
+                <div className="font-bold">Net 14 Days (Safe)</div>
+                <div className="text-[10px] text-slate-400 font-normal">Prevents immediate "Past Due"</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCompletionDueDate('immediate')}
+                className={`p-2.5 rounded-lg border text-left text-xs font-semibold transition-all cursor-pointer ${
+                  completionDueDate === 'immediate'
+                    ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300'
+                }`}
+              >
+                <div className="font-bold">Due Upon Receipt</div>
+                <div className="text-[10px] text-slate-400 font-normal">Expected immediately</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCompletionJob(null)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              disabled={submittingCompletion}
+              onClick={handleConfirmCompletion}
+              className="h-10 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-xs"
+            >
+              {submittingCompletion ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              <span>{Number(completionAmount) > 0 ? `Complete & Create $${Number(completionAmount).toFixed(2)} Invoice` : 'Complete Job'}</span>
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* QUICK ON-SITE ESTIMATE MODAL (Truck-Ready Minimal Writing) */}
+      <Modal
+        open={!!quoteDrawerJob}
+        onOpenChange={(open) => {
+          if (!open) {
+            setQuoteDrawerJob(null)
+            setSignOnGlassMode(false)
+          }
+        }}
+        title={signOnGlassMode ? `Sign on Glass — #${quoteDrawerJob?.job_number || ''}` : `On-Site Estimate — #${quoteDrawerJob?.job_number || ''}`}
+        description={signOnGlassMode ? "Have homeowner verify and sign on the screen." : "Tap items to build quick estimate. Get signed on site or text to customer."}
+        size="lg"
+      >
+        <div className="space-y-4 py-1">
+          {signOnGlassMode ? (
+            /* Sign on Glass Mode */
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Authorized Work Total</span>
+                  <span className="text-xl font-bold font-mono text-blue-950 dark:text-blue-100 block">
+                    ${quoteLineItems.reduce((acc, it) => acc + (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), 0).toFixed(2)}
+                  </span>
+                </div>
+                <span className="text-xs text-slate-500 dark:text-zinc-400">
+                  {quoteDrawerJob?.contact?.name || 'Customer'}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                  Customer Signer Full Name <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  value={customerSignerName}
+                  onChange={(e) => setCustomerSignerName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              {/* Signature Canvas */}
+              <SignatureCanvas
+                isEmpty={isSignatureEmpty}
+                setIsEmpty={setIsSignatureEmpty}
+                onSave={(dataUrl) => setSignatureDataUrl(dataUrl)}
+                onClear={() => setSignatureDataUrl('')}
+              />
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSignOnGlassMode(false)}
+                  className="text-xs"
+                >
+                  ← Back to Items
+                </Button>
+
+                <Button
+                  type="button"
+                  disabled={submittingQuote || isSignatureEmpty || !customerSignerName.trim()}
+                  onClick={() => handleCreateQuickQuote('sign_on_glass')}
+                  className="h-10 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-xs"
+                >
+                  {submittingQuote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  <span>Authorize & Accept Estimate</span>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Estimate Item Builder Mode */
+            <div className="space-y-4">
+              {/* Customer context */}
+              <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-zinc-800">
+                <span className="text-slate-500">Customer: <strong className="text-slate-900 dark:text-zinc-100">{quoteDrawerJob?.contact?.name || 'Valued Customer'}</strong></span>
+                <span className="font-mono text-slate-500">{quoteDrawerJob?.contact?.phone}</span>
+              </div>
+
+              {/* Quick-Tap Chips for Contractors */}
+              <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                  Quick Tap Presets:
+                </span>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    { label: 'Diagnostic ($89)', desc: 'Diagnostic & Inspection Fee', price: 89 },
+                    { label: 'Standard Labor 1hr ($120)', desc: 'Standard Labor & Service (1 hr)', price: 120 },
+                    { label: '2 Hr Labor ($240)', desc: 'Standard Labor & Service (2 hrs)', price: 240 },
+                    { label: 'Emergency Labor ($180)', desc: 'Emergency Priority Diagnostic & Labor', price: 180 },
+                    { label: 'Parts & Materials ($150)', desc: 'Replacement Parts & Materials', price: 150 },
+                    { label: 'Capacitor ($145)', desc: 'Dual Run Capacitor Replacement', price: 145 },
+                    { label: 'Tune-Up ($99)', desc: 'Precision System Tune-Up & Cleaning', price: 99 },
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleAddQuotePreset(preset.desc, preset.price)}
+                      className="px-2 py-1 text-[11px] font-medium rounded-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-blue-400 dark:hover:border-blue-600 text-slate-800 dark:text-zinc-200 cursor-pointer shadow-2xs"
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Line Items List */}
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {quoteLineItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                    <Input
+                      value={item.description}
+                      onChange={(e) => handleUpdateQuoteItem(idx, 'description', e.target.value)}
+                      placeholder="Service / Part description"
+                      className="h-8 text-xs flex-1"
+                    />
+                    <div className="w-16">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleUpdateQuoteItem(idx, 'quantity', Number(e.target.value) || 1)}
+                        className="h-8 text-xs text-center"
+                      />
+                    </div>
+                    <div className="w-24 relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.unit_price}
+                        onChange={(e) => handleUpdateQuoteItem(idx, 'unit_price', Number(e.target.value) || 0)}
+                        className="h-8 text-xs pl-5 font-mono text-right"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveQuoteItem(idx)}
+                      className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      title="Remove Item"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleAddQuotePreset('Custom Service / Part', 50)}
+                className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Custom Line Item
+              </button>
+
+              {/* Financial Total Bar */}
+              <div className="p-3 rounded-xl bg-slate-900 text-white dark:bg-zinc-950 dark:border dark:border-zinc-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Total Estimate</span>
+                  <span className="text-xl font-bold font-mono">
+                    ${quoteLineItems.reduce((acc, it) => acc + (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  {quoteLineItems.length} item{quoteLineItems.length === 1 ? '' : 's'}
+                </div>
+              </div>
+
+              {/* Two Truck-Ready Approval Action Paths */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={submittingQuote || quoteLineItems.length === 0}
+                  onClick={() => handleCreateQuickQuote('sms')}
+                  className="h-11 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 font-bold text-xs gap-1.5 shadow-2xs"
+                >
+                  <Send className="h-4 w-4" />
+                  Text Quote via SMS
+                </Button>
+
+                <Button
+                  type="button"
+                  disabled={submittingQuote || quoteLineItems.length === 0}
+                  onClick={() => setSignOnGlassMode(true)}
+                  className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-xs"
+                >
+                  <PenTool className="h-4 w-4" />
+                  Sign on Glass (On-Site)
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+    </div>
+  )
+}
+
+function SignatureCanvas({
+  isEmpty,
+  setIsEmpty,
+  onSave,
+  onClear
+}: {
+  isEmpty: boolean
+  setIsEmpty: (v: boolean) => void
+  onSave: (dataUrl: string) => void
+  onClear: () => void
+}) {
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null)
+  const isDrawing = React.useRef(false)
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    isDrawing.current = true
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const rect = canvas.getBoundingClientRect()
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+    ctx.beginPath()
+    ctx.moveTo(clientX - rect.left, clientY - rect.top)
+    setIsEmpty(false)
+  }
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing.current) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const rect = canvas.getBoundingClientRect()
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#1e293b'
+    ctx.lineTo(clientX - rect.left, clientY - rect.top)
+    ctx.stroke()
+  }
+
+  const stopDrawing = () => {
+    if (!isDrawing.current) return
+    isDrawing.current = false
+    const canvas = canvasRef.current
+    if (canvas) {
+      onSave(canvas.toDataURL('image/png'))
+    }
+  }
+
+  const handleClear = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    setIsEmpty(true)
+    onClear()
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="relative border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-xl bg-slate-50 dark:bg-zinc-950 overflow-hidden touch-none">
+        <canvas
+          ref={canvasRef}
+          width={450}
+          height={160}
+          className="w-full h-36 cursor-crosshair block"
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+        />
+        {isEmpty && (
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-slate-400 dark:text-zinc-500 text-xs font-medium">
+            ✍️ Sign on screen with finger or stylus
+          </div>
+        )}
+      </div>
+      <div className="flex justify-between items-center text-xs">
+        <span className="text-[11px] text-slate-400">Electronic on-site authorization</span>
+        <button
+          type="button"
+          onClick={handleClear}
+          className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-semibold cursor-pointer"
+        >
+          Clear Signature
+        </button>
+      </div>
     </div>
   )
 }

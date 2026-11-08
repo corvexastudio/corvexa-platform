@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       appointment:appointments(id, start_time, end_time),
       quote:quotes!quote_id(id, quote_number, total),
       crew:crews!crew_id(id, name, color, van_identifier, phone_number),
+      invoices:invoices(id, invoice_number, total, status, manage_token),
       items:job_items(*)
     `)
     .eq('org_id', orgId)
@@ -70,6 +71,7 @@ export async function GET(request: Request) {
         contact:contacts(id, name, phone, email, address, notes),
         service:services(id, name, duration_minutes),
         appointment:appointments(id, start_time, end_time),
+        invoices:invoices(id, invoice_number, total, status, manage_token),
         items:job_items(*)
       `)
       .eq('org_id', orgId)

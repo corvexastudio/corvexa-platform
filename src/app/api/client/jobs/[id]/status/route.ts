@@ -16,7 +16,7 @@ export async function PATCH(
   try {
     const { id } = await props.params
     const body = await request.json()
-    const { status, notifyCustomer, notes, technicianName, etaMinutes } = body
+    const { status, notifyCustomer, notes, technicianName, etaMinutes, finalAmount, items, dueDate } = body
 
     if (!id || !status) {
       return NextResponse.json({ error: 'Missing job id or status' }, { status: 400 })
@@ -34,7 +34,10 @@ export async function PATCH(
       notifyCustomer: !!notifyCustomer,
       notes,
       technicianName: typeof technicianName === 'string' ? technicianName : undefined,
-      etaMinutes: typeof etaMinutes === 'number' ? etaMinutes : undefined
+      etaMinutes: typeof etaMinutes === 'number' ? etaMinutes : undefined,
+      finalAmount: typeof finalAmount === 'number' ? finalAmount : (finalAmount ? Number(finalAmount) : undefined),
+      items: Array.isArray(items) ? items : undefined,
+      dueDate: typeof dueDate === 'string' ? dueDate : undefined
     })
 
     if (!result.success) {

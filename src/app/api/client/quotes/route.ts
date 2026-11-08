@@ -158,6 +158,19 @@ export async function POST(
       return NextResponse.json({ error: result.error || 'Failed to create quote' }, { status: 400 })
     }
 
+    const resolvedJobId = body.jobId || body.job_id
+    if (resolvedJobId && result.quote?.id) {
+      try {
+        await supabase
+          .from('jobs')
+          .update({ quote_id: result.quote.id })
+          .eq('id', resolvedJobId)
+          .eq('org_id', orgId)
+      } catch (linkErr) {
+        console.warn('[CREATE_QUOTE] Non-blocking job linking warning:', linkErr)
+      }
+    }
+
     return NextResponse.json(result)
   } catch (err: any) {
     console.error('[CLIENT_CREATE_QUOTE_ERROR]', err)

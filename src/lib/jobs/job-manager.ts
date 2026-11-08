@@ -137,9 +137,12 @@ export async function updateJobStatus(
     notes?: string
     technicianName?: string
     etaMinutes?: number
+    finalAmount?: number
+    items?: Array<{ description: string; quantity: number; unit_price: number }>
+    dueDate?: string
   }
 ): Promise<{ success: boolean; job?: any; invoice?: any; error?: string; alreadyInStatus?: boolean; upgradeRequired?: boolean; code?: string; checkoutUrl?: string }> {
-  const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes } = params
+  const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes, finalAmount, items: paramItems, dueDate: paramDueDate } = params
 
   const { data: job, error: findError } = await supabase
     .from('jobs')
@@ -413,82 +416,132 @@ export async function updateJobStatus(
       if (existingInv) {
         draftInvoice = existingInv
       } else if (job.contact_id) {
-        // Fetch line items from job_items
-        const { data: jobItems } = await supabase
-          .from('job_items')
-          .select('*')
-          .eq('job_id', jobId)
-          .eq('org_id', orgId)
-
         let invoiceItems: Array<{ description: string; quantity: number; unit_price: number }> = []
-        if (jobItems && jobItems.length > 0) {
-          invoiceItems = jobItems.map((it: any) => ({
-            description: it.description,
+
+        // 1. Explicit items passed from Completion Dialog
+        if (paramItems && paramItems.length > 0) {
+          invoiceItems = paramItems.map(it => ({
+            description: it.description || 'Completed Field Service',
             quantity: Number(it.quantity) || 1,
             unit_price: Number(it.unit_price) || 0
           }))
-        } else if (job.quote_id) {
-          // Fallback to linked quote line items
-          const { data: quoteItems } = await supabase
-            .from('quote_items')
+        } else if (typeof finalAmount === 'number' && finalAmount > 0) {
+          // 2. Explicit final total amount entered by owner/tech on completion
+          invoiceItems = [
+            {
+              description: job.title || 'Completed Field Service',
+              quantity: 1,
+              unit_price: finalAmount
+            }
+          ]
+        } else {
+          // 3. Line items from job_items table
+          const { data: jobItems } = await supabase
+            .from('job_items')
             .select('*')
-            .eq('quote_id', job.quote_id)
+            .eq('job_id', jobId)
+            .eq('org_id', orgId)
 
-          if (quoteItems && quoteItems.length > 0) {
-            invoiceItems = quoteItems.map((it: any) => ({
+          if (jobItems && jobItems.length > 0) {
+            invoiceItems = jobItems.map((it: any) => ({
               description: it.description,
               quantity: Number(it.quantity) || 1,
               unit_price: Number(it.unit_price) || 0
             }))
-          }
-        }
+          } else if (job.quote_id) {
+            // 4. Fallback to linked quote line items
+            const { data: quoteItems } = await supabase
+              .from('quote_items')
+              .select('*')
+              .eq('quote_id', job.quote_id)
 
-        if (invoiceItems.length === 0) {
-          let servicePrice = 0
-          if (job.service_id) {
+            if (quoteItems && quoteItems.length > 0) {
+              invoiceItems = quoteItems.map((it: any) => ({
+                description: it.description,
+                quantity: Number(it.quantity) || 1,
+                unit_price: Number(it.unit_price) || 0
+              }))
+            } else {
+              // Also check quotes table total & items array
+              const { data: q } = await supabase
+                .from('quotes')
+                .select('title, total, items')
+                .eq('id', job.quote_id)
+                .maybeSingle()
+              if (q && Number(q.total) > 0) {
+                if (Array.isArray(q.items) && q.items.length > 0) {
+                  invoiceItems = q.items.map((it: any) => ({
+                    description: it.description || q.title || job.title,
+                    quantity: Number(it.quantity) || 1,
+                    unit_price: Number(it.unit_price ?? it.total) || Number(q.total)
+                  }))
+                } else {
+                  invoiceItems = [{
+                    description: q.title || job.title || 'Completed Field Service',
+                    quantity: 1,
+                    unit_price: Number(q.total)
+                  }]
+                }
+              }
+            }
+          }
+
+          // 5. If still no items, check service catalog price
+          if (invoiceItems.length === 0 && job.service_id) {
             try {
               const { data: svc } = await supabase
                 .from('services')
                 .select('price, name')
                 .eq('id', job.service_id)
                 .maybeSingle()
-              if (svc && typeof svc.price === 'number') {
-                servicePrice = svc.price
+              if (svc && typeof svc.price === 'number' && svc.price > 0) {
+                invoiceItems = [
+                  {
+                    description: svc.name || job.title || 'Completed Field Service',
+                    quantity: 1,
+                    unit_price: svc.price
+                  }
+                ]
               }
             } catch {
               // Non-blocking fallback
             }
           }
-
-          invoiceItems = [
-            {
-              description: job.title || 'Completed Field Service',
-              quantity: 1,
-              unit_price: servicePrice
-            }
-          ]
         }
 
-        const { createInvoice } = await import('../payments/invoice-manager.ts')
-        const invRes = await createInvoice(supabase, {
-          orgId,
-          contactId: job.contact_id,
-          jobId: job.id,
-          quoteId: job.quote_id || undefined,
-          title: `Invoice for Job #${job.job_number}`,
-          description: job.description || `Field service invoice for ${job.title}`,
-          items: invoiceItems,
-          dueDate: new Date().toISOString()
-        })
+        // CRITICAL INVARIANT: Never auto-create a $0.00 invoice!
+        // Only generate an invoice if billable total is greater than zero.
+        const totalBillable = invoiceItems.reduce(
+          (sum, it) => sum + (Number(it.unit_price) || 0) * (Number(it.quantity) || 1),
+          0
+        )
 
-        if (invRes.success && invRes.invoice) {
-          draftInvoice = invRes.invoice
-          await supabase.from('notifications').insert({
-            org_id: orgId,
-            title: 'Draft Invoice Ready',
-            message: `Job #${job.job_number} completed. Draft Invoice #${invRes.invoice.invoice_number} is ready for review.`,
-            link: '/client/invoices'
+        if (totalBillable > 0) {
+          const { createInvoice } = await import('../payments/invoice-manager.ts')
+          // Safe default due date: Net 14 Days from completion (never immediate past due)
+          const resolvedDueDate = paramDueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+          const invRes = await createInvoice(supabase, {
+            orgId,
+            contactId: job.contact_id,
+            jobId: job.id,
+            quoteId: job.quote_id || undefined,
+            title: `Invoice for Job #${job.job_number}`,
+            description: job.description || `Field service invoice for ${job.title}`,
+            items: invoiceItems,
+            dueDate: resolvedDueDate
           })
+
+          if (invRes.success && invRes.invoice) {
+            draftInvoice = invRes.invoice
+            await supabase.from('notifications').insert({
+              org_id: orgId,
+              title: 'Draft Invoice Ready',
+              message: `Job #${job.job_number} completed. Draft Invoice #${invRes.invoice.invoice_number} ($${invRes.invoice.total}) is ready for review.`,
+              link: '/client/invoices'
+            })
+          }
+        } else {
+          console.info(`[JOB_COMPLETED] Job #${job.job_number} completed without fixed price. Waiting for owner to finalize invoice amount.`)
         }
       }
     } catch (invErr) {

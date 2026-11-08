@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
-import { createInvoice, convertJobToInvoice, convertQuoteToInvoice } from '../../../../lib/payments/invoice-manager.ts'
+import { createInvoice, updateInvoice, convertJobToInvoice, convertQuoteToInvoice } from '../../../../lib/payments/invoice-manager.ts'
 
 import { encodeCursor, decodeCursor } from '../../../../lib/pagination/cursor.ts'
 
@@ -153,15 +153,50 @@ export async function POST(
       return NextResponse.json({ error: 'Customer and title are required' }, { status: 400 })
     }
 
+    // Duplicate prevention: If an invoice is being generated for a job that already has an active draft invoice,
+    // update that draft invoice instead of creating a confusing second invoice!
+    if (jobId) {
+      const { data: existingDraft } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, status')
+        .eq('job_id', jobId)
+        .eq('org_id', orgId)
+        .eq('status', 'draft')
+        .is('deleted_at', null)
+        .maybeSingle()
+
+      if (existingDraft) {
+        const updateResult = await updateInvoice(supabase, {
+          invoiceId: existingDraft.id,
+          orgId,
+          title,
+          description,
+          items: Array.isArray(items) ? items : [],
+          taxRate: typeof taxRate === 'number' ? taxRate : Number(taxRate) || 0,
+          discountAmount: typeof discountAmount === 'number' ? discountAmount : Number(discountAmount) || 0,
+          dueDate,
+          notes
+        })
+        if (!updateResult.success) {
+          return NextResponse.json({ error: updateResult.error }, { status: 400 })
+        }
+        return NextResponse.json(updateResult)
+      }
+    }
+
+    const safeDueDate = dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+
     const result = await createInvoice(supabase, {
       orgId,
       contactId,
+      jobId: jobId || undefined,
+      quoteId: quoteId || undefined,
       title,
       description,
       items: Array.isArray(items) ? items : [],
       taxRate,
       discountAmount,
-      dueDate,
+      dueDate: safeDueDate,
       notes
     })
 
@@ -172,6 +207,48 @@ export async function POST(
     return NextResponse.json(result)
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to process invoice' }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  context?: { params?: Promise<Record<string, string | string[] | undefined>>; customSupabase?: any }
+) {
+  const tenantResult = await getTenantContext('invoices:manage', context?.customSupabase)
+  if (!tenantResult.ok) {
+    return tenantResult.response
+  }
+
+  const { orgId, supabase } = tenantResult
+
+  try {
+    const body = await request.json()
+    const { invoiceId, id, title, description, items, taxRate, discountAmount, dueDate, notes } = body
+    const resolvedInvoiceId = invoiceId || id
+
+    if (!resolvedInvoiceId) {
+      return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 })
+    }
+
+    const result = await updateInvoice(supabase, {
+      invoiceId: resolvedInvoiceId,
+      orgId,
+      title,
+      description,
+      items: Array.isArray(items) ? items : undefined,
+      taxRate: typeof taxRate === 'number' ? taxRate : (taxRate !== undefined ? Number(taxRate) : undefined),
+      discountAmount: typeof discountAmount === 'number' ? discountAmount : (discountAmount !== undefined ? Number(discountAmount) : undefined),
+      dueDate,
+      notes
+    })
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || 'Failed to update invoice' }, { status: 400 })
+    }
+
+    return NextResponse.json(result)
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Failed to update invoice' }, { status: 500 })
   }
 }
 
