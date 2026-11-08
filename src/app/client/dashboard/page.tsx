@@ -55,6 +55,7 @@ import {
 } from '@/lib/dashboard/dashboard-service'
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
+import { formatTimeInTz, formatDateInTz } from '@/lib/temporal/timezone'
 import { BookingShareBar } from '@/components/booking/booking-share-bar'
 import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
@@ -66,7 +67,7 @@ import { cn } from '@/lib/utils'
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgId, orgName, orgSlug, subscriptionStatus, planId, role, userFullName, operationMode } = useWorkspace()
+  const { orgId, orgName, orgSlug, orgTimezone, subscriptionStatus, planId, role, userFullName, operationMode } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
   const [enRouteModalOpen, setEnRouteModalOpen] = useState(false)
   const [foundMoneyModalOpen, setFoundMoneyModalOpen] = useState(false)
@@ -567,7 +568,7 @@ export default function DashboardPage() {
                       </Badge>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                          {item.timestamp ? new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today'}
+                          {item.timestamp ? formatDateInTz(item.timestamp, orgTimezone, { month: 'short', day: 'numeric' }) : 'Today'}
                         </span>
                         <button
                           type="button"
@@ -709,10 +710,10 @@ export default function DashboardPage() {
                       <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
                       <span className="tabular-nums">
                         {activeJob.scheduledStart
-                          ? new Date(activeJob.scheduledStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                          ? formatTimeInTz(activeJob.scheduledStart, orgTimezone)
                           : 'Today'}
                         {activeJob.scheduledEnd && (
-                          <> – {new Date(activeJob.scheduledEnd).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</>
+                          <> – {formatTimeInTz(activeJob.scheduledEnd, orgTimezone)}</>
                         )}
                       </span>
                     </div>
@@ -920,7 +921,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
                       <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                      {job.scheduledStart ? new Date(job.scheduledStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'}
+                      {job.scheduledStart ? formatTimeInTz(job.scheduledStart, orgTimezone) : 'Today'}
                     </div>
                     <Link
                       href="/client/jobs"
@@ -1136,7 +1137,7 @@ export default function DashboardPage() {
 
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                    {call.createdAt ? new Date(call.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                    {call.createdAt ? formatTimeInTz(call.createdAt, orgTimezone) : 'Recent'}
                   </span>
                   <Link
                     href="/client/inbox"
