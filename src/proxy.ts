@@ -77,8 +77,22 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith('/manage/')) {
       return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
     }
-    // If user accesses book.domain.com/:slug (and not already /book or /api/book)
-    if (!pathname.startsWith('/book') && !pathname.startsWith('/api/book')) {
+    // Allow tracking, invoices, quotes, reviews, claims, APIs, and legal pages to pass through without booking slug rewrite
+    if (
+      pathname.startsWith('/t/') ||
+      pathname.startsWith('/track/') ||
+      pathname.startsWith('/invoice/') ||
+      pathname.startsWith('/quote/') ||
+      pathname.startsWith('/r/') ||
+      pathname.startsWith('/claim/') ||
+      pathname.startsWith('/api/') ||
+      pathname === '/privacy' ||
+      pathname === '/terms'
+    ) {
+      return finalizeResponse(supabaseResponse)
+    }
+    // If user accesses book.domain.com/:slug (and not already /book)
+    if (!pathname.startsWith('/book')) {
       return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
     }
   }
