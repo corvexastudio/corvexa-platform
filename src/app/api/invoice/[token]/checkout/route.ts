@@ -9,16 +9,28 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
+  if (!token) {
+    return NextResponse.json({ error: 'Invoice token is required' }, { status: 400 })
+  }
   const supabase = createAdminClient()
 
-  const { data: invoice, error } = await supabase
+  let { data: invoice, error } = await supabase
     .from('invoices')
-    .select('*, contacts(*), invoice_items(*), organizations(id, stripe_account_id, stripe_charges_enabled, external_payment_url)')
-    .eq('manage_token', token)
-    .single()
+    .select('*, contacts(*), invoice_items(*), organizations(id, external_payment_url)')
+    .eq('manage_token', token.trim())
+    .maybeSingle()
 
   if (error || !invoice) {
-    return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    const { data: rawInvoice, error: rawError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('manage_token', token.trim())
+      .maybeSingle()
+
+    if (rawError || !rawInvoice) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
+    invoice = rawInvoice
   }
 
   if (invoice.status === 'paid') {
@@ -26,8 +38,35 @@ export async function POST(
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
-  const contact = invoice.contacts
-  const org = (invoice as any).organizations
+
+  let contact = invoice.contacts
+  if (!contact && invoice.contact_id) {
+    const { data: c } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('id', invoice.contact_id)
+      .maybeSingle()
+    contact = c
+  }
+
+  let org = (invoice as any).organizations
+  if (!org && invoice.org_id) {
+    const { data: o } = await supabase
+      .from('organizations')
+      .select('id, external_payment_url')
+      .eq('id', invoice.org_id)
+      .maybeSingle()
+    org = o
+  }
+
+  let items = invoice.invoice_items
+  if (!items || items.length === 0) {
+    const { data: fetchedItems } = await supabase
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', invoice.id)
+    items = fetchedItems || invoice.items || []
+  }
 
   // If contractor has configured a direct external payment link and Stripe is not connected, route directly
   if (org?.external_payment_url && !org?.stripe_charges_enabled) {

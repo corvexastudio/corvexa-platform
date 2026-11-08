@@ -27,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
+import { formatDateInTz } from '@/lib/temporal/timezone'
 import { cn } from '@/lib/utils'
 
 interface InvoiceItem {
@@ -60,6 +61,7 @@ interface InvoiceData {
     name: string
     phone: string
     email?: string
+    address?: string
     address_street?: string
     address_city?: string
     address_state?: string
@@ -212,7 +214,7 @@ export default function CustomerInvoicePage() {
     org?.address_state && org?.address_postal_code ? `${org.address_state} ${org.address_postal_code}` : org?.address_state
   ].filter(Boolean).join(', ')
 
-  const customerAddress = [
+  const customerAddress = customer?.address || [
     customer?.address_street,
     customer?.address_city,
     customer?.address_state && customer?.address_postal_code ? `${customer.address_state} ${customer.address_postal_code}` : customer?.address_state
@@ -304,13 +306,13 @@ export default function CustomerInvoicePage() {
                 <div>
                   <span className="text-slate-400">Date Issued: </span>
                   <span className="font-medium text-slate-700 dark:text-zinc-200">
-                    {invoice.sent_at ? new Date(invoice.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : new Date().toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {invoice.sent_at ? formatDateInTz(invoice.sent_at, org?.timezone, { month: 'short', day: 'numeric', year: 'numeric' }) : formatDateInTz(new Date(), org?.timezone, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400">Due Date: </span>
                   <span className="font-medium text-slate-700 dark:text-zinc-200">
-                    {new Date(invoice.due_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {formatDateInTz(invoice.due_date, org?.timezone, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 </div>
               </div>
@@ -404,7 +406,7 @@ export default function CustomerInvoicePage() {
                     Payment Received in Full
                   </h4>
                   <p className="text-xs text-emerald-800 dark:text-emerald-400 mt-0.5">
-                    Settled on {invoice.paid_at ? new Date(invoice.paid_at).toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' }) : 'Record'}. Your account balance is $0.00.
+                    Settled on {invoice.paid_at ? formatDateInTz(invoice.paid_at, org?.timezone, { month: 'long', day: 'numeric', year: 'numeric' }) : 'Record'}. Your account balance is $0.00.
                   </p>
                 </div>
               </div>

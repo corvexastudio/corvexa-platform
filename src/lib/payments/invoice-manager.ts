@@ -748,48 +748,80 @@ export async function customerViewInvoice(
   supabase: SupabaseClient,
   manageToken: string
 ): Promise<{ success: boolean; invoice?: any; items?: any[]; org?: any; jobPhotos?: any[]; error?: string }> {
-  const { data: invoice, error: invoiceError } = await supabase
-    .from('invoices')
-    .select('*, invoice_items(*), contacts(id, name, phone, email, address_street, address_city, address_state, address_postal_code), organizations(id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, logo_url, address_street, address_city, address_state, address_postal_code)')
-    .eq('manage_token', manageToken)
-    .single()
-
-  if (invoiceError || !invoice) {
-    return { success: false, error: 'Invoice not found' }
+  if (!manageToken || typeof manageToken !== 'string') {
+    return { success: false, error: 'Invoice token is required' }
   }
 
+  // 1. Safe query attempting relational embeds with schema-validated columns
+  let { data: invoice, error: invoiceError } = await supabase
+    .from('invoices')
+    .select(`
+      *,
+      invoice_items(*),
+      contacts(id, name, phone, email, address),
+      organizations(id, name, owner_phone, timezone, external_payment_url, payment_instructions, industry, logo_url, address_street, address_city, address_state, address_postal_code)
+    `)
+    .eq('manage_token', manageToken.trim())
+    .maybeSingle()
+
+  // 2. Resilient fallback: If relational embed failed or returned null, query invoices table directly
+  if (invoiceError || !invoice) {
+    const { data: rawInvoice, error: rawError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('manage_token', manageToken.trim())
+      .maybeSingle()
+
+    if (rawError || !rawInvoice) {
+      console.error('[customerViewInvoice] Failed to find invoice by token:', invoiceError || rawError)
+      return { success: false, error: 'Invoice not found' }
+    }
+    invoice = rawInvoice
+  }
+
+  // 3. Organization resolution with fallback
   let org = invoice.organizations
   if (!org && invoice.org_id) {
     const { data: o, error: oErr } = await supabase
       .from('organizations')
-      .select('id, name, owner_phone, timezone, stripe_charges_enabled, external_payment_url, payment_instructions, license_number, industry, logo_url, address_street, address_city, address_state, address_postal_code')
+      .select('id, name, owner_phone, timezone, external_payment_url, payment_instructions, industry, logo_url, address_street, address_city, address_state, address_postal_code')
       .eq('id', invoice.org_id)
-      .single()
-    if (oErr) {
-      const fallback = await supabase
+      .maybeSingle()
+
+    if (oErr || !o) {
+      const { data: fallbackOrg } = await supabase
         .from('organizations')
         .select('id, name, owner_phone, timezone')
         .eq('id', invoice.org_id)
-        .single()
-      org = fallback.data
+        .maybeSingle()
+      org = fallbackOrg || null
     } else {
       org = o
     }
   }
 
-  // Fallback for contacts if relational embed was omitted or flat
-  if (!invoice.contacts && invoice.contact_id) {
-    const { data: contact } = await supabase
+  // 4. Contact resolution with fallback & address compatibility
+  let contact = invoice.contacts
+  if (!contact && invoice.contact_id) {
+    const { data: fetchedContact } = await supabase
       .from('contacts')
-      .select('id, name, phone, email, address_street, address_city, address_state, address_postal_code')
+      .select('id, name, phone, email, address')
       .eq('id', invoice.contact_id)
       .maybeSingle()
-    if (contact) {
-      invoice.contacts = contact
+    if (fetchedContact) {
+      contact = fetchedContact
     }
   }
 
-  // Fallback for invoice_items if relational embed was omitted
+  if (contact) {
+    // Normalization: provide both address and address_street for UI backwards compatibility
+    if (contact.address && !contact.address_street) {
+      contact.address_street = contact.address
+    }
+    invoice.contacts = contact
+  }
+
+  // 5. Invoice items resolution with fallback
   let items = invoice.invoice_items
   if (!items || items.length === 0) {
     const { data: fetchedItems } = await supabase
@@ -798,8 +830,10 @@ export async function customerViewInvoice(
       .eq('invoice_id', invoice.id)
     if (fetchedItems && fetchedItems.length > 0) {
       items = fetchedItems
+    } else if (Array.isArray(invoice.items) && invoice.items.length > 0) {
+      items = invoice.items
     } else {
-      items = items || []
+      items = []
     }
   }
 
