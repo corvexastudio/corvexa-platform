@@ -773,7 +773,8 @@ export async function customerViewJobTracking(
         google_review_url,
         license_number,
         tracking_mode,
-        tracking_geofence_miles
+        tracking_geofence_miles,
+        timezone
       ),
       contacts (
         id,
@@ -820,7 +821,8 @@ export async function customerViewJobTracking(
           name,
           telnyx_phone_number,
           owner_phone,
-          google_review_url
+          google_review_url,
+          timezone
         ),
         contacts (
           id,
@@ -945,7 +947,8 @@ export async function customerViewJobTracking(
       logoUrl: org?.logo_url || null,
       licenseNumber: org?.license_number || null,
       trackingMode: org?.tracking_mode || 'milestone',
-      trackingGeofenceMiles: org?.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5
+      trackingGeofenceMiles: org?.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5,
+      timezone: org?.timezone || 'America/Chicago'
     },
     contact: (job as any).contacts ? {
       name: (job as any).contacts.name,

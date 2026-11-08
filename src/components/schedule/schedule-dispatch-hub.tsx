@@ -19,6 +19,7 @@ import { CrewModal } from '@/components/crews/crew-modal'
 import { exportToCsv } from '@/lib/export/csv-export'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
+import { formatDateInTz, formatTimeInTz, formatDateToIsoYmdInTz, getFriendlyTimezoneLabel } from '@/lib/temporal/timezone'
 import { type Crew } from '@/lib/crews/crew-manager'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { cn } from '@/lib/utils'
@@ -504,23 +505,23 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
         }
       }
 
-      // Date Range filter (List view)
+      // Date Range filter (List view) strictly in business timezone
       if (dateRangeFilter === 'today') {
-        const jobDate = new Date(job.scheduled_start).toLocaleDateString('en-CA')
+        const jobDate = formatDateToIsoYmdInTz(job.scheduled_start, orgTimezone)
         if (jobDate !== todayDateStr) return false
       }
 
       return true
     })
-  }, [jobs, searchQuery, statusFilter, crewFilter, dateRangeFilter, todayDateStr])
+  }, [jobs, searchQuery, statusFilter, crewFilter, dateRangeFilter, todayDateStr, orgTimezone])
 
-  // Agenda View: Jobs for Selected Date
+  // Agenda View: Jobs for Selected Date strictly in business timezone
   const agendaDateJobs = useMemo(() => {
     return jobs.filter(job => {
-      const jobDate = new Date(job.scheduled_start).toLocaleDateString('en-CA')
+      const jobDate = formatDateToIsoYmdInTz(job.scheduled_start, orgTimezone)
       return jobDate === selectedDate
     }).sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
-  }, [jobs, selectedDate])
+  }, [jobs, selectedDate, orgTimezone])
 
   // Export CSV Handler
   const handleExportCsv = () => {
@@ -579,13 +580,13 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
     }
   }
 
-  // Summary Metrics
+  // Summary Metrics strictly in business timezone
   const metrics = useMemo(() => {
-    const todayCount = jobs.filter(j => new Date(j.scheduled_start).toLocaleDateString('en-CA') === todayDateStr).length
+    const todayCount = jobs.filter(j => formatDateToIsoYmdInTz(j.scheduled_start, orgTimezone) === todayDateStr).length
     const activeRouteCount = jobs.filter(j => j.status === 'en_route' || j.status === 'in_progress').length
-    const completedTodayCount = jobs.filter(j => j.status === 'completed' && new Date(j.scheduled_start).toLocaleDateString('en-CA') === todayDateStr).length
+    const completedTodayCount = jobs.filter(j => j.status === 'completed' && formatDateToIsoYmdInTz(j.scheduled_start, orgTimezone) === todayDateStr).length
     return { todayCount, activeRouteCount, completedTodayCount }
-  }, [jobs, todayDateStr])
+  }, [jobs, todayDateStr, orgTimezone])
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -598,7 +599,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
               Schedule & Dispatch
             </h1>
             <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
-              {orgTimezone.replace('_', ' ')}
+              {getFriendlyTimezoneLabel(orgTimezone)}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
@@ -823,8 +824,8 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
           ) : (
             <div className="space-y-3">
               {agendaDateJobs.map(job => {
-                const startTime = new Date(job.scheduled_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-                const endTime = job.scheduled_end ? new Date(job.scheduled_end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null
+                const startTime = formatTimeInTz(job.scheduled_start, orgTimezone)
+                const endTime = job.scheduled_end ? formatTimeInTz(job.scheduled_end, orgTimezone) : null
 
                 return (
                   <div
@@ -1069,8 +1070,8 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
                     {filteredJobs.map(job => {
-                      const dateFormatted = new Date(job.scheduled_start).toLocaleDateString([], { month: 'short', day: 'numeric' })
-                      const timeFormatted = new Date(job.scheduled_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                      const dateFormatted = formatDateInTz(job.scheduled_start, orgTimezone, { month: 'short', day: 'numeric' })
+                      const timeFormatted = formatTimeInTz(job.scheduled_start, orgTimezone)
 
                       return (
                         <tr
@@ -1259,7 +1260,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 // Month days
                 for (let day = 1; day <= daysInMonth; day++) {
                   const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-                  const dayJobs = jobs.filter(j => new Date(j.scheduled_start).toLocaleDateString('en-CA') === dateStr)
+                  const dayJobs = jobs.filter(j => formatDateToIsoYmdInTz(j.scheduled_start, orgTimezone) === dateStr)
                   const isToday = dateStr === todayDateStr
 
                   cells.push(
@@ -1414,7 +1415,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                           <p className="text-[11px] text-slate-500">{job.contact?.name || 'Customer'}</p>
                           <div className="flex items-center justify-between pt-1">
                             <span className="text-[10px] font-mono text-slate-400">
-                              {new Date(job.scheduled_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                              {formatTimeInTz(job.scheduled_start, orgTimezone)}
                             </span>
                             <Button
                               type="button"
@@ -1676,7 +1677,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-zinc-800">
                   <span className="text-slate-500 dark:text-zinc-400 font-medium">Scheduled Time</span>
                   <span className="font-semibold text-slate-900 dark:text-zinc-100 tabular-nums">
-                    {new Date(activeDrawerJob.scheduled_start).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at {new Date(activeDrawerJob.scheduled_start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    {formatDateInTz(activeDrawerJob.scheduled_start, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })} at {formatTimeInTz(activeDrawerJob.scheduled_start, orgTimezone)}
                   </span>
                 </div>
 

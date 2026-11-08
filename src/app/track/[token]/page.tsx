@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
+import { formatDateInTz, formatTimeInTz, getShortTzAbbreviation } from '@/lib/temporal/timezone'
 
 interface TrackingPayload {
   job: {
@@ -61,6 +62,7 @@ interface TrackingPayload {
     licenseNumber?: string | null
     trackingMode?: 'milestone' | 'geofence_live' | null
     trackingGeofenceMiles?: number | null
+    timezone?: string | null
   }
   contact?: {
     name?: string | null
@@ -255,28 +257,26 @@ export default function CustomerJobTrackerPage({
   let etaDisplay: string | null = null
   let etaClockTime: string | null = null
 
+  // Operational timezone resolution (service address local time)
+  const orgTz = org.timezone || 'America/Chicago'
+  const tzAbbr = getShortTzAbbreviation(orgTz, job.scheduledStart)
+
   if (isEnRoute && job.etaMinutes && job.etaMinutes > 0) {
     etaDisplay = `~${job.etaMinutes} min${job.etaMinutes === 1 ? '' : 's'}`
     if (job.enRouteAt) {
       const departure = new Date(job.enRouteAt)
       const estimatedArrival = new Date(departure.getTime() + job.etaMinutes * 60000)
-      etaClockTime = estimatedArrival.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit'
-      })
+      etaClockTime = formatTimeInTz(estimatedArrival, orgTz)
     }
   }
 
-  const formattedDate = new Date(job.scheduledStart).toLocaleDateString('en-US', {
+  const formattedDate = formatDateInTz(job.scheduledStart, orgTz, {
     weekday: 'short',
     month: 'short',
     day: 'numeric'
   })
 
-  const formattedTime = new Date(job.scheduledStart).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit'
-  })
+  const formattedTime = `${formatTimeInTz(job.scheduledStart, orgTz)}${tzAbbr ? ` ${tzAbbr}` : ''}`
 
   const handleRatingClick = (stars: number) => {
     setSelectedRating(stars)

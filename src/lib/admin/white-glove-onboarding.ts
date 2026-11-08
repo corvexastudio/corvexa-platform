@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { getIndustryPreset } from '../constants/industries.ts'
 import { createClaimToken } from '../security/claim-token.ts'
+import { inferTimezoneFromAreaCode } from '../temporal/timezone.ts'
 
 export interface AdminOnboardInput {
   businessName: string
@@ -160,7 +161,7 @@ export async function adminOnboardTenant(
     name: rawBusinessName,
     slug: finalSlug,
     industry: industryPreset.id,
-    timezone: input.timezone || 'America/Chicago',
+    timezone: input.timezone || inferTimezoneFromAreaCode(normalizedShopPhone || normCell.e164),
     owner_phone: normCell.e164,
     phone_number: normalizedShopPhone,
     carrier: input.primaryCarrier || 'other',
@@ -273,7 +274,7 @@ export async function adminOnboardTenant(
       name: rawBusinessName,
       slug: finalSlug,
       industry: industryPreset.id,
-      timezone: input.timezone || 'America/Chicago',
+      timezone: input.timezone || inferTimezoneFromAreaCode(normalizedShopPhone || normCell.e164),
       ownerPhone: normCell.e164,
       shopPhone: normalizedShopPhone,
       primaryCarrier: input.primaryCarrier || 'other',

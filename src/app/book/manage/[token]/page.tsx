@@ -18,6 +18,8 @@ import {
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
+import { formatDateInTz, formatTimeInTz, getFriendlyTimezoneLabel } from '@/lib/temporal/timezone'
+import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 
 interface AppointmentDetail {
   id: string
@@ -103,22 +105,9 @@ export default function CustomerManageAppointmentPage() {
 
   // Selectable dates for rescheduling (next 14 days)
   const selectableDates = useMemo(() => {
-    const dates: Array<{ dateStr: string; label: string; dayOfWeek: string }> = []
-    const today = new Date()
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today.getTime() + i * 24 * 60 * 60 * 1000)
-      const year = d.getFullYear()
-      const month = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      const dateStr = `${year}-${month}-${day}`
-      dates.push({
-        dateStr,
-        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dayOfWeek: d.toLocaleDateString('en-US', { weekday: 'short' })
-      })
-    }
-    return dates
-  }, [])
+    const tz = apt?.business?.timezone || 'America/Chicago'
+    return getSelectableDatesInTimezone(tz, 14)
+  }, [apt?.business?.timezone])
 
   // When opening reschedule, default to tomorrow
   useEffect(() => {
@@ -302,14 +291,14 @@ export default function CustomerManageAppointmentPage() {
             <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
               <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>
-                {startDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                {formatDateInTz(startDate, apt.business.timezone || 'America/Chicago', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </span>
             </div>
 
             <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
               <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>
-                {startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} ({apt.business.timezone})
+                {formatTimeInTz(startDate, apt.business.timezone || 'America/Chicago')} ({getFriendlyTimezoneLabel(apt.business.timezone || 'America/Chicago', startDate)})
               </span>
             </div>
 

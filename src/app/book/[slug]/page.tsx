@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
+import { getFriendlyTimezoneLabel, isDifferentFromDeviceTimezone, getDeviceTimezone } from '@/lib/temporal/timezone'
 import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
@@ -216,6 +217,19 @@ export default function PublicBookingPage() {
     const limit = Math.min(maxDays, 14)
     return getSelectableDatesInTimezone(tz, limit)
   }, [org?.timezone, org?.max_booking_days_ahead])
+
+  // Cross-timezone client device detection (smart traveler reassurance)
+  const isDifferentTz = useMemo(() => {
+    return isDifferentFromDeviceTimezone(org?.timezone || 'America/Chicago')
+  }, [org?.timezone])
+
+  const friendlyTz = useMemo(() => {
+    return getFriendlyTimezoneLabel(org?.timezone || 'America/Chicago')
+  }, [org?.timezone])
+
+  const deviceTzFriendly = useMemo(() => {
+    return getFriendlyTimezoneLabel(getDeviceTimezone())
+  }, [])
 
   // Select initial date once selectable dates are available
   useEffect(() => {
@@ -623,7 +637,7 @@ export default function PublicBookingPage() {
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Available Times ({org.timezone})</span>
+                  <span>Available Times ({friendlyTz})</span>
                 </label>
                 {/* Live Slot Counts & Legend */}
                 {!loadingSlots && allSlots.length > 0 && (
@@ -642,6 +656,16 @@ export default function PublicBookingPage() {
                 )}
                 {loadingSlots && <span className="text-[11px] text-blue-600 dark:text-blue-400 animate-pulse">Checking calendar...</span>}
               </div>
+
+              {/* Cross-Timezone Traveler Detection Helper Banner */}
+              {isDifferentTz && (
+                <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 p-2.5 text-[11px] text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <span>
+                    <strong>Service Property Local Time:</strong> Slots are shown in <strong>{friendlyTz}</strong> (Local to service address). Your device is in {deviceTzFriendly}.
+                  </span>
+                </div>
+              )}
 
               {loadingSlots ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-4">
@@ -689,7 +713,7 @@ export default function PublicBookingPage() {
                     <div>
                       <p className="font-bold text-blue-900 dark:text-blue-200">Operating hours for this date have passed</p>
                       <p className="text-[11px] text-blue-700 dark:text-blue-300/80 mt-0.5 leading-relaxed">
-                        Booking hours for this date in {org.timezone} have concluded. Please choose tomorrow or an upcoming date to find available times.
+                        Booking hours for this date in {friendlyTz} have concluded. Please choose tomorrow or an upcoming date to find available times.
                       </p>
                     </div>
                   </div>
