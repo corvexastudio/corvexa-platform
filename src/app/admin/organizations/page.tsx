@@ -33,6 +33,7 @@ import {
   Users,
   Share2
 } from 'lucide-react'
+import { inferTimezoneFromAreaCode } from '@/lib/temporal/timezone'
 import { toast } from 'sonner'
 import { TenantHealthSummary } from '@/lib/admin/admin-service'
 import { INDUSTRY_LIST } from '@/lib/constants/industries'
@@ -161,6 +162,10 @@ export default function AdminOrganizationsPage() {
         setLookupResult(data)
         if (data.detectedCarrierPreset && data.detectedCarrierPreset !== 'other') {
           setOnboardCarrier(data.detectedCarrierPreset)
+        }
+        const inferredTz = inferTimezoneFromAreaCode(raw)
+        if (inferredTz) {
+          setOnboardTimezone(inferredTz)
         }
         if (data.lineType === 'landline') {
           toast.warning('⚠️ Landline detected! Ask owner for their mobile cell phone for claim link & SMS notifications.')

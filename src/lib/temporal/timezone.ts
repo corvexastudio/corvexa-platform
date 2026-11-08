@@ -324,3 +324,44 @@ export function inferTimezoneFromAreaCode(phoneOrAreaCode?: string | null): stri
   // Default Central Time Area Codes (Texas, Illinois, Wisconsin, Minnesota, Missouri, Louisiana, etc.)
   return 'America/Chicago'
 }
+
+/**
+ * Infers an initial US IANA timezone from a 2-letter US state code.
+ */
+export function inferTimezoneFromState(stateCode?: string | null): string {
+  if (!stateCode || typeof stateCode !== 'string') return DEFAULT_US_TIMEZONE
+  const code = stateCode.trim().toUpperCase()
+
+  // Hawaii
+  if (code === 'HI') return 'Pacific/Honolulu'
+
+  // Alaska
+  if (code === 'AK') return 'America/Anchorage'
+
+  // Arizona (No DST)
+  if (code === 'AZ') return 'America/Phoenix'
+
+  // Pacific Time
+  if (['CA', 'WA', 'OR', 'NV'].includes(code)) return 'America/Los_Angeles'
+
+  // Mountain Time
+  if (['CO', 'UT', 'NM', 'WY', 'MT', 'ID'].includes(code)) return 'America/Denver'
+
+  // Eastern Time
+  if ([
+    'ME', 'VT', 'NH', 'MA', 'RI', 'CT', 'NY', 'NJ', 'PA', 'DE', 'MD', 'DC',
+    'VA', 'WV', 'NC', 'SC', 'GA', 'FL', 'OH', 'MI'
+  ].includes(code)) {
+    return 'America/New_York'
+  }
+
+  // Central Time
+  if ([
+    'TX', 'IL', 'WI', 'MN', 'MO', 'IA', 'KS', 'NE', 'SD', 'ND', 'OK', 'AR',
+    'LA', 'MS', 'AL', 'TN', 'KY'
+  ].includes(code)) {
+    return 'America/Chicago'
+  }
+
+  return DEFAULT_US_TIMEZONE
+}

@@ -26,10 +26,12 @@ import {
   Truck,
   Users,
   Check,
-  ChevronDown
+  ChevronDown,
+  Globe
 } from 'lucide-react'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
 import { BrandIcon } from '@/components/brand/brand-logo'
+import { getFriendlyTimezoneLabel, DEFAULT_US_TIMEZONE } from '@/lib/temporal/timezone'
 
 const INDUSTRY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Thermometer,
@@ -91,6 +93,18 @@ export default function OnboardingPage() {
   const [addressState, setAddressState] = useState('')
   const [addressPostalCode, setAddressPostalCode] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
+  const [detectedTz, setDetectedTz] = useState<string>(DEFAULT_US_TIMEZONE)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+        if (clientTz) setDetectedTz(clientTz)
+      } catch {
+        // Fallback to default
+      }
+    }
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -188,7 +202,8 @@ export default function OnboardingPage() {
         businessName: nameToSubmit,
         phone: phone.trim() || null,
         industry: selectedIndustry,
-        operationMode: operationMode
+        operationMode: operationMode,
+        timezone: detectedTz
       }
 
       if (show10Dlc) {
@@ -282,6 +297,20 @@ export default function OnboardingPage() {
                 className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
                 required
               />
+            </div>
+
+            {/* Auto-detected Operational Timezone Indicator */}
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-800 text-xs">
+              <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-300">
+                <Globe className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>Operating Timezone:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {getFriendlyTimezoneLabel(detectedTz)}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-400 font-medium">
+                Auto-detected (editable in Settings)
+              </span>
             </div>
 
             {/* Trade Category Selector (No Inner Scroll) */}

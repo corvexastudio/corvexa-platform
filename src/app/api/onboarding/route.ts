@@ -5,6 +5,12 @@ import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp 
 import { logAuditEvent } from '../../../lib/security/audit-logger.ts'
 import { normalizePhoneToE164 } from '../../../lib/telephony/phone-normalizer.ts'
 import { getIndustryPreset } from '../../../lib/constants/industries.ts'
+import {
+  inferTimezoneFromAreaCode,
+  inferTimezoneFromState,
+  normalizeTimezone,
+  DEFAULT_US_TIMEZONE
+} from '../../../lib/temporal/timezone.ts'
 
 export interface OnboardingRouteContext {
   params?: Promise<Record<string, string | string[] | undefined>>
@@ -193,10 +199,23 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
     const rawOperationMode = body.operationMode || body.operation_mode
     const operationMode = rawOperationMode === 'multi_crew' ? 'multi_crew' : 'solo'
 
+    // Multi-Layer Operational Timezone Auto-Detection
+    const requestedTz = body.timezone || body.time_zone
+    let resolvedTimezone = DEFAULT_US_TIMEZONE
+
+    if (requestedTz && typeof requestedTz === 'string' && requestedTz.trim()) {
+      resolvedTimezone = normalizeTimezone(requestedTz.trim())
+    } else if (addressState) {
+      resolvedTimezone = inferTimezoneFromState(addressState)
+    } else if (normalizedOwnerPhone || rawPhone) {
+      resolvedTimezone = inferTimezoneFromAreaCode(normalizedOwnerPhone || rawPhone)
+    }
+
     const baseOrgPayload: Record<string, any> = {
       id: orgId,
       name: businessName,
       slug: uniqueSlug,
+      timezone: resolvedTimezone,
       owner_phone: normalizedOwnerPhone,
       phone_number: normalizedOwnerPhone,
       telnyx_phone_number: null,
@@ -250,6 +269,7 @@ export async function POST(request: NextRequest, context?: OnboardingRouteContex
         id: orgId,
         name: businessName,
         slug: uniqueSlug,
+        timezone: resolvedTimezone,
         owner_phone: normalizedOwnerPhone,
         phone_number: normalizedOwnerPhone,
         telnyx_phone_number: null,
