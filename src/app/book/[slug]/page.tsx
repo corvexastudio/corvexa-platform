@@ -1140,7 +1140,7 @@ export default function PublicBookingPage() {
                 </a>
               ) : (
                 <a
-                  href={`/book/manage/${confirmedBooking.manageToken}`}
+                  href={typeof window !== 'undefined' && window.location.hostname.startsWith('book.') ? `/manage/${confirmedBooking.manageToken}` : `/book/manage/${confirmedBooking.manageToken}`}
                   className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-750 text-slate-800 dark:text-zinc-100 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
                 >
                   <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
@@ -1160,11 +1160,11 @@ export default function PublicBookingPage() {
                   <a
                     href={generateGoogleCalendarUrl({
                       title: `${selectedService?.name || 'Service'} with ${org.name}`,
-                      description: `Scheduled appointment with ${org.name}.\nManage booking: ${typeof window !== 'undefined' ? window.location.origin : ''}/book/manage/${confirmedBooking.manageToken}`,
+                      description: `Scheduled appointment with ${org.name}.\nManage booking: ${typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${confirmedBooking.manageToken}` : `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`) : ''}`,
                       location: formData.address || undefined,
                       startTime: selectedSlot.startTime,
                       endTime: selectedSlot.endTime,
-                      url: typeof window !== 'undefined' ? `${window.location.origin}/book/manage/${confirmedBooking.manageToken}` : undefined,
+                      url: typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${confirmedBooking.manageToken}` : `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`) : undefined,
                     })}
                     target="_blank"
                     rel="noreferrer"
@@ -1177,13 +1177,14 @@ export default function PublicBookingPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      const manageBookingUrl = typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${confirmedBooking.manageToken}` : `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`) : ''
                       downloadIcsFile({
                         title: `${selectedService?.name || 'Service'} with ${org.name}`,
-                        description: `Scheduled appointment with ${org.name}.\nManage booking: ${window.location.origin}/book/manage/${confirmedBooking.manageToken}`,
+                        description: `Scheduled appointment with ${org.name}.\nManage booking: ${manageBookingUrl}`,
                         location: formData.address || undefined,
                         startTime: selectedSlot.startTime,
                         endTime: selectedSlot.endTime,
-                        url: `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`,
+                        url: manageBookingUrl,
                       }, `appointment-${confirmedBooking.manageToken.substring(0, 8)}.ics`)
                     }}
                     className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
@@ -1198,7 +1199,7 @@ export default function PublicBookingPage() {
             {/* Manage Link Button */}
             <div className="space-y-3 pt-2">
               <a
-                href={`/book/manage/${confirmedBooking.manageToken}`}
+                href={typeof window !== 'undefined' && window.location.hostname.startsWith('book.') ? `/manage/${confirmedBooking.manageToken}` : `/book/manage/${confirmedBooking.manageToken}`}
                 className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20"
               >
                 <span>View / Manage Appointment</span>

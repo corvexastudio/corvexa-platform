@@ -73,7 +73,12 @@ export async function proxy(request: NextRequest) {
     if (pathname === '/' || pathname === '') {
       return finalizeResponse(NextResponse.redirect(new URL('https://captodesk.com', request.url)))
     }
-    // If user accesses book.domain.com/manage/:token -> /book/manage/:token
+    // Normalize redundant book.domain.com/book/manage/:token -> /manage/:token
+    if (pathname.startsWith('/book/manage/')) {
+      const cleanPath = pathname.replace('/book/manage/', '/manage/')
+      return finalizeResponse(NextResponse.redirect(new URL(cleanPath, request.url)))
+    }
+    // If user accesses book.domain.com/manage/:token -> internal rewrite to /book/manage/:token
     if (pathname.startsWith('/manage/')) {
       return finalizeResponse(NextResponse.rewrite(new URL(`/book${pathname}`, request.url)))
     }
