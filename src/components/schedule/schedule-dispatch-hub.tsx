@@ -1996,15 +1996,22 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
               {/* Bottom Financial Conversion Actions */}
               <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2">
-                {activeDrawerJob.invoices && activeDrawerJob.invoices.length > 0 ? (
-                  <Link
-                    href={`/client/invoices?search=${encodeURIComponent(activeDrawerJob.invoices[0].invoice_number)}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer"
-                  >
-                    <Receipt className="h-3.5 w-3.5" />
-                    <span>Invoice #{activeDrawerJob.invoices[0].invoice_number} (${Number(activeDrawerJob.invoices[0].total).toFixed(2)})</span>
-                  </Link>
-                ) : activeDrawerJob.status === 'completed' ? (
+                {activeDrawerJob.invoices && activeDrawerJob.invoices.length > 0 ? (() => {
+                  const inv = activeDrawerJob.invoices.find(i => i.status === 'paid') || activeDrawerJob.invoices[0]
+                  const isPaid = inv.status === 'paid'
+                  return (
+                    <Link
+                      href={`/client/invoices?search=${encodeURIComponent(inv.invoice_number)}${!isPaid ? '&pay=true' : ''}`}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-white shadow-xs cursor-pointer",
+                        isPaid ? "bg-emerald-600 hover:bg-emerald-500" : "bg-amber-600 hover:bg-amber-500"
+                      )}
+                    >
+                      {isPaid ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Receipt className="h-3.5 w-3.5" />}
+                      <span>{isPaid ? 'Paid: ' : 'Invoice '}#{inv.invoice_number} (${Number(inv.total).toFixed(2)})</span>
+                    </Link>
+                  )
+                })() : activeDrawerJob.status === 'completed' ? (
                   <Button
                     type="button"
                     onClick={() => onInitiateCompleteJob(activeDrawerJob)}

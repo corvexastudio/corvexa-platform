@@ -77,6 +77,16 @@ interface FieldJob {
     name: string
     duration_minutes: number
   } | null
+  invoices?: Array<{
+    id: string
+    invoice_number: string
+    total: number
+    status: string
+    amount_paid?: number
+    amount_due?: number
+    paid_at?: string | null
+    manage_token?: string
+  }>
 }
 
 interface CrewItem {
@@ -217,18 +227,28 @@ export default function FieldPage() {
           const contactId = targetJob?.contact?.id
           if (isOwnerOrAdmin) {
             if (draftInv) {
-              toast.success(`Job completed! Draft Invoice #${draftInv.invoice_number} generated.`, {
-                action: {
-                  label: 'Collect Payment',
-                  onClick: () => router.push(`/client/invoices?search=${draftInv.invoice_number}`)
-                },
-                duration: 8000
-              })
+              if (draftInv.status === 'paid') {
+                toast.success(`Job completed! Invoice #${draftInv.invoice_number} is already paid.`, {
+                  action: {
+                    label: 'View Invoice',
+                    onClick: () => router.push(`/client/invoices?search=${encodeURIComponent(draftInv.invoice_number)}`)
+                  },
+                  duration: 6000
+                })
+              } else {
+                toast.success(`Job completed! Invoice #${draftInv.invoice_number} generated.`, {
+                  action: {
+                    label: 'Collect Payment',
+                    onClick: () => router.push(`/client/invoices?search=${encodeURIComponent(draftInv.invoice_number)}&pay=true`)
+                  },
+                  duration: 8000
+                })
+              }
             } else if (contactId) {
               toast.success('Job completed! Ready to invoice homeowner?', {
                 action: {
                   label: 'Create Invoice',
-                  onClick: () => router.push(`/client/invoices?contact_id=${contactId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}`)
+                  onClick: () => router.push(`/client/invoices?create=true&contact_id=${contactId}&job_id=${jobId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}`)
                 },
                 duration: 8000
               })
@@ -782,42 +802,80 @@ export default function FieldPage() {
                   )}
 
                   {/* Completed -> Duration, Photos & 1-Tap On-Site Payment */}
-                  {job.status === 'completed' && (
-                    <div className="w-full flex flex-wrap items-center justify-between gap-2.5 pt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Finished{durationMins ? ` (${durationMins}m on site)` : ''}</span>
-                        </span>
+                  {job.status === 'completed' && (() => {
+                    const linkedInvoice = Array.isArray(job.invoices) && job.invoices.length > 0
+                      ? (job.invoices.find(i => i.status === 'paid') || job.invoices[0])
+                      : null
+                    const isPaid = linkedInvoice?.status === 'paid'
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setPhotoJob(job)
-                            setShowPhotoModal(true)
-                          }}
-                          className="min-h-[40px] text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-pointer"
-                        >
-                          <Camera className="w-3.5 h-3.5 mr-1" />
-                          View Photos
-                        </Button>
+                    return (
+                      <div className="w-full flex flex-wrap items-center justify-between gap-2.5 pt-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Finished{durationMins ? ` (${durationMins}m on site)` : ''}</span>
+                          </span>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setPhotoJob(job)
+                              setShowPhotoModal(true)
+                            }}
+                            className="min-h-[40px] text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-pointer"
+                          >
+                            <Camera className="w-3.5 h-3.5 mr-1" />
+                            View Photos
+                          </Button>
+                        </div>
+
+                        {/* Financial Action / Status Badge */}
+                        {isPaid && linkedInvoice ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 shadow-2xs">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Paid • ${Number(linkedInvoice.total || 0).toFixed(2)}</span>
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/client/invoices?search=${encodeURIComponent(linkedInvoice.invoice_number)}`)}
+                              className="min-h-[40px] px-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-slate-200 dark:border-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100 cursor-pointer gap-1"
+                              title="View Invoice"
+                            >
+                              <Receipt className="w-3.5 h-3.5 text-slate-400" />
+                              <span>#{linkedInvoice.invoice_number}</span>
+                            </Button>
+                          </div>
+                        ) : linkedInvoice ? (
+                          Boolean(isOwnerOrAdmin) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/client/invoices?search=${encodeURIComponent(linkedInvoice.invoice_number)}&pay=true`)}
+                              className="min-h-[44px] px-3.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 cursor-pointer shadow-2xs gap-1.5"
+                            >
+                              <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Collect Payment (#{linkedInvoice.invoice_number} • ${Number(linkedInvoice.total || 0).toFixed(2)})</span>
+                            </Button>
+                          )
+                        ) : (
+                          Boolean(isOwnerOrAdmin && job.contact?.id) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => router.push(`/client/invoices?create=true&contact_id=${job.contact?.id}&job_id=${job.id}&title=${encodeURIComponent(job.title || 'Completed Job')}`)}
+                              className="min-h-[44px] px-3.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 cursor-pointer shadow-2xs gap-1.5"
+                            >
+                              <Receipt className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Create Invoice</span>
+                            </Button>
+                          )
+                        )}
                       </div>
-
-                      {/* On-Site Invoice & Payment Button */}
-                      {Boolean(isOwnerOrAdmin && job.contact?.id) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/client/invoices?contact_id=${job.contact?.id}&title=${encodeURIComponent(job.title || 'Completed Job')}`)}
-                          className="min-h-[44px] px-3.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 cursor-pointer shadow-2xs gap-1.5"
-                        >
-                          <DollarSign className="w-3.5 h-3.5" />
-                          <span>Collect Payment / Invoice</span>
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Quick Photo & Note Action Pills */}
                   {job.status !== 'completed' && (

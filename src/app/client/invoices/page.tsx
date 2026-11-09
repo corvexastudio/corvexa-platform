@@ -152,7 +152,7 @@ function ClientInvoicesContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid' | 'void'>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || searchParams.get('q') || '')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [voidInvoiceId, setVoidInvoiceId] = useState<string | null>(null)
@@ -186,18 +186,30 @@ function ClientInvoicesContent() {
     }
   }, [orgIndustry])
 
+  // Sync search query from URL parameter if updated dynamically
+  useEffect(() => {
+    const searchParam = searchParams.get('search') || searchParams.get('q')
+    if (searchParam) {
+      setSearchQuery(searchParam)
+    }
+  }, [searchParams])
+
   // Listen to contact_id / title / job_id / create query param
   useEffect(() => {
     if (jobIdParam) {
       setSelectedJobId(jobIdParam)
     }
-    if (contactIdParam) {
+    const isExplicitCreate = searchParams.get('create') === 'true' || searchParams.get('new') === 'true'
+    const hasSearch = Boolean(searchParams.get('search') || searchParams.get('q'))
+
+    // Only open creation modal if explicit create intent or contact passed without invoice search
+    if (contactIdParam && (!hasSearch || isExplicitCreate)) {
       setSelectedContactId(contactIdParam)
       if (titleParam) {
         setInvoiceTitle(titleParam)
       }
       setShowCreateModal(true)
-    } else if (searchParams.get('create') === 'true' || searchParams.get('new') === 'true') {
+    } else if (isExplicitCreate) {
       setShowCreateModal(true)
     }
   }, [contactIdParam, titleParam, jobIdParam, searchParams])
@@ -586,6 +598,22 @@ function ClientInvoicesContent() {
     setPaymentMethod('cash')
     setReferenceNote('Cash handed on site')
   }
+
+  // Auto-open offline payment modal if ?pay=true and matching invoice found
+  useEffect(() => {
+    const searchParam = searchParams.get('search') || searchParams.get('q')
+    const shouldPay = searchParams.get('pay') === 'true'
+    if (shouldPay && searchParam && invoices.length > 0) {
+      const q = searchParam.toLowerCase().trim()
+      const targetInv = invoices.find(inv => 
+        inv.invoice_number?.toLowerCase() === q ||
+        inv.id === searchParam
+      )
+      if (targetInv && targetInv.status !== 'paid' && targetInv.status !== 'void') {
+        openOfflinePaymentModal(targetInv)
+      }
+    }
+  }, [searchParams, invoices])
 
   return (
     <div className="space-y-6">
