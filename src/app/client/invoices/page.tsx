@@ -1556,8 +1556,13 @@ function ClientInvoicesContent() {
                     <div>
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 uppercase">{trade.badge}</span>
-                        <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                          {svc.price ? `$${svc.price}` : '$0'}
+                        <span className={cn(
+                          "text-[11px] font-mono",
+                          typeof svc.price === 'number' && svc.price > 0
+                            ? "font-bold text-emerald-600 dark:text-emerald-400"
+                            : "text-slate-500 dark:text-zinc-400 font-medium"
+                        )}>
+                          {typeof svc.price === 'number' && svc.price > 0 ? `$${svc.price}` : 'Custom Price'}
                         </span>
                       </div>
                       <p className="text-xs font-medium text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 line-clamp-1 mt-0.5">

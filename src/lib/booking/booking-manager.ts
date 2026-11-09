@@ -530,7 +530,7 @@ export async function createBooking(
         customerPhone: normalizedPhone.e164,
         serviceName: activeService.name,
         bookingTime: displayTime,
-        jobRevenue: (activeService.price ? Number(activeService.price) : undefined) || 250,
+        jobRevenue: Number(activeService.price) || 0,
         appointmentId: appointment.id,
         upgradeUrl: '/client/billing?reason=starter_limit'
       }
