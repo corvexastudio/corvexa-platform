@@ -85,21 +85,24 @@ export async function resetDemoTenantData(): Promise<ResetDemoResult> {
     {
       org_id: SYNTHETIC_DEMO_ORG_ID,
       name: 'Diagnostic & System Inspection',
-      price: 89.0,
+      price: null,
+      description: '[pricing:quote_on_site] Comprehensive on-site diagnostic and system inspection.',
       duration_minutes: 45,
       is_active: true
     },
     {
       org_id: SYNTHETIC_DEMO_ORG_ID,
       name: 'Water Heater Replacement',
-      price: 1250.0,
+      price: null,
+      description: '[pricing:quote_on_site] Complete water heater replacement and installation consultation.',
       duration_minutes: 180,
       is_active: true
     },
     {
       org_id: SYNTHETIC_DEMO_ORG_ID,
       name: 'Emergency Drain Snaking',
-      price: 220.0,
+      price: null,
+      description: '[pricing:quote_on_site] Priority mechanical clearing of clogged residential drains.',
       duration_minutes: 60,
       is_active: true
     }

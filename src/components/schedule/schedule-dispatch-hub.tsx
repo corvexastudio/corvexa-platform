@@ -464,7 +464,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
       ])
     } else {
       setQuoteLineItems([
-        { description: 'Diagnostic & Inspection Fee', quantity: 1, unit_price: 89 }
+        { description: job.service?.name || job.title || 'Diagnostic & Inspection', quantity: 1, unit_price: 0 }
       ])
     }
   }

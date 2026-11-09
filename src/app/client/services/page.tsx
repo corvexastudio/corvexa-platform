@@ -146,7 +146,7 @@ export default function ServicesPage() {
     setEditingService(null)
     setFormName('')
     setFormPrice('')
-    setFormPricingModel('fixed')
+    setFormPricingModel('quote_on_site')
     setFormDuration(60)
     setFormDescription('')
     setFormRequiresAddress(true)
@@ -854,7 +854,7 @@ export default function ServicesPage() {
         open={isCatalogModalOpen}
         onOpenChange={setIsCatalogModalOpen}
         title="Load Trade Starter Catalog"
-        description="Select any home service trade to import 3 pre-curated services with flexible starting prices, diagnostic inspection fees, and durations."
+        description="Select any home service trade to import 3 pre-curated services with flexible durations and quote-on-site workflows (no fixed pricing lock-in)."
         size="lg"
       >
         <div className="space-y-4 pt-1">

@@ -166,7 +166,7 @@ function ClientInvoicesContent() {
   const [taxRate, setTaxRate] = useState('0')
   const [discountAmount, setDiscountAmount] = useState('0')
   const [newItems, setNewItems] = useState<InvoiceItem[]>([
-    { description: 'Service Labor & Callout', quantity: 1, unit_price: 150 }
+    { description: '', quantity: 1, unit_price: 0 }
   ])
   const { orgIndustry, operationMode } = useWorkspace()
   const [savingInvoice, setSavingInvoice] = useState(false)
@@ -362,7 +362,7 @@ function ClientInvoicesContent() {
 
   const handleApplyTradeService = (service: { name: string; description: string; price: number | null }) => {
     const cleanDesc = service.description ? service.description.replace(/\[pricing:[^\]]+\]\s*/i, '').trim() : service.name
-    const unitPrice = service.price || 120
+    const unitPrice = typeof service.price === 'number' && service.price > 0 ? service.price : 0
 
     if (newItems.length === 1 && !newItems[0].description.trim() && Number(newItems[0].unit_price) === 0) {
       setNewItems([{ description: `${service.name} - ${cleanDesc}`, quantity: 1, unit_price: unitPrice }])

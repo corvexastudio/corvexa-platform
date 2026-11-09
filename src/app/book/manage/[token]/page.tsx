@@ -298,9 +298,13 @@ export default function CustomerManageAppointmentPage() {
                 </p>
               )}
             </div>
-            {apt.service?.price !== null && apt.service?.price !== undefined && (
+            {apt.service?.price !== null && apt.service?.price !== undefined && Number(apt.service.price) > 0 ? (
               <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
-                ${apt.service.price.toFixed(2)}
+                ${Number(apt.service.price).toFixed(2)}
+              </span>
+            ) : (
+              <span className="text-xs font-semibold text-slate-600 dark:text-zinc-300 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
+                Quote on Inspection
               </span>
             )}
           </div>

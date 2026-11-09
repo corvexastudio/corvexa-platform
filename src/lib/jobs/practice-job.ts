@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const PRACTICE_JOB_NUMBER = 'PRACTICE-101'
-export const PRACTICE_JOB_TITLE = '🧪 [PRACTICE] Water Heater Diagnostic ($89.00)'
+export const PRACTICE_JOB_TITLE = '🧪 [PRACTICE] Water Heater Diagnostic'
 export const PRACTICE_JOB_NOTES = 'SANDBOX_PRACTICE_JOB: This is a safe practice job to test 1-tap automations. Real customer bookings will appear here automatically.'
 
 /**

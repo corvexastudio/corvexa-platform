@@ -34,18 +34,18 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'AC & Heating Diagnostic Inspection',
-        description: '[pricing:diagnostic_fee] Comprehensive system inspection, electrical checks, refrigerant pressure verification, and diagnostic quote.',
+        description: '[pricing:quote_on_site] Comprehensive system inspection, electrical checks, refrigerant pressure verification, and diagnostic quote. Exact quote provided on site.',
         duration_minutes: 45,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Seasonal HVAC Precision Tune-Up',
-        description: '[pricing:fixed] Complete seasonal cleaning, coil inspection, filter change check, capacitor testing, and efficiency tune.',
+        description: '[pricing:quote_on_site] Complete seasonal cleaning, coil inspection, filter change check, capacitor testing, and efficiency tune.',
         duration_minutes: 60,
-        price: 99,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -62,7 +62,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     ],
     templates: {
       auto_reply: "Hi, this is {business_name}! We're currently in the field on a service call and missed your call. Need fast HVAC assistance? Book your preferred service time here: {booking_url}",
-      after_hours: "Thanks for calling {business_name}! Our heating and cooling team is off for the evening. We received your missed call—secure your spot for tomorrow at: {booking_url}",
+      after_hours: "Thanks for calling {business_name}! Our heating and cooling team is off for the evening. We received your missed call - secure your spot for tomorrow at: {booking_url}",
       busy: "Hi, this is {business_name}! Our technicians are currently on active calls assisting homeowners. You can view open appointments and book directly: {booking_url}"
     }
   },
@@ -76,18 +76,18 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Plumbing Diagnostic & Leak Inspection',
-        description: '[pricing:diagnostic_fee] On-site diagnostic inspection to pinpoint pipe leaks, running toilets, low water pressure, or valve failures. Credited to repair if approved.',
+        description: '[pricing:quote_on_site] On-site diagnostic inspection to pinpoint pipe leaks, running toilets, low water pressure, or valve failures. Credited to repair if approved.',
         duration_minutes: 45,
-        price: 69,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Main Drain & Sewer Rooter Clearing',
-        description: '[pricing:starting_at] Mechanical snake clearing and rooter service for clogged main drains, kitchen stacks, or sewer cleanouts.',
+        description: '[pricing:quote_on_site] Mechanical snake clearing and rooter service for clogged main drains, kitchen stacks, or sewer cleanouts.',
         duration_minutes: 60,
-        price: 145,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -118,25 +118,25 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Electrical Troubleshooting & Diagnostic Call',
-        description: '[pricing:diagnostic_fee] Circuit troubleshooting, flickering lights inspection, tripping breaker diagnostic, and electrical safety check.',
+        description: '[pricing:quote_on_site] Circuit troubleshooting, flickering lights inspection, tripping breaker diagnostic, and electrical safety check.',
         duration_minutes: 60,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Outlet, Switch & Fixture Installation',
-        description: '[pricing:starting_at] Professional installation of GFCI receptacles, dimmer switches, ceiling fans, or interior light fixtures.',
+        description: '[pricing:quote_on_site] Professional installation of GFCI receptacles, dimmer switches, ceiling fans, or interior light fixtures.',
         duration_minutes: 60,
-        price: 120,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
       },
       {
         name: 'EV Charger & Panel Upgrade Consultation',
-        description: '[pricing:quote_on_site] On-site electrical load calculation and estimate for Level 2 EV charger installs, subpanels, or 200A service upgrades.',
+        description: '[pricing:free_estimate] On-site electrical load calculation and estimate for Level 2 EV charger installs, subpanels, or 200A service upgrades.',
         duration_minutes: 60,
         price: null,
         requires_address: true,
@@ -162,16 +162,16 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Roof Inspection & Storm Damage Assessment',
         description: '[pricing:free_estimate] Full pitch and flashing inspection, shingle condition report, leak assessment, and free insurance claim quote.',
         duration_minutes: 60,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Seamless Gutter Cleaning & Downspout Flush',
-        description: '[pricing:fixed] Hand clearing of roof gutters, high-volume downspout water flush, seam leak inspection, and debris hauling.',
+        description: '[pricing:quote_on_site] Hand clearing of roof gutters, high-volume downspout water flush, seam leak inspection, and debris hauling.',
         duration_minutes: 90,
-        price: 149,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -202,9 +202,9 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Lawn Mowing, Trimming & Edging',
-        description: '[pricing:starting_at] Perimeter blade edging, turf mowing, fence line weed-whacking, and hardscape clean blower sweep.',
+        description: '[pricing:quote_on_site] Perimeter blade edging, turf mowing, fence line weed-whacking, and hardscape clean blower sweep.',
         duration_minutes: 45,
-        price: 55,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -244,18 +244,18 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Standard Recurring House Clean',
-        description: '[pricing:starting_at] Complete home dusting, vacuuming, mopping, bathroom sanitation, kitchen counters, and trash removal.',
+        description: '[pricing:quote_on_site] Complete home dusting, vacuuming, mopping, bathroom sanitation, kitchen counters, and trash removal.',
         duration_minutes: 120,
-        price: 140,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Deep Clean & Detailed Scrub',
-        description: '[pricing:starting_at] Top-to-bottom detail clean including baseboards, interior windows, cabinet exteriors, and bathroom tile scrub.',
+        description: '[pricing:quote_on_site] Top-to-bottom detail clean including baseboards, interior windows, cabinet exteriors, and bathroom tile scrub.',
         duration_minutes: 180,
-        price: 250,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -272,7 +272,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     ],
     templates: {
       auto_reply: "Hi! This is {business_name}. We're currently cleaning a home and missed your call. See our real-time availability and book your clean here: {booking_url}",
-      after_hours: "Thanks for contacting {business_name}! Our office is closed for the evening. You can check prices and book your home cleaning anytime at: {booking_url}",
+      after_hours: "Thanks for contacting {business_name}! Our office is closed for the evening. You can check open dates and book your home cleaning anytime at: {booking_url}",
       busy: "Hi from {business_name}! We're currently assisting another client or on-site cleaning. Choose your preferred cleaning slot directly at: {booking_url}"
     }
   },
@@ -286,18 +286,18 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'General Pest Inspection & Exterior Barrier',
-        description: '[pricing:fixed] Comprehensive perimeter inspection and protective exterior liquid barrier defense against ants, spiders, and roaches.',
+        description: '[pricing:quote_on_site] Comprehensive perimeter inspection and protective exterior liquid barrier defense against ants, spiders, and roaches.',
         duration_minutes: 60,
-        price: 95,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Termite & Wood-Destroying Organism Inspection',
-        description: '[pricing:diagnostic_fee] Certified crawlspace, attic, and foundation inspection for subterranean termites, carpenter ants, and moisture damage.',
+        description: '[pricing:quote_on_site] Certified crawlspace, attic, and foundation inspection for subterranean termites, carpenter ants, and moisture damage.',
         duration_minutes: 60,
-        price: 75,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -328,18 +328,18 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'General Handyman Hourly Service Call',
-        description: '[pricing:fixed] 1 hour of professional repair labor for door adjustments, drywall patches, hardware, caulking, or shelf mounting.',
+        description: '[pricing:quote_on_site] Professional repair labor for door adjustments, drywall patches, hardware, caulking, or shelf mounting.',
         duration_minutes: 60,
-        price: 85,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Drywall Patch, Tape & Texture Repair',
-        description: '[pricing:starting_at] Repair of holes or water damage up to 2 locations, smooth compound mudding, mesh reinforcement, and primer prep.',
+        description: '[pricing:quote_on_site] Repair of holes or water damage up to 2 locations, smooth compound mudding, mesh reinforcement, and primer prep.',
         duration_minutes: 90,
-        price: 140,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -348,7 +348,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Custom Carpentry & Home Improvement Walkthrough',
         description: '[pricing:free_estimate] In-person walk-through of your upcoming repair, door replacement, or carpentry project with a detailed written estimate.',
         duration_minutes: 45,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -370,27 +370,27 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Refrigerator & Freezer Diagnostic Inspection',
-        description: '[pricing:diagnostic_fee] Comprehensive diagnostic for cooling failures, compressor issues, ice makers, or water dispenser leaks. Credited to repair if approved.',
+        description: '[pricing:quote_on_site] Comprehensive diagnostic for cooling failures, compressor issues, ice makers, or water dispenser leaks. Credited to repair if approved.',
         duration_minutes: 45,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Washer & Dryer Diagnostic Service',
-        description: '[pricing:diagnostic_fee] Troubleshooting for spin cycle failures, heating element burnout, drainage pumps, or noisy bearings.',
+        description: '[pricing:quote_on_site] Troubleshooting for spin cycle failures, heating element burnout, drainage pumps, or noisy bearings.',
         duration_minutes: 45,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
       },
       {
         name: 'Dishwasher, Range & Oven Diagnostic',
-        description: '[pricing:diagnostic_fee] In-depth diagnosis for igniters, heating coils, control boards, spray arms, or door latch mechanisms.',
+        description: '[pricing:quote_on_site] In-depth diagnosis for igniters, heating coils, control boards, spray arms, or door latch mechanisms.',
         duration_minutes: 45,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -414,7 +414,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Interior Room Painting Consultation',
         description: '[pricing:free_estimate] In-person wall inspection, square footage measurement, sheen/color consultation, and written proposal.',
         duration_minutes: 45,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -432,7 +432,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Exterior Siding & Trim Paint Estimate',
         description: '[pricing:free_estimate] Exterior surface inspection, power wash prep plan, caulking assessment, and complete exterior paint estimate.',
         duration_minutes: 60,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -454,9 +454,9 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: '25-Point Garage Door Tune-Up & Safety Check',
-        description: '[pricing:fixed] Complete lubrication of rollers and hinges, torsion spring balance testing, track alignment, and safety sensor test.',
+        description: '[pricing:quote_on_site] Complete lubrication of rollers and hinges, torsion spring balance testing, track alignment, and safety sensor test.',
         duration_minutes: 45,
-        price: 79,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -472,9 +472,9 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
       },
       {
         name: 'Garage Door Opener Installation & Repair',
-        description: '[pricing:starting_at] Diagnostic, repair, or full installation of belt/chain drive openers, keypad setup, and safety sensors.',
+        description: '[pricing:quote_on_site] Diagnostic, repair, or full installation of belt/chain drive openers, keypad setup, and safety sensors.',
         duration_minutes: 90,
-        price: 185,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -496,18 +496,18 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Emergency Residential Lockout Service',
-        description: '[pricing:fixed] Non-destructive entry into home, front door pick/bypass, and latch hardware safety verification.',
+        description: '[pricing:quote_on_site] Non-destructive entry into home, front door pick/bypass, and latch hardware safety verification.',
         duration_minutes: 30,
-        price: 95,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Whole-Home Rekey & Key Duplicate Package',
-        description: '[pricing:starting_at] Rekey up to 4 lock cylinders, match all deadbolts to a single master key, and provide 2 cut duplicate keys.',
+        description: '[pricing:quote_on_site] Rekey up to 4 lock cylinders, match all deadbolts to a single master key, and provide 2 cut duplicate keys.',
         duration_minutes: 60,
-        price: 135,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -538,9 +538,9 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Driveway, Sidewalk & Walkway Surface Wash',
-        description: '[pricing:starting_at] Rotary surface cleaner deep pressure washing to remove tire marks, oil grime, and algae from concrete pads.',
+        description: '[pricing:quote_on_site] Rotary surface cleaner deep pressure washing to remove tire marks, oil grime, and algae from concrete pads.',
         duration_minutes: 75,
-        price: 149,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -580,9 +580,9 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Multi-Room Carpet Steam Extraction',
-        description: '[pricing:starting_at] Truck-mounted hot water extraction, pre-spray traffic lanes, fiber agitation, and fast-dry vacuum rinse.',
+        description: '[pricing:quote_on_site] Truck-mounted hot water extraction, pre-spray traffic lanes, fiber agitation, and fast-dry vacuum rinse.',
         duration_minutes: 90,
-        price: 139,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -598,9 +598,9 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
       },
       {
         name: 'Pet Stain & Enzymatic Odor Treatment',
-        description: '[pricing:starting_at] Sub-surface urine extraction, deep fiber enzyme rinse, and odor neutralizing sanitization.',
+        description: '[pricing:quote_on_site] Sub-surface urine extraction, deep fiber enzyme rinse, and odor neutralizing sanitization.',
         duration_minutes: 60,
-        price: 79,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -624,7 +624,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'On-Site Tree Hazard & Trimming Assessment',
         description: '[pricing:free_estimate] Certified arborist walk-through to assess tree health, overhead power line clearance, and provide a written estimate.',
         duration_minutes: 45,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -666,16 +666,16 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'New Fence or Deck On-Site Consultation',
         description: '[pricing:free_estimate] In-person property line walk-through, material options (cedar, pine, vinyl, composite), and written estimate.',
         duration_minutes: 45,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Fence Post & Gate Repair Visit',
-        description: '[pricing:starting_at] Concrete dig-out and replacement of rotted wooden posts, hinge adjustment, and gate latch realignment.',
+        description: '[pricing:quote_on_site] Concrete dig-out and replacement of rotted wooden posts, hinge adjustment, and gate latch realignment.',
         duration_minutes: 90,
-        price: 165,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -708,7 +708,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Bathroom Remodel On-Site Consultation',
         description: '[pricing:free_estimate] In-person review of layout, plumbing relocation, tile work, vanity options, and detailed written budget estimate.',
         duration_minutes: 60,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
@@ -717,7 +717,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Kitchen Renovation Walkthrough & Planning',
         description: '[pricing:free_estimate] Comprehensive walk-through of cabinetry, countertops, electrical requirements, and project scope planning.',
         duration_minutes: 60,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -726,7 +726,7 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Basement Finishing or Addition Consultation',
         description: '[pricing:free_estimate] Framing, egress window evaluation, insulation, and full general contracting scope estimate.',
         duration_minutes: 60,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -748,27 +748,27 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Standard Weekly Pool Cleaning & Chemical Balance',
-        description: '[pricing:starting_at] Surface skimming, tile line brushing, vacuuming, skimmer basket empty, water testing, and balancing chemicals.',
+        description: '[pricing:quote_on_site] Surface skimming, tile line brushing, vacuuming, skimmer basket empty, water testing, and balancing chemicals.',
         duration_minutes: 45,
-        price: 75,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Pool Equipment & Pump Diagnostic',
-        description: '[pricing:diagnostic_fee] Full inspection of variable-speed pump, plumbing leaks, filter pressure, salt cell, or heater failures.',
+        description: '[pricing:quote_on_site] Full inspection of variable-speed pump, plumbing leaks, filter pressure, salt cell, or heater failures.',
         duration_minutes: 45,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
       },
       {
         name: 'Filter Deep Clean & Cartridge Degreasing',
-        description: '[pricing:fixed] Complete teardown of DE or cartridge filter grid, chemical pressure wash degreasing, and reassembly.',
+        description: '[pricing:quote_on_site] Complete teardown of DE or cartridge filter grid, chemical pressure wash degreasing, and reassembly.',
         duration_minutes: 60,
-        price: 135,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -792,16 +792,16 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Window Measurement & Glass Replacement Quote',
         description: '[pricing:free_estimate] In-person measurement of failed dual-pane fogged glass or broken panes with an exact written proposal.',
         duration_minutes: 45,
-        price: 0,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Window Screen Repair & Mesh Replacement',
-        description: '[pricing:starting_at] On-site rescreening of damaged fiberglass or pet-resistant mesh and frame corner repairs.',
+        description: '[pricing:quote_on_site] On-site rescreening of damaged fiberglass or pet-resistant mesh and frame corner repairs.',
         duration_minutes: 45,
-        price: 45,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
@@ -832,27 +832,27 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
     services: [
       {
         name: 'Mobile Wash, Wax & Interior Vacuum',
-        description: '[pricing:fixed] Hand foam bath, wheels and tires dressed, interior blowout, vacuum, dashboard wipe, and glass cleaned.',
+        description: '[pricing:quote_on_site] Hand foam bath, wheels and tires dressed, interior blowout, vacuum, dashboard wipe, and glass cleaned.',
         duration_minutes: 75,
-        price: 120,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Full Signature Detail & Carpet Shampoo',
-        description: '[pricing:starting_at] Exterior clay bar and wax, hot water carpet and seat extraction, leather conditioning, and odor treatment.',
+        description: '[pricing:quote_on_site] Exterior clay bar and wax, hot water carpet and seat extraction, leather conditioning, and odor treatment.',
         duration_minutes: 150,
-        price: 240,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2
       },
       {
         name: 'Mobile Vehicle Diagnostic & Brake Check',
-        description: '[pricing:diagnostic_fee] OBD2 computer scan, brake pad and rotor wear assessment, battery/alternator test, and mobile repair estimate.',
+        description: '[pricing:quote_on_site] OBD2 computer scan, brake pad and rotor wear assessment, battery/alternator test, and mobile repair estimate.',
         duration_minutes: 60,
-        price: 89,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 3
@@ -876,16 +876,16 @@ export const INDUSTRY_PRESETS: Record<string, IndustryPreset> = {
         name: 'Initial Consultation & Needs Assessment',
         description: '[pricing:free_estimate] Introductory consultation to evaluate your project, answer questions, and provide a customized service plan.',
         duration_minutes: 45,
-        price: 0,
+        price: null,
         requires_address: false,
         is_active: true,
         sort_order: 1
       },
       {
         name: 'Standard Service Appointment',
-        description: '[pricing:fixed] One hour standard on-site or virtual service appointment tailored to your individual requirements.',
+        description: '[pricing:quote_on_site] Standard on-site or virtual service appointment tailored to your individual requirements.',
         duration_minutes: 60,
-        price: 85,
+        price: null,
         requires_address: true,
         is_active: true,
         sort_order: 2

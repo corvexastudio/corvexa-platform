@@ -152,7 +152,7 @@ function ClientQuotesContent() {
   const [validDays, setValidDays] = useState('14')
   const [quoteNotes, setQuoteNotes] = useState('Includes complete labor, standard parts warranty, and clean work area guarantee.')
   const [newItems, setNewItems] = useState<QuoteItem[]>([
-    { description: 'On-Site Diagnostic & System Assessment', quantity: 1, unit_price: 89 }
+    { description: '', quantity: 1, unit_price: 0 }
   ])
   const [savingQuote, setSavingQuote] = useState(false)
   const [requiresDeposit, setRequiresDeposit] = useState(false)
@@ -336,7 +336,7 @@ function ClientQuotesContent() {
   // 1-Tap Trade Preset Line Item Addition
   const handleApplyTradeService = (service: { name: string; description: string; price: number | null }, tradeName: string) => {
     const cleanDesc = service.description ? service.description.replace(/\[pricing:[^\]]+\]\s*/i, '').trim() : service.name
-    const unitPrice = service.price || 120
+    const unitPrice = typeof service.price === 'number' && service.price > 0 ? service.price : 0
 
     // If only 1 empty line item exists, replace it; otherwise append
     if (newItems.length === 1 && !newItems[0].description.trim() && Number(newItems[0].unit_price) === 0) {
@@ -348,7 +348,11 @@ function ClientQuotesContent() {
     if (quoteTitle === 'Standard Service Estimate' || !quoteTitle.trim()) {
       setQuoteTitle(`${service.name}`)
     }
-    toast.success(`Added ${service.name} ($${unitPrice}) to estimate`)
+    if (unitPrice > 0) {
+      toast.success(`Added ${service.name} ($${unitPrice}) to estimate`)
+    } else {
+      toast.success(`Added ${service.name} to estimate`)
+    }
   }
 
   const calculatedSubtotal = useMemo(() => {
