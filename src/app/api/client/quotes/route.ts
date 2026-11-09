@@ -45,6 +45,11 @@ export async function GET(
     query = query.eq('status', statusFilter)
   }
 
+  const contactIdParam = searchParams.get('contact_id')
+  if (contactIdParam) {
+    query = query.eq('contact_id', contactIdParam)
+  }
+
   const { data: rawQuotes, error } = await query
 
   if (error) {

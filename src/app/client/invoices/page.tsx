@@ -146,7 +146,11 @@ function ClientInvoicesContent() {
   const contactIdParam = searchParams.get('contact_id') || searchParams.get('contactId')
   const titleParam = searchParams.get('title')
   const jobIdParam = searchParams.get('job_id') || searchParams.get('jobId')
+  const quoteIdParam = searchParams.get('quote_id') || searchParams.get('quoteId')
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
+  const [matchingQuotes, setMatchingQuotes] = useState<any[]>([])
+  const [loadingMatchingQuotes, setLoadingMatchingQuotes] = useState(false)
 
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -194,12 +198,15 @@ function ClientInvoicesContent() {
     }
   }, [searchParams])
 
-  // Listen to contact_id / title / job_id / create query param
+  // Listen to contact_id / title / job_id / quote_id / create query param
   useEffect(() => {
     if (jobIdParam) {
       setSelectedJobId(jobIdParam)
     }
-    const isExplicitCreate = searchParams.get('create') === 'true' || searchParams.get('new') === 'true'
+    if (quoteIdParam) {
+      setSelectedQuoteId(quoteIdParam)
+    }
+    const isExplicitCreate = searchParams.get('create') === 'true' || searchParams.get('new') === 'true' || Boolean(quoteIdParam)
     const hasSearch = Boolean(searchParams.get('search') || searchParams.get('q'))
 
     // Only open creation modal if explicit create intent or contact passed without invoice search
@@ -212,7 +219,7 @@ function ClientInvoicesContent() {
     } else if (isExplicitCreate) {
       setShowCreateModal(true)
     }
-  }, [contactIdParam, titleParam, jobIdParam, searchParams])
+  }, [contactIdParam, titleParam, jobIdParam, quoteIdParam, searchParams])
 
   // Truck-Ready Offline Payment Modal
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null)
@@ -388,6 +395,60 @@ function ClientInvoicesContent() {
     toast.success(`Added ${service.name} to invoice items`)
   }
 
+  // 1-Tap Import from Approved Quote
+  const handleImportQuote = useCallback((q: any) => {
+    setSelectedQuoteId(q.id)
+    if (q.title && (invoiceTitle === 'Standard Service Invoice' || !invoiceTitle.trim())) {
+      setInvoiceTitle(q.title)
+    }
+    const qItems = q.items || q.quote_items || []
+    if (Array.isArray(qItems) && qItems.length > 0) {
+      setNewItems(qItems.map((it: any) => ({
+        description: it.description || q.title || 'Completed Service',
+        quantity: Number(it.quantity) || 1,
+        unit_price: Number(it.unit_price) || 0
+      })))
+    } else if (Number(q.total) > 0) {
+      setNewItems([{
+        description: q.title || 'Approved Service',
+        quantity: 1,
+        unit_price: Number(q.total)
+      }])
+    }
+    if (typeof q.discount === 'number' && q.discount > 0) {
+      setDiscountAmount(String(q.discount))
+    }
+    if (typeof q.tax_rate === 'number' && q.tax_rate > 0) {
+      setTaxRate(String(q.tax_rate))
+    }
+    toast.success(`Imported Estimate #${q.quote_number} items & price ($${Number(q.total || 0).toFixed(2)})`)
+  }, [invoiceTitle])
+
+  // Fetch matching accepted quotes when selected customer changes
+  useEffect(() => {
+    if (!selectedContactId) {
+      setMatchingQuotes([])
+      return
+    }
+    setLoadingMatchingQuotes(true)
+    fetch(`/api/client/quotes?contact_id=${selectedContactId}&status=accepted&limit=5`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const qList = (data?.quotes || data?.items || []) as any[]
+        setMatchingQuotes(qList)
+
+        // If specific quote_id was passed in URL, auto-import it immediately
+        if (quoteIdParam && qList.length > 0) {
+          const match = qList.find(q => q.id === quoteIdParam)
+          if (match) {
+            handleImportQuote(match)
+          }
+        }
+      })
+      .catch(() => setMatchingQuotes([]))
+      .finally(() => setLoadingMatchingQuotes(false))
+  }, [selectedContactId, quoteIdParam, handleImportQuote])
+
   const handleSaveInvoice = async (sendImmediately: boolean) => {
     if (!selectedContactId || !invoiceTitle.trim()) {
       toast.error('Please select a customer and provide an invoice title.')
@@ -403,6 +464,7 @@ function ClientInvoicesContent() {
         body: JSON.stringify({
           contactId: selectedContactId,
           jobId: selectedJobId || undefined,
+          quoteId: selectedQuoteId || undefined,
           title: invoiceTitle,
           items: newItems,
           taxRate: Number(taxRate) || 0,
@@ -1403,6 +1465,48 @@ function ClientInvoicesContent() {
             </select>
           </div>
 
+          {/* Approved Estimate 1-Tap Autofill Banner */}
+          {matchingQuotes.length > 0 && (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  Approved Estimate Found ({matchingQuotes.length})
+                </span>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                  Autofills approved price & line items
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {matchingQuotes.map(q => (
+                  <div key={q.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                        <span>#{q.quote_number}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">${Number(q.total || 0).toFixed(2)}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">{q.title}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleImportQuote(q)}
+                      className={cn(
+                        "h-7.5 px-3 text-xs font-bold cursor-pointer shadow-xs gap-1.5",
+                        selectedQuoteId === q.id 
+                          ? "bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                      )}
+                    >
+                      {selectedQuoteId === q.id ? <Check className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      <span>{selectedQuoteId === q.id ? 'Imported' : 'Import Items & Price'}</span>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quick Trade Presets */}
           <div className="space-y-2 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40">
             <div className="flex items-center justify-between gap-2">
@@ -1453,7 +1557,7 @@ function ClientInvoicesContent() {
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 uppercase">{trade.badge}</span>
                         <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                          {svc.price ? `$${svc.price}` : '$120'}
+                          {svc.price ? `$${svc.price}` : '$0'}
                         </span>
                       </div>
                       <p className="text-xs font-medium text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 line-clamp-1 mt-0.5">
