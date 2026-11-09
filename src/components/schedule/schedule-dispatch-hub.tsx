@@ -1430,9 +1430,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const d = new Date(currentMonthDate)
-                  d.setMonth(d.getMonth() - 1)
-                  setCurrentMonthDate(d)
+                  setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
                 }}
                 className="h-8 w-8 p-0"
               >
@@ -1452,9 +1450,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const d = new Date(currentMonthDate)
-                  d.setMonth(d.getMonth() + 1)
-                  setCurrentMonthDate(d)
+                  setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
                 }}
                 className="h-8 w-8 p-0"
               >

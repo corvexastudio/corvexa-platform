@@ -42,6 +42,19 @@ export interface CreateRecurringTemplateInput {
 }
 
 /**
+ * Safely adds months without JavaScript 31st-day rollover bug (e.g. Jan 31 + 1 mo = Feb 28, not Mar 3).
+ */
+export function addMonthsClamped(date: Date, months: number): Date {
+  const origDay = date.getUTCDate()
+  const d = new Date(date.getTime())
+  d.setUTCDate(1)
+  d.setUTCMonth(d.getUTCMonth() + months)
+  const daysInTargetMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
+  d.setUTCDate(Math.min(origDay, daysInTargetMonth))
+  return d
+}
+
+/**
  * Calculates the subsequent scheduled service date based on cadence.
  */
 export function calculateNextScheduledDate(
@@ -50,7 +63,7 @@ export function calculateNextScheduledDate(
   targetDayOfWeek?: number | null
 ): string {
   const parts = currentDateStr.split('-').map(Number)
-  const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
+  let d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
 
   switch (cadence) {
     case 'weekly':
@@ -60,13 +73,13 @@ export function calculateNextScheduledDate(
       d.setUTCDate(d.getUTCDate() + 14)
       break
     case 'monthly':
-      d.setUTCMonth(d.getUTCMonth() + 1)
+      d = addMonthsClamped(d, 1)
       break
     case 'quarterly':
-      d.setUTCMonth(d.getUTCMonth() + 3)
+      d = addMonthsClamped(d, 3)
       break
     case 'biannual':
-      d.setUTCMonth(d.getUTCMonth() + 6)
+      d = addMonthsClamped(d, 6)
       break
     default:
       d.setUTCDate(d.getUTCDate() + 7)

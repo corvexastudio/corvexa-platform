@@ -420,6 +420,10 @@ function ClientInvoicesContent() {
     }
     if (typeof q.tax_rate === 'number' && q.tax_rate > 0) {
       setTaxRate(String(q.tax_rate))
+    } else if (Number(q.tax) > 0 && Number(q.subtotal) > 0) {
+      const taxable = Math.max(1, Number(q.subtotal) - (Number(q.discount) || 0))
+      const rate = Math.round((Number(q.tax) / taxable) * 100 * 100) / 100
+      setTaxRate(String(rate))
     }
     toast.success(`Imported Estimate #${q.quote_number} items & price ($${Number(q.total || 0).toFixed(2)})`)
   }, [invoiceTitle])

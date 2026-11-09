@@ -255,11 +255,15 @@ export function isTollFreeNumberRestricted(
 
 /**
  * Calculates a clean period end date given a start date and number of months.
- * Preserves the exact day of month without timezone drift.
+ * Preserves the exact day of month without timezone drift or end-of-month rollover.
  */
 export function calculatePeriodEnd(startDate: Date, intervalMonths: number = 1): Date {
+  const origDay = startDate.getDate()
   const end = new Date(startDate.getTime())
+  end.setDate(1)
   end.setMonth(end.getMonth() + intervalMonths)
+  const daysInTargetMonth = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
+  end.setDate(Math.min(origDay, daysInTargetMonth))
   return end
 }
 

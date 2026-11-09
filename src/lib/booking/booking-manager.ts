@@ -144,7 +144,7 @@ export async function createBooking(
   const slotEndMs = slotStartMs + durationMs
   const endTime = new Date(slotEndMs).toISOString()
 
-  // 4. Overlap Check against active appointments
+  // 4. Overlap Check against active appointments and standalone dispatch jobs
   const { data: existingAppts } = await supabase
     .from('appointments')
     .select('id, start_time, end_time, status')
@@ -157,6 +157,27 @@ export async function createBooking(
       const aptEnd = apt.end_time ? new Date(apt.end_time).getTime() : aptStart + durationMs
       if (doesIntervalOverlap(slotStartMs, slotEndMs, aptStart, aptEnd, bufferMs)) {
         return { success: false, error: 'This time slot is no longer available. Please select another time.' }
+      }
+    }
+  }
+
+  // Also check standalone jobs scheduled directly from dashboard to prevent booking conflicts
+  const { data: standaloneJobs } = await supabase
+    .from('jobs')
+    .select('id, scheduled_start, scheduled_end, status')
+    .eq('org_id', orgId)
+    .is('appointment_id', null)
+    .is('deleted_at', null)
+    .in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+
+  if (standaloneJobs && standaloneJobs.length > 0) {
+    for (const job of standaloneJobs) {
+      if (job.scheduled_start) {
+        const jStart = new Date(job.scheduled_start).getTime()
+        const jEnd = job.scheduled_end ? new Date(job.scheduled_end).getTime() : jStart + durationMs
+        if (doesIntervalOverlap(slotStartMs, slotEndMs, jStart, jEnd, bufferMs)) {
+          return { success: false, error: 'This time slot is no longer available. Please select another time.' }
+        }
       }
     }
   }
@@ -1103,7 +1124,7 @@ export async function customerRescheduleBooking(
   const newEndMs = newStartMs + durationMs
   const newEndTime = new Date(newEndMs).toISOString()
 
-  // 1. Overlap Check against OTHER active appointments
+  // 1. Overlap Check against OTHER active appointments and standalone jobs
   const { data: otherAppts } = await supabase
     .from('appointments')
     .select('id, start_time, end_time, status')
@@ -1117,6 +1138,26 @@ export async function customerRescheduleBooking(
       const oEnd = other.end_time ? new Date(other.end_time).getTime() : oStart + durationMs
       if (doesIntervalOverlap(newStartMs, newEndMs, oStart, oEnd, bufferMs)) {
         return { success: false, error: 'This time slot is no longer available. Please select another time.' }
+      }
+    }
+  }
+
+  const { data: otherStandaloneJobs } = await supabase
+    .from('jobs')
+    .select('id, scheduled_start, scheduled_end, status')
+    .eq('org_id', apt.org_id)
+    .neq('appointment_id', apt.id)
+    .is('deleted_at', null)
+    .in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+
+  if (otherStandaloneJobs && otherStandaloneJobs.length > 0) {
+    for (const job of otherStandaloneJobs) {
+      if (job.scheduled_start) {
+        const jStart = new Date(job.scheduled_start).getTime()
+        const jEnd = job.scheduled_end ? new Date(job.scheduled_end).getTime() : jStart + durationMs
+        if (doesIntervalOverlap(newStartMs, newEndMs, jStart, jEnd, bufferMs)) {
+          return { success: false, error: 'This time slot is no longer available. Please select another time.' }
+        }
       }
     }
   }

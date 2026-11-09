@@ -100,6 +100,7 @@ export async function POST(request: Request) {
       .from('contacts')
       .update(updatePayload)
       .eq('id', existingContact.id)
+      .eq('org_id', orgId)
       .select('*')
       .single()
 

@@ -66,8 +66,10 @@ export function calculateQuoteFinancials(
   const subtotal = lineItems.reduce((acc, it) => acc + it.total, 0)
   const discount = Math.max(0, Number(options.discount) || 0)
   const taxableAmount = Math.max(0, subtotal - discount)
-  const taxRate = Number(options.taxRate) || 0
-  const tax = Math.round(taxableAmount * taxRate * 100) / 100
+  const safeTaxRate = Math.max(0, Number(options.taxRate) || 0)
+  // Safely normalize taxRate whether passed as percentage (e.g. 8.25) or decimal fraction (0.0825)
+  const taxFraction = safeTaxRate > 1 ? safeTaxRate / 100 : safeTaxRate
+  const tax = Math.round(taxableAmount * taxFraction * 100) / 100
   const grandTotal = Math.max(0, Math.round((subtotal - discount + tax) * 100) / 100)
 
   return {

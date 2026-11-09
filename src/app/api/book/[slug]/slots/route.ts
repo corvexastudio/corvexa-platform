@@ -90,6 +90,35 @@ export async function GET(
       .lte('start_time', windowEnd)
       .in('status', ['requested', 'confirmed', 'scheduled'])
 
+    // Also fetch standalone jobs scheduled directly from dashboard without an appointment
+    // to prevent public double-booking against manually scheduled contractor jobs
+    const { data: standaloneJobs } = await supabase
+      .from('jobs')
+      .select('id, scheduled_start, scheduled_end, status')
+      .eq('org_id', org.id)
+      .is('appointment_id', null)
+      .is('deleted_at', null)
+      .in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+      .gte('scheduled_start', windowStart)
+      .lte('scheduled_start', windowEnd)
+
+    const allBusySlots: Array<{ id: string; start_time: string; end_time: string | null; status: any }> = [
+      ...(appts || [])
+    ]
+
+    if (standaloneJobs && standaloneJobs.length > 0) {
+      for (const sj of standaloneJobs) {
+        if (sj.scheduled_start) {
+          allBusySlots.push({
+            id: sj.id,
+            start_time: sj.scheduled_start,
+            end_time: sj.scheduled_end || null,
+            status: 'scheduled'
+          })
+        }
+      }
+    }
+
     const isInternal = searchParams.get('internal') === 'true' || searchParams.get('isOwner') === 'true'
 
     // 4. Calculate available & booked slots using availability engine
@@ -108,7 +137,7 @@ export async function GET(
         duration_minutes: serviceDuration
       },
       dateStr,
-      existingAppointments: appts || [],
+      existingAppointments: allBusySlots,
       referenceTime: new Date(),
       isInternal
     })

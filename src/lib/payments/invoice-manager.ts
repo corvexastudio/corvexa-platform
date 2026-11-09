@@ -70,7 +70,9 @@ export function calculateInvoiceFinancials(
   const safeDiscount = Math.min(subtotal, Math.max(0, Math.round(Number(discountAmount || 0) * 100) / 100))
   const taxableSubtotal = Math.max(0, subtotal - safeDiscount)
   const safeTaxRate = Math.max(0, Number(taxRate) || 0)
-  const tax = Math.round(taxableSubtotal * (safeTaxRate / 100) * 100) / 100
+  // Safely normalize taxRate whether passed as percentage (e.g. 8.25) or decimal fraction (0.0825)
+  const taxFraction = safeTaxRate > 1 ? safeTaxRate / 100 : safeTaxRate
+  const tax = Math.round(taxableSubtotal * taxFraction * 100) / 100
   const total = Math.max(0, Math.round((taxableSubtotal + tax) * 100) / 100)
 
   return {
@@ -408,6 +410,9 @@ export async function convertQuoteToInvoice(
     unit_price: qi.unit_price
   }))
 
+  const taxable = Math.max(1, Number(quote.subtotal) - (Number(quote.discount) || 0))
+  const effectiveTaxRate = Number(quote.tax) > 0 ? (Number(quote.tax) / taxable) * 100 : 0
+
   return createInvoice(supabase, {
     orgId,
     contactId: quote.contact_id,
@@ -415,6 +420,7 @@ export async function convertQuoteToInvoice(
     title: `Invoice: ${quote.title}`,
     description: quote.description,
     items,
+    taxRate: effectiveTaxRate,
     discountAmount: quote.discount,
     dueDate
   })
