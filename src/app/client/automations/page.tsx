@@ -31,6 +31,7 @@ import {
   Sparkles,
   ChevronRight,
   Info,
+  AlertCircle,
   Wrench,
   CheckCircle,
   Truck
@@ -83,12 +84,23 @@ export default function AutomationsPage() {
     name: '',
     slug: '',
     telnyx_phone_number: '',
+    phone_number: '',
     is_missed_call_active: true,
     is_review_engine_active: true,
     auto_reply_template: 'Hi, this is {business_name}! Sorry we missed your call - our team is currently assisting customers on-site. You can lock in a time on our schedule here: {booking_url} - or reply directly to this text with what you need!',
     after_hours_template: "Thanks for calling {business_name}! Our office is currently closed, but you can reserve an appointment on our schedule anytime here: {booking_url} - or text us what you need and we'll reply first thing in the morning!",
     cooldown_hours: 24,
     google_review_url: ''
+  })
+
+  // Switchboard Live Telemetry Metrics
+  const [metrics, setMetrics] = useState({
+    recoveredCalls: 0,
+    recoveryRate: 0,
+    reviewRequests: 0,
+    avgRating: '—',
+    deliveryRate: '100%',
+    totalDispatches: 0
   })
 
   // Preview Switcher State
@@ -169,6 +181,7 @@ export default function AutomationsPage() {
           name: org.name || '',
           slug: org.slug || '',
           telnyx_phone_number: org.telnyx_phone_number || '',
+          phone_number: org.phone_number || org.owner_phone || '',
           is_missed_call_active: org.is_missed_call_active ?? true,
           is_review_engine_active: org.is_review_engine_active ?? true,
           auto_reply_template: isLegacyOpen
@@ -181,17 +194,83 @@ export default function AutomationsPage() {
           google_review_url: org.google_review_url || ''
         })
 
-        // Fetch recent automation activity logs
+        // Concurrently fetch recent automation activity logs and live switchboard telemetry
         setLoadingLogs(true)
-        const { data: logs } = await supabase
-          .from('activity_logs')
-          .select('*')
-          .eq('org_id', profile.org_id)
-          .order('created_at', { ascending: false })
-          .limit(10)
+        const [
+          callsRes,
+          leadsRes,
+          reviewsRes,
+          feedbackRes,
+          messagesRes,
+          logsRes
+        ] = await Promise.all([
+          supabase
+            .from('calls')
+            .select('status, auto_reply_sent')
+            .eq('org_id', profile.org_id),
+          supabase
+            .from('leads')
+            .select('id, status, source')
+            .eq('org_id', profile.org_id)
+            .eq('source', 'missed_call'),
+          supabase
+            .from('review_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id),
+          supabase
+            .from('customer_feedback')
+            .select('rating')
+            .eq('org_id', profile.org_id)
+            .not('rating', 'is', null),
+          supabase
+            .from('messages')
+            .select('delivery_status')
+            .eq('org_id', profile.org_id)
+            .eq('direction', 'outbound'),
+          supabase
+            .from('activity_logs')
+            .select('*')
+            .eq('org_id', profile.org_id)
+            .order('created_at', { ascending: false })
+            .limit(10)
+        ])
 
-        if (logs) {
-          setActivityLogs(logs)
+        // 1. Recovered calls telemetry
+        const callsList = (callsRes?.data || []) as any[]
+        const leadsList = (leadsRes?.data || []) as any[]
+        const directRecovered = callsList.filter(c => c.auto_reply_sent).length
+        const directMissed = callsList.filter(c => ['missed', 'busy', 'no_answer'].includes(c.status)).length
+        const totalRecovered = Math.max(directRecovered, leadsList.length)
+        const totalMissed = Math.max(directMissed, totalRecovered)
+        const calculatedRate = totalMissed > 0 ? Math.round((totalRecovered / totalMissed) * 100) : 0
+
+        // 2. Reviews & Average Rating telemetry
+        const feedbackList = (feedbackRes?.data || []) as any[]
+        let formattedRating = '—'
+        if (feedbackList.length > 0) {
+          const sum = feedbackList.reduce((acc: number, f: any) => acc + (Number(f.rating) || 0), 0)
+          formattedRating = `${(sum / feedbackList.length).toFixed(1)} ★ avg`
+        }
+
+        // 3. Carrier 10DLC Delivery Telemetry
+        const messagesList = (messagesRes?.data || []) as any[]
+        let formattedDelivery = '100%'
+        if (messagesList.length > 0) {
+          const deliveredCount = messagesList.filter(m => m.delivery_status === 'delivered' || m.delivery_status === 'sent').length
+          formattedDelivery = `${Math.round((deliveredCount / messagesList.length) * 100)}%`
+        }
+
+        setMetrics({
+          recoveredCalls: totalRecovered,
+          recoveryRate: calculatedRate,
+          reviewRequests: typeof reviewsRes?.count === 'number' ? reviewsRes.count : 0,
+          avgRating: formattedRating,
+          deliveryRate: formattedDelivery,
+          totalDispatches: messagesList.length
+        })
+
+        if (logsRes?.data && logsRes.data.length > 0) {
+          setActivityLogs(logsRes.data as ActivityLogItem[])
         }
         setLoadingLogs(false)
       }
@@ -279,7 +358,7 @@ export default function AutomationsPage() {
 
   const reviewPreviewText = useMemo(() => {
     const url = settings.google_review_url || 'https://g.page/r/your-google-profile/review'
-    return `Hi Sarah, thank you for choosing ${settings.name || 'our service'} today! If you have 30 seconds, please share your honest review on Google: ${url}`
+    return `Hi [Customer Name], thank you for choosing ${settings.name || 'our service'} today! If you have 30 seconds, please share your honest review on Google: ${url}`
   }, [settings.google_review_url, settings.name])
 
   const reminderPreviewText = useMemo(() => {
@@ -450,10 +529,12 @@ export default function AutomationsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
-              18
+              {loading ? '—' : metrics.recoveredCalls}
             </span>
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              94.2% rate
+              {metrics.recoveredCalls > 0 && metrics.recoveryRate > 0 
+                ? `${metrics.recoveryRate}% rate` 
+                : 'Standby ready'}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
@@ -473,10 +554,10 @@ export default function AutomationsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
-              24
+              {loading ? '—' : metrics.reviewRequests}
             </span>
             <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-              4.9 ★ avg
+              {metrics.avgRating !== '—' ? metrics.avgRating : '5.0 ★ target'}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
@@ -496,10 +577,10 @@ export default function AutomationsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
-              99.8%
+              {loading ? '—' : (metrics.totalDispatches > 0 ? metrics.deliveryRate : '100%')}
             </span>
             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              10DLC Verified
+              {metrics.totalDispatches > 0 ? '10DLC Verified' : '10DLC Ready'}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
@@ -1057,7 +1138,7 @@ export default function AutomationsPage() {
                   {settings.name || 'Your Company'}
                 </div>
                 <div className="text-[10px] text-zinc-400 font-mono">
-                  {settings.telnyx_phone_number || '+1 (555) 019-2831'}
+                  {settings.telnyx_phone_number || settings.phone_number || 'Dedicated 10DLC Line'}
                 </div>
               </div>
 
@@ -1168,10 +1249,39 @@ export default function AutomationsPage() {
                         {new Date(log.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' })}
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Delivered
-                        </span>
+                        {(() => {
+                          const status = (log.delivery_status || log.status || 'delivered').toLowerCase()
+                          if (status === 'failed' || status === 'undelivered') {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                <AlertCircle className="h-3.5 w-3.5" />
+                                Failed
+                              </span>
+                            )
+                          }
+                          if (status === 'pending' || status === 'queued') {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <Clock className="h-3.5 w-3.5" />
+                                Queued
+                              </span>
+                            )
+                          }
+                          if (status === 'sent') {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                <Check className="h-3.5 w-3.5" />
+                                Sent
+                              </span>
+                            )
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Delivered
+                            </span>
+                          )
+                        })()}
                       </td>
                     </tr>
                   )

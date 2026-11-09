@@ -250,7 +250,7 @@ function ClientInvoicesContent() {
       })))
     } else {
       setEditLineItems([
-        { description: inv.title || 'Completed Service', quantity: 1, unit_price: Number(inv.total) || 100 }
+        { description: inv.title || 'Completed Service', quantity: 1, unit_price: Number(inv.total) || 0 }
       ])
     }
   }
@@ -1122,7 +1122,7 @@ function ClientInvoicesContent() {
               <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">Line Items</span>
               <button
                 type="button"
-                onClick={() => setEditLineItems(prev => [...prev, { description: 'Additional Service / Parts', quantity: 1, unit_price: 50 }])}
+                onClick={() => setEditLineItems(prev => [...prev, { description: 'Additional Service / Parts', quantity: 1, unit_price: 0 }])}
                 className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Item

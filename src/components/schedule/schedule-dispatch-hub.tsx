@@ -2503,13 +2503,11 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 </span>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {[
-                    { label: 'Diagnostic ($89)', desc: 'Diagnostic & Inspection Fee', price: 89 },
-                    { label: 'Standard Labor 1hr ($120)', desc: 'Standard Labor & Service (1 hr)', price: 120 },
-                    { label: '2 Hr Labor ($240)', desc: 'Standard Labor & Service (2 hrs)', price: 240 },
-                    { label: 'Emergency Labor ($180)', desc: 'Emergency Priority Diagnostic & Labor', price: 180 },
-                    { label: 'Parts & Materials ($150)', desc: 'Replacement Parts & Materials', price: 150 },
-                    { label: 'Capacitor ($145)', desc: 'Dual Run Capacitor Replacement', price: 145 },
-                    { label: 'Tune-Up ($99)', desc: 'Precision System Tune-Up & Cleaning', price: 99 },
+                    { label: 'Diagnostic & Inspection', desc: 'Diagnostic & Inspection Fee', price: 0 },
+                    { label: 'Standard Service Labor', desc: 'Standard Service Labor (1 hr)', price: 0 },
+                    { label: 'Emergency Priority Service', desc: 'Emergency Priority Service Call', price: 0 },
+                    { label: 'Parts & Materials', desc: 'Replacement Parts & Materials', price: 0 },
+                    { label: 'Preventative Maintenance', desc: 'Preventative Maintenance & Inspection', price: 0 },
                   ].map((preset, idx) => (
                     <button
                       key={idx}
@@ -2567,7 +2565,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
               <button
                 type="button"
-                onClick={() => handleAddQuotePreset('Custom Service / Part', 50)}
+                onClick={() => handleAddQuotePreset('Custom Service / Part', 0)}
                 className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Custom Line Item

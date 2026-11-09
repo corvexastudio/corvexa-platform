@@ -355,7 +355,7 @@ export async function convertJobToInvoice(
     quoteId: job.quote_id || undefined,
     title: `Invoice for ${job.title}`,
     description: job.description,
-    items: items.length > 0 ? items : [{ description: job.title, quantity: 1, unit_price: 100 }],
+    items: items.length > 0 ? items : [{ description: job.title, quantity: 1, unit_price: 0 }],
     taxRate,
     discountAmount,
     dueDate
