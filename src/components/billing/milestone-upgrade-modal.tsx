@@ -22,24 +22,32 @@ export interface MilestoneUpgradeModalProps {
   totalRevenue?: number
   operationMode?: 'solo' | 'multi_crew'
   onSuccess?: () => void
+  completedJobsCount?: number
+  limit?: number
+  isLimitReached?: boolean
 }
 
 /**
- * Mobile-First Milestone 3 Celebration & Upgrade Modal
- * Celebrates 3 completed jobs with $0 platform fees and prompts 1-tap upgrade to Pro.
+ * Mobile-First Milestone Celebration & Upgrade Modal
+ * Celebrates completed jobs with $0 platform fees and prompts 1-tap upgrade to Pro.
  */
 export function MilestoneUpgradeModal({
   isOpen,
   onClose,
   totalRevenue = 0,
   operationMode = 'solo',
-  onSuccess
+  onSuccess,
+  completedJobsCount = 3,
+  limit = 3,
+  isLimitReached = true
 }: MilestoneUpgradeModalProps) {
   const [selectedTier, setSelectedTier] = useState<'solo' | 'multi_crew'>(operationMode)
   const [loading, setLoading] = useState(false)
 
   const formattedRevenue = Math.round(totalRevenue).toLocaleString('en-US')
   const isSolo = selectedTier === 'solo'
+  const isComplete = isLimitReached || completedJobsCount >= limit
+  const remainingJobs = Math.max(0, limit - completedJobsCount)
 
   const handleUpgrade = async () => {
     setLoading(true)
@@ -79,38 +87,63 @@ export function MilestoneUpgradeModal({
     <Modal
       open={isOpen}
       onOpenChange={(open) => !open && onClose()}
-      className="p-0 overflow-hidden max-w-lg w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl"
+      className="p-0 overflow-y-auto max-h-[92vh] sm:max-h-[88vh] max-w-lg w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-3xl shadow-2xl overscroll-contain"
     >
-      {/* Mobile-First Header with Celebration Gradient */}
-      <div className="relative p-6 sm:p-7 text-center bg-gradient-to-b from-amber-500/15 via-orange-500/10 to-transparent border-b border-amber-500/20">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-black flex items-center justify-center shadow-lg shadow-amber-500/20 mb-3 animate-bounce">
-          <Trophy className="w-7 h-7" />
+      {/* Dynamic Celebration Header */}
+      <div className={cn(
+        "relative p-5 sm:p-6 text-center border-b transition-colors",
+        isComplete
+          ? "bg-gradient-to-b from-amber-500/15 via-orange-500/10 to-transparent border-amber-500/20"
+          : "bg-gradient-to-b from-emerald-500/15 via-teal-500/10 to-transparent border-emerald-500/20"
+      )}>
+        <div className={cn(
+          "mx-auto w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg mb-2.5",
+          isComplete
+            ? "bg-gradient-to-tr from-amber-500 to-orange-500 text-black shadow-amber-500/20 animate-bounce"
+            : "bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-emerald-500/20"
+        )}>
+          {isComplete ? (
+            <Trophy className="w-6 h-6 text-black" />
+          ) : (
+            <Zap className="w-6 h-6 text-white" />
+          )}
         </div>
 
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 mb-2">
+        <span className={cn(
+          "inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-black tracking-wider uppercase border mb-2",
+          isComplete
+            ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30"
+            : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+        )}>
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          Starter Pass Completed (3/3 Free Jobs)
+          {isComplete
+            ? `Starter Pass Completed (${limit}/${limit} Free Jobs)`
+            : `Starter Pass Active (${completedJobsCount}/${limit} Used • ${remainingJobs} Free ${remainingJobs === 1 ? 'Job' : 'Jobs'} Left)`}
         </span>
 
         <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-          You Earned ${formattedRevenue} with $0 Platform Fees!
+          {totalRevenue > 0
+            ? `You Earned $${formattedRevenue} with $0 Platform Fees!`
+            : `Keep 100% of Your Earnings with $0 Fees`}
         </h2>
 
         <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
-          You've proven CaptoDesk brings real bookings and automated reviews to your business. Upgrade to Pro to keep unlimited online bookings, card payments, and dispatches rolling without interruption.
+          {isComplete
+            ? "You've proven CaptoDesk brings real bookings and automated reviews to your business. Upgrade to Pro to keep unlimited online bookings, card payments, and dispatches rolling without interruption."
+            : `You have ${remainingJobs} free customer ${remainingJobs === 1 ? 'job' : 'jobs'} remaining on your Starter Pass. Upgrade to Pro early to ensure uninterrupted booking flow, crew dispatching, and unlimited jobs.`}
         </p>
       </div>
 
-      <div className="p-5 sm:p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-3.5">
         {/* Tier Selection Cards (Mobile Friendly 44px+ touch targets) */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={() => setSelectedTier('solo')}
             className={cn(
-              'p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative min-h-[96px] flex flex-col justify-between',
+              'p-3 sm:p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative min-h-[88px] sm:min-h-[96px] flex flex-col justify-between',
               isSolo
-                ? 'border-blue-600 dark:border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 shadow-xs'
+                ? 'border-blue-600 dark:border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 shadow-xs ring-1 ring-blue-500/30'
                 : 'border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40 hover:bg-slate-100 dark:hover:bg-zinc-800'
             )}
           >
@@ -124,7 +157,7 @@ export function MilestoneUpgradeModal({
               </div>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Owner-operator</p>
             </div>
-            <div className="mt-2">
+            <div className="mt-1.5">
               <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">$99</span>
               <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">/mo</span>
             </div>
@@ -134,9 +167,9 @@ export function MilestoneUpgradeModal({
             type="button"
             onClick={() => setSelectedTier('multi_crew')}
             className={cn(
-              'p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative min-h-[96px] flex flex-col justify-between',
+              'p-3 sm:p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative min-h-[88px] sm:min-h-[96px] flex flex-col justify-between',
               !isSolo
-                ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs'
+                ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs ring-1 ring-indigo-500/30'
                 : 'border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40 hover:bg-slate-100 dark:hover:bg-zinc-800'
             )}
           >
@@ -150,7 +183,7 @@ export function MilestoneUpgradeModal({
               </div>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">2+ trucks / tech routes</p>
             </div>
-            <div className="mt-2">
+            <div className="mt-1.5">
               <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">$199</span>
               <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">/mo</span>
             </div>
@@ -158,14 +191,14 @@ export function MilestoneUpgradeModal({
         </div>
 
         {/* Feature Highlights */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs">
           <div className="flex items-center gap-2 text-slate-700 dark:text-zinc-300">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span><strong>Unlimited completed jobs</strong> &amp; zero cap on customer revenue</span>
           </div>
           <div className="flex items-center gap-2 text-slate-700 dark:text-zinc-300">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span><strong>Live customer invoicing</strong> &amp; direct Stripe card payments</span>
+            <span><strong>Live customer invoicing</strong> &amp; direct card &amp; online payments</span>
           </div>
           <div className="flex items-center gap-2 text-slate-700 dark:text-zinc-300">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -184,7 +217,7 @@ export function MilestoneUpgradeModal({
           onClick={handleUpgrade}
           disabled={loading}
           className={cn(
-            'w-full min-h-[48px] py-3 text-sm font-extrabold rounded-2xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer',
+            'w-full min-h-[46px] py-2.5 text-sm font-extrabold rounded-2xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer',
             isSolo
               ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
               : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'
@@ -203,7 +236,7 @@ export function MilestoneUpgradeModal({
           )}
         </Button>
 
-        <p className="text-[11px] text-center text-slate-500 dark:text-zinc-500 flex items-center justify-center gap-1.5 pt-1">
+        <p className="text-[11px] text-center text-slate-500 dark:text-zinc-500 flex items-center justify-center gap-1.5 pt-0.5">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           Cancel anytime • No long-term lock-in contracts
         </p>

@@ -185,6 +185,9 @@ export function StarterPassMeter({
         onClose={() => setModalOpen(false)}
         totalRevenue={totalRevenue}
         operationMode={operationMode}
+        completedJobsCount={count}
+        limit={3}
+        isLimitReached={isComplete}
       />
     </>
   )
