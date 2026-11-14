@@ -4,6 +4,13 @@ import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { renderTemplate } from '../telephony/template-engine.ts'
 import { dispatchReviewRequest } from '../reviews/review-manager.ts'
 import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/compliance-engine.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
+import {
+  PLATFORM_TOLL_FREE_NUMBER,
+  hasDedicatedPhoneNumber,
+  resolvePlatformTollFreeNumber,
+  resolveSenderPhone,
+} from '../billing/plans.ts'
 
 export type ActionType =
   | 'send_sms'
@@ -73,26 +80,36 @@ async function handleSendSms(
     return { success: false, actionType: 'send_sms', error: `Invalid recipient phone: ${targetPhone}` }
   }
 
-  // Resolve tenant's assigned Telnyx sender number
+  // Resolve outbound sender number: active dedicated DID for paid clients, shared platform toll-free (+18777713802) for 3-job free trials.
+  // If an explicit sender matches the shared toll-free number but the org now has an active dedicated DID, switch to the dedicated DID.
   let senderNumber = params.from
-  if (!senderNumber) {
-    const { data: numRow } = await supabase
-      .from('telnyx_phone_numbers')
-      .select('phone_number')
-      .eq('org_id', orgId)
-      .eq('status', 'active')
-      .limit(1)
+  const platformTollFree = resolvePlatformTollFreeNumber()
+  if (!senderNumber || senderNumber === platformTollFree || senderNumber === PLATFORM_TOLL_FREE_NUMBER) {
+    const { data: orgRow } = await supabase
+      .from('organizations')
+      .select('telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status')
+      .eq('id', orgId)
       .maybeSingle()
 
-    if (numRow) {
-      senderNumber = numRow.phone_number
+    if (hasDedicatedPhoneNumber(orgRow)) {
+      senderNumber = orgRow!.telnyx_phone_number!
     } else {
-      const { data: orgRow } = await supabase
-        .from('organizations')
-        .select('telnyx_phone_number')
-        .eq('id', orgId)
+      const { data: numRow } = await supabase
+        .from('telnyx_phone_numbers')
+        .select('phone_number')
+        .eq('org_id', orgId)
+        .eq('status', 'active')
+        .limit(1)
         .maybeSingle()
-      senderNumber = orgRow?.telnyx_phone_number
+
+      if (
+        numRow?.phone_number &&
+        hasDedicatedPhoneNumber({ telnyx_phone_number: numRow.phone_number, phone_provisioning_status: 'active' })
+      ) {
+        senderNumber = numRow.phone_number
+      } else {
+        senderNumber = resolveSenderPhone(orgRow)
+      }
     }
   }
 
@@ -144,28 +161,18 @@ async function handleSendSms(
     })
   }
 
-  // Log to messages table if conversation exists
+  // Ensure inbox conversation exists/updates and log outbound SMS
   if (context.contactId) {
-    let { data: conv } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('contact_id', context.contactId)
-      .maybeSingle()
-
-    if (conv) {
-      await supabase.from('messages').insert({
-        org_id: orgId,
-        conversation_id: conv.id,
-        direction: 'outbound',
-        sender_type: 'system',
-        body: outboundText,
-        delivery_status: smsRes.success ? 'sent' : 'failed',
-        telnyx_message_id: smsRes.messageId,
-        automation_source: 'automation_engine',
-        failure_reason: smsRes.error || null
-      })
-    }
+    await logOutboundConversationMessage(supabase, {
+      orgId,
+      contactId: context.contactId,
+      body: outboundText,
+      deliveryStatus: smsRes.success ? 'sent' : 'failed',
+      telnyxMessageId: smsRes.messageId,
+      automationSource: flowType === 'missed_call_recovery' ? 'missed_call_recovery' : 'automation_engine',
+      failureReason: smsRes.error || null,
+      incrementUnread: flowType === 'missed_call_recovery',
+    })
   }
 
   return {

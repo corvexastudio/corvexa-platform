@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
-import { createJob, convertQuoteToJob } from '@/lib/jobs/job-manager'
+import { createJob, convertQuoteToJob, hydrateJobsWithQuotes } from '@/lib/jobs/job-manager'
 
 import { encodeCursor, decodeCursor } from '@/lib/pagination/cursor'
 
@@ -24,9 +24,9 @@ export async function GET(request: Request) {
     .select(`
       *,
       contact:contacts(id, name, phone, email, address, notes),
-      service:services(id, name, duration_minutes),
+      service:services(id, name, duration_minutes, price),
       appointment:appointments(id, start_time, end_time),
-      quote:quotes!quote_id(id, quote_number, total),
+      quote:quotes!quote_id(id, quote_number, title, total, subtotal, tax, discount, status, manage_token),
       crew:crews!crew_id(id, name, color, van_identifier, phone_number),
       invoices:invoices(id, invoice_number, total, status, amount_paid, amount_due, paid_at, manage_token),
       items:job_items(*)
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       .select(`
         *,
         contact:contacts(id, name, phone, email, address, notes),
-        service:services(id, name, duration_minutes),
+        service:services(id, name, duration_minutes, price),
         appointment:appointments(id, start_time, end_time),
         invoices:invoices(id, invoice_number, total, status, amount_paid, amount_due, paid_at, manage_token),
         items:job_items(*)
@@ -114,6 +114,8 @@ export async function GET(request: Request) {
     items.pop()
   }
 
+  await hydrateJobsWithQuotes(supabase, orgId, items)
+
   let nextCursor: string | null = null
   if (hasMore && items.length > 0) {
     const lastItem = items[items.length - 1]
@@ -141,6 +143,27 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
+
+    // Finish-Line Sunk Cost Paywall Guard: Scheduling Job #4+ requires Pro once 3 free starter jobs are completed
+    const { SubscriptionService } = await import('@/lib/billing/subscription-service')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        return NextResponse.json(
+          {
+            success: false,
+            upgradeRequired: true,
+            code: 'STARTER_LIMIT_REACHED',
+            error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to schedule and dispatch additional jobs.",
+            checkoutUrl: '/client/billing?reason=starter_limit'
+          },
+          { status: 402 }
+        )
+      }
+    }
 
     // 1. If convertQuoteId is provided, bridge directly from quote
     if (body.convertQuoteId) {

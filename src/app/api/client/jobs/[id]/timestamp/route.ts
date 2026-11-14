@@ -33,6 +33,9 @@ export async function POST(
     })
 
     if (!result.success) {
+      if ((result as any).upgradeRequired) {
+        return NextResponse.json(result, { status: 402 })
+      }
       return NextResponse.json({ error: result.error || 'Failed to update job timestamp' }, { status: 400 })
     }
 

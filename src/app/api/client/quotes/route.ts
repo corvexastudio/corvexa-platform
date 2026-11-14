@@ -141,6 +141,30 @@ export async function POST(
       )
     }
 
+    // Starter Pass Gating Guard: Creating customer quotes on Job #4+ requires Pro
+    try {
+      const { SubscriptionService } = await import('@/lib/billing/subscription-service')
+      const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+      const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+      if (!isPaidPro) {
+        const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+        if (starterUsage?.isLimitReached) {
+          return NextResponse.json(
+            {
+              success: false,
+              upgradeRequired: true,
+              code: 'STARTER_LIMIT_REACHED',
+              error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to create and dispatch customer estimates."
+            },
+            { status: 402 }
+          )
+        }
+      }
+    } catch (checkErr) {
+      console.warn('[CREATE_QUOTE_STARTER_LIMIT_ROUTE_CHECK]', checkErr)
+    }
+
     const appBaseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
 
     const result = await createQuote(supabase, {
@@ -160,6 +184,9 @@ export async function POST(
     }, appBaseUrl)
 
     if (!result.success) {
+      if ((result as any).upgradeRequired) {
+        return NextResponse.json(result, { status: 402 })
+      }
       return NextResponse.json({ error: result.error || 'Failed to create quote' }, { status: 400 })
     }
 

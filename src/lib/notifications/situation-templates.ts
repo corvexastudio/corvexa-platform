@@ -38,6 +38,25 @@ export type SituationTemplateKey =
   | 'customer_review_request'
 
 /**
+ * Formats a customer name for SMS/UI greetings while preserving interior casing
+ * (e.g. "karl Marx" -> "Karl Marx", "Mary McDonald" -> "Mary McDonald")
+ * and keeping missing/"there" fallbacks lowercase.
+ */
+export function formatCustomerGreetingName(
+  name?: string | null,
+  fallback = 'there'
+): string {
+  const cleaned = (name || '').trim().replace(/\s+/g, ' ')
+  if (!cleaned || cleaned.toLowerCase() === 'there') {
+    return fallback
+  }
+  return cleaned
+    .split(' ')
+    .map(part => (/^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ')
+}
+
+/**
  * Resolves the operational mode from organization record or team indicators.
  */
 export function resolveOperationMode(org?: any): OperationMode {
@@ -125,12 +144,13 @@ export function renderSituationAwareText(
     }
 
     case 'customer_en_route': {
+      const greetingCustomer = formatCustomerGreetingName(context.customerName)
       const eta = context.etaMinutes ? ` ETA ~${context.etaMinutes} mins.` : ''
       const track = context.trackingUrl ? ` Track live: ${context.trackingUrl}` : ''
       if (mode === 'multi_crew') {
-        return `Hi ${customer}, your technician ${tech} from ${business} is en route to your location.${eta}${track}`
+        return `Hi ${greetingCustomer}, your technician ${tech} from ${business} is en route to your location.${eta}${track}`
       }
-      return `Hi ${customer}, ${tech} from ${business} is en route to your location.${eta}${track}`
+      return `Hi ${greetingCustomer}, ${tech} from ${business} is en route to your location.${eta}${track}`
     }
 
     case 'customer_review_request': {

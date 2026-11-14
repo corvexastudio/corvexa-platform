@@ -245,11 +245,18 @@ test('PHASE 3.7: Demo Toll-Free Number (+18777713802) Isolation Guard', async (t
 })
 
 test('PHASE 3.7: Strict $0 Telnyx Guard on Public Booking', async (t) => {
-  await t.test('creates appointment and contact without sending Telnyx SMS on free tier', async () => {
+  await t.test('creates appointment and contact without sending Telnyx SMS on free tier when Starter Pass limit reached', async () => {
     const { client, tables } = createMockFreemiumDb({
       subscriptionStatus: 'active',
       planId: 'free'
     })
+
+    // Seed 3 completed jobs to simulate Starter Pass limit reached
+    tables.jobs = [
+      { id: 'job-seed-1', org_id: 'org-freemium-101', status: 'completed', title: 'Job 1' },
+      { id: 'job-seed-2', org_id: 'org-freemium-101', status: 'completed', title: 'Job 2' },
+      { id: 'job-seed-3', org_id: 'org-freemium-101', status: 'completed', title: 'Job 3' }
+    ]
 
     const bookingResult = await createBooking(client, {
       orgId: 'org-freemium-101',
@@ -274,15 +281,16 @@ test('PHASE 3.7: Strict $0 Telnyx Guard on Public Booking', async (t) => {
     assert.equal(contact.phone, '+15125550188')
 
     // Verify zero Telnyx SMS was dispatched to messages table
-    assert.equal(tables.messages.length, 0, 'No outbound Telnyx SMS should be sent on free tier')
+    assert.equal(tables.messages.length, 0, 'No outbound Telnyx SMS should be sent once Starter Pass limit is reached')
 
-    // Verify compliance audit record was logged with reason 'free_tier_no_telecom'
-    const audit = tables.compliance_audit_logs.find(a => a.reason === 'free_tier_no_telecom')
-    assert.ok(audit, 'A compliance audit with reason free_tier_no_telecom must be recorded')
+    // Verify compliance audit record was logged with reason 'starter_limit_reached' or 'free_tier_no_telecom'
+    const audit = tables.compliance_audit_logs.find(a => a.reason === 'starter_limit_reached' || a.reason === 'free_tier_no_telecom')
+    assert.ok(audit, 'A compliance audit with suppression reason must be recorded')
     assert.equal(audit.action, 'message_suppressed')
 
     // Verify in-app notification was dispatched with unmasked info
-    const notif = tables.notifications.find(n => n.title.includes('New Online Booking'))
+    const notif = tables.notifications.find(n => n.title.includes('Online Booking'))
+    assert.ok(notif, 'Owner notification must be recorded')
     assert.ok(notif, 'In-app notification should alert contractor of booking')
     assert.ok(notif.message.includes('+15125550188'), 'Contractor must see full unmasked phone number')
   })

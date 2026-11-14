@@ -11,6 +11,7 @@ import {
 import {
   sendTelnyxSms
 } from '../telnyx.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 import {
   fetchConversationMessagesPaginated,
   type PaginatedMessagesResult
@@ -79,9 +80,23 @@ export class MessagingService {
       timezone
     } = options
 
+    let org: any = null
+    try {
+      const orgRes = await supabase
+        .from('organizations')
+        .select('id, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status')
+        .eq('id', orgId)
+        .maybeSingle()
+      org = orgRes?.data || null
+    } catch {
+      org = null
+    }
+    const senderNumber = resolveSenderPhone(org)
+
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,
       toPhone,
+      fromPhone: senderNumber,
       body: text,
       messageType,
       flowType,
@@ -99,6 +114,7 @@ export class MessagingService {
 
     await sendTelnyxSms({
       to: toPhone,
+      from: senderNumber,
       text: compliance.formattedText || text
     })
 

@@ -519,7 +519,9 @@ import { sendTelnyxSms } from '../src/lib/telnyx.ts'
 
 test('P1-003: sendTelnyxSms requires explicit from sender number and fails closed if missing', async () => {
   const origKey = process.env.TELNYX_API_KEY
+  const origDisableTollFree = process.env.DISABLE_PLATFORM_TOLL_FREE
   process.env.TELNYX_API_KEY = 'TEST_KEY'
+  process.env.DISABLE_PLATFORM_TOLL_FREE = 'true'
 
   try {
     const result = await sendTelnyxSms({
@@ -532,6 +534,8 @@ test('P1-003: sendTelnyxSms requires explicit from sender number and fails close
   } finally {
     if (origKey !== undefined) process.env.TELNYX_API_KEY = origKey
     else delete process.env.TELNYX_API_KEY
+    if (origDisableTollFree !== undefined) process.env.DISABLE_PLATFORM_TOLL_FREE = origDisableTollFree
+    else delete process.env.DISABLE_PLATFORM_TOLL_FREE
   }
 })
 

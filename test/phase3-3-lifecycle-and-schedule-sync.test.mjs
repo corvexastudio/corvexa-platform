@@ -429,7 +429,9 @@ test('NAV-002: updateJobStatus synchronizes no_show and cancelled to appointment
 })
 
 test('NAV-002: customerRescheduleBooking and customerCancelBooking synchronize linked job', async () => {
-  const initialTime = new Date('2026-11-01T14:00:00Z').toISOString()
+  const baseFuture = Date.now() + 86400000 * 2
+  const initialTime = new Date(baseFuture).toISOString()
+  const initialEndTime = new Date(baseFuture + 3600000).toISOString()
   const db = createMockDb({
     organizations: [{ id: 'org_1', name: 'Apex Masonry', timezone: 'America/Chicago' }],
     contacts: [{ id: 'cont_1', org_id: 'org_1', name: 'Rescheduling Customer', phone: '+15555550113' }],
@@ -442,7 +444,7 @@ test('NAV-002: customerRescheduleBooking and customerCancelBooking synchronize l
       title: 'Masonry Inspection - Rescheduling Customer',
       status: 'confirmed',
       start_time: initialTime,
-      end_time: new Date('2026-11-01T15:00:00Z').toISOString(),
+      end_time: initialEndTime,
       manage_token: 'tok_resched_1'
     }],
     jobs: [{
@@ -451,12 +453,12 @@ test('NAV-002: customerRescheduleBooking and customerCancelBooking synchronize l
       appointment_id: 'appt_resched',
       status: 'scheduled',
       scheduled_start: initialTime,
-      scheduled_end: new Date('2026-11-01T15:00:00Z').toISOString()
+      scheduled_end: initialEndTime
     }]
   })
 
   // Reschedule
-  const newStartTime = new Date('2026-11-02T16:00:00Z').toISOString()
+  const newStartTime = new Date(baseFuture + 86400000).toISOString()
   const reschedResult = await customerRescheduleBooking(db, 'tok_resched_1', newStartTime)
   assert.strictEqual(reschedResult.success, true)
 
@@ -594,7 +596,7 @@ test('LIFECYCLE-002: createBooking updates contact name from "New Caller" to cus
     serviceId: 'svc_std',
     customerName: 'Robert Johnson',
     customerPhone: '+15555550199',
-    startTime: new Date('2026-11-10T15:00:00Z').toISOString(),
+    startTime: new Date(Date.now() + 86400000 * 3).toISOString(),
     source: 'booking_page'
   })
 

@@ -2,6 +2,7 @@ import { FileText, Sparkles } from 'lucide-react'
 
 export const CANNED_RESPONSES = [
   "Hi! When would be a good time for me to come take a look?",
+  "You can pick a time directly on our schedule here: {booking_link}",
   "We can be there tomorrow between 9 AM and 11 AM. Does that work?",
   "I'm on my way to your property now!",
   "Just sent over your written estimate. Let me know if you have questions!",

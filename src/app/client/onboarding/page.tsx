@@ -277,7 +277,7 @@ export default function OnboardingPage() {
         <div className="flex items-center justify-center mb-5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-medium">
             <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-            <span>Free 3-Job Starter Pass • No credit card required</span>
+            <span>Free 3-Job Starter Pass Active • No credit card required</span>
           </div>
         </div>
 
@@ -542,7 +542,7 @@ export default function OnboardingPage() {
             {/* Booking Text Alert Mobile Number */}
             <div className="grid gap-1.5">
               <Label htmlFor="phone" className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                Mobile Phone for Job Alerts <span className="text-slate-400 dark:text-zinc-500 font-normal">(optional)</span>
+                Where should we text your booking alerts? <span className="text-slate-400 dark:text-zinc-500 font-normal">(optional)</span>
               </Label>
               <Input
                 id="phone"
@@ -716,7 +716,7 @@ export default function OnboardingPage() {
                   </>
                 ) : (
                   <>
-                    <span>Complete Setup</span>
+                    <span>Launch Workspace & Claim 3 Free Jobs</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}

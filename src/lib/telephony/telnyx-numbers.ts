@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhoneToE164 } from './phone-normalizer.ts'
+import {
+  PLATFORM_TOLL_FREE_NUMBER,
+  hasDedicatedPhoneNumber,
+  resolvePlatformTollFreeNumber,
+} from '../billing/plans.ts'
 
 export interface TelnyxNumberRecord {
   id: string
@@ -139,8 +144,53 @@ export async function verifyTenantOutboundSender(
   }
 
   const senderPhone = norm.e164
+  const platformTollFree = resolvePlatformTollFreeNumber()
 
-  // Check telnyx_phone_numbers
+  // Platform toll-free line (+18777713802) is shared by 3-job free trials and orgs awaiting dedicated DID activation.
+  // Once an org has an active dedicated number, it must send exclusively from that dedicated number.
+  if (senderPhone === platformTollFree || senderPhone === PLATFORM_TOLL_FREE_NUMBER) {
+    const orgRes = await supabase
+      .from('organizations')
+      .select('id, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status')
+      .eq('id', orgId)
+      .maybeSingle()
+    const org = orgRes?.data
+
+    const numListRes = await supabase
+      .from('telnyx_phone_numbers')
+      .select('id, org_id, phone_number, status, verification_status')
+      .eq('org_id', orgId)
+      .eq('status', 'active')
+    const orgActiveNumbers = Array.isArray(numListRes?.data) ? numListRes.data : []
+
+    const dedicatedNumRow = orgActiveNumbers.find(
+      (n: any) =>
+        n?.phone_number &&
+        !String(n.phone_number).startsWith('+1999') &&
+        n.phone_number !== platformTollFree &&
+        n.phone_number !== PLATFORM_TOLL_FREE_NUMBER
+    )
+
+    if (hasDedicatedPhoneNumber(org) || dedicatedNumRow) {
+      return {
+        allowed: false,
+        reason: 'Organization has an active dedicated number and must use it instead of the shared platform toll-free number',
+      }
+    }
+
+    if (!org) {
+      const ownsTollFreeRow = orgActiveNumbers.some(
+        (n: any) => n?.phone_number === senderPhone && n?.verification_status !== 'unverified'
+      )
+      if (!ownsTollFreeRow) {
+        return { allowed: false, reason: 'Organization not found' }
+      }
+    }
+
+    return { allowed: true }
+  }
+
+  // Dedicated DID check in telnyx_phone_numbers
   const { data: numRecord } = await supabase
     .from('telnyx_phone_numbers')
     .select('id, org_id, status, verification_status')

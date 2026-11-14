@@ -5,6 +5,7 @@ import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 import { verifyOutboundCompliance, logComplianceAudit } from '@/lib/compliance/compliance-engine'
 import { sendTelnyxSms } from '@/lib/telnyx'
 import { logAuditEvent } from '@/lib/security/audit-logger'
+import { hasDedicatedPhoneNumber, resolveSenderPhone } from '@/lib/billing/plans'
 
 /**
  * Settings Test SMS Endpoint:
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     // 2. Fetch Organization Settings
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name, owner_phone, telnyx_phone_number, auto_reply_template')
+      .select('id, name, owner_phone, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, auto_reply_template')
       .eq('id', orgId)
       .single()
 
@@ -80,7 +81,8 @@ export async function POST(request: Request) {
     }
 
     // 4. Resolve Outbound Sender Phone Number
-    let senderNumber = org.telnyx_phone_number
+    // Paid orgs with an active dedicated DID use it exclusively; 3-job free trials use the verified platform toll-free line (+18777713802).
+    let senderNumber = hasDedicatedPhoneNumber(org) ? org.telnyx_phone_number : null
     if (!senderNumber) {
       const { data: numRow } = await supabase
         .from('telnyx_phone_numbers')
@@ -89,14 +91,13 @@ export async function POST(request: Request) {
         .eq('status', 'active')
         .limit(1)
         .maybeSingle()
-      senderNumber = numRow?.phone_number
+      if (numRow?.phone_number && hasDedicatedPhoneNumber({ telnyx_phone_number: numRow.phone_number, phone_provisioning_status: 'active' })) {
+        senderNumber = numRow.phone_number
+      }
     }
 
     if (!senderNumber) {
-      return NextResponse.json(
-        { error: 'No active Telnyx number assigned to your organization. Complete forwarding setup first.' },
-        { status: 400, headers: rateHeaders }
-      )
+      senderNumber = resolveSenderPhone(org)
     }
 
     const { verifyTenantOutboundSender } = await import('@/lib/telephony/telnyx-numbers')

@@ -133,6 +133,9 @@ export function FirstBookingCelebrationModal({
                 <PhoneCall className="w-3.5 h-3.5" />
                 <span>Call (877) 771-3802 to Test</span>
               </a>
+              <p className="text-[11px] text-blue-700/90 dark:text-blue-300/80 leading-relaxed">
+                Note: Calls to the shared demo line log in the public <strong>CaptoDesk Demo</strong> workspace. Use <strong>Settings → Send Test SMS</strong> to test live outbound texts for this workspace, or upgrade to get your own dedicated inbound DID.
+              </p>
             </div>
           ) : (
             <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-950 dark:text-emerald-200 space-y-1">

@@ -11,6 +11,7 @@ import {
 } from './plans.ts'
 import { isPracticeJob } from '../jobs/practice-job.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { triggerDedicatedProvisioningOnUpgrade } from '../telephony/provisioning.ts'
 import type { SaasSubscription, SaasPayment, SaasSubscriptionStatus } from '../types/database.ts'
 
 export interface ActorContext {
@@ -447,6 +448,7 @@ export class SubscriptionService {
       .from('organizations')
       .update({
         subscription_status: 'active',
+        plan_id: plan.id,
         monthly_rate: plan.amount
       })
       .eq('id', orgId)
@@ -471,6 +473,11 @@ export class SubscriptionService {
         previous_status: previous?.status || 'none',
         new_status: 'active'
       }
+    })
+
+    // 6. Non-blocking Dedicated DID Provisioning
+    await triggerDedicatedProvisioningOnUpgrade(supabase, orgId).catch((err) => {
+      console.warn('[SUBSCRIPTION_ACTIVATE_PROVISIONING_WARNING]', err?.message || err)
     })
 
     return { subscription, payment }

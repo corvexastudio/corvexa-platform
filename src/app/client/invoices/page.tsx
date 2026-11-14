@@ -1,9 +1,10 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { selectBestAcceptedQuoteForJob } from '@/lib/jobs/quote-matching'
 import {
   CreditCard,
   Plus,
@@ -172,6 +173,14 @@ function ClientInvoicesContent() {
   const [newItems, setNewItems] = useState<InvoiceItem[]>([
     { description: '', quantity: 1, unit_price: 0 }
   ])
+  const newItemsRef = useRef<InvoiceItem[]>(newItems)
+  const selectedQuoteIdRef = useRef<string | null>(selectedQuoteId)
+  useEffect(() => {
+    newItemsRef.current = newItems
+  }, [newItems])
+  useEffect(() => {
+    selectedQuoteIdRef.current = selectedQuoteId
+  }, [selectedQuoteId])
   const { orgIndustry, operationMode } = useWorkspace()
   const [savingInvoice, setSavingInvoice] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all')
@@ -182,6 +191,20 @@ function ClientInvoicesContent() {
     customerName?: string
     invoiceNumber?: string
   } | null>(null)
+  const [starterUsage, setStarterUsage] = useState<{ isLimitReached: boolean; completedJobsCount: number } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    fetch('/api/client/billing')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (isMounted && d?.entitlement?.starterUsage) {
+          setStarterUsage(d.entitlement.starterUsage)
+        }
+      })
+      .catch(() => {})
+    return () => { isMounted = false }
+  }, [])
 
   // Align default trade with organization onboarding trade
   useEffect(() => {
@@ -398,8 +421,8 @@ function ClientInvoicesContent() {
   // 1-Tap Import from Approved Quote
   const handleImportQuote = useCallback((q: any) => {
     setSelectedQuoteId(q.id)
-    if (q.title && (invoiceTitle === 'Standard Service Invoice' || !invoiceTitle.trim())) {
-      setInvoiceTitle(q.title)
+    if (q.title) {
+      setInvoiceTitle(prev => (prev === 'Standard Service Invoice' || !prev.trim() ? q.title : prev))
     }
     const qItems = q.items || q.quote_items || []
     if (Array.isArray(qItems) && qItems.length > 0) {
@@ -426,7 +449,7 @@ function ClientInvoicesContent() {
       setTaxRate(String(rate))
     }
     toast.success(`Imported Estimate #${q.quote_number} items & price ($${Number(q.total || 0).toFixed(2)})`)
-  }, [invoiceTitle])
+  }, [])
 
   // Fetch matching accepted quotes when selected customer changes
   useEffect(() => {
@@ -434,24 +457,57 @@ function ClientInvoicesContent() {
       setMatchingQuotes([])
       return
     }
+    let cancelled = false
     setLoadingMatchingQuotes(true)
-    fetch(`/api/client/quotes?contact_id=${selectedContactId}&status=accepted&limit=5`)
+    fetch(`/api/client/quotes?contact_id=${encodeURIComponent(selectedContactId)}&status=accepted&limit=10`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
+        if (cancelled) return
         const qList = (data?.quotes || data?.items || []) as any[]
         setMatchingQuotes(qList)
+        if (qList.length === 0) return
 
-        // If specific quote_id was passed in URL, auto-import it immediately
-        if (quoteIdParam && qList.length > 0) {
-          const match = qList.find(q => q.id === quoteIdParam)
-          if (match) {
-            handleImportQuote(match)
+        // 1. Exact URL quote_id parameter always imports immediately
+        if (quoteIdParam) {
+          const exactMatch = qList.find(q => q.id === quoteIdParam)
+          if (exactMatch) {
+            handleImportQuote(exactMatch)
+            return
+          }
+        }
+
+        // 2. Otherwise auto-import matching approved estimate when line items are still blank
+        const currentItems = newItemsRef.current
+        const isBlankDraft =
+          !selectedQuoteIdRef.current &&
+          currentItems.length === 1 &&
+          !currentItems[0].description.trim() &&
+          Number(currentItems[0].unit_price) === 0
+
+        if (isBlankDraft) {
+          const autoMatch = selectBestAcceptedQuoteForJob(
+            {
+              id: jobIdParam || '',
+              contact_id: selectedContactId,
+              title: titleParam || null,
+            },
+            qList
+          )
+          if (autoMatch) {
+            handleImportQuote(autoMatch)
           }
         }
       })
-      .catch(() => setMatchingQuotes([]))
-      .finally(() => setLoadingMatchingQuotes(false))
-  }, [selectedContactId, quoteIdParam, handleImportQuote])
+      .catch(() => {
+        if (!cancelled) setMatchingQuotes([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMatchingQuotes(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedContactId, quoteIdParam, jobIdParam, titleParam, handleImportQuote])
 
   const handleSaveInvoice = async (sendImmediately: boolean) => {
     if (!selectedContactId || !invoiceTitle.trim()) {
@@ -478,6 +534,16 @@ function ClientInvoicesContent() {
       })
 
       const data = await res.json()
+      if (res.status === 402 || data.upgradeRequired) {
+        setShowCreateModal(false)
+        setGatedInvoiceData({
+          amount: total > 0 ? total : undefined,
+          customerName: contacts.find(c => c.id === selectedContactId)?.name || 'Customer'
+        })
+        setFoundMoneyModalOpen(true)
+        setSavingInvoice(false)
+        return
+      }
       if (!res.ok) {
         toast.error(data.error || 'Failed to create invoice')
         setSavingInvoice(false)
@@ -525,7 +591,7 @@ function ClientInvoicesContent() {
       } else if (res.status === 402 || data.upgradeRequired) {
         const inv = invoices.find(i => i.id === invoiceId)
         setGatedInvoiceData({
-          amount: inv ? (inv.amount_due || inv.total) : 250,
+          amount: inv ? (inv.amount_due || inv.total) : undefined,
           customerName: inv?.contact?.name || 'Customer',
           invoiceNumber: inv?.invoice_number
         })
@@ -566,6 +632,16 @@ function ClientInvoicesContent() {
         await loadInvoices()
       } else {
         const data = await res.json().catch(() => ({}))
+        if (res.status === 402 || data.upgradeRequired) {
+          setGatedInvoiceData({
+            amount: paymentModalInvoice.total || Number(paymentAmount) || 250,
+            customerName: paymentModalInvoice.contact?.name || 'Customer',
+            invoiceNumber: paymentModalInvoice.invoice_number
+          })
+          setPaymentModalInvoice(null)
+          setFoundMoneyModalOpen(true)
+          return
+        }
         toast.error(data.error || 'Failed to record payment')
       }
     } catch {
@@ -713,7 +789,14 @@ function ClientInvoicesContent() {
           </Button>
 
           <Button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (starterUsage?.isLimitReached) {
+                setGatedInvoiceData({ customerName: 'Customer' })
+                setFoundMoneyModalOpen(true)
+                return
+              }
+              setShowCreateModal(true)
+            }}
             size="sm"
             className="h-9 px-3.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs cursor-pointer"
           >

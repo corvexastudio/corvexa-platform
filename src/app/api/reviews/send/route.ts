@@ -81,6 +81,17 @@ export async function POST(request: Request) {
     })
 
     if (result.suppressed) {
+      if (result.reason === 'starter_limit_reached') {
+        return NextResponse.json(
+          {
+            success: false,
+            upgradeRequired: true,
+            code: 'STARTER_LIMIT_REACHED',
+            error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to send Google review requests."
+          },
+          { status: 402, headers: rateHeaders }
+        )
+      }
       return NextResponse.json(
         {
           success: false,

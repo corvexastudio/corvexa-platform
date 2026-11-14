@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '../telnyx.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 import { verifyOutboundCompliance } from '../compliance/compliance-engine.ts'
 import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
@@ -384,11 +385,11 @@ export async function reassignJobCrew(
   // 4. Fetch Organization details for SMS sender
   const { data: org } = await supabase
     .from('organizations')
-    .select('name, telnyx_phone_number, owner_phone')
+    .select('name, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, owner_phone')
     .eq('id', orgId)
     .single()
 
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+  const senderNumber = resolveSenderPhone(org)
 
   const jobContact = (Array.isArray(job.contact) ? job.contact[0] : job.contact) as { id?: string; name?: string; phone?: string; address?: string } | null
   const prevCrew = (Array.isArray(job.crew) ? job.crew[0] : job.crew) as { id?: string; name?: string } | null
@@ -647,11 +648,11 @@ export async function sendDailyCrewScheduleBroadcast(
 
   const { data: org } = await supabase
     .from('organizations')
-    .select('name, telnyx_phone_number, owner_phone, timezone')
+    .select('name, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, owner_phone, timezone')
     .eq('id', orgId)
     .single()
 
-  const senderNumber = org?.telnyx_phone_number || org?.owner_phone
+  const senderNumber = resolveSenderPhone(org)
   if (!senderNumber) {
     return { totalSent: 0, details: [] }
   }

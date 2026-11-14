@@ -159,11 +159,19 @@ export async function notifyOwner(
         const isInstant = data.isInstant ?? true
         const serviceName = data.serviceName || 'Service'
         const bookingTime = data.bookingTime || 'Upcoming'
-        notificationTitle =
-          notificationTitle || (isInstant ? 'New Appointment Booked' : 'New Booking Request')
-        notificationBody =
-          notificationBody || `${customerName} booked ${serviceName} for ${bookingTime}.`
-        smsCopy = `CaptoDesk: New booking: ${customerName} booked ${serviceName} for ${bookingTime}.`
+        const isRecovered = data.source === 'missed_call'
+        if (isRecovered) {
+          notificationTitle = notificationTitle || '⚡ Recovered Lead: New Appointment Booked!'
+          notificationBody =
+            notificationBody || `${customerName} booked ${serviceName} for ${bookingTime} from your missed call text-back!`
+          smsCopy = `CaptoDesk: ⚡ Recovered Lead! ${customerName} booked ${serviceName} for ${bookingTime} from your missed call text-back.`
+        } else {
+          notificationTitle =
+            notificationTitle || (isInstant ? 'New Appointment Booked' : 'New Booking Request')
+          notificationBody =
+            notificationBody || `${customerName} booked ${serviceName} for ${bookingTime}.`
+          smsCopy = `CaptoDesk: New booking: ${customerName} booked ${serviceName} for ${bookingTime}.`
+        }
         break
       }
       case 'starter_pass_welcome': {
@@ -182,20 +190,30 @@ export async function notifyOwner(
       case 'starter_job_booked': {
         const mode = resolveOperationMode(org)
         const milestone = data.jobMilestone || 1
-        notificationTitle =
-          notificationTitle || `🎉 [Job ${milestone} of 3 Free] New Booking`
-        notificationBody =
-          notificationBody ||
-          renderSituationAwareText('starter_job_booked', {
-            operationMode: mode,
-            customerName,
-            serviceName: data.serviceName,
-            bookingTime: data.bookingTime,
-            jobMilestone: milestone,
-            remainingJobs: data.remainingJobs,
-            targetUrl
-          })
-        smsCopy = notificationBody
+        const isRecovered = data.source === 'missed_call'
+        if (isRecovered) {
+          notificationTitle =
+            notificationTitle || `⚡ [Job ${milestone} of 3 Free] Recovered Missed Call Booked!`
+          notificationBody =
+            notificationBody ||
+            `${customerName} booked ${data.serviceName || 'Service'} for ${data.bookingTime || 'Upcoming'} from your missed call text-back!`
+          smsCopy = `CaptoDesk: ⚡ [Job ${milestone} of 3 Free] ${customerName} booked ${data.serviceName || 'Service'} for ${data.bookingTime || 'Upcoming'} from your missed call text-back!`
+        } else {
+          notificationTitle =
+            notificationTitle || `🎉 [Job ${milestone} of 3 Free] New Booking`
+          notificationBody =
+            notificationBody ||
+            renderSituationAwareText('starter_job_booked', {
+              operationMode: mode,
+              customerName,
+              serviceName: data.serviceName,
+              bookingTime: data.bookingTime,
+              jobMilestone: milestone,
+              remainingJobs: data.remainingJobs,
+              targetUrl
+            })
+          smsCopy = notificationBody
+        }
         break
       }
       case 'starter_job_completed': {
@@ -384,7 +402,7 @@ export async function notifyOwner(
         const smsOutcome = await notifyOwnerOfMissedCall(supabase, {
           org,
           callerPhone: data.callerPhone || '',
-          calledPhone: data.calledPhone || org?.telnyx_phone_number || '',
+          calledPhone: data.calledPhone || resolveSenderPhone(org),
           customerSmsSuccess: data.customerSmsSuccess ?? true,
           callId: data.callId,
           sendSmsFn: params.sendSmsFn,

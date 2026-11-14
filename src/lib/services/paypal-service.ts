@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSaasPlan, getPayPalPlanId, getEffectiveSetupFee } from '../billing/plans.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { triggerDedicatedProvisioningOnUpgrade } from '../telephony/provisioning.ts'
 
 export const ALLOWED_PAID_PLAN_TIERS = ['solo', 'multi_crew', 'fleet'] as const
 export type AllowedPaidPlanTier = typeof ALLOWED_PAID_PLAN_TIERS[number]
@@ -647,6 +648,11 @@ export class PayPalService {
           payer_id: payerId,
           payer_email: payerEmail
         }
+      })
+
+      // ── Step 13: Non-blocking Dedicated DID Provisioning ──
+      await triggerDedicatedProvisioningOnUpgrade(supabase, cleanOrgId).catch((err) => {
+        console.warn('[PAYPAL_ACTIVATE_PROVISIONING_WARNING]', err?.message || err)
       })
 
       return {

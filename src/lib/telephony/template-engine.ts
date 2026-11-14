@@ -115,7 +115,9 @@ export function resolveMissedCallTemplate(
   org: OrganizationTemplates,
   outcome: CallEvaluationResult,
   callerName?: string,
-  callbackNumber?: string
+  callbackNumber?: string,
+  callerPhone?: string,
+  contactId?: string
 ): { templateType: 'business_hours' | 'after_hours' | 'busy'; renderedText: string } {
   const isOpen = isWithinBusinessHours(org.business_hours, org.timezone || 'America/Chicago')
   
@@ -143,7 +145,22 @@ export function resolveMissedCallTemplate(
   }
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
-  const bookingUrl = org.booking_url || (org.slug ? `${appUrl}/book/${org.slug}` : '')
+  let bookingUrl = org.booking_url || (org.slug ? `${appUrl}/book/${org.slug}` : '')
+
+  // Contextual booking link: Prefill caller phone, source attribution, and contact reference
+  if (bookingUrl && callerPhone) {
+    const hasQuery = bookingUrl.includes('?')
+    const params = new URLSearchParams()
+    params.set('phone', callerPhone)
+    params.set('source', 'missed_call')
+    if (callerName && callerName !== 'there' && callerName !== 'Caller' && callerName !== 'New Caller') {
+      params.set('name', callerName)
+    }
+    if (contactId) {
+      params.set('cid', contactId)
+    }
+    bookingUrl = `${bookingUrl}${hasQuery ? '&' : '?'}${params.toString()}`
+  }
 
   const renderedText = renderTemplate(rawTemplate, {
     business_name: org.name || 'our team',

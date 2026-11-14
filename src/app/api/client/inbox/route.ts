@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         last_message_preview,
         unread_count,
         status,
-        contact:contacts(id, name, phone, email, address, notes, lifetime_value)
+        contact:contacts(id, name, phone, email, address, notes)
       `)
       .eq('org_id', orgId)
       .order('last_message_at', { ascending: false })

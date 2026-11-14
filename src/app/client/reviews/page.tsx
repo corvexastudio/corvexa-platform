@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { 
   Star, 
   Send, 
@@ -133,6 +135,9 @@ function getReviewStatusBadge(status: string) {
 }
 
 export default function ReviewsPage() {
+  const { operationMode } = useWorkspace()
+  const [showFoundMoneyModal, setShowFoundMoneyModal] = useState(false)
+  const [gatedCustomerName, setGatedCustomerName] = useState<string>('Customer')
   const [activeTab, setActiveTab] = useState<'reviews' | 'feedback'>('reviews')
   const [metrics, setMetrics] = useState({
     totalSent: 0,
@@ -310,6 +315,11 @@ export default function ReviewsPage() {
         setPhone('')
         loadData()
       } else {
+        if (res.status === 402 || data.upgradeRequired) {
+          setGatedCustomerName(name || 'Customer')
+          setShowFoundMoneyModal(true)
+          return
+        }
         toast.error(data.error || 'Failed to dispatch review invite.')
       }
     } catch {
@@ -1446,6 +1456,16 @@ export default function ReviewsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={showFoundMoneyModal}
+        onClose={() => setShowFoundMoneyModal(false)}
+        customerName={gatedCustomerName}
+        amountDue={250}
+        operationMode={operationMode === 'multi_crew' ? 'multi_crew' : 'solo'}
+        onSuccess={loadData}
+      />
 
     </div>
   )

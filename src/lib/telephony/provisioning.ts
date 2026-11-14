@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhoneToE164 } from './phone-normalizer.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { hasDedicatedPhoneNumber } from '../billing/plans.ts'
 import {
   TelnyxApiClient,
   TelnyxApiError,
@@ -297,11 +298,25 @@ export async function provisionOrganizationPhoneNumber(
   // 8. Submit Real Telnyx Number Order
   let orderResponse: TelnyxNumberOrderResponse
   try {
+    const resolvedConnectionId = connectionId || process.env.TELNYX_CONNECTION_ID || undefined
+    const resolvedMessagingProfileId =
+      messagingProfileId || process.env.TELNYX_MESSAGING_PROFILE_ID || undefined
+    const isTestEnv =
+      process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT)
+    if (!isTestEnv && (!resolvedConnectionId || !resolvedMessagingProfileId)) {
+      console.warn(
+        `[Telnyx Provisioning] Purchasing dedicated DID ${candidateNumber} without complete Telnyx routing IDs (` +
+          `connectionId=${resolvedConnectionId ? 'set' : 'MISSING'}, ` +
+          `messagingProfileId=${resolvedMessagingProfileId ? 'set' : 'MISSING'}). ` +
+          `Set TELNYX_CONNECTION_ID and TELNYX_MESSAGING_PROFILE_ID in production env.`
+      )
+    }
+
     orderResponse = await apiClient.createNumberOrder({
       phoneNumber: candidateNumber,
       customerReference: customerRef,
-      connectionId: connectionId || process.env.TELNYX_CONNECTION_ID || undefined,
-      messagingProfileId: messagingProfileId || process.env.TELNYX_MESSAGING_PROFILE_ID || undefined
+      connectionId: resolvedConnectionId,
+      messagingProfileId: resolvedMessagingProfileId
     })
   } catch (orderErr: any) {
     await supabase
@@ -497,5 +512,72 @@ async function finalizeProvisionedNumber(
     recordId,
     orderId,
     status: 'active'
+  }
+}
+
+/**
+ * Best-effort, non-blocking dedicated DID provisioning trigger executed when a client pays for
+ * and activates a subscription.
+ * Skips safely in test/mock/unconfigured Telnyx environments and never fails subscription activation.
+ */
+export async function triggerDedicatedProvisioningOnUpgrade(
+  supabase: SupabaseClient,
+  orgId: string,
+  options?: {
+    apiClient?: TelnyxApiClient
+    forceInTest?: boolean
+  }
+): Promise<{ triggered: boolean; reason?: string; result?: ProvisionNumberResult }> {
+  if (!orgId || typeof supabase?.from !== 'function') {
+    return { triggered: false, reason: 'invalid_args' }
+  }
+
+  try {
+    if (!options?.apiClient) {
+      if ((process.env.NODE_ENV === 'test' || process.env.TELNYX_MOCK_DISPATCH === 'true') && !options?.forceInTest) {
+        return { triggered: false, reason: 'skipped_in_test_env' }
+      }
+      const apiKey = process.env.TELNYX_API_KEY?.trim() || ''
+      if (!apiKey || apiKey === 'TEST_KEY' || apiKey.startsWith('KEY0123456') || /^(test|mock|dummy)/i.test(apiKey)) {
+        return { triggered: false, reason: 'telnyx_not_configured' }
+      }
+    }
+
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('id, owner_phone, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status')
+      .eq('id', orgId)
+      .maybeSingle()
+
+    if (!org) {
+      return { triggered: false, reason: 'org_not_found' }
+    }
+
+    if (hasDedicatedPhoneNumber(org)) {
+      return { triggered: false, reason: 'already_has_dedicated_number' }
+    }
+
+    if (org.phone_provisioning_status === 'provisioning') {
+      return { triggered: false, reason: 'already_provisioning' }
+    }
+
+    const normOwner = org.owner_phone ? normalizePhoneToE164(org.owner_phone) : null
+    const areaMatch =
+      normOwner?.isValid && normOwner.e164
+        ? normOwner.e164.match(/^\+1([2-9]\d{2})\d{7}$/)
+        : null
+
+    const result = await provisionOrganizationPhoneNumber(supabase, {
+      orgId,
+      preferredNumberOrAreaCode: areaMatch?.[1],
+      messagingProfileId: process.env.TELNYX_MESSAGING_PROFILE_ID || undefined,
+      connectionId: process.env.TELNYX_CONNECTION_ID || undefined,
+      apiClient: options?.apiClient
+    })
+
+    return { triggered: true, result }
+  } catch (err: any) {
+    console.warn(`[AUTO_PROVISION_UPGRADE_WARNING] Org ${orgId}:`, err?.message || err)
+    return { triggered: false, reason: err?.message || 'provisioning_error' }
   }
 }

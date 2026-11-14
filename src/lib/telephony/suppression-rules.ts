@@ -12,6 +12,7 @@ export interface SuppressionCheckParams {
   isMissedCallActive: boolean
   cooldownHours?: number
   timezone?: string
+  enforceQuietHours?: boolean
   overrideDate?: Date
 }
 
@@ -66,6 +67,7 @@ export async function evaluateSuppression(
     isMissedCallActive,
     cooldownHours = 24,
     timezone = 'America/Chicago',
+    enforceQuietHours = true,
     overrideDate
   } = params
 
@@ -106,25 +108,27 @@ export async function evaluateSuppression(
     return { shouldSend: false, suppressionReason: 'short_call_misdial' }
   }
 
-  // 6. TCPA quiet hours curfew (8:00 PM to 8:00 AM)
-  if (isTcpaQuietHours(timezone, overrideDate)) {
+  // 6. TCPA quiet hours curfew (8:00 PM to 8:00 AM) unless explicitly disabled on the org (e.g. interactive demo)
+  if (enforceQuietHours && isTcpaQuietHours(timezone, overrideDate)) {
     return { shouldSend: false, suppressionReason: 'tcpa_quiet_hours' }
   }
 
   // 7. Cooldown window check: Has an automated reply already been sent to this caller recently?
-  const cooldownCutoff = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString()
-  
-  const { data: recentCalls, error: queryError } = await supabase
-    .from('calls')
-    .select('id')
-    .eq('org_id', orgId)
-    .eq('caller_number', callerNumber)
-    .eq('auto_reply_sent', true)
-    .gte('created_at', cooldownCutoff)
-    .limit(1)
+  if (cooldownHours > 0) {
+    const cooldownCutoff = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString()
 
-  if (!queryError && recentCalls && recentCalls.length > 0) {
-    return { shouldSend: false, suppressionReason: 'cooldown_active' }
+    const { data: recentCalls, error: queryError } = await supabase
+      .from('calls')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('caller_number', callerNumber)
+      .eq('auto_reply_sent', true)
+      .gte('created_at', cooldownCutoff)
+      .limit(1)
+
+    if (!queryError && recentCalls && recentCalls.length > 0) {
+      return { shouldSend: false, suppressionReason: 'cooldown_active' }
+    }
   }
 
   // All safety checks passed

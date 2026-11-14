@@ -17,6 +17,7 @@ import { evaluateAndApplyStopConditions } from '../automations/stop-conditions.t
 import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
 import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted, resolveSenderPhone } from '../billing/subscription-service.ts'
+import { formatCustomerName, formatStandardUsAddress } from './customer-input-formatter.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -29,6 +30,7 @@ export interface CreateBookingInput {
   notes?: string
   photos?: string[] // Customer diagnostic intake photos
   source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call' | 'referral'
+  smsConsent?: boolean
   referralCode?: string
   appBaseUrl?: string
 }
@@ -162,13 +164,18 @@ export async function createBooking(
   }
 
   // Also check standalone jobs scheduled directly from dashboard to prevent booking conflicts
-  const { data: standaloneJobs } = await supabase
+  let standaloneQuery: any = supabase
     .from('jobs')
     .select('id, scheduled_start, scheduled_end, status')
     .eq('org_id', orgId)
-    .is('appointment_id', null)
-    .is('deleted_at', null)
-    .in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+
+  if (typeof standaloneQuery?.is === 'function') {
+    standaloneQuery = standaloneQuery.is('appointment_id', null).is('deleted_at', null)
+  }
+  if (typeof standaloneQuery?.in === 'function') {
+    standaloneQuery = standaloneQuery.in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+  }
+  const { data: standaloneJobs } = await standaloneQuery
 
   if (standaloneJobs && standaloneJobs.length > 0) {
     for (const job of standaloneJobs) {
@@ -196,15 +203,15 @@ export async function createBooking(
     const currentTags: string[] = existingContact.tags || []
     const updatedTags = Array.from(new Set([...currentTags, 'booking', 'lead']))
     const resolvedName = (customerName && customerName !== 'Customer' && customerName.trim())
-      ? customerName.trim()
-      : (existingContact.name && existingContact.name !== 'New Caller' ? existingContact.name : (customerName || null))
+      ? formatCustomerName(customerName)
+      : (existingContact.name && existingContact.name !== 'New Caller' ? formatCustomerName(existingContact.name) : (formatCustomerName(customerName) || null))
 
     await supabase
       .from('contacts')
       .update({
         name: resolvedName,
         email: customerEmail || existingContact.email,
-        address: customerAddress || existingContact.address,
+        address: customerAddress ? formatStandardUsAddress(customerAddress) : existingContact.address,
         tags: updatedTags,
         updated_at: new Date().toISOString()
       })
@@ -229,10 +236,10 @@ export async function createBooking(
       .from('contacts')
       .insert({
         org_id: orgId,
-        name: customerName,
+        name: formatCustomerName(customerName) || 'Customer',
         phone: normalizedPhone.e164,
         email: customerEmail || null,
-        address: customerAddress || null,
+        address: customerAddress ? formatStandardUsAddress(customerAddress) : null,
         tags: ['lead', 'booking']
       })
       .select('id')
@@ -260,7 +267,7 @@ export async function createBooking(
 
   const { data: existingLead } = await supabase
     .from('leads')
-    .select('id')
+    .select('id, source')
     .eq('org_id', orgId)
     .eq('contact_id', contactId)
     .order('created_at', { ascending: false })
@@ -269,8 +276,13 @@ export async function createBooking(
 
   if (existingLead) {
     leadId = existingLead.id
+    // If the existing lead originated from a missed call or incoming text, elevate that attribution
+    if (existingLead.source === 'missed_call' || source === 'missed_call') {
+      effectiveSource = 'missed_call'
+    }
     const leadUpdates: Record<string, any> = {
       status: 'booked',
+      source: effectiveSource,
       service_needed: activeService.name,
       updated_at: new Date().toISOString()
     }
@@ -329,7 +341,7 @@ export async function createBooking(
     start_time: startTime,
     end_time: endTime,
     status: initialStatus,
-    source,
+    source: effectiveSource,
     manage_token: manageToken,
     notes: effectiveNotes,
     confirmed_at: isInstant ? new Date().toISOString() : null
@@ -415,7 +427,7 @@ export async function createBooking(
       assignedTo: autoAssignedTo,
       crewId: autoCrewId,
       title: `${activeService.name} - ${customerName}`,
-      description: notes || `Booked via ${source || 'booking link'}`,
+      description: notes || (effectiveSource === 'missed_call' ? '⚡ Recovered via Missed Call Text-Back' : `Booked via ${effectiveSource || 'booking link'}`),
       scheduledStart: startTime,
       scheduledEnd: endTime,
       notes: notes || undefined
@@ -479,14 +491,26 @@ export async function createBooking(
   await handleAutomationEvent(supabase, eventEnvelope)
 
   // 10. Record Consent & Dispatch Confirmation SMS via Telnyx
-  await recordConsent(supabase, {
-    orgId,
-    phone: normalizedPhone.e164,
-    contactId: contactId || undefined,
-    consentType: 'transactional',
-    source: source || 'booking_page',
-    proofText: `Appointment booking for ${activeService.name} on ${displayTime}`
-  })
+  const isSmsConsented = input.smsConsent !== false
+  if (isSmsConsented) {
+    await recordConsent(supabase, {
+      orgId,
+      phone: normalizedPhone.e164,
+      contactId: contactId || undefined,
+      consentType: 'transactional',
+      source: effectiveSource || 'booking_page',
+      proofText: `Appointment booking for ${activeService.name} on ${displayTime} (SMS opt-in checkbox selected)`
+    })
+  } else {
+    await logComplianceAudit(supabase, {
+      orgId,
+      phone: normalizedPhone.e164,
+      contactId: contactId || undefined,
+      action: 'opt_out',
+      messageType: 'transactional',
+      reason: 'customer_sms_opt_out'
+    })
+  }
 
   const senderNumber = resolveSenderPhone(org)
   let confirmationText = ''
@@ -533,10 +557,13 @@ export async function createBooking(
     })
 
     try {
+      const isRecovered = effectiveSource === 'missed_call'
       await supabase.from('notifications').insert({
         org_id: orgId,
-        title: '🚨 New Online Booking Waiting - Upgrade to Unlock',
-        message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to unlock this job and dispatch immediately.`,
+        title: isRecovered ? '🚨 Recovered Missed Call Waiting - Upgrade to Unlock' : '🚨 New Online Booking Waiting - Upgrade to Unlock',
+        message: isRecovered
+          ? `${customerName} booked ${activeService.name} for ${displayTime} from your missed call text-back. Phone: ${normalizedPhone.e164}. You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to unlock this job and dispatch immediately.`
+          : `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to unlock this job and dispatch immediately.`,
         link: '/client/billing?reason=starter_limit'
       })
     } catch {
@@ -553,6 +580,7 @@ export async function createBooking(
         bookingTime: displayTime,
         jobRevenue: Number(activeService.price) || 0,
         appointmentId: appointment.id,
+        source: effectiveSource,
         upgradeUrl: '/client/billing?reason=starter_limit'
       }
     }).catch(() => {})
@@ -560,10 +588,15 @@ export async function createBooking(
     // Free tier milestone alerts to owner
     if (!isEntitled) {
       try {
+        const isRecovered = effectiveSource === 'missed_call'
         await supabase.from('notifications').insert({
           org_id: orgId,
-          title: `🎉 [Job ${milestone} of 3 Free] New Online Booking Received`,
-          message: `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. ${remaining > 0 ? `${remaining} free job(s) remaining on Starter Pass.` : 'This is your final free starter job!'}`,
+          title: isRecovered
+            ? `⚡ [Job ${milestone} of 3 Free] Recovered Missed Call Booked!`
+            : `🎉 [Job ${milestone} of 3 Free] New Online Booking Received`,
+          message: isRecovered
+            ? `${customerName} booked ${activeService.name} for ${displayTime} from your missed call text-back! Phone: ${normalizedPhone.e164}. ${remaining > 0 ? `${remaining} free job(s) remaining on Starter Pass.` : 'This is your final free starter job!'}`
+            : `${customerName} booked ${activeService.name} for ${displayTime}. Phone: ${normalizedPhone.e164}. ${remaining > 0 ? `${remaining} free job(s) remaining on Starter Pass.` : 'This is your final free starter job!'}`,
           link: '/client/jobs'
         })
       } catch {
@@ -581,6 +614,7 @@ export async function createBooking(
           jobMilestone: milestone,
           remainingJobs: remaining,
           appointmentId: appointment.id,
+          source: effectiveSource,
           targetUrl: '/client/jobs'
         }
       }).catch(() => {})
@@ -624,86 +658,97 @@ export async function createBooking(
         }
       }).catch(() => {})
     } else if (senderNumber) {
-      const compliance = await verifyOutboundCompliance(supabase, {
-        orgId,
-        toPhone: normalizedPhone.e164,
-        fromPhone: senderNumber,
-        flowType: 'booking_confirmation',
-        messageType: 'transactional',
-        body: confirmationText,
-        contactId: contactId || undefined
-      })
-
-      if (compliance.allowed) {
-        const smsResult = await sendTelnyxSms({
-          to: normalizedPhone.e164,
-          from: senderNumber,
-          text: compliance.formattedText
-        })
-
+      if (!isSmsConsented) {
         await logComplianceAudit(supabase, {
           orgId,
           phone: normalizedPhone.e164,
           contactId: contactId || undefined,
-          action: 'message_sent',
+          action: 'message_suppressed',
           messageType: 'transactional',
-          reason: 'booking_confirmation'
+          reason: 'customer_sms_opt_out'
+        })
+      } else {
+        const compliance = await verifyOutboundCompliance(supabase, {
+          orgId,
+          toPhone: normalizedPhone.e164,
+          fromPhone: senderNumber,
+          flowType: 'booking_confirmation',
+          messageType: 'transactional',
+          body: confirmationText,
+          contactId: contactId || undefined
         })
 
-        // LIFECYCLE-001: Sync confirmation SMS into Inbox conversations thread
-        try {
-          if (contactId) {
-            let { data: conversation } = await supabase
-              .from('conversations')
-              .select('id')
-              .eq('org_id', orgId)
-              .eq('contact_id', contactId)
-              .maybeSingle()
+        if (compliance.allowed) {
+          const smsResult = await sendTelnyxSms({
+            to: normalizedPhone.e164,
+            from: senderNumber,
+            text: compliance.formattedText
+          })
 
-            if (!conversation) {
-              const { data: newConv } = await supabase
+          await logComplianceAudit(supabase, {
+            orgId,
+            phone: normalizedPhone.e164,
+            contactId: contactId || undefined,
+            action: 'message_sent',
+            messageType: 'transactional',
+            reason: 'booking_confirmation'
+          })
+
+          // LIFECYCLE-001: Sync confirmation SMS into Inbox conversations thread
+          try {
+            if (contactId) {
+              let { data: conversation } = await supabase
                 .from('conversations')
-                .insert({
-                  org_id: orgId,
-                  contact_id: contactId,
-                  last_message_preview: compliance.formattedText
-                })
                 .select('id')
-                .single()
-              conversation = newConv
-            } else {
-              await supabase
-                .from('conversations')
-                .update({
-                  last_message_preview: compliance.formattedText,
-                  last_message_at: new Date().toISOString()
-                })
-                .eq('id', conversation.id)
-            }
+                .eq('org_id', orgId)
+                .eq('contact_id', contactId)
+                .maybeSingle()
 
-            if (conversation) {
-              await supabase.from('messages').insert({
-                org_id: orgId,
-                conversation_id: conversation.id,
-                direction: 'outbound',
-                sender_type: 'system',
-                body: compliance.formattedText,
-                delivery_status: smsResult?.success ? 'sent' : 'failed',
-                telnyx_message_id: smsResult?.messageId,
-                automation_source: 'booking_confirmation',
-                failure_reason: smsResult?.error || null
-              })
+              if (!conversation) {
+                const { data: newConv } = await supabase
+                  .from('conversations')
+                  .insert({
+                    org_id: orgId,
+                    contact_id: contactId,
+                    last_message_preview: compliance.formattedText
+                  })
+                  .select('id')
+                  .single()
+                conversation = newConv
+              } else {
+                await supabase
+                  .from('conversations')
+                  .update({
+                    last_message_preview: compliance.formattedText,
+                    last_message_at: new Date().toISOString()
+                  })
+                  .eq('id', conversation.id)
+              }
+
+              if (conversation) {
+                await supabase.from('messages').insert({
+                  org_id: orgId,
+                  conversation_id: conversation.id,
+                  direction: 'outbound',
+                  sender_type: 'system',
+                  body: compliance.formattedText,
+                  delivery_status: smsResult?.success ? 'sent' : 'failed',
+                  telnyx_message_id: smsResult?.messageId,
+                  automation_source: 'booking_confirmation',
+                  failure_reason: smsResult?.error || null
+                })
+              }
             }
+          } catch (convErr) {
+            console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
           }
-        } catch (convErr) {
-          console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
         }
       }
     }
   }
 
-  // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed
-  if (isInstant && senderNumber && !isTrialLimitReached && !isStarterLimitReached) {
+  // 11. Schedule Pre-Appointment Reminders (24h & 2h before) if Confirmed and SMS not suppressed and consented
+  if (isInstant && senderNumber && !isTrialLimitReached && !isStarterLimitReached && isSmsConsented) {
     await scheduleAppointmentReminders(supabase, {
       appointmentId: appointment.id,
       orgId,
@@ -730,16 +775,22 @@ export async function createBooking(
         bookingTime: displayTime,
         isInstant,
         appointmentId: appointment.id,
+        source: effectiveSource,
         targetUrl: '/client/calendar'
       }
     })
   } catch (notifErr) {
     console.warn('[BOOKING NOTIFICATION ERROR]', notifErr)
     try {
+      const isRecovered = effectiveSource === 'missed_call'
       await supabase.from('notifications').insert({
         org_id: orgId,
-        title: isInstant ? 'New Appointment Booked' : 'New Booking Request',
-        message: `${customerName} booked ${activeService.name} for ${displayTime}`,
+        title: isRecovered
+          ? '⚡ Recovered Lead: New Appointment Booked!'
+          : (isInstant ? 'New Appointment Booked' : 'New Booking Request'),
+        message: isRecovered
+          ? `${customerName} booked ${activeService.name} for ${displayTime} from your missed call text-back!`
+          : `${customerName} booked ${activeService.name} for ${displayTime}`,
         link: '/client/calendar'
       })
     } catch {
@@ -892,17 +943,28 @@ export async function customerCancelBooking(
 
   // P0 Guard: If payment or deposit has already been processed, require direct office contact for cancellation/refund
   if (linkedCancelJob?.id) {
-    const { data: paidInv } = await supabase
+    let invQuery: any = supabase
       .from('invoices')
       .select('id, amount_paid')
       .eq('job_id', linkedCancelJob.id)
       .eq('org_id', apt.org_id)
-      .gt('amount_paid', 0)
-      .is('deleted_at', null)
-      .limit(1)
-      .maybeSingle()
 
-    if (paidInv) {
+    if (typeof invQuery?.gt === 'function') {
+      invQuery = invQuery.gt('amount_paid', 0)
+    }
+    if (typeof invQuery?.is === 'function') {
+      invQuery = invQuery.is('deleted_at', null)
+    }
+    if (typeof invQuery?.limit === 'function') {
+      invQuery = invQuery.limit(1)
+    }
+    const { data: paidInv } = typeof invQuery?.maybeSingle === 'function'
+      ? await invQuery.maybeSingle()
+      : typeof invQuery?.single === 'function'
+        ? await invQuery.single().catch(() => ({ data: null }))
+        : await invQuery
+
+    if (paidInv && Number((paidInv as any).amount_paid) > 0) {
       return {
         success: false,
         error: 'A payment or deposit has already been processed for this service. Please contact our office directly to cancel and arrange your refund.'
@@ -1142,13 +1204,19 @@ export async function customerRescheduleBooking(
     }
   }
 
-  const { data: otherStandaloneJobs } = await supabase
+  let otherStandaloneQuery: any = supabase
     .from('jobs')
     .select('id, scheduled_start, scheduled_end, status')
     .eq('org_id', apt.org_id)
     .neq('appointment_id', apt.id)
-    .is('deleted_at', null)
-    .in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+
+  if (typeof otherStandaloneQuery?.is === 'function') {
+    otherStandaloneQuery = otherStandaloneQuery.is('deleted_at', null)
+  }
+  if (typeof otherStandaloneQuery?.in === 'function') {
+    otherStandaloneQuery = otherStandaloneQuery.in('status', ['scheduled', 'confirmed', 'en_route', 'in_progress'])
+  }
+  const { data: otherStandaloneJobs } = await otherStandaloneQuery
 
   if (otherStandaloneJobs && otherStandaloneJobs.length > 0) {
     for (const job of otherStandaloneJobs) {

@@ -21,6 +21,27 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}))
 
+    // Finish-Line Sunk Cost Paywall Guard: Converting quote to Job #4+ requires Pro once 3 free starter jobs are completed
+    const { SubscriptionService } = await import('@/lib/billing/subscription-service')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        return NextResponse.json(
+          {
+            success: false,
+            upgradeRequired: true,
+            code: 'STARTER_LIMIT_REACHED',
+            error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to convert estimates to dispatched jobs.",
+            checkoutUrl: '/client/billing?reason=starter_limit'
+          },
+          { status: 402 }
+        )
+      }
+    }
+
     const result = await convertQuoteToJob(supabase, {
       quoteId: id,
       orgId,

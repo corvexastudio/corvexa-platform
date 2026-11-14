@@ -59,7 +59,7 @@ import { formatTimeInTz, formatDateInTz } from '@/lib/temporal/timezone'
 import { BookingShareBar } from '@/components/booking/booking-share-bar'
 import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
-import { JobWonBadge } from '@/components/jobs/job-won-badge'
+import { JobWonBadge, JobPricingBadge } from '@/components/jobs/job-won-badge'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { PushNotificationBanner } from '@/components/notifications/push-notification-banner'
 import { cn } from '@/lib/utils'
@@ -256,10 +256,24 @@ export default function DashboardPage() {
       phone: activeJob.customerPhone || '',
       address: activeJob.address || null
     },
-    technician_name: activeJob.technicianName && activeJob.technicianName !== 'Unassigned' ? activeJob.technicianName : (userFullName || 'Lead Technician'),
-    assigned_profile: { full_name: activeJob.technicianName },
+    technician_name:
+      activeJob.technicianName && activeJob.technicianName !== 'Unassigned'
+        ? activeJob.technicianName
+        : null,
+    assigned_profile:
+      activeJob.technicianName && activeJob.technicianName !== 'Unassigned'
+        ? { full_name: activeJob.technicianName }
+        : null,
     tracking_token: activeJob.trackingToken || null
   } : null
+
+  const resolveGatedJobAmount = (payload?: { amountDue?: unknown; amount?: unknown }) => {
+    if (typeof payload?.amountDue === 'number' && payload.amountDue > 0) return payload.amountDue
+    if (typeof payload?.amount === 'number' && payload.amount > 0) return payload.amount
+    if (typeof activeJob?.servicePrice === 'number' && activeJob.servicePrice > 0) return activeJob.servicePrice
+    if (typeof activeJob?.quoteAmount === 'number' && activeJob.quoteAmount > 0) return activeJob.quoteAmount
+    return undefined
+  }
 
   const handleConfirmEnRoute = async ({
     technicianName,
@@ -271,8 +285,9 @@ export default function DashboardPage() {
     notifyCustomer: boolean
   }) => {
     if (!activeJob) return
+    let res: Response
     try {
-      const res = await fetch(`/api/client/jobs/${activeJob.id}/status`, {
+      res = await fetch(`/api/client/jobs/${activeJob.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -282,27 +297,33 @@ export default function DashboardPage() {
           notifyCustomer
         })
       })
-      const result = await res.json()
-      if (res.ok && result.success) {
-        toast.success(
-          notifyCustomer
-            ? `🚗 On my way! Customer notified with ~${etaMinutes}m ETA & tracking link.`
-            : 'Job marked en route.'
-        )
-        await refetch()
-      } else if (res.status === 402 || result.upgradeRequired) {
-        setGatedJobData({
-          amount: 250,
-          customerName: activeJob.customerName
-        })
-        setEnRouteModalOpen(false)
-        setFoundMoneyModalOpen(true)
-      } else {
-        toast.error(result.error || 'Failed to update status to en route.')
-      }
     } catch {
-      toast.error('Network error updating status.')
+      const netMsg = 'Network error updating status. Please check your connection and try again.'
+      toast.error(netMsg)
+      throw new Error(netMsg)
     }
+    const result = await res.json().catch(() => ({}))
+    if (res.ok && result.success) {
+      toast.success(
+        notifyCustomer
+          ? `On my way! Customer notified with ~${etaMinutes}m ETA & tracking link.`
+          : 'Marked En Route (status updated without SMS).'
+      )
+      await refetch()
+      return
+    }
+    if (res.status === 402 || result.upgradeRequired) {
+      setGatedJobData({
+        amount: resolveGatedJobAmount(result),
+        customerName: activeJob.customerName
+      })
+      setEnRouteModalOpen(false)
+      setFoundMoneyModalOpen(true)
+      return
+    }
+    const errMsg = result.error || 'Failed to update status to en route.'
+    toast.error(errMsg)
+    throw new Error(errMsg)
   }
 
   const handleTimestampAction = async (action: 'arrived' | 'started' | 'completed') => {
@@ -321,12 +342,18 @@ export default function DashboardPage() {
         } else if (action === 'started') {
           toast.success('▶️ Started work on-site! Job is now in progress.')
         } else if (action === 'completed') {
-          toast.success('✅ Job completed! Draft invoice generated automatically.')
+          toast.success('✅ Job completed! Draft invoice generated automatically.', {
+            action: {
+              label: 'Collect Payment',
+              onClick: () => router.push('/client/invoices')
+            },
+            duration: 8000
+          })
         }
         await refetch()
       } else if (res.status === 402 || result.upgradeRequired) {
         setGatedJobData({
-          amount: 250,
+          amount: resolveGatedJobAmount(result),
           customerName: activeJob.customerName
         })
         setFoundMoneyModalOpen(true)
@@ -374,7 +401,7 @@ export default function DashboardPage() {
         }
       case 'appointment':
         return {
-          label: 'Booking Request',
+          label: 'Confirmed Booking',
           variant: 'success' as const,
           icon: CalendarCheck
         }
@@ -497,8 +524,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Free 3-Job Starter Pass Status Banner */}
-      {!isPayingCustomer && (
+      {/* Free 3-Job Starter Pass Status Banner (hidden once Starter Pass or Trial limit is reached) */}
+      {!isPayingCustomer && !data?.starterUsage?.isLimitReached && !(data?.trialStatus?.isTrial && data?.trialStatus?.isExceeded) && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs text-xs">
           <div className="flex items-center gap-2.5">
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
@@ -591,6 +618,12 @@ export default function DashboardPage() {
                     <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
                       {item.subtitle}
                     </p>
+                    {item.category === 'appointment' && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        <span>Auto-confirmed via SMS • Ready for route</span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end">
@@ -651,36 +684,69 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : nonPracticeJobs.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-0.5 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0" />
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    No appointments scheduled for today
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 pl-4">
-                  Confirmed bookings and route jobs will appear here.
-                </p>
-              </div>
+            (() => {
+              const nextUpcomingBooking = attentionQueue.find(i => i.category === 'appointment')
+              if (nextUpcomingBooking) {
+                return (
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                          No stops remaining for today • Next booking is coming up!
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-zinc-300 pl-4">
+                        {nextUpcomingBooking.title} — {nextUpcomingBooking.subtitle || 'Auto-confirmed via SMS'}.
+                      </p>
+                    </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <Link
-                  href="/client/calendar"
-                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Schedule Job</span>
-                </Link>
-                <Link
-                  href="/client/quotes"
-                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
-                >
-                  <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                  <span>New Quote</span>
-                </Link>
-              </div>
-            </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Link
+                        href="/client/calendar"
+                        className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>View on Calendar</span>
+                      </Link>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0" />
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                        No appointments scheduled for today
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 pl-4">
+                      Confirmed bookings and route jobs will appear here.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      href="/client/calendar"
+                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Schedule Job</span>
+                    </Link>
+                    <Link
+                      href="/client/quotes"
+                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                      <span>New Quote</span>
+                    </Link>
+                  </div>
+                </div>
+              )
+            })()
           ) : (
             <div className="space-y-3.5">
               {/* Driver's Seat Hero Card (Solo Owner Command) */}
@@ -722,6 +788,12 @@ export default function DashboardPage() {
                       <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 font-medium">
                         #{activeJob.jobNumber}
                       </span>
+                      <JobPricingBadge
+                        servicePrice={activeJob.servicePrice}
+                        pricingModel={activeJob.pricingModel}
+                        quoteAmount={activeJob.quoteAmount}
+                        quoteStatus={activeJob.quoteStatus}
+                      />
                     </div>
 
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 px-2.5 py-1 rounded-md">
@@ -742,8 +814,8 @@ export default function DashboardPage() {
                       <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
                         {activeJob.customerName}
                       </h3>
-                      <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-                        {activeJob.title}
+                      <span className="text-xs font-medium text-slate-600 dark:text-zinc-300">
+                        {activeJob.cleanTitle || activeJob.title}
                       </span>
                     </div>
 
@@ -796,10 +868,10 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => setEnRouteModalOpen(true)}
                         disabled={actionLoading}
-                        className="min-h-[44px] px-4 font-semibold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer gap-2"
+                        className="min-h-[44px] px-4 font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer gap-2"
                       >
                         <Truck className="h-4 w-4" />
-                        <span>On My Way</span>
+                        <span>On My Way (Send ETA SMS)</span>
                       </Button>
                     )}
 
@@ -860,100 +932,125 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
-                        All appointments completed for today
+                        All stops completed for today
                       </p>
                       <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                        {nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'appointment' : 'appointments'} completed.
+                        {nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'appointment' : 'appointments'} completed. Draft invoices are ready to send.
                       </p>
                     </div>
                   </div>
                   <Link
-                    href="/client/calendar"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+                    href="/client/invoices"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
                   >
-                    <span>View Calendar</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
+                    <span>Collect Payments &rarr;</span>
                   </Link>
                 </div>
               )}
 
-              {/* Day's Agenda Timeline */}
-              <div className="space-y-2.5">
-              {jobsToday.map((job) => {
-                if (isPracticeJob(job)) {
-                  return null
+              {/* Day's Agenda Timeline (Remaining Stops) */}
+              {(() => {
+                const remainingJobs = nonPracticeJobs.filter((j) => j.id !== activeJob?.id)
+
+                if (remainingJobs.length === 0) {
+                  return (
+                    <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/40 p-3 sm:px-4 flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
+                      <div className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        <span>All scheduled stops for today are in the driver command above.</span>
+                      </div>
+                      <Link
+                        href="/client/schedule"
+                        className="font-medium text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 shrink-0"
+                      >
+                        <span>View Schedule</span>
+                        <span>&rarr;</span>
+                      </Link>
+                    </div>
+                  )
                 }
 
-                const isActiveCurrent = activeJob?.id === job.id
                 return (
-                <div
-                  key={job.id}
-                  className={cn(
-                    "rounded-xl border bg-white dark:bg-zinc-900 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all",
-                    isActiveCurrent
-                      ? "border-blue-500/60 dark:border-blue-500/50 bg-blue-50/20 dark:bg-blue-950/20 shadow-xs"
-                      : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
-                  )}
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate">{job.title}</span>
-                      {isActiveCurrent && (
-                        <Badge variant="info" size="sm" className="font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5">
-                          Current
-                        </Badge>
-                      )}
-                      <Badge
-                        variant={
-                          job.status === 'completed'
-                            ? 'success'
-                            : job.status === 'in_progress'
-                            ? 'info'
-                            : job.status === 'en_route'
-                            ? 'info'
-                            : job.status === 'arrived'
-                            ? 'warning'
-                            : 'neutral'
-                        }
-                        size="sm"
-                        className="capitalize font-semibold"
-                      >
-                        {job.status ? job.status.replace('_', ' ') : 'Scheduled'}
-                      </Badge>
-                      {(job.status === 'scheduled' || job.status === 'confirmed') && (
-                        <JobWonBadge compact label="Job Won" />
-                      )}
+                  <div className="space-y-2.5 pt-1">
+                    <div className="flex items-center justify-between px-0.5">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                        Upcoming Stops Today ({remainingJobs.length})
+                      </h4>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
-                      <span className="font-medium text-slate-700 dark:text-zinc-300">{job.customerName}</span>
-                      {job.address && (
-                        <>
-                          <span>&bull;</span>
-                          <span className="flex items-center gap-1 truncate text-slate-500 dark:text-zinc-400">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            {job.address}
-                          </span>
-                        </>
-                      )}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
-                      <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                      {job.scheduledStart ? formatTimeInTz(job.scheduledStart, orgTimezone) : 'Today'}
-                    </div>
-                    <Link
-                      href="/client/jobs"
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-                    >
-                      View &rarr;
-                    </Link>
+                    {remainingJobs.map((job) => {
+                      const cleanTitle = job.cleanTitle || job.title
+                      return (
+                        <div
+                          key={job.id}
+                          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate">
+                                {cleanTitle}
+                              </span>
+                              <Badge
+                                variant={
+                                  job.status === 'completed'
+                                    ? 'success'
+                                    : job.status === 'in_progress'
+                                    ? 'info'
+                                    : job.status === 'en_route'
+                                    ? 'info'
+                                    : job.status === 'arrived'
+                                    ? 'warning'
+                                    : 'neutral'
+                                }
+                                size="sm"
+                                className="capitalize font-semibold text-[10px]"
+                              >
+                                {job.status ? job.status.replace('_', ' ') : 'Scheduled'}
+                              </Badge>
+
+                              {(job.status === 'scheduled' || job.status === 'confirmed') && (
+                                <JobWonBadge
+                                  compact
+                                  amount={job.quoteAmount}
+                                  servicePrice={job.servicePrice}
+                                  pricingModel={job.pricingModel}
+                                  label={job.quoteAmount ? 'Quote Approved' : (job.pricingModel === 'quote_on_site' ? 'Quote on Site' : job.pricingModel === 'free_estimate' ? 'Free Estimate' : 'Online Booking')}
+                                />
+                              )}
+                            </div>
+
+                            <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-800 dark:text-zinc-200">{job.customerName}</span>
+                              {job.address && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span className="flex items-center gap-1 truncate text-slate-500 dark:text-zinc-400">
+                                    <MapPin className="h-3 w-3 shrink-0" />
+                                    {job.address}
+                                  </span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                            <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
+                              <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                              {job.scheduledStart ? formatTimeInTz(job.scheduledStart, orgTimezone) : 'Today'}
+                            </div>
+                            <Link
+                              href="/client/jobs"
+                              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors"
+                            >
+                              View &rarr;
+                            </Link>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                </div>
-              )
-            })}
-              </div>
+                )
+              })()}
             </div>
           )}
         </div>

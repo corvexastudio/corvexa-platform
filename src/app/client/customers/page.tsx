@@ -40,6 +40,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { exportToCsv, CsvFormatters } from '@/lib/export/csv-export'
+import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 
 export default function CustomersPage() {
   const router = useRouter()
@@ -161,10 +163,10 @@ export default function CustomersPage() {
       return
     }
     exportToCsv('captodesk_customers', [
-      { header: 'Customer Name', accessor: c => c.name || 'Unnamed' },
-      { header: 'Phone', accessor: c => c.phone || '' },
+      { header: 'Customer Name', accessor: c => formatCustomerName(c.name) || 'Unnamed' },
+      { header: 'Phone', accessor: c => formatNationalUs(c.phone) || c.phone || '' },
       { header: 'Email', accessor: c => c.email || '' },
-      { header: 'Address', accessor: c => c.address || '' },
+      { header: 'Address', accessor: c => formatStandardUsAddress(c.address) || c.address || '' },
       { header: 'Lifecycle Status', accessor: c => CsvFormatters.status(c.lifecycle_status) },
       { header: 'Service Frequency (Days)', accessor: c => c.service_frequency_days || 90 },
       { header: 'Last Service Date', accessor: c => CsvFormatters.date(c.last_service_date) },
@@ -410,14 +412,14 @@ export default function CustomersPage() {
                       >
                         <TableCell className="py-3 px-4">
                           <div className="font-bold text-xs text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {contact.name || 'Customer'}
+                            {formatCustomerName(contact.name) || 'Customer'}
                           </div>
                           <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                            {contact.phone}
+                            {formatNationalUs(contact.phone) || contact.phone}
                           </div>
                           {contact.address && (
                             <div className="text-[10px] text-slate-400 dark:text-zinc-500 truncate max-w-xs mt-0.5">
-                              {contact.address}
+                              {formatStandardUsAddress(contact.address)}
                             </div>
                           )}
                           {contact.tags && contact.tags.length > 0 && (
@@ -482,15 +484,15 @@ export default function CustomersPage() {
                         className="cursor-pointer space-y-0.5 flex-1"
                       >
                         <h3 className="font-bold text-xs text-slate-900 dark:text-zinc-100">
-                          {contact.name || 'Customer'}
+                          {formatCustomerName(contact.name) || 'Customer'}
                         </h3>
                         <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                          {contact.phone}
+                          {formatNationalUs(contact.phone) || contact.phone}
                         </p>
                         {contact.address && (
                           <p className="text-[10px] text-slate-400 dark:text-zinc-500 flex items-center gap-1 mt-0.5 truncate">
                             <MapPin className="w-2.5 h-2.5 shrink-0" />
-                            <span>{contact.address}</span>
+                            <span>{formatStandardUsAddress(contact.address)}</span>
                           </p>
                         )}
                       </div>

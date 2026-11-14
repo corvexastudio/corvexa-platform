@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Modal } from '@/components/ui/modal'
 import { toast } from 'sonner'
+import { hasDedicatedPhoneNumber, resolveSenderPhone } from '@/lib/billing/plans'
 import { 
   Zap, 
   PhoneMissed, 
@@ -84,6 +85,9 @@ export default function AutomationsPage() {
     name: '',
     slug: '',
     telnyx_phone_number: '',
+    phone_provisioning_status: '',
+    plan_id: 'free',
+    subscription_status: 'trial',
     phone_number: '',
     is_missed_call_active: true,
     is_review_engine_active: true,
@@ -181,6 +185,9 @@ export default function AutomationsPage() {
           name: org.name || '',
           slug: org.slug || '',
           telnyx_phone_number: org.telnyx_phone_number || '',
+          phone_provisioning_status: org.phone_provisioning_status || '',
+          plan_id: org.plan_id || 'free',
+          subscription_status: org.subscription_status || 'trial',
           phone_number: org.phone_number || org.owner_phone || '',
           is_missed_call_active: org.is_missed_call_active ?? true,
           is_review_engine_active: org.is_review_engine_active ?? true,
@@ -598,10 +605,10 @@ export default function AutomationsPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-slate-900 dark:text-zinc-100">
-                Connected Line: {settings.telnyx_phone_number || 'Provisioning Dedicated Telnyx DID'}
+                Connected Line: {hasDedicatedPhoneNumber(settings) ? settings.telnyx_phone_number : `${resolveSenderPhone(settings)} (Shared Trial Toll-Free)`}
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/40">
-                A2P 10DLC Registered
+                {hasDedicatedPhoneNumber(settings) ? 'Dedicated Business DID' : 'Verified Toll-Free Trial'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
@@ -1138,7 +1145,7 @@ export default function AutomationsPage() {
                   {settings.name || 'Your Company'}
                 </div>
                 <div className="text-[10px] text-zinc-400 font-mono">
-                  {settings.telnyx_phone_number || settings.phone_number || 'Dedicated 10DLC Line'}
+                  {resolveSenderPhone(settings)}
                 </div>
               </div>
 

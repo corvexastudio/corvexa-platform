@@ -114,7 +114,7 @@ test('Numbering: Concurrent creation produces collision-free sequential IDs', as
 
 test('Booking Concurrency: Unique slot constraint violation returns clean error', async () => {
   const orgId = 'org-booking-test'
-  const startTime = '2026-10-15T14:00:00.000Z'
+  const startTime = new Date(Date.now() + 86400000 * 2).toISOString()
 
   // Mock Supabase client where insert fails due to PostgreSQL unique constraint 23505
   const mockSupabase = {
@@ -368,6 +368,27 @@ test('Payment Recording: Duplicate Stripe payment intent is recognized and does 
           }
         }
       }
+      if (table === 'organizations') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: orgId, name: 'Test Org', plan_id: 'free', phone_provisioning_status: 'pending' },
+                error: null
+              })
+            })
+          })
+        }
+      }
+      if (table === 'invoices') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({ data: [], error: null })
+            })
+          })
+        }
+      }
       throw new Error(`Unexpected table: ${table}`)
     }
   }
@@ -489,6 +510,27 @@ test('Review Request: Re-requesting for the same completed job returns existing 
           })
         }
       }
+      if (table === 'organizations') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: orgId, name: 'Test Org', plan_id: 'free', phone_provisioning_status: 'pending' },
+                error: null
+              })
+            })
+          })
+        }
+      }
+      if (table === 'invoices') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({ data: [], error: null })
+            })
+          })
+        }
+      }
       throw new Error(`Unexpected table: ${table}`)
     }
   }
@@ -535,6 +577,27 @@ test('Quote Follow-ups: Re-running scheduleQuoteFollowUps does not insert duplic
             insertedCount++
             return { error: null }
           }
+        }
+      }
+      if (table === 'organizations') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: orgId, name: 'Test Org', plan_id: 'free', phone_provisioning_status: 'pending' },
+                error: null
+              })
+            })
+          })
+        }
+      }
+      if (table === 'invoices') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({ data: [], error: null })
+            })
+          })
         }
       }
       throw new Error(`Unexpected table: ${table}`)

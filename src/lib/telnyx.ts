@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { resolvePlatformTollFreeNumber } from './billing/plans.ts'
 
 /**
  * Telnyx Telephony & Messaging Client Helper
@@ -55,7 +56,7 @@ export async function sendTelnyxSms({
 
   const apiKey = process.env.TELNYX_API_KEY
   // Sender falls back to verified platform toll-free number (+18777713802) when tenant has no dedicated number
-  const defaultFrom = process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || '+18777713802'
+  const defaultFrom = process.env.DISABLE_PLATFORM_TOLL_FREE === 'true' ? '' : resolvePlatformTollFreeNumber()
 
   if (!apiKey) {
     if (isProduction) {

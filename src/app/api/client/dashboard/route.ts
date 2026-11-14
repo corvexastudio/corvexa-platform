@@ -19,8 +19,11 @@ export async function GET(
   const validPeriod: TimeRange = ['7d', '30d', 'all'].includes(periodParam) ? periodParam : '30d'
 
   try {
-    const overview = await getDashboardOverview(supabase, orgId, validPeriod)
-    const trialStatus = await SubscriptionService.evaluateTrialQuota(supabase, orgId).catch(() => null)
+    const [overview, trialStatus, starterUsage] = await Promise.all([
+      getDashboardOverview(supabase, orgId, validPeriod),
+      SubscriptionService.evaluateTrialQuota(supabase, orgId).catch(() => null),
+      SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+    ])
 
     const canViewFinancials = hasPermission(role, 'financials:read')
     const canViewQuotes = hasPermission(role, 'quotes:read')
@@ -91,6 +94,7 @@ export async function GET(
         canViewQuotes
       },
       trialStatus,
+      starterUsage,
       ...overview
     })
   } catch (err: any) {

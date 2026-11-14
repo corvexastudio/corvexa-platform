@@ -3,6 +3,7 @@ import { sendTelnyxSms } from '../telnyx.ts'
 import { normalizePhoneToE164, formatNationalUs } from './phone-normalizer.ts'
 import { checkRateLimitAsync } from '../security/rate-limiter.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 
 export interface ResolveOwnerPhoneResult {
   phone: string | null
@@ -145,12 +146,15 @@ export async function notifyOwnerOfMissedCall(
   }
   const ownerPhone = ownerResolution.phone
 
-  // Guard 3: Validate outbound sender phone (must be the verified tenant DID)
+  // Guard 3: Validate outbound sender phone (tenant dedicated DID or verified platform toll-free)
   const normCalled = normalizePhoneToE164(calledPhone)
-  if (!normCalled.isValid || !normCalled.e164 || normCalled.e164.startsWith('+1999')) {
+  const senderPhone = (normCalled.isValid && normCalled.e164 && !normCalled.e164.startsWith('+1999'))
+    ? normCalled.e164
+    : resolveSenderPhone(org)
+
+  if (!senderPhone || senderPhone.startsWith('+1999')) {
     return { attempted: false, sent: false, ownerPhone, skippedReason: 'invalid_sender_phone' }
   }
-  const senderPhone = normCalled.e164
 
   // Guard 4: Rate limit protection against automated spam storms (Max 10 owner alerts / min per tenant)
   const rateLimit = await checkRateLimitAsync(`sms:owner_alert:${org.id}`, { max: 10, windowMs: 60 * 1000 })

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendTelnyxSms } from '@/lib/telnyx'
+import { resolveSenderPhone } from '@/lib/billing/plans'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,13 +74,13 @@ export async function POST(
     // 4. Fetch organization owner phone and dispatch number
     const { data: org } = await supabase
       .from('organizations')
-      .select('name, owner_phone, telnyx_phone_number')
+      .select('name, owner_phone, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status')
       .eq('id', job.org_id)
       .single()
 
     // 5. Send High-Priority SMS to Business Owner
     if (org?.owner_phone) {
-      const senderNumber = org.telnyx_phone_number || org.owner_phone
+      const senderNumber = resolveSenderPhone(org)
       const alertBody = `🚨 URGENT: ${customerName} submitted a ${rating}★ rating on Job #${job.job_number} (${job.title}): "${feedbackText.slice(0, 100)}". Call them right away to resolve: ${customerPhone}`
 
       try {

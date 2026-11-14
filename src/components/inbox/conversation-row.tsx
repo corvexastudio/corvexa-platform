@@ -1,5 +1,7 @@
 import { User, PhoneCall } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatCustomerName } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 
 export interface ConversationRowProps {
   id?: string
@@ -31,6 +33,15 @@ export interface ConversationRowProps {
   onClick: () => void
 }
 
+function getInitials(name?: string | null): string {
+  if (!name || !name.trim()) return ''
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return name.slice(0, 2).toUpperCase()
+}
+
 export function ConversationRow({
   id,
   name,
@@ -44,8 +55,10 @@ export function ConversationRow({
   onClick
 }: ConversationRowProps) {
   const active = isSelected ?? isActive ?? false
-  const displayName = name ?? conversation?.contact?.name ?? null
-  const displayPhone = phone ?? conversation?.contact?.phone ?? ''
+  const rawName = name ?? conversation?.contact?.name ?? null
+  const displayName = rawName ? formatCustomerName(rawName) : null
+  const rawPhone = phone ?? conversation?.contact?.phone ?? ''
+  const displayPhone = rawPhone ? formatNationalUs(rawPhone) : ''
   const displayMessage = lastMessage ?? conversation?.last_message_preview ?? 'No messages'
   const displayTime = lastMessageAt ?? conversation?.last_message_at ?? ''
   const count = unreadCount ?? conversation?.unread_count ?? 0
@@ -69,7 +82,7 @@ export function ConversationRow({
           ? "bg-blue-600 text-white border-blue-600"
           : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
       )}>
-        {displayName ? displayName.slice(0, 2).toUpperCase() : <User className="h-4 w-4 text-slate-400 dark:text-zinc-500" />}
+        {displayName ? getInitials(displayName) : <User className="h-4 w-4 text-slate-400 dark:text-zinc-500" />}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -89,9 +102,15 @@ export function ConversationRow({
               </span>
             )}
             {lead?.source === 'missed_call' && (
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
-                Missed Call
-              </span>
+              lead?.status === 'booked' ? (
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0 flex items-center gap-0.5">
+                  ⚡ Recovered
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
+                  Missed Call
+                </span>
+              )
             )}
           </div>
           {displayTime && (

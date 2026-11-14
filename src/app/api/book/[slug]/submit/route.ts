@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createBooking } from '@/lib/booking/booking-manager'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { validateBookingOrigin } from '@/lib/booking/origin-validator'
+import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
 
 export async function POST(
   request: Request,
@@ -35,7 +36,9 @@ export async function POST(
       notes,
       photos,
       bookingToken,
-      referralCode
+      referralCode,
+      source,
+      smsConsent
     } = body
 
     const cookieRef = (request as any).cookies?.get?.('capto_ref')?.value
@@ -95,14 +98,15 @@ export async function POST(
     const result = await createBooking(supabase, {
       orgId: org.id,
       serviceId,
-      customerName: customerName.trim(),
+      customerName: formatCustomerName(customerName),
       customerPhone: customerPhone.trim(),
       customerEmail: customerEmail?.trim() || undefined,
-      customerAddress: customerAddress?.trim() || undefined,
+      customerAddress: customerAddress ? formatStandardUsAddress(customerAddress) : undefined,
       startTime,
       notes: notes?.trim() || undefined,
       photos: Array.isArray(photos) ? photos.filter((p: any) => typeof p === 'string' && p.trim()) : undefined,
-      source: 'booking_page',
+      source: source || 'booking_page',
+      smsConsent: typeof smsConsent === 'boolean' ? smsConsent : true,
       referralCode: effectiveReferralCode,
       appBaseUrl
     })

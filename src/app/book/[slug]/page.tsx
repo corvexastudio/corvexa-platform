@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useState, useMemo, Suspense } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -21,15 +21,25 @@ import {
   X,
   Image as ImageIcon,
   Truck,
-  Navigation
+  Navigation,
+  Search,
+  Sparkles,
+  Filter
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { getFriendlyTimezoneLabel, isDifferentFromDeviceTimezone, getDeviceTimezone } from '@/lib/temporal/timezone'
 import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
+import { buildServiceCatalog, filterCatalogItems } from '@/lib/booking/service-catalog'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 import { cn } from '@/lib/utils'
+import {
+  formatCustomerName,
+  formatAsYouTypeUsPhone,
+  formatStandardUsAddress,
+  getEmailDomainSuggestions
+} from '@/lib/booking/customer-input-formatter'
 
 interface ServiceItem {
   id: string
@@ -63,8 +73,9 @@ interface AvailableSlot {
   status?: 'available' | 'booked' | 'past'
 }
 
-export default function PublicBookingPage() {
+function PublicBookingPageContent() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const slug = params?.slug as string
 
   const [loading, setLoading] = useState(true)
@@ -72,12 +83,24 @@ export default function PublicBookingPage() {
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [services, setServices] = useState<ServiceItem[]>([])
   const [bookingToken, setBookingToken] = useState<string | null>(null)
+  const [bookingSource, setBookingSource] = useState<string>('booking_page')
+  const [isPrefilled, setIsPrefilled] = useState<boolean>(false)
 
   // Booking Flow Steps: 1: Service, 2: Date & Time, 3: Details, 4: Confirmed
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
 
   // Selections
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null)
+  const [serviceSearch, setServiceSearch] = useState('')
+  const [activeServiceCategory, setActiveServiceCategory] = useState('all')
+
+  const serviceCatalog = useMemo(() => {
+    return buildServiceCatalog(services, org?.industry)
+  }, [services, org?.industry])
+
+  const filteredServices = useMemo(() => {
+    return filterCatalogItems(serviceCatalog.items, serviceSearch, activeServiceCategory)
+  }, [serviceCatalog, serviceSearch, activeServiceCategory])
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
   const [allSlots, setAllSlots] = useState<AvailableSlot[]>([])
@@ -96,6 +119,9 @@ export default function PublicBookingPage() {
     notes: '',
     photos: [] as string[]
   })
+  const [smsConsent, setSmsConsent] = useState(true)
+  const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
+  const [showEmailSuggestions, setShowEmailSuggestions] = useState(false)
 
   // Diagnostic Photo Upload Handlers
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,25 +211,74 @@ export default function PublicBookingPage() {
     }
   }, [])
 
-  // 1. Fetch Organization Profile & Services
+  // 1. Fetch Organization Profile & Services (with Customer Context & Prefill)
   useEffect(() => {
     if (!slug) return
     async function loadOrg() {
       setLoading(true)
       try {
-        const res = await fetch(`/api/book/${slug}`)
+        const queryStr = searchParams?.toString() ? `?${searchParams.toString()}` : ''
+        const res = await fetch(`/api/book/${slug}${queryStr}`)
         if (!res.ok) {
           setError('Business not found or unavailable.')
           return
         }
         const data = await res.json()
         setOrg(data.organization)
-        setServices(data.services || [])
+        const loadedServices: ServiceItem[] = data.services || []
+        setServices(loadedServices)
+
         if (data.bookingToken) {
           setBookingToken(data.bookingToken)
         }
-        if (data.services?.length === 1) {
-          setSelectedService(data.services[0])
+
+        // Apply customer prefill if recognized from missed call or text link
+        if (data.prefill) {
+          setFormData(prev => ({
+            ...prev,
+            name: formatCustomerName(data.prefill.name || prev.name),
+            phone: formatAsYouTypeUsPhone(data.prefill.phone || prev.phone),
+            email: data.prefill.email || prev.email,
+            address: formatStandardUsAddress(data.prefill.address || prev.address),
+            notes: data.prefill.notes || prev.notes
+          }))
+
+          if (data.prefill.source) {
+            setBookingSource(data.prefill.source)
+          }
+
+          if (data.prefill.name || data.prefill.phone) {
+            setIsPrefilled(true)
+          }
+
+          // Smart service matching from customer's request / SMS text
+          if (data.prefill.serviceNeeded && loadedServices.length > 0) {
+            const neededLower = data.prefill.serviceNeeded.toLowerCase()
+            const matched = loadedServices.find(s => 
+              s.name.toLowerCase().includes(neededLower) || 
+              neededLower.includes(s.name.toLowerCase())
+            )
+            if (matched) {
+              setSelectedService(matched)
+            }
+          }
+        } else {
+          const directSource = searchParams?.get('source')
+          if (directSource) setBookingSource(directSource)
+          const directPhone = searchParams?.get('phone')
+          const directName = searchParams?.get('name')
+          if (directPhone || directName) {
+            setFormData(prev => ({
+              ...prev,
+              name: formatCustomerName(directName || prev.name),
+              phone: formatAsYouTypeUsPhone(directPhone || prev.phone)
+            }))
+            setIsPrefilled(true)
+          }
+        }
+
+        if (loadedServices.length === 1 && !selectedService) {
+          setSelectedService(loadedServices[0])
         }
       } catch (err) {
         setError('Failed to load booking page. Please try again.')
@@ -212,7 +287,7 @@ export default function PublicBookingPage() {
       }
     }
     loadOrg()
-  }, [slug])
+  }, [slug, searchParams])
 
   // Generate selectable dates strictly within organization US timezone
   const selectableDates = useMemo(() => {
@@ -307,21 +382,26 @@ export default function PublicBookingPage() {
     setSubmitting(true)
     setSubmitError(null)
 
+    const cleanedName = formatCustomerName(formData.name)
+    const cleanedAddress = formatStandardUsAddress(formData.address)
+
     try {
       const res = await fetch(`/api/book/${slug}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceId: selectedService.id,
-          customerName: formData.name,
+          customerName: cleanedName,
           customerPhone: formData.phone,
-          customerEmail: formData.email,
-          customerAddress: formData.address,
+          customerEmail: formData.email.trim(),
+          customerAddress: cleanedAddress,
           startTime: selectedSlot.startTime,
           notes: formData.notes,
           photos: formData.photos,
           bookingToken: bookingToken || undefined,
-          referralCode: referralCode || undefined
+          referralCode: referralCode || undefined,
+          source: bookingSource || 'booking_page',
+          smsConsent
         })
       })
 
@@ -442,11 +522,18 @@ export default function PublicBookingPage() {
 
         {/* STEP 1: CHOOSE SERVICE */}
         {step === 1 && (
-          <div className="space-y-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              1. Choose a Service
-            </h2>
+          <div className={cn("space-y-4", selectedService ? "pb-24 sm:pb-28" : "")}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span>1. Choose a Service</span>
+              </h2>
+              {services.length > 0 && (
+                <span className="text-xs text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/80 px-2 py-0.5 rounded-full font-medium">
+                  {services.length} {services.length === 1 ? 'service' : 'services'} available
+                </span>
+              )}
+            </div>
 
             {services.length === 0 ? (
               <div className="text-center py-10 px-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/80 space-y-4 shadow-sm">
@@ -475,69 +562,256 @@ export default function PublicBookingPage() {
               </div>
             ) : (
               <>
-                <div className="space-y-3">
-                  {services.map((svc) => {
-                    const isSelected = selectedService?.id === svc.id
-                    const pricing = parseServicePricing(svc.price, svc.description)
-                    const cleanDesc = cleanServiceDescription(svc.description)
-                    return (
+                {/* Search Bar (Activated when 5+ services or search is non-empty) */}
+                {(services.length >= 5 || serviceSearch.trim().length > 0) && (
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Search className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={serviceSearch}
+                      onChange={(e) => setServiceSearch(e.target.value)}
+                      placeholder="Search services (e.g. drain, water heater, leak, inspection)..."
+                      className="w-full pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-xs"
+                    />
+                    {serviceSearch && (
                       <button
-                        key={svc.id}
                         type="button"
-                        onClick={() => setSelectedService(svc)}
-                        className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-blue-50/70 dark:bg-blue-500/10 border-blue-500 ring-1 ring-blue-500'
-                            : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800/80 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
-                        }`}
+                        onClick={() => setServiceSearch('')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 cursor-pointer"
+                        aria-label="Clear service search"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
-                              {svc.name}
-                            </div>
-                            {cleanDesc && (
-                              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                                {cleanDesc}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 mt-2.5">
-                              <span className="flex items-center gap-1 text-slate-700 dark:text-zinc-300">
-                                <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                                {svc.duration_minutes} mins
-                              </span>
-                              <span className={cn(
-                                'font-semibold',
-                                pricing.model === 'quote_on_site'
-                                  ? 'text-slate-700 dark:text-zinc-300'
-                                  : 'text-emerald-600 dark:text-emerald-400'
-                              )}>
-                                {pricing.formattedPrice}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                            isSelected ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 dark:border-zinc-700'
-                          }`}>
-                            {isSelected && <CheckCircle2 className="h-3.5 w-3.5" />}
-                          </div>
-                        </div>
+                        <X className="h-4 w-4" />
                       </button>
-                    )
-                  })}
-                </div>
+                    )}
+                  </div>
+                )}
 
+                {/* Category Pills (Activated when catalog has multiple categories and 5+ services) */}
+                {serviceCatalog.hasCategories && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-none">
+                    {serviceCatalog.categories.map((cat) => {
+                      const isActive = activeServiceCategory === cat.id
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setActiveServiceCategory(cat.id)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0",
+                            isActive
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 shadow-2xs"
+                          )}
+                        >
+                          <span>{cat.label}</span>
+                          <span
+                            className={cn(
+                              "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
+                              isActive
+                                ? "bg-blue-700/80 text-white"
+                                : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
+                            )}
+                          >
+                            {cat.count}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Filter / Search Match Subtitle */}
+                {(serviceSearch || activeServiceCategory !== 'all') && (
+                  <div className="flex items-center justify-between text-xs px-1 text-slate-500 dark:text-zinc-400">
+                    <span>
+                      Showing <strong>{filteredServices.length}</strong> of {services.length} services
+                      {activeServiceCategory !== 'all' && (
+                        <span> in <em>{serviceCatalog.categories.find(c => c.id === activeServiceCategory)?.label}</em></span>
+                      )}
+                    </span>
+                    {(serviceSearch || activeServiceCategory !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServiceSearch('')
+                          setActiveServiceCategory('all')
+                        }}
+                        className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
+                      >
+                        Reset filters
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Zero Search Results State */}
+                {filteredServices.length === 0 ? (
+                  <div className="text-center py-10 px-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-3 shadow-xs">
+                    <Search className="h-8 w-8 text-slate-300 dark:text-zinc-600 mx-auto" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-slate-800 dark:text-zinc-200">
+                        No services matching &ldquo;{serviceSearch}&rdquo;
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
+                        Can&rsquo;t find your exact service? Clear your search to view all offerings or choose a general inspection.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServiceSearch('')
+                          setActiveServiceCategory('all')
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors cursor-pointer"
+                      >
+                        Clear Search &amp; Filters
+                      </button>
+                      {services[0] && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedService(services[0])
+                            setServiceSearch('')
+                            setActiveServiceCategory('all')
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                        >
+                          Book {services[0].name.split(' ')[0]} Diagnostic
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Service Cards List */
+                  <div className="space-y-3">
+                    {filteredServices.map(({ service: svc, isPopular, categoryLabel, cleanDesc }) => {
+                      const isSelected = selectedService?.id === svc.id
+                      const pricing = parseServicePricing(svc.price, svc.description)
+
+                      return (
+                        <button
+                          key={svc.id}
+                          type="button"
+                          onClick={() => setSelectedService(svc)}
+                          className={cn(
+                            "w-full text-left p-4 rounded-2xl border transition-all cursor-pointer relative group",
+                            isSelected
+                              ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 ring-2 ring-blue-600/20 shadow-sm"
+                              : "bg-white dark:bg-zinc-900 border-slate-200/90 dark:border-zinc-800/80 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              {/* Title & Badges */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={cn(
+                                  "font-bold text-sm sm:text-base leading-snug transition-colors",
+                                  isSelected ? "text-blue-950 dark:text-white" : "text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                                )}>
+                                  {svc.name}
+                                </span>
+
+                                {isPopular && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900/60 shrink-0">
+                                    <Sparkles className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
+                                    <span>Popular</span>
+                                  </span>
+                                )}
+
+                                {serviceCatalog.hasCategories && activeServiceCategory === 'all' && (
+                                  <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md shrink-0">
+                                    {categoryLabel}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Clean Description */}
+                              {cleanDesc && (
+                                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed line-clamp-2">
+                                  {cleanDesc}
+                                </p>
+                              )}
+
+                              {/* Duration & Pricing Badges */}
+                              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-500 dark:text-zinc-400">
+                                <span className="inline-flex items-center gap-1 font-medium text-slate-700 dark:text-zinc-300">
+                                  <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                                  <span>{svc.duration_minutes} mins</span>
+                                </span>
+                                <span>•</span>
+                                <span className={cn(
+                                  "font-bold",
+                                  pricing.model === 'quote_on_site' || pricing.model === 'free_estimate'
+                                    ? "text-slate-800 dark:text-zinc-200"
+                                    : "text-emerald-600 dark:text-emerald-400"
+                                )}>
+                                  {pricing.formattedPrice}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Radio Selection Indicator */}
+                            <div className={cn(
+                              "h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
+                              isSelected
+                                ? "border-blue-600 bg-blue-600 text-white shadow-xs"
+                                : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 group-hover:border-slate-400"
+                            )}>
+                              {isSelected && <CheckCircle2 className="h-3.5 w-3.5" />}
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Standard In-Flow Continue Button */}
                 <button
                   type="button"
                   disabled={!selectedService}
                   onClick={() => setStep(2)}
                   className="w-full mt-4 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
                 >
-                  <span>Continue to Date & Time</span>
+                  <span>Continue to Date &amp; Time</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </>
+            )}
+
+            {/* Sticky Floating Action Rail (Active when a service is selected anywhere on the page) */}
+            {selectedService && (
+              <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-slate-200 dark:border-zinc-800 p-3 sm:p-4 shadow-2xl transition-all animate-in slide-in-from-bottom-2">
+                <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Selected Service
+                    </span>
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                      {selectedService.name}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5">
+                      <span>⏱ {selectedService.duration_minutes} mins</span>
+                      <span>•</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {parseServicePricing(selectedService.price, selectedService.description).formattedPrice}
+                      </span>
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/20 shrink-0 cursor-pointer"
+                  >
+                    <span>Continue</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -855,6 +1129,17 @@ export default function PublicBookingPage() {
               </div>
             )}
 
+            {/* Prefill Reassurance Notice */}
+            {isPrefilled && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2.5 shadow-2xs">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  {formData.name ? `Welcome, ${formData.name}! ` : ''}
+                  We prefilled your details from your recent call & messages. Review and tap confirm below!
+                </span>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
@@ -865,9 +1150,14 @@ export default function PublicBookingPage() {
                   <input
                     type="text"
                     required
-                    placeholder="John Doe"
+                    placeholder="John Smith"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onBlur={() => {
+                      if (formData.name) {
+                        setFormData(prev => ({ ...prev, name: formatCustomerName(prev.name) }))
+                      }
+                    }}
                     className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                   />
                 </div>
@@ -884,8 +1174,16 @@ export default function PublicBookingPage() {
                     required
                     placeholder="(555) 000-0000"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
+                    onChange={(e) => {
+                      const formatted = formatAsYouTypeUsPhone(e.target.value)
+                      setFormData(prev => ({ ...prev, phone: formatted }))
+                    }}
+                    onBlur={() => {
+                      if (formData.phone) {
+                        setFormData(prev => ({ ...prev, phone: formatAsYouTypeUsPhone(prev.phone) }))
+                      }
+                    }}
+                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs font-mono sm:font-sans"
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
@@ -903,10 +1201,46 @@ export default function PublicBookingPage() {
                     type="email"
                     placeholder="john@example.com"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setFormData(prev => ({ ...prev, email: val }))
+                      const suggestions = getEmailDomainSuggestions(val)
+                      setEmailSuggestions(suggestions)
+                      setShowEmailSuggestions(suggestions.length > 0)
+                    }}
+                    onFocus={() => {
+                      const suggestions = getEmailDomainSuggestions(formData.email)
+                      setEmailSuggestions(suggestions)
+                      setShowEmailSuggestions(suggestions.length > 0)
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowEmailSuggestions(false), 250)
+                    }}
                     className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                   />
                 </div>
+                {/* 1-Tap Email Domain Autocomplete Pills */}
+                {showEmailSuggestions && emailSuggestions.length > 0 && (
+                  <div className="pt-2 flex flex-wrap items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Quick suggestions:</span>
+                    {emailSuggestions.map(domain => (
+                      <button
+                        key={domain}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          const atIdx = formData.email.lastIndexOf('@')
+                          const handle = atIdx !== -1 ? formData.email.slice(0, atIdx) : formData.email
+                          setFormData(prev => ({ ...prev, email: `${handle}@${domain}` }))
+                          setShowEmailSuggestions(false)
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer shadow-2xs"
+                      >
+                        @{domain}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {selectedService?.requires_address && (
@@ -922,6 +1256,11 @@ export default function PublicBookingPage() {
                       placeholder="123 Main St, City, ST 12345"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      onBlur={() => {
+                        if (formData.address) {
+                          setFormData(prev => ({ ...prev, address: formatStandardUsAddress(prev.address) }))
+                        }
+                      }}
                       className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
                     />
                   </div>
@@ -1000,7 +1339,7 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Carrier-Compliant SMS Opt-In & Privacy Disclosure Card */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 space-y-2">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 space-y-2.5">
               <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-200 font-semibold text-xs">
                 <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Instant Confirmation & Flexible Management</span>
@@ -1008,25 +1347,52 @@ export default function PublicBookingPage() {
               <p className="leading-relaxed text-[11px] text-slate-500 dark:text-zinc-400">
                 No account required. You will receive a direct link to reschedule or cancel anytime.
               </p>
-              <div className="pt-1.5 border-t border-slate-200/80 dark:border-zinc-800/80 text-[10.5px] text-slate-500 dark:text-zinc-500 leading-relaxed">
-                By providing your mobile number and clicking <strong className="text-slate-700 dark:text-zinc-300 font-medium">{org.booking_mode === 'instant' ? 'Confirm Appointment' : 'Submit Booking Request'}</strong>, you consent to receive appointment notifications, reminders, and service text messages from <span className="font-semibold text-slate-700 dark:text-zinc-300">{org.name}</span> powered by CaptoDesk. Consent is not a condition of service. Msg &amp; data rates may apply. Msg frequency varies. Reply <strong>STOP</strong> to cancel or <strong>HELP</strong> for assistance. View{' '}
-                <a
-                  href="https://captodesk.com/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-emerald-400 hover:underline font-medium"
+
+              {/* Explicit SMS Opt-In Checkbox (10DLC & TCPA Compliant) */}
+              <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800/80">
+                <label 
+                  htmlFor="sms-consent-checkbox" 
+                  className="flex items-start gap-2.5 cursor-pointer group select-none"
                 >
-                  Privacy Policy
-                </a>{' '}
-                and{' '}
-                <a
-                  href="https://captodesk.com/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-emerald-400 hover:underline font-medium"
-                >
-                  Terms
-                </a>.
+                  <input
+                    id="sms-consent-checkbox"
+                    type="checkbox"
+                    checked={smsConsent}
+                    onChange={(e) => setSmsConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded-md border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 dark:bg-zinc-850 dark:checked:bg-blue-600 cursor-pointer transition-colors shrink-0"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-white block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      Send me appointment confirmations, reminders, and updates via SMS
+                    </span>
+                    <p className="text-[10.5px] text-slate-500 dark:text-zinc-500 leading-relaxed">
+                      You consent to receive automated appointment notifications and service reminders from{' '}
+                      <strong className="text-slate-700 dark:text-zinc-300 font-medium">{org.name}</strong>{' '}
+                      powered by CaptoDesk at the phone number provided. Consent is not a condition of purchase. 
+                      Msg &amp; data rates may apply. Msg frequency varies. Reply <strong>STOP</strong> to cancel or{' '}
+                      <strong>HELP</strong> for assistance. View our{' '}
+                      <a
+                        href="https://captodesk.com/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Privacy Policy
+                      </a>{' '}
+                      and{' '}
+                      <a
+                        href="https://captodesk.com/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Terms
+                      </a>.
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -1242,5 +1608,20 @@ export default function PublicBookingPage() {
         <PoweredByBadge source="booking" className="pt-6 pb-2" />
       </div>
     </div>
+  )
+}
+
+export default function PublicBookingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 dark:border-blue-500 border-t-transparent" />
+          <p className="text-xs text-slate-500 dark:text-zinc-400">Loading schedule...</p>
+        </div>
+      </div>
+    }>
+      <PublicBookingPageContent />
+    </Suspense>
   )
 }

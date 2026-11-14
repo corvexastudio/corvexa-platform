@@ -25,17 +25,65 @@ export const PLATFORM_TOLL_FREE_NUMBER = '+18777713802'
 export const DEMO_ORG_ID = '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7'
 export const FREE_TIER_COMPLETED_JOB_LIMIT = 3
 
+const NON_ACTIVE_PROVISIONING_STATUSES = new Set([
+  'pending_number',
+  'provisioning',
+  'failed',
+  'inactive',
+  'suspended',
+  'released',
+])
+
+export interface SenderOrgContext {
+  telnyx_phone_number?: string | null
+  phone_provisioning_status?: string | null
+  plan_id?: string | null
+  subscription_status?: string | null
+}
+
+/**
+ * Resolves the verified platform toll-free number used for 3-job free trials,
+ * platform alerts, and pre-provisioning fallback.
+ * Never falls back to an unverified local TELNYX_PHONE_NUMBER.
+ */
+export function resolvePlatformTollFreeNumber(): string {
+  const configured = process.env.TELNYX_SMS_PHONE_NUMBER?.trim()
+  if (configured && !configured.startsWith('+1999')) {
+    return configured
+  }
+  return PLATFORM_TOLL_FREE_NUMBER
+}
+
+/**
+ * Returns true when an organization has an active, dedicated (non-toll-free, non-synthetic)
+ * client DID assigned to its account.
+ */
+export function hasDedicatedPhoneNumber(org?: SenderOrgContext | null): boolean {
+  const orgNumber = org?.telnyx_phone_number?.trim()
+  if (!orgNumber || orgNumber.startsWith('+1999')) {
+    return false
+  }
+  const platformTollFree = resolvePlatformTollFreeNumber()
+  if (orgNumber === platformTollFree || orgNumber === PLATFORM_TOLL_FREE_NUMBER) {
+    return false
+  }
+  const provStatus = org?.phone_provisioning_status?.trim().toLowerCase()
+  if (provStatus && NON_ACTIVE_PROVISIONING_STATUSES.has(provStatus)) {
+    return false
+  }
+  return true
+}
+
 /**
  * Resolves the compliant outbound SMS sender phone number.
- * 1. If organization has an active dedicated Telnyx number (Paid Plan 10DLC), use it.
- * 2. Otherwise (Free Starter Pass or internal platform alerts), use the verified platform number.
+ * 1. If organization has an active dedicated Telnyx number (Paid Plan DID), use it exclusively.
+ * 2. Otherwise (3-Job Free Trial, pending provisioning, or platform alerts), use the verified platform toll-free number (+18777713802).
  */
-export function resolveSenderPhone(org?: { telnyx_phone_number?: string | null } | null): string {
-  const orgNumber = org?.telnyx_phone_number?.trim()
-  if (orgNumber && !orgNumber.startsWith('+1999')) {
-    return orgNumber
+export function resolveSenderPhone(org?: SenderOrgContext | null): string {
+  if (hasDedicatedPhoneNumber(org)) {
+    return org!.telnyx_phone_number!.trim()
   }
-  return process.env.TELNYX_SMS_PHONE_NUMBER || process.env.TELNYX_PHONE_NUMBER || PLATFORM_TOLL_FREE_NUMBER
+  return resolvePlatformTollFreeNumber()
 }
 
 export const SAAS_PLANS: Record<string, SaasPlan> = {
@@ -242,14 +290,22 @@ export function isProAutomationEntitled(org: {
 }
 
 /**
- * Platform Toll-Free Number Guard
- * The verified platform Toll-Free number (+18777713802) is authorized for all platform notifications,
- * demo walkthroughs, and Free 3-Job Starter Pass transactions.
+ * Demo Toll-Free Number Isolation Guard
+ * The platform demo TFN (+18777713802) must NEVER be used for non-demo missed-call recovery text-backs.
+ * Dedicated numbers and 10DLC registration are required for client missed-call text-backs on Solo Pro ($99/mo).
  */
 export function isTollFreeNumberRestricted(
-  _senderPhone: string,
-  _org: { id?: string | null; slug?: string | null } | null | undefined
+  senderPhone: string,
+  org: { id?: string | null; slug?: string | null } | null | undefined
 ): boolean {
+  if (!senderPhone) return false
+  const cleanSender = senderPhone.replace(/\D/g, '')
+  const cleanTfn = DEMO_TOLL_FREE_NUMBER.replace(/\D/g, '')
+  if (cleanSender === cleanTfn || cleanSender === '8777713802') {
+    if (!org) return true
+    const isDemo = org.id === DEMO_ORG_ID || (typeof org.slug === 'string' && org.slug.toLowerCase().includes('demo'))
+    return !isDemo
+  }
   return false
 }
 

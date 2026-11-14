@@ -137,6 +137,8 @@ export async function isPhoneSuppressed(
   return { suppressed: false }
 }
 
+export const DEFAULT_MAX_DAILY_SMS_PER_RECIPIENT = 20
+
 /**
  * Checks if a recipient has exceeded daily automated SMS frequency limits
  */
@@ -144,7 +146,7 @@ export async function checkFrequencyCap(
   supabase: SupabaseClient,
   orgId: string,
   phone: string,
-  maxDailyLimit: number = 3
+  maxDailyLimit: number = DEFAULT_MAX_DAILY_SMS_PER_RECIPIENT
 ): Promise<{ allowed: boolean; count24h: number; reason?: string }> {
   try {
     const norm = normalizePhoneToE164(phone)
@@ -317,7 +319,7 @@ export async function verifyOutboundCompliance(
 
   const bizName = org?.business_name_prefix || org?.name || 'CaptoDesk'
   const timezone = params.timezone || org?.timezone || 'America/Chicago'
-  const maxDaily = org?.max_daily_sms_per_recipient ?? 3
+  const maxDaily = org?.max_daily_sms_per_recipient ?? DEFAULT_MAX_DAILY_SMS_PER_RECIPIENT
   const enforceQuietHours = org?.enforce_quiet_hours !== false
 
   // Format compliant text
@@ -476,6 +478,7 @@ export interface InboundComplianceParams {
   fromPhone: string
   toPhone: string
   text: string
+  suppressReply?: boolean
 }
 
 export interface InboundComplianceResult {
@@ -565,13 +568,15 @@ export async function handleInboundComplianceKeyword(
     }
 
     // 4. Send single carrier-mandated confirmation SMS
-    await sendTelnyxSms({
-      to: cleanFrom,
-      from: cleanTo,
-      text: `${orgName}: You have been unsubscribed and will receive no further messages. Reply START to resubscribe or HELP for assistance.`
-    })
+    if (!params.suppressReply) {
+      await sendTelnyxSms({
+        to: cleanFrom,
+        from: cleanTo,
+        text: `${orgName}: You have been unsubscribed and will receive no further messages. Reply START to resubscribe or HELP for assistance.`
+      })
+    }
 
-    return { handled: true, action: 'opt_out_processed', replySent: true }
+    return { handled: true, action: 'opt_out_processed', replySent: !params.suppressReply }
   }
 
   // B. Inbound OPT-IN (START, UNSTOP, YES)
@@ -621,13 +626,15 @@ export async function handleInboundComplianceKeyword(
     })
 
     // 5. Send carrier-mandated confirmation SMS
-    await sendTelnyxSms({
-      to: cleanFrom,
-      from: cleanTo,
-      text: `${orgName}: You have resubscribed to receive service updates and notifications. Msg&data rates may apply. Reply HELP for info, STOP to opt out.`
-    })
+    if (!params.suppressReply) {
+      await sendTelnyxSms({
+        to: cleanFrom,
+        from: cleanTo,
+        text: `${orgName}: You have resubscribed to receive service updates and notifications. Msg&data rates may apply. Reply HELP for info, STOP to opt out.`
+      })
+    }
 
-    return { handled: true, action: 'opt_in_processed', replySent: true }
+    return { handled: true, action: 'opt_in_processed', replySent: !params.suppressReply }
   }
 
   // C. Inbound HELP (HELP, INFO)
@@ -643,13 +650,15 @@ export async function handleInboundComplianceKeyword(
       metadata: { inboundText: text }
     })
 
-    await sendTelnyxSms({
-      to: cleanFrom,
-      from: cleanTo,
-      text: helpText
-    })
+    if (!params.suppressReply) {
+      await sendTelnyxSms({
+        to: cleanFrom,
+        from: cleanTo,
+        text: helpText
+      })
+    }
 
-    return { handled: true, action: 'help_processed', replySent: true }
+    return { handled: true, action: 'help_processed', replySent: !params.suppressReply }
   }
 
   return { handled: false }

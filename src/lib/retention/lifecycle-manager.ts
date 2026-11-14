@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '../telnyx.ts'
 import { logAuditEvent } from '../security/audit-logger.ts'
+import { resolveSenderPhone } from '../billing/plans.ts'
 import { isPhoneSuppressed, formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { isTcpaQuietHours } from '../services/safety-rules.ts'
 
@@ -116,7 +117,7 @@ export async function evaluateCustomerReactivation(
       id, name, slug, timezone, reactivation_enabled,
       default_reactivation_interval_days, reactivation_cooldown_days,
       reactivation_template, reactivation_quiet_hours, reactivation_max_daily,
-      telnyx_phone_number
+      telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status
     `)
     .eq('id', orgId)
     .single()
@@ -228,7 +229,7 @@ export async function evaluateCustomerReactivation(
 
         const result = await sendTelnyxSms({
           to: contact.phone,
-          from: org.telnyx_phone_number,
+          from: resolveSenderPhone(org),
           text: compliantText
         })
 

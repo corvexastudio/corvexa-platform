@@ -42,6 +42,8 @@ export interface QuoteResult {
   manageToken?: string
   manageUrl?: string
   error?: string
+  upgradeRequired?: boolean
+  code?: string
 }
 
 /**
@@ -93,6 +95,27 @@ export async function createQuote(
 
   if (!items || items.length === 0) {
     return { success: false, error: 'Quote must include at least one line item' }
+  }
+
+  // Finish-Line Sunk Cost Paywall Guard: Creating customer quotes on Job #4+ requires Pro
+  try {
+    const { SubscriptionService } = await import('../billing/subscription-service.ts')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        return {
+          success: false,
+          upgradeRequired: true,
+          code: 'STARTER_LIMIT_REACHED',
+          error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to create and dispatch customer estimates."
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[CREATE_QUOTE_STARTER_LIMIT_CHECK]', err)
   }
 
   const financials = calculateQuoteFinancials(items, { taxRate, discount })
@@ -230,7 +253,7 @@ export async function sendQuote(
   quoteId: string,
   orgId: string,
   appBaseUrl: string = process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
-): Promise<{ success: boolean; quote?: any; error?: string }> {
+): Promise<{ success: boolean; quote?: any; error?: string; upgradeRequired?: boolean; code?: string }> {
   // 1. Fetch Quote
   const { data: quote, error: quoteError } = await supabase
     .from('quotes')
@@ -243,6 +266,28 @@ export async function sendQuote(
     return { success: false, error: 'Quote not found' }
   }
 
+  // Finish-Line Sunk Cost Paywall Guard: Dispatching customer quotes on Job #4+ requires Pro
+  try {
+    const { SubscriptionService } = await import('../billing/subscription-service.ts')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        return {
+          success: false,
+          upgradeRequired: true,
+          code: 'STARTER_LIMIT_REACHED',
+          error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to dispatch customer quotes via SMS.",
+          quote
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[SEND_QUOTE_STARTER_LIMIT_CHECK]', err)
+  }
+
   // P0 Guard: Do not allow re-sending quotes that have already been accepted or declined
   if (['accepted', 'declined'].includes(quote.status)) {
     return { success: false, error: `Cannot re-send quote #${quote.quote_number}: quote is already ${quote.status}` }
@@ -251,7 +296,7 @@ export async function sendQuote(
   // 2. Fetch Organization & Contact
   const { data: org } = await supabase
     .from('organizations')
-    .select('name, telnyx_phone_number, owner_phone')
+    .select('id, name, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, owner_phone')
     .eq('id', orgId)
     .single()
 
@@ -711,7 +756,7 @@ export async function customerAcceptQuote(
   // 4. Send SMS confirmation to customer
   const { data: org } = await supabase
     .from('organizations')
-    .select('name, telnyx_phone_number, owner_phone')
+    .select('id, name, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, owner_phone')
     .eq('id', quote.org_id)
     .single()
 

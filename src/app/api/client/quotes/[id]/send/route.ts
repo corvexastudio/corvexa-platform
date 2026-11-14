@@ -20,6 +20,9 @@ export async function POST(
     const result = await sendQuote(supabase, id, orgId, appBaseUrl)
 
     if (!result.success) {
+      if ((result as any).upgradeRequired) {
+        return NextResponse.json(result, { status: 402 })
+      }
       return NextResponse.json({ error: result.error || 'Failed to send quote' }, { status: 400 })
     }
 

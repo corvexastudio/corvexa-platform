@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { PayPalService } from '@/lib/services/paypal-service'
 import { getSaasPlan, resolveTierFromPayPalPlanId } from '@/lib/billing/plans'
 import { logAuditEvent } from '@/lib/security/audit-logger'
+import { triggerDedicatedProvisioningOnUpgrade } from '@/lib/telephony/provisioning'
 import {
   claimWebhookEvent,
   completeWebhookEvent,
@@ -113,6 +114,11 @@ export async function POST(request: Request) {
           event_type: 'billing.subscription_activated',
           description: `PayPal webhook activated subscription ${subscriptionId}`,
           metadata: { subscriptionId, planTier }
+        })
+
+        // Trigger dedicated Telnyx DID provisioning non-blockingly for new paid client
+        await triggerDedicatedProvisioningOnUpgrade(supabase, targetOrgId).catch((err) => {
+          console.warn('[PAYPAL_WEBHOOK_PROVISIONING_WARNING]', err?.message || err)
         })
       }
     } else if (eventType === 'PAYMENT.SALE.COMPLETED') {

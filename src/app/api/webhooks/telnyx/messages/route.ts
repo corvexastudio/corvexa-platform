@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { processInboundSms } from '@/lib/services/sms-handler'
 import { verifyTelnyxSignature } from '@/lib/telnyx'
-import { shouldUpdateMessageStatus } from '@/lib/telephony/message-state'
+import { resolveTelnyxDeliveryStatus, shouldUpdateMessageStatus } from '@/lib/telephony/message-state'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
@@ -153,12 +153,13 @@ export async function POST(request: Request) {
       attempt: claim.attemptCount
     })
 
-    // 5. Handle Delivery Status Callbacks (queued, sent, delivered, failed, undelivered)
+    // 5. Handle Delivery Status Callbacks (queued, sent, delivered, failed, undelivered, finalized)
     const deliveryStatusEvents = new Set([
       'message.sent',
       'message.delivered',
       'message.failed',
-      'message.undelivered'
+      'message.undelivered',
+      'message.finalized'
     ])
 
     if (deliveryStatusEvents.has(eventType)) {
@@ -167,15 +168,27 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: 'Missing message ID' }, { status: 400 })
       }
 
-      let newStatus: 'sent' | 'delivered' | 'failed' | 'undelivered' = 'sent'
-      if (eventType === 'message.delivered') newStatus = 'delivered'
-      else if (eventType === 'message.failed') newStatus = 'failed'
-      else if (eventType === 'message.undelivered') newStatus = 'undelivered'
+      const newStatus = resolveTelnyxDeliveryStatus(eventType, payload)
+      if (!newStatus) {
+        await completeWebhookEvent(supabase, eventId, {
+          ignored: true,
+          reason: `Unmapped status on ${eventType}: ${payload?.to?.[0]?.status || 'none'}`
+        })
+        return NextResponse.json({
+          success: true,
+          action: 'delivery_status_ignored',
+          reason: 'No actionable delivery status in payload',
+          messageId: telnyxMessageId
+        })
+      }
 
-      const failureReason =
-        payload?.errors?.[0]?.detail ||
-        payload?.to?.[0]?.status ||
-        (newStatus === 'failed' || newStatus === 'undelivered' ? 'Carrier delivery failure' : null)
+      const isFailure = newStatus === 'failed' || newStatus === 'undelivered'
+      const failureReason = isFailure
+        ? payload?.errors?.[0]?.detail ||
+          payload?.errors?.[0]?.title ||
+          payload?.to?.[0]?.status ||
+          'Carrier delivery failure'
+        : null
 
       // Guard: Monotonic state transitions & out-of-order webhook protection
       const { data: existingMsg } = await supabase
@@ -260,8 +273,13 @@ export async function POST(request: Request) {
 
     // 6. Handle Inbound SMS (message.received)
     if (eventType === 'message.received') {
-      const fromPhone = payload?.from?.phone_number
-      const toPhone = payload?.to?.[0]?.phone_number || payload?.to
+      const fromPhone =
+        typeof payload?.from === 'string' ? payload.from : payload?.from?.phone_number
+      const toPhone = Array.isArray(payload?.to)
+        ? payload.to[0]?.phone_number
+        : typeof payload?.to === 'string'
+          ? payload.to
+          : payload?.to?.phone_number
       const text = payload?.text || ''
 
       if (!fromPhone || !toPhone) {

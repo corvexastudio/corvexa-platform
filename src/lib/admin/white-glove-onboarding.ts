@@ -3,6 +3,7 @@ import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { getIndustryPreset } from '../constants/industries.ts'
 import { createClaimToken } from '../security/claim-token.ts'
 import { inferTimezoneFromAreaCode } from '../temporal/timezone.ts'
+import { seedPracticeJobIfMissing } from '../jobs/practice-job.ts'
 
 export interface AdminOnboardInput {
   businessName: string
@@ -256,6 +257,16 @@ export async function adminOnboardTenant(
     })
   } catch {
     // non-fatal
+  }
+
+  // Seed Sandbox Practice Job & Contact
+  try {
+    await seedPracticeJobIfMissing(supabase, orgId, {
+      ownerPhone: normCell.e164,
+      ownerName: effectiveOwnerName
+    })
+  } catch (err: any) {
+    console.warn('[Admin Onboarding] Practice job seed warning:', err.message)
   }
 
   // Generate 1-Tap Claim Link & Welcome SMS

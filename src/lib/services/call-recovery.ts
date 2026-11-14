@@ -8,7 +8,9 @@ import type { CallEvaluationResult } from '../telephony/call-state-machine.ts'
 import { formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import type { OwnerNotificationResult } from '../telephony/owner-notifier.ts'
 import { notifyOwner } from '../notifications/notification-service.ts'
-import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted } from '../billing/subscription-service.ts'
+import { DEMO_ORG_ID, PLATFORM_TOLL_FREE_NUMBER, resolvePlatformTollFreeNumber, hasDedicatedPhoneNumber } from '../billing/plans.ts'
+import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted, resolveSenderPhone } from '../billing/subscription-service.ts'
+import { logOutboundConversationMessage } from './conversation-logger.ts'
 
 export interface InboundCallContext {
   callerNumber: string
@@ -206,9 +208,13 @@ export async function processMissedCall(
     contact = newContact
   }
 
-  // 3.4. Strict $0 Free Tier Telecom Guard & TFN Isolation Guard
-  const isDemoCall = org.id === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || org.slug?.includes('demo') || formattedCalled === '+18777713802'
-  if (!isDemoCall && !isProAutomationEntitled(org)) {
+  // 3.4. Strict $0 Free Tier Telecom Guard & Dedicated 10DLC Requirement
+  // Missed-call text-back requires a dedicated business number, 10DLC campaign registration,
+  // and conditional call forwarding, which are exclusive to Solo Pro ($99/mo) and Multi-Crew plans.
+  const isDemoOrg = org.id === DEMO_ORG_ID || (typeof org.slug === 'string' && org.slug.toLowerCase().includes('demo'))
+  const isEntitled = isDemoOrg || isProAutomationEntitled(org)
+
+  if (!isEntitled) {
     const { data: freeCall } = await supabase.from('calls').insert({
       org_id: org.id,
       contact_id: contact?.id,
@@ -226,7 +232,7 @@ export async function processMissedCall(
 
     if (contact?.id) {
       await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id, {
-        notes: `Missed call received on Free tier. Phone: ${formattedCaller}. Automated SMS text-back is available on Solo Pro ($99/mo).`
+        notes: `Missed call received on Free tier. Phone: ${formattedCaller}. Automated SMS text-back requires a dedicated business number and 10DLC registration on Solo Pro ($99/mo).`
       })
     }
 
@@ -234,7 +240,7 @@ export async function processMissedCall(
       await supabase.from('notifications').insert({
         org_id: org.id,
         title: 'Missed Call Received (Free Tier)',
-        message: `You missed a call from ${formattedCaller}. Customer details saved in Leads. Upgrade to Solo Pro ($99/mo) to enable instant 8-second AI missed-call recovery text-back.`,
+        message: `You missed a call from ${formattedCaller}. Customer details saved in Leads. Upgrade to Solo Pro ($99/mo) to activate your dedicated business phone number, 10DLC registration, and instant 8-second AI missed-call recovery text-back.`,
         link: '/client/leads'
       })
     } catch {
@@ -246,7 +252,7 @@ export async function processMissedCall(
       organizationId: org.id,
       data: {
         title: 'Missed Call Received',
-        body: `You missed a call from ${formattedCaller}. Customer contact saved to Leads.`,
+        body: `You missed a call from ${formattedCaller}. Customer contact saved to Leads. Automated text-backs unlock with a dedicated number on Solo Pro ($99/mo).`,
         targetUrl: '/client/leads',
         callerPhone: formattedCaller,
         calledPhone: formattedCalled
@@ -339,8 +345,9 @@ export async function processMissedCall(
     contactOptOut: Boolean(contact?.opt_out),
     durationSeconds: call.callOutcome.durationSeconds,
     isMissedCallActive: Boolean(org.is_missed_call_active),
-    cooldownHours: org.cooldown_hours || 24,
+    cooldownHours: org.cooldown_hours ?? 24,
     timezone: org.timezone || 'America/Chicago',
+    enforceQuietHours: org.enforce_quiet_hours !== false,
     overrideDate: call.overrideDate
   })
 
@@ -386,7 +393,9 @@ export async function processMissedCall(
           org,
           call.callOutcome,
           contact?.name,
-          formattedCalled
+          formattedCalled,
+          formattedCaller,
+          contact?.id
         )
 
         const compliantText = formatCompliantOutboundText({
@@ -394,6 +403,12 @@ export async function processMissedCall(
           text: renderedText,
           messageType: 'transactional'
         })
+
+        const isCalledTollFree = formattedCalled === PLATFORM_TOLL_FREE_NUMBER || formattedCalled === resolvePlatformTollFreeNumber()
+        const dedicatedNumber = hasDedicatedPhoneNumber(org)
+          ? org.telnyx_phone_number!.trim()
+          : (!isCalledTollFree && !formattedCalled.startsWith('+1999') ? formattedCalled : null)
+        const outboundSenderPhone = dedicatedNumber || resolveSenderPhone(org)
 
         await supabase.from('automation_runs').insert({
           org_id: org.id,
@@ -403,7 +418,7 @@ export async function processMissedCall(
           action_type: 'send_sms',
           action_params: {
             to: formattedCaller,
-            from: formattedCalled,
+            from: outboundSenderPhone,
             text: compliantText,
             message: compliantText,
             flowType: 'missed_call_recovery',
@@ -418,6 +433,16 @@ export async function processMissedCall(
             recovery_type: 'tcpa_morning_recovery',
             target_date: targetDateKey
           }
+        })
+
+        // Surface the quiet-hours missed call in Inbox so contractors don't see a blank Inbox overnight
+        await logOutboundConversationMessage(supabase, {
+          orgId: org.id,
+          contactId: contact.id,
+          body: `Missed call received during TCPA quiet hours (8:00 PM–8:00 AM local time). Follow-up SMS queued for 8:05 AM: "${renderedText}"`,
+          deliveryStatus: 'queued',
+          automationSource: 'missed_call_quiet_hours',
+          incrementUnread: true,
         })
       }
     } else if (suppression.suppressionReason === 'cooldown_active' && contact?.id) {
@@ -439,7 +464,9 @@ export async function processMissedCall(
     org,
     call.callOutcome,
     contact?.name,
-    formattedCalled
+    formattedCalled,
+    formattedCaller,
+    contact?.id
   )
 
   const compliantText = formatCompliantOutboundText({
@@ -448,11 +475,16 @@ export async function processMissedCall(
     messageType: 'transactional'
   })
 
-  // 6. Dispatch SMS via Telnyx (using tenant's dedicated phone number)
+  // 6. Dispatch SMS via Telnyx (using tenant's dedicated phone number or verified toll-free on starter pass)
+  const isCalledTollFree = formattedCalled === PLATFORM_TOLL_FREE_NUMBER || formattedCalled === resolvePlatformTollFreeNumber()
+  const dedicatedNumber = hasDedicatedPhoneNumber(org)
+    ? org.telnyx_phone_number!.trim()
+    : (!isCalledTollFree && !formattedCalled.startsWith('+1999') ? formattedCalled : null)
+  const outboundSenderPhone = dedicatedNumber || resolveSenderPhone(org)
   const sendCustomerSms = call.sendSmsFn || sendTelnyxSms
   const smsResult = await sendCustomerSms({
     to: formattedCaller,
-    from: formattedCalled,
+    from: outboundSenderPhone,
     text: compliantText
   })
 
@@ -501,40 +533,17 @@ export async function processMissedCall(
     await recordOrUpdateLeadForMissedCall(supabase, org.id, contact.id)
   }
 
-  // 9. Ensure Conversation exists and log outbound recovery message
-  let { data: conversation } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('org_id', org.id)
-    .eq('contact_id', contact?.id)
-    .maybeSingle()
-
-  if (!conversation) {
-    const { data: newConv } = await supabase
-      .from('conversations')
-      .insert({
-        org_id: org.id,
-        contact_id: contact?.id,
-        last_message_preview: renderedText
-      })
-      .select('id')
-      .single()
-    conversation = newConv
-  }
-
-  if (conversation) {
-    await supabase.from('messages').insert({
-      org_id: org.id,
-      conversation_id: conversation.id,
-      direction: 'outbound',
-      sender_type: 'system',
-      body: renderedText,
-      delivery_status: smsResult.success ? 'sent' : 'failed',
-      telnyx_message_id: smsResult.messageId,
-      automation_source: 'missed_call_recovery',
-      failure_reason: smsResult.error || null
-    })
-  }
+  // 9. Ensure Conversation exists, bump unread state/preview/timestamp, and log outbound recovery message
+  await logOutboundConversationMessage(supabase, {
+    orgId: org.id,
+    contactId: contact?.id,
+    body: renderedText,
+    deliveryStatus: smsResult.success ? 'sent' : 'failed',
+    telnyxMessageId: smsResult.messageId,
+    automationSource: 'missed_call_recovery',
+    failureReason: smsResult.error || null,
+    incrementUnread: true,
+  })
 
   // 10. Dispatch Owner Missed-Call Alert (Push + SMS via Notification Platform)
   let ownerAlert: OwnerNotificationResult | undefined

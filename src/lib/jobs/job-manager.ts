@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '../telnyx.ts'
-import { verifyOutboundCompliance } from '../compliance/compliance-engine.ts'
+import { logComplianceAudit, verifyOutboundCompliance } from '../compliance/compliance-engine.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 import { createEventEnvelope } from '../automations/events.ts'
 import { handleAutomationEvent } from '../automations/engine.ts'
 import { updateCustomerServiceDate } from '../retention/lifecycle-manager.ts'
@@ -8,6 +9,10 @@ import { scheduleJobReviewAutomation } from '../reviews/review-manager.ts'
 import { renderSituationAwareText } from '../notifications/situation-templates.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
 import { resolveSenderPhone } from '../billing/plans.ts'
+import {
+  selectBestAcceptedQuoteForJob,
+  type QuoteMatchCandidate,
+} from './quote-matching.ts'
 
 export type JobStatus =
   | 'scheduled'
@@ -123,6 +128,203 @@ export async function createJob(
 }
 
 /**
+ * Collects quote IDs that are already assigned to another active/completed job
+ * or have already been converted into a non-void final invoice.
+ */
+async function buildClaimedQuoteIdSet(
+  supabase: SupabaseClient,
+  orgId: string,
+  candidateQuotes: QuoteMatchCandidate[],
+  excludeJobId?: string
+): Promise<Set<string>> {
+  const claimed = new Set<string>()
+  const quoteIds = Array.from(new Set(candidateQuotes.map(q => q.id).filter(Boolean)))
+  if (quoteIds.length === 0) return claimed
+
+  const depositInvoiceIds = new Set(
+    candidateQuotes.map(q => q.deposit_invoice_id).filter(Boolean) as string[]
+  )
+
+  try {
+    const { data: linkedJobs } = await supabase
+      .from('jobs')
+      .select('id, quote_id, status, deleted_at')
+      .eq('org_id', orgId)
+      .in('quote_id', quoteIds)
+
+    for (const lj of linkedJobs || []) {
+      if (lj.deleted_at || !lj.quote_id) continue
+      if (excludeJobId && lj.id === excludeJobId) continue
+      if (['cancelled', 'no_show'].includes(lj.status || '')) continue
+      claimed.add(lj.quote_id)
+    }
+  } catch {
+    // Non-blocking in constrained schemas/mocks
+  }
+
+  try {
+    const { data: linkedInvoices } = await supabase
+      .from('invoices')
+      .select('id, quote_id, job_id, status, deleted_at')
+      .eq('org_id', orgId)
+      .in('quote_id', quoteIds)
+
+    for (const inv of linkedInvoices || []) {
+      if (inv.deleted_at || !inv.quote_id) continue
+      if (inv.status === 'void') continue
+      if (excludeJobId && inv.job_id === excludeJobId) continue
+      if (depositInvoiceIds.has(inv.id)) continue
+      claimed.add(inv.quote_id)
+    }
+  } catch {
+    // Non-blocking in constrained schemas/mocks
+  }
+
+  return claimed
+}
+
+/**
+ * Resolves the best unclaimed accepted quote for a single job (by quote_id or contact).
+ */
+async function findUnclaimedAcceptedQuoteForJob(
+  supabase: SupabaseClient,
+  orgId: string,
+  job: any
+): Promise<QuoteMatchCandidate | null> {
+  if (!job?.contact_id) return null
+  try {
+    const { data: contactQuotes } = await supabase
+      .from('quotes')
+      .select('id, quote_number, title, description, total, subtotal, tax, discount, status, manage_token, contact_id, lead_id, accepted_at, created_at, deposit_invoice_id')
+      .eq('org_id', orgId)
+      .eq('contact_id', job.contact_id)
+      .eq('status', 'accepted')
+
+    const validQuotes = (contactQuotes || []).filter((q: any) => !q.deleted_at)
+    if (validQuotes.length === 0) return null
+
+    const claimedQuoteIds = await buildClaimedQuoteIdSet(supabase, orgId, validQuotes, job.id)
+    return selectBestAcceptedQuoteForJob(job, validQuotes, claimedQuoteIds)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Reliably hydrates jobs with their linked or unclaimed approved quotes and service pricing,
+ * independent of PostgREST foreign-key embed availability.
+ */
+export async function hydrateJobsWithQuotes(
+  supabase: SupabaseClient,
+  orgId: string,
+  jobs: any[]
+): Promise<void> {
+  if (!Array.isArray(jobs) || jobs.length === 0) return
+
+  try {
+    // 1. Ensure service.price is populated when service_id exists
+    const missingPriceServiceIds = Array.from(
+      new Set(
+        jobs
+          .filter(j => j.service_id && (j.service?.price === undefined || j.service?.price === null))
+          .map(j => j.service_id)
+      )
+    )
+    if (missingPriceServiceIds.length > 0) {
+      const { data: svcRows } = await supabase
+        .from('services')
+        .select('id, name, duration_minutes, price')
+        .eq('org_id', orgId)
+        .in('id', missingPriceServiceIds)
+
+      const svcMap = new Map<string, any>((svcRows || []).map((s: any) => [s.id, s]))
+      for (const j of jobs) {
+        const svc = svcMap.get(j.service_id)
+        if (svc) {
+          j.service = { ...(j.service || {}), ...svc }
+        }
+      }
+    }
+
+    // 2. Gather candidate quotes (direct quote_ids + accepted quotes for these customers)
+    const directQuoteIds = Array.from(new Set(jobs.map(j => j.quote_id).filter(Boolean)))
+    const contactIds = Array.from(
+      new Set(
+        jobs
+          .filter(j => j.contact_id && (!j.quote || j.quote.status !== 'accepted'))
+          .map(j => j.contact_id)
+      )
+    )
+
+    const quoteMap = new Map<string, QuoteMatchCandidate>()
+
+    if (directQuoteIds.length > 0) {
+      const { data: directRows } = await supabase
+        .from('quotes')
+        .select('id, quote_number, title, description, total, subtotal, tax, discount, status, manage_token, contact_id, lead_id, accepted_at, created_at, deposit_invoice_id, deleted_at')
+        .eq('org_id', orgId)
+        .in('id', directQuoteIds)
+
+      for (const q of directRows || []) {
+        if (!q.deleted_at) quoteMap.set(q.id, q)
+      }
+    }
+
+    if (contactIds.length > 0) {
+      const { data: acceptedRows } = await supabase
+        .from('quotes')
+        .select('id, quote_number, title, description, total, subtotal, tax, discount, status, manage_token, contact_id, lead_id, accepted_at, created_at, deposit_invoice_id, deleted_at')
+        .eq('org_id', orgId)
+        .eq('status', 'accepted')
+        .in('contact_id', contactIds)
+
+      for (const q of acceptedRows || []) {
+        if (!q.deleted_at) quoteMap.set(q.id, q)
+      }
+    }
+
+    const candidateQuotes = Array.from(quoteMap.values())
+    if (candidateQuotes.length === 0) return
+
+    const claimedQuoteIds = await buildClaimedQuoteIdSet(supabase, orgId, candidateQuotes)
+
+    // Pass A: Hydrate jobs that already have an explicit quote_id
+    for (const j of jobs) {
+      if (j.quote_id && quoteMap.has(j.quote_id)) {
+        j.quote = quoteMap.get(j.quote_id)
+        claimedQuoteIds.add(j.quote_id)
+      }
+    }
+
+    // Pass B: Match unclaimed accepted quotes to active (or completed-uninvoiced) jobs
+    const activeStatuses = new Set(['scheduled', 'confirmed', 'en_route', 'in_progress'])
+    const eligibleJobs = jobs
+      .filter(j => {
+        if (j.quote && j.quote.status === 'accepted') return false
+        if (activeStatuses.has(j.status)) return true
+        return j.status === 'completed' && !(Array.isArray(j.invoices) && j.invoices.length > 0)
+      })
+      .sort((a, b) => {
+        const aActive = activeStatuses.has(a.status) ? 0 : 1
+        const bActive = activeStatuses.has(b.status) ? 0 : 1
+        if (aActive !== bActive) return aActive - bActive
+        return (Date.parse(b.created_at || b.scheduled_start || '') || 0) -
+          (Date.parse(a.created_at || a.scheduled_start || '') || 0)
+      })
+
+    for (const j of eligibleJobs) {
+      const match = selectBestAcceptedQuoteForJob(j, candidateQuotes, claimedQuoteIds)
+      if (match) {
+        j.quote = match
+        claimedQuoteIds.add(match.id)
+      }
+    }
+  } catch (err) {
+    console.warn('[HYDRATE_JOBS_QUOTES_WARNING]', err)
+  }
+}
+
+/**
  * Updates a job's status through its field-service lifecycle:
  * scheduled -> confirmed -> en_route -> in_progress -> completed.
  * When status is 'completed', emits the typed 'job.completed' domain event.
@@ -140,9 +342,10 @@ export async function updateJobStatus(
     finalAmount?: number
     items?: Array<{ description: string; quantity: number; unit_price: number }>
     dueDate?: string
+    quoteId?: string
   }
 ): Promise<{ success: boolean; job?: any; invoice?: any; error?: string; alreadyInStatus?: boolean; upgradeRequired?: boolean; code?: string; checkoutUrl?: string }> {
-  const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes, finalAmount, items: paramItems, dueDate: paramDueDate } = params
+  const { jobId, orgId, newStatus, notifyCustomer = false, notes, technicianName, etaMinutes, finalAmount, items: paramItems, dueDate: paramDueDate, quoteId: paramQuoteId } = params
 
   const { data: job, error: findError } = await supabase
     .from('jobs')
@@ -254,6 +457,9 @@ export async function updateJobStatus(
       status: newStatus,
       updated_at: nowIso
     }
+    if (updateFields.tracking_token) {
+      fallbackFields.tracking_token = updateFields.tracking_token
+    }
     if (notes) {
       fallbackFields.notes = job.notes ? `${job.notes}\n${notes}` : notes
     }
@@ -320,7 +526,7 @@ export async function updateJobStatus(
     try {
       const { data: org } = await supabase
         .from('organizations')
-        .select('name, telnyx_phone_number, owner_phone, operation_mode')
+        .select('name, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, owner_phone, operation_mode')
         .eq('id', orgId)
         .maybeSingle()
 
@@ -334,7 +540,6 @@ export async function updateJobStatus(
       if (senderNumber && contact?.phone) {
         const techDisplay = technicianName?.trim() || updatedJob.technician_name || 'Your technician'
         const etaVal = typeof etaMinutes === 'number' && etaMinutes > 0 ? etaMinutes : updatedJob.eta_minutes
-        const etaPart = etaVal ? ` (ETA: ~${etaVal} mins)` : ''
         const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://captodesk.com').replace(/\/$/, '')
         const trackingToken = updatedJob.tracking_token || job.tracking_token
         const trackingUrl = trackingToken ? `${baseUrl}/t/${trackingToken}` : undefined
@@ -359,11 +564,34 @@ export async function updateJobStatus(
         })
 
         if (compliance.allowed) {
-          await sendTelnyxSms({
+          const smsRes = await sendTelnyxSms({
             to: contact.phone,
             from: senderNumber,
             text: compliance.formattedText
           })
+
+          if (smsRes.success) {
+            await logComplianceAudit(supabase, {
+              orgId,
+              phone: contact.phone,
+              contactId: job.contact_id,
+              action: 'message_sent',
+              messageType: 'transactional',
+              reason: 'job_en_route'
+            })
+          }
+
+          if (job.contact_id) {
+            await logOutboundConversationMessage(supabase, {
+              orgId,
+              contactId: job.contact_id,
+              body: compliance.formattedText,
+              deliveryStatus: smsRes.success ? 'sent' : 'failed',
+              telnyxMessageId: smsRes.messageId || null,
+              automationSource: 'job_en_route',
+              failureReason: smsRes.error || null
+            })
+          }
         } else {
           console.warn(`[EN_ROUTE_SMS_SUPPRESSED] Compliance check suppressed SMS: ${compliance.suppressionReason}`)
         }
@@ -432,6 +660,110 @@ export async function updateJobStatus(
         draftInvoice = existingInv
       } else if (job.contact_id) {
         let invoiceItems: Array<{ description: string; quantity: number; unit_price: number }> = []
+        let invoiceTaxRate = 0
+        let invoiceDiscountAmount = 0
+
+        // Resolve linked quote or auto-discover unclaimed accepted quote for this customer
+        let resolvedQuoteId: string | null = paramQuoteId || job.quote_id || null
+        if (!resolvedQuoteId && (!paramItems || paramItems.length === 0)) {
+          const matchedQuote = await findUnclaimedAcceptedQuoteForJob(supabase, orgId, job)
+          if (matchedQuote?.id) {
+            resolvedQuoteId = matchedQuote.id
+          }
+        }
+
+        // Persist newly resolved quote linkage onto the job record for audit continuity
+        if (resolvedQuoteId && !job.quote_id) {
+          try {
+            await supabase
+              .from('jobs')
+              .update({ quote_id: resolvedQuoteId })
+              .eq('id', job.id)
+              .eq('org_id', orgId)
+            updatedJob.quote_id = resolvedQuoteId
+          } catch {
+            // Non-blocking in older schemas
+          }
+        }
+
+        const loadQuoteBreakdown = async (qId: string, expectedTotal?: number) => {
+          const { data: quoteItems } = await supabase
+            .from('quote_items')
+            .select('*')
+            .eq('quote_id', qId)
+
+          const { data: q } = await supabase
+            .from('quotes')
+            .select('title, total, subtotal, tax, discount, items')
+            .eq('id', qId)
+            .maybeSingle()
+
+          let resolvedItems: Array<{ description: string; quantity: number; unit_price: number }> = []
+          if (quoteItems && quoteItems.length > 0) {
+            resolvedItems = quoteItems.map((it: any) => ({
+              description: it.description,
+              quantity: Number(it.quantity) || 1,
+              unit_price: Number(it.unit_price) || 0
+            }))
+          } else if (q && Array.isArray(q.items) && q.items.length > 0) {
+            resolvedItems = q.items.map((it: any) => ({
+              description: it.description || q.title || job.title,
+              quantity: Number(it.quantity) || 1,
+              unit_price: Number(it.unit_price ?? it.total) || Number(q.total)
+            }))
+          } else if (q && Number(q.total) > 0) {
+            resolvedItems = [{
+              description: q.title || job.title || 'Completed Field Service',
+              quantity: 1,
+              unit_price: Number(q.total)
+            }]
+          }
+
+          if (resolvedItems.length === 0 || !q) {
+            return { items: resolvedItems, taxRate: 0, discountAmount: 0, title: q?.title || null }
+          }
+
+          const itemsSum = resolvedItems.reduce(
+            (s, it) => s + (Number(it.unit_price) || 0) * (Number(it.quantity) || 1),
+            0
+          )
+          const quoteTotal = Number(q.total) || itemsSum
+          const qDiscount = Number(q.discount) || 0
+          const qTax = Number(q.tax) || 0
+          const qSubtotal = Number(q.subtotal) || itemsSum
+          const taxable = Math.max(0, qSubtotal - qDiscount)
+          const qTaxRate = qTax > 0 && taxable > 0 ? Math.round((qTax / taxable) * 10000) / 100 : 0
+
+          if (typeof expectedTotal === 'number' && expectedTotal > 0) {
+            // Preserve rich itemized lines only if they reproduce the exact finalAmount; otherwise respect manual edit
+            if (Math.abs(itemsSum - expectedTotal) < 0.01) {
+              return { items: resolvedItems, taxRate: 0, discountAmount: 0, title: q.title || null }
+            }
+            if (Math.abs(quoteTotal - expectedTotal) < 0.01) {
+              const estTax = Math.round(Math.max(0, itemsSum - Math.min(itemsSum, qDiscount)) * (qTaxRate / 100) * 100) / 100
+              const estTotal = Math.round((itemsSum - Math.min(itemsSum, qDiscount) + estTax) * 100) / 100
+              if (Math.abs(estTotal - expectedTotal) < 0.01) {
+                return { items: resolvedItems, taxRate: qTaxRate, discountAmount: qDiscount, title: q.title || null }
+              }
+            }
+            return {
+              items: [{
+                description: q.title || job.title || 'Completed Field Service',
+                quantity: 1,
+                unit_price: expectedTotal
+              }],
+              taxRate: 0,
+              discountAmount: 0,
+              title: q.title || null
+            }
+          }
+
+          if (Math.abs(itemsSum - quoteTotal) >= 0.01 && (qTax > 0 || qDiscount > 0)) {
+            return { items: resolvedItems, taxRate: qTaxRate, discountAmount: qDiscount, title: q.title || null }
+          }
+
+          return { items: resolvedItems, taxRate: 0, discountAmount: 0, title: q.title || null }
+        }
 
         // 1. Explicit items passed from Completion Dialog
         if (paramItems && paramItems.length > 0) {
@@ -441,14 +773,24 @@ export async function updateJobStatus(
             unit_price: Number(it.unit_price) || 0
           }))
         } else if (typeof finalAmount === 'number' && finalAmount > 0) {
-          // 2. Explicit final total amount entered by owner/tech on completion
-          invoiceItems = [
-            {
-              description: job.title || 'Completed Field Service',
-              quantity: 1,
-              unit_price: finalAmount
+          // 2. Explicit final total entered/confirmed on completion (preserving quote items when total matches)
+          if (resolvedQuoteId) {
+            const breakdown = await loadQuoteBreakdown(resolvedQuoteId, finalAmount)
+            if (breakdown.items.length > 0) {
+              invoiceItems = breakdown.items
+              invoiceTaxRate = breakdown.taxRate
+              invoiceDiscountAmount = breakdown.discountAmount
             }
-          ]
+          }
+          if (invoiceItems.length === 0) {
+            invoiceItems = [
+              {
+                description: job.title || 'Completed Field Service',
+                quantity: 1,
+                unit_price: finalAmount
+              }
+            ]
+          }
         } else {
           // 3. Line items from job_items table
           const { data: jobItems } = await supabase
@@ -463,42 +805,12 @@ export async function updateJobStatus(
               quantity: Number(it.quantity) || 1,
               unit_price: Number(it.unit_price) || 0
             }))
-          } else if (job.quote_id) {
-            // 4. Fallback to linked quote line items
-            const { data: quoteItems } = await supabase
-              .from('quote_items')
-              .select('*')
-              .eq('quote_id', job.quote_id)
-
-            if (quoteItems && quoteItems.length > 0) {
-              invoiceItems = quoteItems.map((it: any) => ({
-                description: it.description,
-                quantity: Number(it.quantity) || 1,
-                unit_price: Number(it.unit_price) || 0
-              }))
-            } else {
-              // Also check quotes table total & items array
-              const { data: q } = await supabase
-                .from('quotes')
-                .select('title, total, items')
-                .eq('id', job.quote_id)
-                .maybeSingle()
-              if (q && Number(q.total) > 0) {
-                if (Array.isArray(q.items) && q.items.length > 0) {
-                  invoiceItems = q.items.map((it: any) => ({
-                    description: it.description || q.title || job.title,
-                    quantity: Number(it.quantity) || 1,
-                    unit_price: Number(it.unit_price ?? it.total) || Number(q.total)
-                  }))
-                } else {
-                  invoiceItems = [{
-                    description: q.title || job.title || 'Completed Field Service',
-                    quantity: 1,
-                    unit_price: Number(q.total)
-                  }]
-                }
-              }
-            }
+          } else if (resolvedQuoteId) {
+            // 4. Fallback to linked or auto-matched approved quote
+            const breakdown = await loadQuoteBreakdown(resolvedQuoteId)
+            invoiceItems = breakdown.items
+            invoiceTaxRate = breakdown.taxRate
+            invoiceDiscountAmount = breakdown.discountAmount
           }
 
           // 5. If still no items, check service catalog price
@@ -539,10 +851,12 @@ export async function updateJobStatus(
             orgId,
             contactId: job.contact_id,
             jobId: job.id,
-            quoteId: job.quote_id || undefined,
+            quoteId: resolvedQuoteId || undefined,
             title: `Invoice for Job #${job.job_number}`,
             description: job.description || `Field service invoice for ${job.title}`,
             items: invoiceItems,
+            taxRate: invoiceTaxRate,
+            discountAmount: invoiceDiscountAmount,
             dueDate: resolvedDueDate
           })
 
@@ -1052,7 +1366,7 @@ export async function recordJobTimestamp(
     action: 'arrived' | 'started' | 'completed'
     notes?: string
   }
-): Promise<{ success: boolean; job?: any; invoice?: any; error?: string }> {
+): Promise<{ success: boolean; job?: any; invoice?: any; error?: string; upgradeRequired?: boolean; code?: string; checkoutUrl?: string }> {
   const { orgId, jobId, action, notes } = params
   const now = new Date().toISOString()
 
@@ -1071,6 +1385,29 @@ export async function recordJobTimestamp(
   // P0 Guard: Cannot restart or record timestamps on completed or cancelled jobs
   if (['completed', 'cancelled'].includes(job.status) && action !== 'completed') {
     return { success: false, error: `Cannot record timestamp or restart an already ${job.status} job.` }
+  }
+
+  // Finish-Line Sunk Cost Paywall Guard (Starter Pass: Job #4+)
+  // Advancing status to active/dispatched/completed states requires Pro once 3 free jobs are completed
+  const { isPracticeJob } = await import('./practice-job.ts')
+  if (!isPracticeJob(job) && job.status !== 'completed') {
+    const { SubscriptionService } = await import('../billing/subscription-service.ts')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        return {
+          success: false,
+          upgradeRequired: true,
+          code: 'STARTER_LIMIT_REACHED',
+          error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to dispatch crew and manage additional jobs.",
+          checkoutUrl: '/client/billing?reason=starter_limit',
+          job
+        }
+      }
+    }
   }
 
   const updateFields: Record<string, any> = {

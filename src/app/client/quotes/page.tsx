@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { ErrorState } from '@/components/ui/error-state'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -160,10 +161,31 @@ function ClientQuotesContent() {
   const [depositValue, setDepositValue] = useState<number>(50)
   
   // 21 Trades Selector State
-  const { orgIndustry } = useWorkspace()
+  const { orgIndustry, operationMode } = useWorkspace()
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all')
   const [showAllTrades, setShowAllTrades] = useState(false)
   const [tradeSearch, setTradeSearch] = useState<string>('')
+
+  // Found Money Finish-Line Paywall Modal (Job #4+)
+  const [showFoundMoneyModal, setShowFoundMoneyModal] = useState(false)
+  const [gatedQuoteData, setGatedQuoteData] = useState<{
+    amount?: number
+    customerName?: string
+  } | null>(null)
+  const [starterUsage, setStarterUsage] = useState<{ isLimitReached: boolean; completedJobsCount: number } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    fetch('/api/client/billing')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (isMounted && d?.entitlement?.starterUsage) {
+          setStarterUsage(d.entitlement.starterUsage)
+        }
+      })
+      .catch(() => {})
+    return () => { isMounted = false }
+  }, [])
 
   // Align default trade with organization onboarding trade
   useEffect(() => {
@@ -262,6 +284,15 @@ function ClientQuotesContent() {
         loadQuotes()
       } else {
         const err = await res.json().catch(() => ({}))
+        if (res.status === 402 || err.upgradeRequired) {
+          const targetQuote = quotes.find(q => q.id === quoteId)
+          setGatedQuoteData({
+            amount: targetQuote?.total || undefined,
+            customerName: targetQuote?.contact?.name || 'Customer'
+          })
+          setShowFoundMoneyModal(true)
+          return
+        }
         toast.error(err.error || 'Failed to send quote.')
       }
     } catch {
@@ -272,6 +303,15 @@ function ClientQuotesContent() {
   }
 
   const handleConvertToJob = async (quoteId: string) => {
+    if (starterUsage?.isLimitReached) {
+      const targetQuote = quotes.find(q => q.id === quoteId)
+      setGatedQuoteData({
+        amount: targetQuote?.total || undefined,
+        customerName: targetQuote?.contact?.name || 'Customer'
+      })
+      setShowFoundMoneyModal(true)
+      return
+    }
     setConvertingId(quoteId)
     try {
       const res = await fetch(`/api/client/quotes/${quoteId}/convert`, {
@@ -282,6 +322,13 @@ function ClientQuotesContent() {
       if (res.ok && data.success) {
         toast.success(`Job #${data.job?.job_number || ''} scheduled successfully!`)
         await loadQuotes()
+      } else if (res.status === 402 || data.upgradeRequired) {
+        const targetQuote = quotes.find(q => q.id === quoteId)
+        setGatedQuoteData({
+          amount: targetQuote?.total || undefined,
+          customerName: targetQuote?.contact?.name || 'Customer'
+        })
+        setShowFoundMoneyModal(true)
       } else {
         toast.error(data.error || 'Failed to convert quote to job.')
       }
@@ -293,6 +340,15 @@ function ClientQuotesContent() {
   }
 
   const handleConvertToInvoice = async (quoteId: string) => {
+    if (starterUsage?.isLimitReached) {
+      const targetQuote = quotes.find(q => q.id === quoteId)
+      setGatedQuoteData({
+        amount: targetQuote?.total || undefined,
+        customerName: targetQuote?.contact?.name || 'Customer'
+      })
+      setShowFoundMoneyModal(true)
+      return
+    }
     setConvertingInvoiceId(quoteId)
     try {
       const res = await fetch('/api/client/invoices', {
@@ -307,6 +363,13 @@ function ClientQuotesContent() {
       if (res.ok && data.success) {
         toast.success(`Invoice #${data.invoice?.invoice_number || ''} generated from quote!`)
         await loadQuotes()
+      } else if (res.status === 402 || data.upgradeRequired) {
+        const targetQuote = quotes.find(q => q.id === quoteId)
+        setGatedQuoteData({
+          amount: targetQuote?.total || undefined,
+          customerName: targetQuote?.contact?.name || 'Customer'
+        })
+        setShowFoundMoneyModal(true)
       } else {
         toast.error(data.error || 'Failed to convert quote to invoice.')
       }
@@ -407,6 +470,17 @@ function ClientQuotesContent() {
         loadQuotes()
       } else {
         const err = await res.json().catch(() => ({}))
+        if (res.status === 402 || err.code === 'STARTER_LIMIT_REACHED' || err.upgradeRequired) {
+          setShowCreateModal(false)
+          const contact = contacts.find(c => c.id === selectedContactId)
+          const totalAmount = newItems.reduce((acc, it) => acc + (Number(it.quantity) || 1) * (Number(it.unit_price) || 0), 0)
+          setGatedQuoteData({
+            amount: totalAmount > 0 ? totalAmount : undefined,
+            customerName: contact?.name || 'Customer'
+          })
+          setShowFoundMoneyModal(true)
+          return
+        }
         toast.error(err.error || 'Failed to create quote.')
       }
     } catch {
@@ -460,7 +534,14 @@ function ClientQuotesContent() {
         </div>
 
         <Button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            if (starterUsage?.isLimitReached) {
+              setGatedQuoteData({ customerName: 'Customer' })
+              setShowFoundMoneyModal(true)
+              return
+            }
+            setShowCreateModal(true)
+          }}
           size="sm"
           className="h-9 px-3.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs self-start sm:self-auto cursor-pointer"
         >
@@ -1261,6 +1342,16 @@ function ClientQuotesContent() {
           </div>
         </div>
       </Modal>
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={showFoundMoneyModal}
+        onClose={() => setShowFoundMoneyModal(false)}
+        amountDue={gatedQuoteData?.amount}
+        customerName={gatedQuoteData?.customerName}
+        operationMode={operationMode === 'multi_crew' ? 'multi_crew' : 'solo'}
+        onSuccess={loadQuotes}
+      />
 
     </div>
   )

@@ -368,8 +368,8 @@ test('TEST 7: Selecting the default service enables the booking flow to continue
   const content = fs.readFileSync(pagePath, 'utf8')
 
   // Verifies that single service auto-selects and enables Continue button
-  assert.match(content, /data\.services\?\.length === 1/, 'Must auto-select when single service exists')
-  assert.match(content, /setSelectedService\(data\.services\[0\]\)/, 'Auto-selects first service')
+  assert.match(content, /(data\.services\?\.length === 1|loadedServices\.length === 1)/, 'Must auto-select when single service exists')
+  assert.match(content, /setSelectedService\((data\.services\[0\]|loadedServices\[0\])\)/, 'Auto-selects first service')
   assert.match(content, /disabled=\{!selectedService\}/, 'Button enabled once service is selected')
 })
 

@@ -79,6 +79,27 @@ export async function POST(request: Request) {
       )
     }
 
+    // Finish-Line Sunk Cost Paywall Guard: Scheduling Job #4+ requires Pro once 3 free starter jobs are completed
+    const { SubscriptionService } = await import('@/lib/billing/subscription-service')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        return NextResponse.json(
+          {
+            success: false,
+            upgradeRequired: true,
+            code: 'STARTER_LIMIT_REACHED',
+            error: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to schedule and dispatch additional jobs.",
+            checkoutUrl: '/client/billing?reason=starter_limit'
+          },
+          { status: 402 }
+        )
+      }
+    }
+
     const result = await createBooking(supabase, {
       orgId,
       serviceId: serviceId || undefined,

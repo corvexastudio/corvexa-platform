@@ -10,7 +10,7 @@ import { resolveSenderPhone } from '../billing/plans.ts'
 
 export interface ReviewEligibilityResult {
   eligible: boolean
-  reason?: 'opted_out' | 'invalid_phone' | 'job_cancelled' | 'cooldown_active' | 'disabled' | 'missing_google_url' | 'not_found'
+  reason?: 'opted_out' | 'invalid_phone' | 'job_cancelled' | 'cooldown_active' | 'disabled' | 'missing_google_url' | 'not_found' | 'starter_limit_reached'
   details?: string
   contact?: any
   org?: any
@@ -26,10 +26,48 @@ export async function checkReviewEligibility(
 ): Promise<ReviewEligibilityResult> {
   const { orgId, contactId, jobId } = input
 
+  // Check Starter Pass / Subscription Entitlement (Job #4+ paywall guard)
+  try {
+    const { SubscriptionService } = await import('../billing/subscription-service.ts')
+    const entitlement = await SubscriptionService.getEntitlement(supabase, orgId).catch(() => null)
+    const isPaidPro = entitlement?.isEntitled && ['solo', 'multi_crew', 'fleet', 'captodesk_standard'].includes(entitlement?.planId || '')
+
+    if (!isPaidPro) {
+      const starterUsage = await SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
+      if (starterUsage?.isLimitReached) {
+        let isPractice = false
+        if (jobId) {
+          const { data: linkedJob } = await supabase
+            .from('jobs')
+            .select('id, title, notes, job_number, status')
+            .eq('id', jobId)
+            .eq('org_id', orgId)
+            .maybeSingle()
+          if (linkedJob) {
+            const { isPracticeJob } = await import('../jobs/practice-job.ts')
+            if (isPracticeJob(linkedJob)) {
+              isPractice = true
+            }
+          }
+        }
+
+        if (!isPractice) {
+          return {
+            eligible: false,
+            reason: 'starter_limit_reached',
+            details: "You've completed your 3 free starter jobs. Upgrade to Pro ($99/mo) to send Google review requests."
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[REVIEW_ELIGIBILITY_ENTITLEMENT_CHECK]', err)
+  }
+
   // 1. Fetch organization review settings
   const { data: org, error: orgError } = await supabase
     .from('organizations')
-    .select('id, name, google_review_url, is_review_engine_active, review_requests_enabled, review_cooldown_days, telnyx_phone_number, timezone, enforce_quiet_hours')
+    .select('id, name, google_review_url, is_review_engine_active, review_requests_enabled, review_cooldown_days, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, timezone, enforce_quiet_hours')
     .eq('id', orgId)
     .single()
 

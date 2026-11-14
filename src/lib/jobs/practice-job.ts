@@ -38,11 +38,16 @@ export async function seedPracticeJobIfMissing(
 ): Promise<{ success: boolean; practiceJobId?: string }> {
   try {
     // Check if practice job already exists
-    const { data: existingJobs } = await supabase
+    let existingJobsQuery: any = supabase
       .from('jobs')
       .select('id, job_number, notes')
       .eq('org_id', orgId)
-      .limit(5)
+
+    if (typeof existingJobsQuery?.limit === 'function') {
+      existingJobsQuery = existingJobsQuery.limit(5)
+    }
+
+    const { data: existingJobs } = await existingJobsQuery
 
     const hasPractice = existingJobs?.some(isPracticeJob)
     if (hasPractice) {

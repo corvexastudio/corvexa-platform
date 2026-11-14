@@ -34,11 +34,13 @@ import {
   DollarSign,
   ArrowRight,
   ExternalLink,
-  LayoutDashboard
+  LayoutDashboard,
+  Lock
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
 import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { getTodayInTimezone } from '@/lib/booking/availability'
 import { cn } from '@/lib/utils'
 
@@ -76,6 +78,14 @@ interface FieldJob {
     id: string
     name: string
     duration_minutes: number
+    price?: number | null
+  } | null
+  quote?: {
+    id: string
+    quote_number: string
+    title?: string | null
+    total: number
+    status?: string
   } | null
   invoices?: Array<{
     id: string
@@ -102,7 +112,7 @@ interface CrewItem {
 
 export default function FieldPage() {
   const router = useRouter()
-  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone, role, isSuperAdmin, userId } = useWorkspace()
+  const { orgName: wsOrgName, orgTimezone: wsOrgTimezone, role, isSuperAdmin, userId, operationMode } = useWorkspace()
   const isOwnerOrAdmin = role === 'owner' || role === 'admin' || isSuperAdmin
   const orgTimezone = wsOrgTimezone || 'America/Chicago'
   const orgName = wsOrgName || 'Our team'
@@ -113,6 +123,39 @@ export default function FieldPage() {
   // En Route Modal
   const [enRouteJob, setEnRouteJob] = useState<FieldJob | null>(null)
   const [showEnRouteModal, setShowEnRouteModal] = useState(false)
+
+  // Found Money Finish-Line Paywall Modal (Job #4+)
+  const [showFoundMoneyModal, setShowFoundMoneyModal] = useState(false)
+  const [gatedJobData, setGatedJobData] = useState<{
+    amount?: number
+    customerName?: string
+    invoiceNumber?: string
+  } | null>(null)
+  const [starterUsage, setStarterUsage] = useState<{ isLimitReached: boolean; completedJobsCount: number } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    fetch('/api/client/billing')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (isMounted && d?.entitlement?.starterUsage) {
+          setStarterUsage(d.entitlement.starterUsage)
+        }
+      })
+      .catch(() => {})
+    return () => { isMounted = false }
+  }, [])
+
+  const triggerStarterGating = (targetJob?: FieldJob | null) => {
+    const quoteTotal = targetJob?.quote?.total ? Number(targetJob.quote.total) : 0
+    const svcPrice = typeof (targetJob as any)?.price === 'number' && (targetJob as any).price > 0 ? (targetJob as any).price : 0
+    const finalAmt = quoteTotal > 0 ? quoteTotal : svcPrice > 0 ? svcPrice : undefined
+    setGatedJobData({
+      amount: finalAmt,
+      customerName: targetJob?.contact?.name || 'Customer'
+    })
+    setShowFoundMoneyModal(true)
+  }
 
   // Photos Modal
   const [photoJob, setPhotoJob] = useState<FieldJob | null>(null)
@@ -209,6 +252,13 @@ export default function FieldPage() {
 
   // 1-Tap Timestamp Action: Arrived, Started, Completed
   const handleTimestampAction = async (jobId: string, action: 'arrived' | 'started' | 'completed') => {
+    if (starterUsage?.isLimitReached) {
+      const targetJob = jobs.find(j => j.id === jobId)
+      if (targetJob && targetJob.status !== 'completed') {
+        triggerStarterGating(targetJob)
+        return
+      }
+    }
     setUpdatingJobId(jobId)
     try {
       const res = await fetch(`/api/client/jobs/${jobId}/timestamp`, {
@@ -248,7 +298,7 @@ export default function FieldPage() {
               toast.success('Job completed! Ready to invoice homeowner?', {
                 action: {
                   label: 'Create Invoice',
-                  onClick: () => router.push(`/client/invoices?create=true&contact_id=${contactId}&job_id=${jobId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}`)
+                  onClick: () => router.push(`/client/invoices?create=true&contact_id=${contactId}&job_id=${jobId}&title=${encodeURIComponent(targetJob?.title || 'Completed Job')}${targetJob?.quote?.id ? `&quote_id=${encodeURIComponent(targetJob.quote.id)}` : ''}`)
                 },
                 duration: 8000
               })
@@ -260,6 +310,22 @@ export default function FieldPage() {
           }
         }
         loadFieldSchedule()
+      } else if (res.status === 402 || data.upgradeRequired) {
+        const targetJob = jobs.find(j => j.id === jobId)
+        const amountDue =
+          typeof data.amountDue === 'number' && data.amountDue > 0
+            ? data.amountDue
+            : typeof data.amount === 'number' && data.amount > 0
+              ? data.amount
+              : typeof (targetJob as any)?.price === 'number' && (targetJob as any).price > 0
+                ? (targetJob as any).price
+                : undefined
+        setGatedJobData({
+          amount: amountDue,
+          customerName: targetJob?.contact?.name || 'Customer',
+          invoiceNumber: data.invoice?.invoice_number || data.draft_invoice?.invoice_number
+        })
+        setShowFoundMoneyModal(true)
       } else {
         toast.error(data.error || 'Failed to update job status')
       }
@@ -281,8 +347,9 @@ export default function FieldPage() {
     notifyCustomer: boolean
   }) => {
     if (!enRouteJob) return
+    let res: Response
     try {
-      const res = await fetch(`/api/client/jobs/${enRouteJob.id}/status`, {
+      res = await fetch(`/api/client/jobs/${enRouteJob.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -292,18 +359,46 @@ export default function FieldPage() {
           notifyCustomer
         })
       })
-
-      const data = await res.json()
-      if (res.ok && data.success) {
-        toast.success(`En Route dispatched with ${etaMinutes}m ETA SMS!`)
-        setShowEnRouteModal(false)
-        loadFieldSchedule()
-      } else {
-        toast.error(data.error || 'Failed to update status')
-      }
     } catch {
-      toast.error('Network error updating status')
+      const netMsg = 'Network error updating status. Please check your connection and try again.'
+      toast.error(netMsg)
+      throw new Error(netMsg)
     }
+
+    const data = await res.json().catch(() => ({}))
+    if (res.ok && data.success) {
+      toast.success(
+        notifyCustomer
+          ? `En Route dispatched with ~${etaMinutes}m ETA SMS!`
+          : 'Marked En Route (status updated without SMS).'
+      )
+      setShowEnRouteModal(false)
+      loadFieldSchedule()
+      return
+    }
+
+    if (res.status === 402 || data.upgradeRequired) {
+      const amountDue =
+        typeof data.amountDue === 'number' && data.amountDue > 0
+          ? data.amountDue
+          : typeof data.amount === 'number' && data.amount > 0
+            ? data.amount
+            : typeof (enRouteJob as any)?.price === 'number' && (enRouteJob as any).price > 0
+              ? (enRouteJob as any).price
+              : undefined
+      setGatedJobData({
+        amount: amountDue,
+        customerName: enRouteJob.contact?.name || 'Customer',
+        invoiceNumber: data.invoice?.invoice_number || data.draft_invoice?.invoice_number
+      })
+      setShowEnRouteModal(false)
+      setShowFoundMoneyModal(true)
+      return
+    }
+
+    const errMsg = data.error || 'Failed to update status'
+    toast.error(errMsg)
+    throw new Error(errMsg)
   }
 
   // Save Job Note from Field
@@ -725,13 +820,22 @@ export default function FieldPage() {
                         size="touch"
                         disabled={isBusy}
                         onClick={() => {
+                          if (starterUsage?.isLimitReached && job.status !== 'completed') {
+                            triggerStarterGating(job)
+                            return
+                          }
                           setEnRouteJob(job)
                           setShowEnRouteModal(true)
                         }}
-                        className="min-h-[48px] flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-xs cursor-pointer gap-2"
+                        className={cn(
+                          "min-h-[48px] flex-1 font-bold shadow-xs cursor-pointer gap-2 text-white",
+                          starterUsage?.isLimitReached
+                            ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
+                            : "bg-blue-600 hover:bg-blue-500"
+                        )}
                       >
-                        <Truck className="w-4.5 h-4.5" />
-                        <span>On My Way (Send ETA SMS)</span>
+                        {starterUsage?.isLimitReached ? <Lock className="w-4.5 h-4.5" /> : <Truck className="w-4.5 h-4.5" />}
+                        <span>{starterUsage?.isLimitReached ? 'Unlock to Dispatch' : 'On My Way (Send ETA SMS)'}</span>
                       </Button>
 
                       <Button
@@ -754,10 +858,21 @@ export default function FieldPage() {
                         size="touch"
                         disabled={isBusy}
                         onClick={() => handleTimestampAction(job.id, 'arrived')}
-                        className="min-h-[48px] flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs cursor-pointer gap-2"
+                        className={cn(
+                          "min-h-[48px] flex-1 font-bold shadow-xs cursor-pointer gap-2 text-white",
+                          starterUsage?.isLimitReached
+                            ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
+                            : "bg-emerald-600 hover:bg-emerald-500"
+                        )}
                       >
-                        {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4.5 h-4.5" />}
-                        <span>I Have Arrived</span>
+                        {isBusy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : starterUsage?.isLimitReached ? (
+                          <Lock className="w-4.5 h-4.5" />
+                        ) : (
+                          <MapPin className="w-4.5 h-4.5" />
+                        )}
+                        <span>{starterUsage?.isLimitReached ? 'Unlock to Arrive' : 'I Have Arrived'}</span>
                       </Button>
 
                       <Button
@@ -793,10 +908,21 @@ export default function FieldPage() {
                         size="touch"
                         disabled={isBusy}
                         onClick={() => handleTimestampAction(job.id, 'completed')}
-                        className="min-h-[48px] flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs cursor-pointer gap-2"
+                        className={cn(
+                          "min-h-[48px] flex-1 font-bold shadow-xs cursor-pointer gap-2 text-white",
+                          starterUsage?.isLimitReached
+                            ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-sm"
+                            : "bg-emerald-600 hover:bg-emerald-500"
+                        )}
                       >
-                        {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4.5 h-4.5" />}
-                        <span>Complete Job</span>
+                        {isBusy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : starterUsage?.isLimitReached ? (
+                          <Lock className="w-4.5 h-4.5" />
+                        ) : (
+                          <CheckCircle2 className="w-4.5 h-4.5" />
+                        )}
+                        <span>{starterUsage?.isLimitReached ? 'Unlock Job & Complete ($99/mo)' : 'Complete Job'}</span>
                       </Button>
                     </>
                   )}
@@ -865,7 +991,7 @@ export default function FieldPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => router.push(`/client/invoices?create=true&contact_id=${job.contact?.id}&job_id=${job.id}&title=${encodeURIComponent(job.title || 'Completed Job')}`)}
+                              onClick={() => router.push(`/client/invoices?create=true&contact_id=${job.contact?.id}&job_id=${job.id}&title=${encodeURIComponent(job.title || 'Completed Job')}${job.quote?.id ? `&quote_id=${encodeURIComponent(job.quote.id)}` : ''}`)}
                               className="min-h-[44px] px-3.5 text-xs font-bold text-blue-800 bg-blue-50 hover:bg-blue-100 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 cursor-pointer shadow-2xs gap-1.5"
                             >
                               <Receipt className="w-3.5 h-3.5 text-blue-600" />
@@ -949,6 +1075,7 @@ export default function FieldPage() {
         onClose={() => setShowEnRouteModal(false)}
         job={enRouteJob}
         organizationName={orgName}
+        techSuggestions={crews.map(c => c.name).filter(Boolean)}
         onConfirm={handleConfirmEnRoute}
       />
 
@@ -958,6 +1085,17 @@ export default function FieldPage() {
         onClose={() => setShowPhotoModal(false)}
         job={photoJob}
         onPhotosUpdated={loadFieldSchedule}
+      />
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={showFoundMoneyModal}
+        onClose={() => setShowFoundMoneyModal(false)}
+        amountDue={gatedJobData?.amount}
+        customerName={gatedJobData?.customerName}
+        invoiceNumber={gatedJobData?.invoiceNumber}
+        operationMode={operationMode === 'multi_crew' ? 'multi_crew' : 'solo'}
+        onSuccess={loadFieldSchedule}
       />
 
     </div>

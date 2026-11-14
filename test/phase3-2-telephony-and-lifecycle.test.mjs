@@ -578,7 +578,7 @@ test('LIFECYCLE-001: Public booking confirmation SMS is logged into customer Inb
       customerPhone: '+15554445555',
       customerEmail: 'sarah@example.com',
       serviceId: 'srv-drain',
-      startTime: '2026-11-02T10:00:00.000Z',
+      startTime: new Date(Date.now() + 86400000 * 2).toISOString(),
       source: 'public_booking',
       notes: 'Kitchen sink clogged'
     })
@@ -660,7 +660,7 @@ test('LIFECYCLE-001: Booking succeeds cleanly even if conversation logging encou
       customerName: 'Marcus Vance',
       customerPhone: '+15556667777',
       serviceId: 'srv-tuneup',
-      startTime: '2026-11-03T14:00:00.000Z',
+      startTime: new Date(Date.now() + 86400000 * 2).toISOString(),
       source: 'public_booking'
     })
 

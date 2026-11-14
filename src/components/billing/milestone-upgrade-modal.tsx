@@ -217,7 +217,7 @@ export function MilestoneUpgradeModal({
           onClick={handleUpgrade}
           disabled={loading}
           className={cn(
-            'w-full min-h-[46px] py-2.5 text-sm font-extrabold rounded-2xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer',
+            'w-full min-h-[48px] py-2.5 text-sm font-extrabold rounded-2xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer',
             isSolo
               ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
               : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'

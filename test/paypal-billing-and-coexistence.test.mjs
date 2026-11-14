@@ -312,6 +312,32 @@ test('Contractor Customer Invoicing — External Links & Instructions', async (t
                 }
               }
               return { data: null, error: { message: 'Not found' } }
+            },
+            maybeSingle: async () => {
+              if (table === 'invoices') {
+                return {
+                  data: {
+                    id: 'inv-101',
+                    manage_token: manageToken,
+                    org_id: orgId,
+                    invoice_number: 'INV-2026-001',
+                    title: 'Roof Shingle Repair',
+                    total: 450.00,
+                    amount_due: 450.00,
+                    status: 'sent',
+                    organizations: {
+                      id: orgId,
+                      name: 'Lone Star Roofing LLC',
+                      owner_phone: '+15125550188',
+                      timezone: 'America/Chicago',
+                      external_payment_url: 'https://square.link/u/lonestar-roofing',
+                      payment_instructions: 'Pay via Zelle to billing@lonestarroofing.com or check on completion.'
+                    }
+                  },
+                  error: null
+                }
+              }
+              return { data: null, error: null }
             }
           })
         }),

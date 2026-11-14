@@ -51,6 +51,7 @@ import type { Crew, CrewPerformanceMetric } from '@/lib/crews/crew-manager'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { ProUpgradeModal } from '@/components/billing/pro-upgrade-modal'
 import { getIndustryPreset } from '@/lib/constants/industries'
+import { hasDedicatedPhoneNumber, resolveSenderPhone } from '@/lib/billing/plans'
 import { cn } from '@/lib/utils'
 
 function formatPhoneNumber(num?: string | null) {
@@ -635,9 +636,11 @@ export default function TeamPage() {
           </div>
 
           <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Virtual Telnyx DID</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              {hasDedicatedPhoneNumber(organization) ? 'Dedicated Telnyx DID' : 'Outbound Toll-Free Line'}
+            </span>
             <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-1 font-mono tabular-nums truncate">
-              {formatPhoneNumber(organization?.telnyx_phone_number) || 'Provisioned Line'}
+              {formatPhoneNumber(resolveSenderPhone(organization))}
             </div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1">
               <Radio className="w-3 h-3 text-blue-500 shrink-0" />
@@ -779,7 +782,11 @@ export default function TeamPage() {
                   </span>
                   <p className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    {organization?.carrier_registration_status === 'registered' ? 'A2P Verified & Active' : 'Active Telephony Line'}
+                    {organization?.carrier_registration_status === 'verified' || organization?.carrier_registration_status === 'registered'
+                      ? 'A2P Verified & Active'
+                      : hasDedicatedPhoneNumber(organization)
+                        ? 'Dedicated Line Active'
+                        : 'Verified Trial Toll-Free'}
                   </p>
                 </div>
               </div>

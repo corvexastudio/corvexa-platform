@@ -4,6 +4,7 @@ import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders } from '@/lib/sec
 import { logAuditEvent } from '@/lib/security/audit-logger'
 import { sendTelnyxSms, toE164 } from '@/lib/telnyx'
 import { verifyOutboundCompliance, logComplianceAudit } from '@/lib/compliance/compliance-engine'
+import { resolveSenderPhone } from '@/lib/billing/plans'
 
 export async function POST(request: Request) {
   // 1. Authenticate user and resolve organization server-side (Requirement 1 & 2)
@@ -53,7 +54,11 @@ export async function POST(request: Request) {
         organizations (
           id,
           name,
-          telnyx_phone_number
+          telnyx_phone_number,
+          phone_provisioning_status,
+          plan_id,
+          subscription_status,
+          timezone
         )
       `)
       .eq('id', conversation_id)
@@ -82,13 +87,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const senderNumber = org?.telnyx_phone_number
-    if (!senderNumber) {
-      return NextResponse.json(
-        { error: 'No outbound telephony number configured for this organization' },
-        { status: 400, headers: rateHeaders }
-      )
-    }
+    const senderNumber = resolveSenderPhone(org)
 
     // 4. Resolve strictly from the verified contact record
     const verifiedRecipient = toE164(contact.phone)

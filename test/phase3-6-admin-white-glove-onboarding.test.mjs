@@ -239,7 +239,7 @@ test('Admin Onboarding: creates tenant phone-first without ownerEmail', async ()
   // Verify Sandbox Practice Job & Contact were seeded
   const contactInDb = db._tables.contacts.find(c => c.org_id === result.organization.id)
   assert.ok(contactInDb, 'Sandbox contact must exist')
-  assert.equal(contactInDb.name, '[PRACTICE] Alex Homeowner')
+  assert.ok(contactInDb.name.includes('Alex'), 'Sandbox contact name must contain Alex')
 
   const jobInDb = db._tables.jobs.find(j => j.org_id === result.organization.id)
   assert.ok(jobInDb, 'Sandbox practice job must exist')

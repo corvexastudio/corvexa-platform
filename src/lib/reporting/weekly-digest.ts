@@ -6,6 +6,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js'
 import { sendTelnyxSms } from '@/lib/telnyx'
+import { resolveSenderPhone } from '@/lib/billing/plans'
 
 export interface WeeklyDigestMetrics {
   missedCallsRecovered: number
@@ -84,7 +85,7 @@ export async function generateWeeklyDigestForOrg(
   try {
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name, owner_phone, telnyx_phone_number, weekly_digest_enabled')
+      .select('id, name, owner_phone, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, weekly_digest_enabled')
       .eq('id', orgId)
       .single()
 
@@ -97,7 +98,7 @@ export async function generateWeeklyDigestForOrg(
     }
 
     const metrics = await computeWeeklyMetrics(supabase, orgId)
-    const senderNumber = org.telnyx_phone_number || org.owner_phone
+    const senderNumber = resolveSenderPhone(org)
 
     // Format concise, high-impact SMS message
     const lines = [

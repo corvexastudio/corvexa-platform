@@ -91,7 +91,7 @@ export function calculateInvoiceFinancials(
 export async function createInvoice(
   supabase: SupabaseClient,
   input: CreateInvoiceInput
-): Promise<{ success: boolean; invoice?: any; items?: any[]; error?: string }> {
+): Promise<{ success: boolean; invoice?: any; items?: any[]; error?: string; upgradeRequired?: boolean; code?: string }> {
   const {
     orgId,
     contactId,
@@ -686,7 +686,7 @@ export async function recordPayment(
     stripeReceiptUrl?: string
     referenceNote?: string
   }
-): Promise<{ success: boolean; invoice?: any; payment?: any; error?: string }> {
+): Promise<{ success: boolean; invoice?: any; payment?: any; error?: string; upgradeRequired?: boolean; code?: string }> {
   const {
     invoiceId,
     orgId,
@@ -714,19 +714,6 @@ export async function recordPayment(
     return { success: false, error: invoiceError?.message || 'Invoice not found' }
   }
 
-  // P0 Financial Guard: Block sending deleted, voided, or already paid invoices
-  if (invoice.deleted_at) {
-    return { success: false, error: 'Cannot send a deleted invoice' }
-  }
-
-  if (invoice.status === 'void') {
-    return { success: false, error: 'Cannot send a voided invoice' }
-  }
-
-  if (invoice.status === 'paid') {
-    return { success: false, error: 'This invoice is already paid in full' }
-  }
-
   // 0. Idempotency check: Guard against duplicate Stripe webhook processing
   if (stripePaymentIntentId) {
     const { data: existingPayment } = await supabase
@@ -750,6 +737,19 @@ export async function recordPayment(
     if (existingPayment) {
       return { success: true, invoice, payment: existingPayment }
     }
+  }
+
+  // P0 Financial Guard: Block sending deleted, voided, or already paid invoices
+  if (invoice.deleted_at) {
+    return { success: false, error: 'Cannot send a deleted invoice' }
+  }
+
+  if (invoice.status === 'void') {
+    return { success: false, error: 'Cannot send a voided invoice' }
+  }
+
+  if (invoice.status === 'paid') {
+    return { success: false, error: 'This invoice is already paid in full' }
   }
 
   // 1. Insert payment record
@@ -857,7 +857,7 @@ export async function recordPayment(
       if (contact?.phone) {
         const { data: org } = await supabase
           .from('organizations')
-          .select('id, name, telnyx_phone_number, owner_phone')
+          .select('id, name, telnyx_phone_number, phone_provisioning_status, plan_id, subscription_status, owner_phone')
           .eq('id', invoice.org_id)
           .maybeSingle()
         const senderPhone = resolveSenderPhone(org)
@@ -1127,12 +1127,22 @@ export async function softDeleteInvoice(
   }
 
   // Cancel pending automation reminders upon deletion so customer does not get overdue SMS
-  await supabase
-    .from('automation_runs')
-    .update({ status: 'cancelled' })
-    .eq('org_id', input.orgId)
-    .in('status', ['pending', 'scheduled'])
-    .like('job_id', `%_${input.invoiceId}`)
+  try {
+    let cancelQuery: any = supabase
+      .from('automation_runs')
+      .update({ status: 'cancelled' })
+      .eq('org_id', input.orgId)
+
+    if (typeof cancelQuery?.in === 'function') {
+      cancelQuery = cancelQuery.in('status', ['pending', 'scheduled'])
+    }
+    if (typeof cancelQuery?.like === 'function') {
+      cancelQuery = cancelQuery.like('job_id', `%_${input.invoiceId}`)
+    }
+    await cancelQuery
+  } catch {
+    // Non-fatal
+  }
 
   return { success: true }
 }

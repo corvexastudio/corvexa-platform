@@ -16,6 +16,7 @@ import {
   MessageSquare, 
   Send, 
   PhoneCall, 
+  Phone,
   Search, 
   User, 
   ChevronLeft, 
@@ -55,6 +56,17 @@ import { MessageBubble } from '@/components/inbox/message-bubble'
 import { CannedSnippetsBar } from '@/components/inbox/canned-snippets'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
+import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
+
+function getInitials(name?: string | null, fallback = 'C'): string {
+  if (!name || !name.trim()) return fallback
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return name.slice(0, 2).toUpperCase()
+}
 
 interface ConversationItem {
   id: string
@@ -71,7 +83,6 @@ interface ConversationItem {
     email?: string | null
     address?: string | null
     notes?: string | null
-    lifetime_value?: number | null
   }
   lead?: {
     id: string
@@ -93,6 +104,7 @@ interface MessageItem {
   sender_type: 'system' | 'owner' | 'customer'
   body: string
   delivery_status: string
+  failure_reason?: string | null
   created_at: string
 }
 
@@ -137,7 +149,7 @@ export default function InboxPage() {
   const activeConvIdRef = useRef<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [replyText, setReplyText] = useState('')
-  const { orgIndustry } = useWorkspace()
+  const { orgIndustry, orgSlug } = useWorkspace()
   const [search, setSearch] = useState('')
   const [channelFilter, setChannelFilter] = useState<'all' | 'unread' | 'leads' | 'missed'>('all')
   const [selectedTrade, setSelectedTrade] = useState<string>('all')
@@ -434,6 +446,27 @@ export default function InboxPage() {
       setReplyText(textToSend)
     } finally {
       setSending(false)
+    }
+  }
+
+  // Handle canned template selection with personalized booking link expansion
+  const handleSelectSnippet = (snippet: string) => {
+    if (snippet.includes('{booking_link}')) {
+      const slug = orgSlug || 'book'
+      const phone = activeConv?.contact?.phone || ''
+      const name = activeConv?.contact?.name || ''
+      const cid = activeConv?.contact?.id || ''
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.captodesk.com'
+      const queryParts = [
+        phone ? `phone=${encodeURIComponent(phone)}` : '',
+        cid ? `cid=${encodeURIComponent(cid)}` : '',
+        name && !['Caller', 'New Caller', 'Unsaved Caller'].includes(name) ? `name=${encodeURIComponent(name)}` : '',
+        'source=inbox'
+      ].filter(Boolean).join('&')
+      const bookingUrl = `${origin}/book/${slug}${queryParts ? `?${queryParts}` : ''}`
+      setReplyText(snippet.replace('{booking_link}', bookingUrl))
+    } else {
+      setReplyText(snippet)
     }
   }
 
@@ -836,6 +869,24 @@ export default function InboxPage() {
                 </div>
               ))}
             </div>
+          ) : isConvError ? (
+            <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
+              <AlertCircle className="h-8 w-8 text-rose-400 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700 dark:text-zinc-300">Failed to load conversations</p>
+              <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 mb-3">
+                {convQueryError instanceof Error
+                  ? convQueryError.message
+                  : 'Unable to fetch inbox messages. Please try again.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetchConvs()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Retry
+              </button>
+            </div>
           ) : filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
               <InboxIcon className="h-8 w-8 text-slate-300 dark:text-zinc-600 mx-auto mb-2" />
@@ -874,85 +925,143 @@ export default function InboxPage() {
         {activeConv ? (
           <>
             {/* Top Operational Action Rail */}
-            <div className="min-h-14 border-b border-slate-200 dark:border-zinc-800 px-3.5 sm:px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0 bg-white dark:bg-zinc-950 shadow-2xs">
+            <div className="border-b border-slate-200 dark:border-zinc-800 px-3.5 sm:px-4 py-2.5 shrink-0 bg-white dark:bg-zinc-950 shadow-2xs">
               
-              {/* Left: Contact Identity */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setMobileViewThread(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0 cursor-pointer"
-                  aria-label="Back to conversations"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
+              {/* Row 1: Contact Identity & Quick Dossier Control */}
+              <div className="flex items-center justify-between gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setMobileViewThread(false)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-zinc-900 md:hidden shrink-0 cursor-pointer"
+                    aria-label="Back to conversations"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-zinc-100 truncate">
-                      {activeConv.contact?.name || activeConv.contact?.phone}
-                    </span>
-                    {activeConv.contact?.name && (
-                      <a
-                        href={`tel:${activeConv.contact.phone}`}
-                        className="text-[11px] text-slate-500 hover:text-blue-600 dark:text-zinc-400 font-mono truncate"
-                      >
-                        {activeConv.contact.phone}
-                      </a>
-                    )}
+                  {/* Customer Avatar Initials Badge */}
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs ring-1 ring-black/5">
+                    {getInitials(formatCustomerName(activeConv.contact?.name) || activeConv.contact?.phone)}
                   </div>
 
-                  {activeConv.contact?.address ? (
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-                      <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span>{activeConv.contact.address}</span>
-                    </p>
-                  ) : activeConv.lead?.service_needed ? (
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 font-medium">
-                      <Wrench className="h-3 w-3 shrink-0 text-slate-400" />
-                      <span>{activeConv.lead.service_needed}</span>
-                    </p>
-                  ) : null}
+                  {/* Identity text */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-slate-900 dark:text-zinc-100 leading-tight">
+                        {formatCustomerName(activeConv.contact?.name) || (activeConv.contact?.phone ? formatNationalUs(activeConv.contact.phone) : 'Unsaved Caller')}
+                      </span>
+                      {activeConv.contact?.name && activeConv.contact?.phone && (
+                        <a
+                          href={`tel:${activeConv.contact.phone}`}
+                          className="text-[11px] text-slate-600 hover:text-blue-600 dark:text-zinc-300 font-mono inline-flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-slate-200/80 dark:border-zinc-800 shrink-0 transition-colors"
+                          title="Call phone"
+                        >
+                          <Phone className="h-2.5 w-2.5 text-slate-400" />
+                          <span>{formatNationalUs(activeConv.contact.phone)}</span>
+                        </a>
+                      )}
+                      {activeConv.lead?.status && (
+                        <span className={cn(
+                          "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0",
+                          activeConv.lead.status === 'new' ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300" :
+                          activeConv.lead.status === 'contacted' ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" :
+                          activeConv.lead.status === 'booked' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" :
+                          "bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300"
+                        )}>
+                          ● {activeConv.lead.status}
+                        </span>
+                      )}
+                    </div>
+
+                    {activeConv.contact?.address ? (
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                        <span className="truncate">{formatStandardUsAddress(activeConv.contact.address)}</span>
+                      </p>
+                    ) : activeConv.lead?.service_needed ? (
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 mt-0.5 font-medium">
+                        <Wrench className="h-3 w-3 shrink-0 text-blue-500" />
+                        <span className="truncate">{activeConv.lead.service_needed}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Right: Dossier Toggle */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDossierOpen(!dossierOpen)}
+                    className={cn(
+                      "hidden lg:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors",
+                      dossierOpen
+                        ? "border-blue-200 bg-blue-50/80 text-blue-700 hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
+                        : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-slate-50"
+                    )}
+                    title={dossierOpen ? "Collapse Dossier to expand chat" : "Expand Customer Dossier"}
+                  >
+                    {dossierOpen ? (
+                      <>
+                        <PanelRightClose className="h-3.5 w-3.5" />
+                        <span className="hidden xl:inline text-[11px]">Hide Dossier</span>
+                      </>
+                    ) : (
+                      <>
+                        <PanelRightOpen className="h-3.5 w-3.5" />
+                        <span className="text-[11px]">Dossier</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Mobile Dossier Drawer Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileDossierOpen(true)}
+                    className="lg:hidden h-8 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 text-xs font-semibold bg-white dark:bg-zinc-900"
+                  >
+                    Dossier
+                  </button>
                 </div>
               </div>
 
-              {/* Right: 1-Tap Truck Actions & Lead Stage */}
-              <div className="flex items-center flex-wrap gap-1.5 shrink-0">
-                
-                {/* 1. Phone Call CTA */}
-                <a
-                  href={`tel:${activeConv.contact?.phone}`}
-                  aria-label="Call customer directly"
-                  className="inline-flex items-center justify-center gap-1 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] h-8 sm:h-8.5 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
-                  title="Call customer directly"
-                >
-                  <PhoneCall className="h-3.5 w-3.5" />
-                  <span>Call</span>
-                </a>
+              {/* Row 2: 1-Tap Truck Actions & Lead Stage */}
+              <div className="flex items-center justify-between flex-wrap gap-1.5 pt-2 mt-2 border-t border-slate-100 dark:border-zinc-800/80">
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {/* 1. Phone Call CTA */}
+                  <a
+                    href={`tel:${activeConv.contact?.phone}`}
+                    aria-label="Call customer directly"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] h-8 px-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
+                    title="Call customer directly"
+                  >
+                    <PhoneCall className="h-3.5 w-3.5" />
+                    <span>Call</span>
+                  </a>
 
-                {/* 2. Fast Estimate CTA */}
-                <Link
-                  href={`/client/quotes?contact_id=${activeConv.contact_id}&customer_name=${encodeURIComponent(activeConv.contact?.name || '')}&from_inbox=true`}
-                  className="inline-flex items-center justify-center gap-1 h-8 sm:h-8.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:border-blue-300 dark:hover:border-zinc-700 hover:text-blue-600 transition-colors shadow-2xs"
-                  title="Create Quote for customer"
-                >
-                  <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>+ Quote</span>
-                </Link>
+                  {/* 2. Fast Estimate CTA */}
+                  <Link
+                    href={`/client/quotes?contact_id=${activeConv.contact_id}&customer_name=${encodeURIComponent(activeConv.contact?.name || '')}&from_inbox=true`}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] h-8 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:border-blue-300 dark:hover:border-zinc-700 hover:text-blue-600 transition-colors shadow-2xs"
+                    title="Create Quote for customer"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>+ Quote</span>
+                  </Link>
 
-                {/* 3. Fast Appointment CTA */}
-                <Link
-                  href={`/client/calendar?contact_id=${activeConv.contact_id}&customer_name=${encodeURIComponent(activeConv.contact?.name || '')}&from_inbox=true`}
-                  className="inline-flex items-center justify-center gap-1 h-8 sm:h-8.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:border-emerald-300 dark:hover:border-zinc-700 hover:text-emerald-600 transition-colors shadow-2xs"
-                  title="Schedule Job on Dispatch Calendar"
-                >
-                  <Calendar className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>+ Job</span>
-                </Link>
+                  {/* 3. Fast Appointment CTA */}
+                  <Link
+                    href={`/client/calendar?contact_id=${activeConv.contact_id}&customer_name=${encodeURIComponent(activeConv.contact?.name || '')}&from_inbox=true`}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-w-0 sm:min-h-[38px] h-8 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:border-emerald-300 dark:hover:border-zinc-700 hover:text-emerald-600 transition-colors shadow-2xs"
+                    title="Schedule Job on Dispatch Calendar"
+                  >
+                    <Calendar className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>+ Job</span>
+                  </Link>
+                </div>
 
                 {/* 4. Lead Stage Dropdown Segment */}
                 <div className="flex items-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 p-0.5 text-[11px] font-semibold">
-                  <span className="px-1.5 text-[10px] text-slate-400 uppercase font-bold tracking-wider hidden lg:inline">
+                  <span className="px-1.5 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
                     Stage:
                   </span>
                   <select
@@ -967,32 +1076,13 @@ export default function InboxPage() {
                     <option value="lost">● Archived</option>
                   </select>
                 </div>
-
-                {/* 5. Dossier Toggle (Desktop) */}
-                <button
-                  type="button"
-                  onClick={() => setDossierOpen(!dossierOpen)}
-                  className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-zinc-900 transition-colors"
-                  title={dossierOpen ? "Collapse Dossier" : "Expand Dossier"}
-                >
-                  {dossierOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                </button>
-
-                {/* Mobile Dossier Drawer Trigger */}
-                <button
-                  type="button"
-                  onClick={() => setMobileDossierOpen(true)}
-                  className="lg:hidden h-8 px-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 text-xs font-semibold bg-white dark:bg-zinc-900"
-                >
-                  Dossier
-                </button>
               </div>
             </div>
 
             {/* Message History Feed */}
             <div 
               ref={scrollContainerRef}
-              className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/40 dark:bg-zinc-950"
+              className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 space-y-3.5 bg-slate-50/40 dark:bg-zinc-950 min-w-0"
             >
               {hasMoreOlder && (
                 <div className="text-center py-1">
@@ -1031,7 +1121,7 @@ export default function InboxPage() {
 
             {/* Canned Templates & SMS Composer */}
             <div className="border-t border-slate-200 dark:border-zinc-800 p-3 bg-white dark:bg-zinc-950 space-y-2.5 shrink-0 shadow-xs">
-              <CannedSnippetsBar onSelect={text => setReplyText(text)} />
+              <CannedSnippetsBar onSelect={handleSelectSnippet} />
 
               <form onSubmit={handleSendReply} className="flex gap-2 items-center">
                 <Input
@@ -1076,17 +1166,30 @@ export default function InboxPage() {
       {/* 3. RIGHT PANE: CUSTOMER DOSSIER & LEAD INTELLIGENCE                       */}
       {/* ========================================================================= */}
       {activeConv && dossierOpen && (
-        <div className="hidden lg:flex w-80 border-l border-slate-200 dark:border-zinc-800 flex-col bg-white dark:bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
+        <div className="hidden lg:flex w-72 xl:w-80 border-l border-slate-200 dark:border-zinc-800 flex-col bg-white dark:bg-zinc-950 p-4 space-y-4 shrink-0 overflow-y-auto">
           
           {/* Customer Overview */}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-              Customer Dossier
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                Customer Dossier
+              </span>
+              <button
+                type="button"
+                onClick={() => setDossierOpen(false)}
+                className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Collapse Dossier"
+                aria-label="Collapse Customer Dossier"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-1 truncate">
-              {activeConv.contact?.name || 'Unsaved Caller'}
+              {formatCustomerName(activeConv.contact?.name) || 'Unsaved Caller'}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 font-mono mt-0.5">{activeConv.contact?.phone}</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 font-mono mt-0.5">
+              {formatNationalUs(activeConv.contact?.phone || '')}
+            </p>
             {activeConv.contact?.email && (
               <p className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5">{activeConv.contact.email}</p>
             )}
@@ -1118,7 +1221,19 @@ export default function InboxPage() {
               <div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
                 <span className="text-[10px] text-slate-400 block font-medium">Source</span>
                 <span className="font-semibold text-slate-800 dark:text-zinc-200 capitalize">
-                  {activeConv.lead?.source === 'missed_call' ? 'Missed Call' : (activeConv.lead?.source || 'Inbound SMS')}
+                  {activeConv.lead?.source === 'missed_call' ? (
+                    activeConv.lead?.status === 'booked' ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        ⚡ Recovered
+                      </span>
+                    ) : (
+                      <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">
+                        Missed Call
+                      </span>
+                    )
+                  ) : (
+                    activeConv.lead?.source === 'inbox' ? 'Inbound SMS' : (activeConv.lead?.source || 'Inbound SMS')
+                  )}
                 </span>
               </div>
               <div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
@@ -1162,7 +1277,7 @@ export default function InboxPage() {
                 <MapPin className="h-3 w-3 text-slate-500" /> Service Location
               </div>
               <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed bg-slate-50 dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">
-                {activeConv.contact.address}
+                {formatStandardUsAddress(activeConv.contact.address)}
               </p>
             </div>
           )}
@@ -1343,14 +1458,14 @@ export default function InboxPage() {
           <div className="space-y-4 py-1 text-xs">
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Customer</span>
-              <p className="font-bold text-sm text-slate-900 dark:text-zinc-100">{activeConv.contact?.name || 'Unsaved Caller'}</p>
-              <p className="font-mono text-xs text-slate-500">{activeConv.contact?.phone}</p>
+              <p className="font-bold text-sm text-slate-900 dark:text-zinc-100">{formatCustomerName(activeConv.contact?.name) || 'Unsaved Caller'}</p>
+              <p className="font-mono text-xs text-slate-500">{formatNationalUs(activeConv.contact?.phone || '')}</p>
             </div>
 
             {activeConv.contact?.address && (
               <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Service Address</span>
-                <p className="text-slate-800 dark:text-zinc-200">{activeConv.contact.address}</p>
+                <p className="text-slate-800 dark:text-zinc-200">{formatStandardUsAddress(activeConv.contact.address)}</p>
               </div>
             )}
 
@@ -1375,6 +1490,21 @@ export default function InboxPage() {
                   <span className="font-semibold text-slate-900 dark:text-zinc-100">{activeConv.lead.service_needed}</span>
                 </div>
               )}
+
+              <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <span className="text-[10px] text-slate-400 font-medium">Source</span>
+                <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                  {activeConv.lead?.source === 'missed_call' ? (
+                    activeConv.lead?.status === 'booked' ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">⚡ Recovered Missed Call</span>
+                    ) : (
+                      <span className="text-rose-600 dark:text-rose-400 font-bold">Missed Call</span>
+                    )
+                  ) : (
+                    activeConv.lead?.source === 'inbox' ? 'Inbound SMS' : (activeConv.lead?.source || 'Inbound SMS')
+                  )}
+                </span>
+              </div>
             </div>
 
             <div className="pt-2 flex flex-col gap-2">

@@ -496,6 +496,54 @@ test('8. Frequency Capping: Blocks messages exceeding daily limit', async () => 
   assert.strictEqual(check.suppressionReason, 'frequency_cap_exceeded')
 })
 
+test('8b. Frequency Capping: Default cap (20/day) covers multi-touch job workflows while capping runaway loops', async () => {
+  const orgId = 'org-freq-default-test'
+  const recipientPhone = '+15557779999'
+
+  const twelveRecentLogs = Array.from({ length: 12 }, (_, idx) => ({
+    id: `log-multi-${idx}`,
+    org_id: orgId,
+    phone: recipientPhone,
+    action: 'message_sent',
+    created_at: new Date().toISOString()
+  }))
+
+  const dbAllowed = createMockComplianceDb({
+    organizations: [{ id: orgId, name: 'Active Multi-Touch Contractor' }],
+    compliance_audit_logs: twelveRecentLogs
+  })
+
+  const check13th = await verifyOutboundCompliance(dbAllowed, {
+    orgId,
+    toPhone: recipientPhone,
+    body: 'On my way + invoice + review follow-up',
+    messageType: 'transactional'
+  })
+  assert.strictEqual(check13th.allowed, true)
+
+  const twentyRecentLogs = Array.from({ length: 20 }, (_, idx) => ({
+    id: `log-cap-${idx}`,
+    org_id: orgId,
+    phone: recipientPhone,
+    action: 'message_sent',
+    created_at: new Date().toISOString()
+  }))
+
+  const dbBlocked = createMockComplianceDb({
+    organizations: [{ id: orgId, name: 'Active Multi-Touch Contractor' }],
+    compliance_audit_logs: twentyRecentLogs
+  })
+
+  const check21st = await verifyOutboundCompliance(dbBlocked, {
+    orgId,
+    toPhone: recipientPhone,
+    body: 'Runaway extra message',
+    messageType: 'transactional'
+  })
+  assert.strictEqual(check21st.allowed, false)
+  assert.strictEqual(check21st.suppressionReason, 'frequency_cap_exceeded')
+})
+
 test('9. Customer Communication Preferences: Blocks when preferred channel is email or marketing consent missing', async () => {
   const orgId = 'org-prefs-test'
   const emailOnlyPhone = '+15554441111'

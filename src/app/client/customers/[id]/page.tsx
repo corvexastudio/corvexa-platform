@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useWorkspace } from '@/lib/context/workspace-context'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { 
   ArrowLeft,
   Users, 
@@ -34,10 +36,14 @@ import {
   X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatCustomerName, formatStandardUsAddress, formatAsYouTypeUsPhone } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { operationMode } = useWorkspace()
+  const [showFoundMoneyModal, setShowFoundMoneyModal] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   
@@ -101,10 +107,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim() || undefined,
-          phone: phone.trim() || undefined,
+          name: name.trim() ? formatCustomerName(name.trim()) : undefined,
+          phone: phone.trim() ? formatAsYouTypeUsPhone(phone.trim()) : undefined,
           email: email.trim() || undefined,
-          address: address.trim() || undefined,
+          address: address.trim() ? formatStandardUsAddress(address.trim()) : undefined,
           notes: notes.trim() || undefined,
           tags,
           serviceFrequencyDays: Number(serviceFrequency) || 90
@@ -156,6 +162,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         toast.success(`Google Review invite sent to ${profile?.contact?.name || profile?.contact?.phone}`)
         loadProfile()
       } else {
+        if (res.status === 402 || data.upgradeRequired) {
+          setShowFoundMoneyModal(true)
+          return
+        }
         toast.error(data.error || 'Failed to dispatch review invite')
       }
     } catch {
@@ -247,7 +257,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {contact.name || 'Customer'}
+                {formatCustomerName(contact.name) || 'Customer'}
               </h1>
               {getStatusBadge(profile.lifecycleStatus || 'active')}
               {profile.leadSource && (
@@ -261,7 +271,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200 font-mono">
                 <Phone className="h-3.5 w-3.5 text-blue-500" />
                 <a href={`tel:${contact.phone}`} className="hover:text-blue-600 font-bold tabular-nums">
-                  {contact.phone}
+                  {formatNationalUs(contact.phone) || contact.phone}
                 </a>
               </span>
 
@@ -277,7 +287,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {contact.address && (
                 <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200">
                   <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                  <span>{contact.address}</span>
+                  <span>{formatStandardUsAddress(contact.address)}</span>
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contact.address)}`}
                     target="_blank"
@@ -537,6 +547,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value)}
+                  onBlur={e => setName(formatCustomerName(e.target.value))}
+                  placeholder="e.g. John Smith"
                   className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
                 />
               </div>
@@ -547,7 +559,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </Label>
                 <Input
                   value={phone}
-                  onChange={e => setPhone(e.target.value)}
+                  onChange={e => setPhone(formatAsYouTypeUsPhone(e.target.value))}
+                  onBlur={e => setPhone(formatAsYouTypeUsPhone(e.target.value))}
+                  placeholder="(555) 000-0000"
                   className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
                 />
               </div>
@@ -583,6 +597,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <Input
                   value={address}
                   onChange={e => setAddress(e.target.value)}
+                  onBlur={e => setAddress(formatStandardUsAddress(e.target.value))}
                   placeholder="Street address, city, state, zip"
                   className="h-9 bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
                 />
@@ -686,6 +701,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
       </div>
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={showFoundMoneyModal}
+        onClose={() => setShowFoundMoneyModal(false)}
+        customerName={profile?.contact?.name || 'Customer'}
+        amountDue={250}
+        operationMode={operationMode === 'multi_crew' ? 'multi_crew' : 'solo'}
+        onSuccess={loadProfile}
+      />
 
     </div>
   )

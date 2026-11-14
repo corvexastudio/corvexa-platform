@@ -289,6 +289,11 @@ test('Phase 5 E2E: Full Lifecycle Simulation - Free Starter Pass to Pro Upgrade'
   // =========================================================================
   // 2. Job #1: Homeowner Booking -> En Route -> Complete -> Paid -> Review
   // =========================================================================
+  const futureDay1 = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+  const futureDay2 = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+  const futureDay3 = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString()
+  const futureDay4 = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+
   const booking1Res = await createBooking(mockSupabase, {
     orgId,
     serviceId: 'svc-diag',
@@ -296,7 +301,7 @@ test('Phase 5 E2E: Full Lifecycle Simulation - Free Starter Pass to Pro Upgrade'
     customerPhone: '+15559871111',
     customerEmail: 'sarah@example.com',
     customerAddress: '123 Elm St, Austin, TX',
-    startTime: '2026-11-10T10:00:00.000Z'
+    startTime: futureDay1
   })
   assert.equal(booking1Res.success, true, 'Job #1 booking must succeed')
   assert.ok(booking1Res.appointment?.id, 'Appointment record created')
@@ -370,7 +375,7 @@ test('Phase 5 E2E: Full Lifecycle Simulation - Free Starter Pass to Pro Upgrade'
     customerPhone: '+15559872222',
     customerEmail: 'marcus@example.com',
     customerAddress: '456 Oak Ave, Austin, TX',
-    startTime: '2026-11-11T14:00:00.000Z'
+    startTime: futureDay2
   })
   assert.equal(booking2Res.success, true, 'Job #2 booking must succeed')
 
@@ -409,7 +414,7 @@ test('Phase 5 E2E: Full Lifecycle Simulation - Free Starter Pass to Pro Upgrade'
     customerName: 'Emily Stone',
     customerPhone: '+15559873333',
     customerAddress: '789 Pine Rd, Austin, TX',
-    startTime: '2026-11-12T09:00:00.000Z'
+    startTime: futureDay3
   })
   assert.equal(booking3Res.success, true, 'Job #3 booking must succeed')
 
@@ -452,7 +457,7 @@ test('Phase 5 E2E: Full Lifecycle Simulation - Free Starter Pass to Pro Upgrade'
     customerName: 'David Miller',
     customerPhone: '+15559874444',
     customerAddress: '321 Maple St, Austin, TX',
-    startTime: '2026-11-13T13:00:00.000Z'
+    startTime: futureDay4
   })
   // Homeowner booking MUST NEVER FAIL
   assert.equal(booking4Res.success, true, 'Homeowner booking on Job 4+ must NEVER fail')
@@ -532,6 +537,7 @@ test('Phase 5 E2E: Full Lifecycle Simulation - Free Starter Pass to Pro Upgrade'
   // 7. Historical Jobs & Practice Sandbox Resilience
   // =========================================================================
   // Historical completed Job #1 re-sending invoice is NEVER gated
+  inv1.status = 'sent'
   const resendHistRes = await sendInvoice(mockSupabase, {
     invoiceId: inv1.id,
     orgId,

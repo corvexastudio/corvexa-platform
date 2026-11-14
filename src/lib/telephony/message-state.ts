@@ -133,3 +133,40 @@ export function shouldUpdateMessageStatus(
 export function isTerminalMessageStatus(status: string): boolean {
   return status === 'delivered' || status === 'received'
 }
+
+/**
+ * Maps Telnyx outbound delivery webhook event types and payloads
+ * to canonical internal `messages.delivery_status` values.
+ * Handles Telnyx's terminal `message.finalized` event by inspecting `payload.to[0].status`.
+ */
+export function resolveTelnyxDeliveryStatus(
+  eventType: string,
+  payload: any
+): 'sent' | 'delivered' | 'failed' | 'undelivered' | null {
+  if (eventType === 'message.sent') return 'sent'
+  if (eventType === 'message.delivered') return 'delivered'
+  if (eventType === 'message.failed') return 'failed'
+  if (eventType === 'message.undelivered') return 'undelivered'
+
+  if (eventType === 'message.finalized') {
+    const recipientStatus = String(payload?.to?.[0]?.status || '').toLowerCase()
+    if (recipientStatus === 'delivered') return 'delivered'
+    if (
+      recipientStatus === 'delivery_failed' ||
+      recipientStatus === 'sending_failed' ||
+      recipientStatus === 'failed'
+    ) {
+      return 'failed'
+    }
+    if (recipientStatus === 'delivery_unconfirmed' || recipientStatus === 'undelivered') {
+      return 'undelivered'
+    }
+    if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+      return 'failed'
+    }
+    if (recipientStatus === 'sent') return 'sent'
+    return null
+  }
+
+  return null
+}

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
+import { hasDedicatedPhoneNumber, resolveSenderPhone } from '@/lib/billing/plans'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -177,6 +178,12 @@ export default function SettingsPage() {
   const [connectingStripe, setConnectingStripe] = useState(false)
   const [openingDashboard, setOpeningDashboard] = useState(false)
 
+  const [telephonyMeta, setTelephonyMeta] = useState({
+    plan_id: 'free',
+    subscription_status: 'trial',
+    phone_provisioning_status: ''
+  })
+
   // Master Organization Form State
   const [formData, setFormData] = useState({
     name: '',
@@ -251,6 +258,11 @@ export default function SettingsPage() {
       if (orgErr) {
         setError('Failed to retrieve organization settings.')
       } else if (org) {
+        setTelephonyMeta({
+          plan_id: org.plan_id || 'free',
+          subscription_status: org.subscription_status || 'trial',
+          phone_provisioning_status: org.phone_provisioning_status || ''
+        })
         setFormData({
           name: org.name || '',
           slug: org.slug || '',
@@ -684,7 +696,18 @@ export default function SettingsPage() {
     )
   }
 
-  const cleanForwardingDigits = (formData.telnyx_phone_number || '').replace(/\D/g, '')
+  const telephonyOrgContext = {
+    telnyx_phone_number: formData.telnyx_phone_number,
+    phone_provisioning_status: telephonyMeta.phone_provisioning_status,
+    plan_id: telephonyMeta.plan_id,
+    subscription_status: telephonyMeta.subscription_status,
+  }
+  const hasDedicatedLine = hasDedicatedPhoneNumber(telephonyOrgContext)
+  const effectiveOutboundNumber = resolveSenderPhone(telephonyOrgContext)
+  const isCarrierVerified =
+    formData.carrier_registration_status === 'verified' ||
+    formData.carrier_registration_status === 'registered'
+  const cleanForwardingDigits = (hasDedicatedLine ? formData.telnyx_phone_number : '').replace(/\D/g, '')
   const tradePreset = getIndustryPreset(formData.industry)
 
   return (
@@ -1672,31 +1695,43 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                   <Radio className="w-4 h-4 text-blue-600" />
-                  Dedicated Business Phone Line (Telnyx Gateway)
+                  {hasDedicatedLine
+                    ? 'Dedicated Business Phone Line (Telnyx Gateway)'
+                    : telephonyMeta.plan_id === 'free' || telephonyMeta.subscription_status === 'trial'
+                      ? 'Shared Trial Toll-Free Line (3-Job Starter Pass)'
+                      : 'Dedicated Business Line (Provisioning Active)'}
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  High-throughput 10DLC carrier-registered SMS and Voice gateway.
+                  {hasDedicatedLine
+                    ? 'All alerts, bookings, invoices, and customer SMS send and receive through your dedicated number.'
+                    : telephonyMeta.plan_id === 'free' || telephonyMeta.subscription_status === 'trial'
+                      ? 'All alerts and customer SMS run on the verified CaptoDesk toll-free number during your 3-job free trial. Upgrading assigns your own dedicated number.'
+                      : 'Your subscription is active. SMS routes via the verified platform toll-free line until your dedicated number activates.'}
                 </p>
               </div>
 
               <span className={cn(
                 "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border self-start sm:self-auto",
-                formData.carrier_registration_status === 'registered'
+                !hasDedicatedLine || isCarrierVerified
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                   : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
               )}>
                 <ShieldCheck className="h-3.5 w-3.5" />
-                {formData.carrier_registration_status === 'registered' ? 'A2P 10DLC Verified & Active' : 'Active Telephony Carrier'}
+                {hasDedicatedLine
+                  ? (isCarrierVerified ? 'Dedicated DID • Verified' : 'Dedicated DID • Active')
+                  : 'Verified Platform Toll-Free'}
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 block">Dedicated Number</Label>
+                <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5 block">
+                  {hasDedicatedLine ? 'Dedicated Number' : 'Active Outbound Number (Shared Trial Line)'}
+                </Label>
                 <div className="flex items-center gap-2">
                   <Input
                     readOnly
-                    value={formData.telnyx_phone_number ? formatPhoneNumber(formData.telnyx_phone_number) : 'Provisioning dedicated line...'}
+                    value={formatPhoneNumber(effectiveOutboundNumber)}
                     className="h-10 sm:h-9 bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-sm sm:text-xs font-mono font-semibold"
                   />
                   <Button
@@ -1704,8 +1739,7 @@ export default function SettingsPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      if (!formData.telnyx_phone_number) return
-                      navigator.clipboard.writeText(formData.telnyx_phone_number)
+                      navigator.clipboard.writeText(effectiveOutboundNumber)
                       setCopiedNumber(true)
                       toast.success('Phone number copied')
                       setTimeout(() => setCopiedNumber(false), 2000)
@@ -1741,7 +1775,9 @@ export default function SettingsPage() {
                 Cell Carrier Call Forwarding Hardware Cheat Sheet
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Dial these codes from your phone keypad so missed calls automatically route to CaptoDesk text-back.
+                {hasDedicatedLine
+                  ? 'Dial these codes from your phone keypad so missed calls automatically route to CaptoDesk text-back.'
+                  : 'Call forwarding codes activate automatically once a paid subscription provisions your dedicated business number.'}
               </p>
             </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -16,12 +16,17 @@ import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
 import { RecurringPlanModal } from '@/components/jobs/recurring-plan-modal'
 import { ReassignCrewModal } from '@/components/crews/reassign-crew-modal'
 import { CrewModal } from '@/components/crews/crew-modal'
+import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { exportToCsv } from '@/lib/export/csv-export'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { formatDateInTz, formatTimeInTz, formatDateToIsoYmdInTz, getFriendlyTimezoneLabel } from '@/lib/temporal/timezone'
 import { type Crew } from '@/lib/crews/crew-manager'
 import { useWorkspace } from '@/lib/context/workspace-context'
+import {
+  selectBestAcceptedQuoteForJob,
+  resolveInitialBillableAmount,
+} from '@/lib/jobs/quote-matching'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
@@ -59,7 +64,8 @@ import {
   Sparkles,
   Send,
   Check,
-  PenTool
+  PenTool,
+  Lock
 } from 'lucide-react'
 
 export interface JobItem {
@@ -98,13 +104,21 @@ export interface JobItem {
     van_identifier?: string | null
     phone_number?: string | null
   } | null
+  quote_id?: string | null
   quote?: {
     id: string
     quote_number: string
+    title?: string | null
     total: number
     status?: string
     manage_token?: string
   } | null
+  items?: Array<{
+    id?: string
+    description?: string
+    quantity: number
+    unit_price: number
+  }>
   invoices?: Array<{
     id: string
     invoice_number: string
@@ -169,12 +183,55 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
   const [showCrewModal, setShowCrewModal] = useState(false)
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
 
+  // Found Money Finish-Line Paywall Modal (Job #4+)
+  const [showFoundMoneyModal, setShowFoundMoneyModal] = useState(false)
+  const [gatedJobData, setGatedJobData] = useState<{
+    amount?: number
+    customerName?: string
+    invoiceNumber?: string
+  } | null>(null)
+  const [starterUsage, setStarterUsage] = useState<{ isLimitReached: boolean; completedJobsCount: number } | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    fetch('/api/client/billing')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (isMounted && d?.entitlement?.starterUsage) {
+          setStarterUsage(d.entitlement.starterUsage)
+        }
+      })
+      .catch(() => {})
+    return () => { isMounted = false }
+  }, [])
+
+  const triggerStarterGating = (targetJob?: JobItem | null, customAmount?: number) => {
+    const quoteTotal = targetJob?.quote?.total ? Number(targetJob.quote.total) : 0
+    const svcPrice = targetJob?.service?.price ? Number(targetJob.service.price) : 0
+    const finalAmt = customAmount !== undefined && customAmount > 0
+      ? customAmount
+      : quoteTotal > 0
+        ? quoteTotal
+        : svcPrice > 0
+          ? svcPrice
+          : undefined
+
+    setGatedJobData({
+      amount: finalAmt,
+      customerName: targetJob?.contact?.name || 'Customer'
+    })
+    setShowFoundMoneyModal(true)
+  }
+
   // Completion Dialog State (P0: Eliminates $0 Invoices & Enforces Safe Net-14 Due Dates)
   const [completionJob, setCompletionJob] = useState<JobItem | null>(null)
   const [completionAmount, setCompletionAmount] = useState<string>('')
   const [completionDueDate, setCompletionDueDate] = useState<'net14' | 'immediate'>('net14')
   const [completionCreateInvoice, setCompletionCreateInvoice] = useState<boolean>(true)
   const [submittingCompletion, setSubmittingCompletion] = useState(false)
+  const [loadingCompletionQuote, setLoadingCompletionQuote] = useState(false)
+  const completionAmountTouchedRef = useRef(false)
+  const activeCompletionJobIdRef = useRef<string | null>(null)
 
   // Quick On-Site Estimate Modal State (P0: Truck-Ready Minimal Writing)
   const [quoteDrawerJob, setQuoteDrawerJob] = useState<JobItem | null>(null)
@@ -295,7 +352,9 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
         throw new Error('Failed to load dispatch schedule. Please try again.')
       }
       const data = await res.json()
-      setJobs(data.jobs || [])
+      const loadedJobs: JobItem[] = data.jobs || []
+      setJobs(loadedJobs)
+      setActiveDrawerJob(prev => (prev ? loadedJobs.find(j => j.id === prev.id) || prev : null))
     } catch (err: any) {
       setError(err?.message || 'Error loading schedule')
     } finally {
@@ -360,8 +419,9 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
       finalAmount?: number
       items?: any[]
       dueDate?: string
+      quoteId?: string
     }
-  ) => {
+  ): Promise<{ ok: boolean; error?: string; upgradeRequired?: boolean }> => {
     setStatusUpdatingId(jobId)
     try {
       const res = await fetch(`/api/client/jobs/${jobId}/status`, {
@@ -374,11 +434,12 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
           technicianName: options?.technicianName,
           finalAmount: options?.finalAmount,
           items: options?.items,
-          dueDate: options?.dueDate
+          dueDate: options?.dueDate,
+          quoteId: options?.quoteId
         })
       })
 
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
         if (newStatus === 'completed') {
           if (data.draft_invoice) {
@@ -388,7 +449,9 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
           }
         } else {
           const statusLabels: Record<string, string> = {
-            en_route: 'Marked En Route. Homeowner notified via SMS.',
+            en_route: options?.notifyCustomer
+              ? 'Marked En Route. Arrival SMS sent to customer.'
+              : 'Marked En Route (status updated without SMS).',
             in_progress: 'Job started. Clock is running.',
             completed: 'Job marked complete.',
             cancelled: 'Job cancelled.'
@@ -406,30 +469,101 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
             invoices: data.draft_invoice ? [data.draft_invoice] : activeDrawerJob.invoices
           })
         }
+        return { ok: true }
+      } else if (res.status === 402 || data.upgradeRequired) {
+        const targetJob = jobs.find(j => j.id === jobId) || (activeDrawerJob?.id === jobId ? activeDrawerJob : null)
+        const quoteTotal = targetJob?.quote?.total ? Number(targetJob.quote.total) : 0
+        const svcPrice = typeof (targetJob as any)?.price === 'number' && (targetJob as any).price > 0 ? (targetJob as any).price : 0
+        const amountDue =
+          typeof data.amountDue === 'number' && data.amountDue > 0
+            ? data.amountDue
+            : typeof data.amount === 'number' && data.amount > 0
+              ? data.amount
+              : quoteTotal > 0
+                ? quoteTotal
+                : svcPrice > 0
+                  ? svcPrice
+                  : undefined
+        setGatedJobData({
+          amount: amountDue,
+          customerName: targetJob?.contact?.name || 'Customer',
+          invoiceNumber: data.invoice?.invoice_number || data.draft_invoice?.invoice_number
+        })
+        setShowFoundMoneyModal(true)
+        return { ok: false, error: data.error, upgradeRequired: true }
       } else {
-        toast.error(data.error || 'Failed to update job status.')
+        const errMessage = data.error || 'Failed to update job status.'
+        toast.error(errMessage)
+        return { ok: false, error: errMessage }
       }
     } catch {
-      toast.error('Network error updating status.')
+      const errMessage = 'Network error updating status.'
+      toast.error(errMessage)
+      return { ok: false, error: errMessage }
     } finally {
       setStatusUpdatingId(null)
     }
   }
 
-  // P0 Completion Workflow: Intercepts complete action to ensure accurate pricing & safe due date
-  const onInitiateCompleteJob = (job: JobItem) => {
-    setCompletionJob(job)
-    if (job.quote && Number(job.quote.total) > 0) {
-      setCompletionAmount(String(job.quote.total))
-      setCompletionCreateInvoice(true)
-    } else if (job.service?.price && Number(job.service.price) > 0) {
-      setCompletionAmount(String(job.service.price))
-      setCompletionCreateInvoice(true)
-    } else {
-      setCompletionAmount('')
-      setCompletionCreateInvoice(true)
+  // P0 Completion Workflow: Intercepts complete action, auto-fetches approved estimate & enforces safe due date
+  const onInitiateCompleteJob = async (job: JobItem) => {
+    if (starterUsage?.isLimitReached && job.status !== 'completed') {
+      triggerStarterGating(job)
+      return
     }
+
+    activeCompletionJobIdRef.current = job.id
+    completionAmountTouchedRef.current = false
+    setCompletionJob(job)
+    setCompletionCreateInvoice(true)
     setCompletionDueDate('net14')
+
+    const initialAmount = resolveInitialBillableAmount(job)
+    setCompletionAmount(initialAmount !== null ? initialAmount.toFixed(2) : '')
+
+    // Live-fetch latest accepted quote for this job or customer so freshly approved estimates pre-fill automatically
+    const contactId = job.contact?.id
+    if (!contactId && !job.quote_id) {
+      setLoadingCompletionQuote(false)
+      return
+    }
+
+    setLoadingCompletionQuote(true)
+    try {
+      const queryUrl = contactId
+        ? `/api/client/quotes?contact_id=${encodeURIComponent(contactId)}&status=accepted&limit=10`
+        : `/api/client/quotes?status=accepted&limit=10`
+      const res = await fetch(queryUrl)
+      if (!res.ok) return
+      const data = await res.json().catch(() => null)
+      const qList = (data?.quotes || []) as any[]
+      if (activeCompletionJobIdRef.current !== job.id) return
+
+      const matched = selectBestAcceptedQuoteForJob(job, qList)
+      if (matched && Number(matched.total) > 0) {
+        const hydratedQuote = {
+          id: matched.id,
+          quote_number: matched.quote_number || '',
+          title: matched.title || null,
+          total: Number(matched.total),
+          status: matched.status || 'accepted',
+          manage_token: matched.manage_token || undefined,
+        }
+        setCompletionJob(prev => (prev && prev.id === job.id ? { ...prev, quote: hydratedQuote } : prev))
+        setActiveDrawerJob(prev => (prev && prev.id === job.id ? { ...prev, quote: hydratedQuote } : prev))
+        setJobs(prev => prev.map(j => (j.id === job.id ? { ...j, quote: hydratedQuote } : j)))
+
+        if (!completionAmountTouchedRef.current) {
+          setCompletionAmount(Number(matched.total).toFixed(2))
+        }
+      }
+    } catch {
+      // Non-blocking fallback to locally loaded job quote/service amount
+    } finally {
+      if (activeCompletionJobIdRef.current === job.id) {
+        setLoadingCompletionQuote(false)
+      }
+    }
   }
 
   const handleConfirmCompletion = async () => {
@@ -441,11 +575,15 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
         ? new Date().toISOString()
         : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
 
-      await handleUpdateStatus(completionJob.id, 'completed', {
+      const res = await handleUpdateStatus(completionJob.id, 'completed', {
         finalAmount: parsedAmount,
-        dueDate: calculatedDueDate
+        dueDate: calculatedDueDate,
+        quoteId: completionJob.quote?.id || completionJob.quote_id || undefined,
       })
-      setCompletionJob(null)
+      if (res.ok) {
+        activeCompletionJobIdRef.current = null
+        setCompletionJob(null)
+      }
     } finally {
       setSubmittingCompletion(false)
     }
@@ -453,6 +591,11 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
   // P0 Quick Estimate Workflow: "Truck-Ready" On-Site Quote Builder
   const onOpenQuickQuote = (job: JobItem) => {
+    if (starterUsage?.isLimitReached && job.status !== 'completed') {
+      triggerStarterGating(job)
+      return
+    }
+
     setQuoteDrawerJob(job)
     setSignOnGlassMode(false)
     setCustomerSignerName(job.contact?.name || '')
@@ -522,6 +665,12 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
       })
 
       const data = await res.json()
+      if (res.status === 402 || data.upgradeRequired) {
+        setQuoteDrawerJob(null)
+        triggerStarterGating(quoteDrawerJob, subtotal > 0 ? subtotal : undefined)
+        setSubmittingQuote(false)
+        return
+      }
       if (!res.ok || !data.success || !data.quote) {
         toast.error(data.error || 'Failed to create estimate.')
         setSubmittingQuote(false)
@@ -634,6 +783,16 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
         setNewServiceId('')
         setNewCrewId('')
         loadJobs()
+      } else if (res.status === 402 || data.upgradeRequired) {
+        setShowCreateJobModal(false)
+        const contact = contacts.find(c => c.id === newContactId)
+        const selectedSvc = services.find(s => s.id === newServiceId)
+        const svcPrice = selectedSvc?.price ? Number(selectedSvc.price) : 0
+        setGatedJobData({
+          amount: svcPrice > 0 ? svcPrice : undefined,
+          customerName: contact?.name || 'Customer'
+        })
+        setShowFoundMoneyModal(true)
       } else {
         toast.error(data.error || 'Failed to schedule job.')
       }
@@ -952,7 +1111,13 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
             <Button
               type="button"
               size="sm"
-              onClick={() => setShowCreateJobModal(true)}
+              onClick={() => {
+                if (starterUsage?.isLimitReached) {
+                  triggerStarterGating()
+                  return
+                }
+                setShowCreateJobModal(true)
+              }}
               className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-xs gap-1.5 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1047,6 +1212,10 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 type="button"
                 size="sm"
                 onClick={() => {
+                  if (starterUsage?.isLimitReached) {
+                    triggerStarterGating()
+                    return
+                  }
                   setNewScheduledDate(selectedDate)
                   setShowCreateJobModal(true)
                 }}
@@ -1143,7 +1312,13 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => setEnRouteJob(job)}
+                          onClick={() => {
+                            if (starterUsage?.isLimitReached && job.status !== 'completed') {
+                              triggerStarterGating(job)
+                              return
+                            }
+                            setEnRouteJob(job)
+                          }}
                           className="h-9 text-xs bg-amber-600 hover:bg-amber-500 text-white font-bold gap-1 shadow-xs cursor-pointer"
                         >
                           <Truck className="h-3.5 w-3.5" />
@@ -1156,7 +1331,13 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                           type="button"
                           size="sm"
                           disabled={statusUpdatingId === job.id}
-                          onClick={() => handleUpdateStatus(job.id, 'in_progress')}
+                          onClick={() => {
+                            if (starterUsage?.isLimitReached && job.status !== 'completed') {
+                              triggerStarterGating(job)
+                              return
+                            }
+                            handleUpdateStatus(job.id, 'in_progress')
+                          }}
                           className="h-9 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold gap-1 shadow-xs cursor-pointer"
                         >
                           {statusUpdatingId === job.id ? (
@@ -1369,7 +1550,13 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                               {(job.status === 'scheduled' || job.status === 'confirmed') && (
                                 <button
                                   type="button"
-                                  onClick={() => setEnRouteJob(job)}
+                                  onClick={() => {
+                                    if (starterUsage?.isLimitReached && job.status !== 'completed') {
+                                      triggerStarterGating(job)
+                                      return
+                                    }
+                                    setEnRouteJob(job)
+                                  }}
                                   className="px-2 py-1 text-[11px] font-semibold rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20"
                                 >
                                   En Route
@@ -1378,7 +1565,13 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                               {job.status === 'en_route' && (
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateStatus(job.id, 'in_progress')}
+                                  onClick={() => {
+                                    if (starterUsage?.isLimitReached && job.status !== 'completed') {
+                                      triggerStarterGating(job)
+                                      return
+                                    }
+                                    handleUpdateStatus(job.id, 'in_progress')
+                                  }}
                                   className="px-2 py-1 text-[11px] font-semibold rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 border border-blue-500/20"
                                 >
                                   Start
@@ -1814,11 +2007,22 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                   {(activeDrawerJob.status === 'scheduled' || activeDrawerJob.status === 'confirmed') && (
                     <Button
                       type="button"
-                      onClick={() => setEnRouteJob(activeDrawerJob)}
-                      className="h-11 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs gap-1.5"
+                      onClick={() => {
+                        if (starterUsage?.isLimitReached && activeDrawerJob.status !== 'completed') {
+                          triggerStarterGating(activeDrawerJob)
+                          return
+                        }
+                        setEnRouteJob(activeDrawerJob)
+                      }}
+                      className={cn(
+                        "h-11 font-bold text-xs gap-1.5 text-white",
+                        starterUsage?.isLimitReached
+                          ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
+                          : "bg-amber-600 hover:bg-amber-500"
+                      )}
                     >
-                      <Truck className="h-4 w-4" />
-                      Dispatch En Route
+                      {starterUsage?.isLimitReached ? <Lock className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
+                      <span>{starterUsage?.isLimitReached ? 'Unlock to Dispatch' : 'Dispatch En Route'}</span>
                     </Button>
                   )}
 
@@ -1826,11 +2030,28 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                     <Button
                       type="button"
                       disabled={statusUpdatingId === activeDrawerJob.id}
-                      onClick={() => handleUpdateStatus(activeDrawerJob.id, 'in_progress')}
-                      className="h-11 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs gap-1.5"
+                      onClick={() => {
+                        if (starterUsage?.isLimitReached && activeDrawerJob.status !== 'completed') {
+                          triggerStarterGating(activeDrawerJob)
+                          return
+                        }
+                        handleUpdateStatus(activeDrawerJob.id, 'in_progress')
+                      }}
+                      className={cn(
+                        "h-11 font-bold text-xs gap-1.5 text-white",
+                        starterUsage?.isLimitReached
+                          ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
+                          : "bg-blue-600 hover:bg-blue-500"
+                      )}
                     >
-                      {statusUpdatingId === activeDrawerJob.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-                      Arrived / Start Job
+                      {statusUpdatingId === activeDrawerJob.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : starterUsage?.isLimitReached ? (
+                        <Lock className="h-4 w-4" />
+                      ) : (
+                        <Clock className="h-4 w-4" />
+                      )}
+                      <span>{starterUsage?.isLimitReached ? 'Unlock to Start' : 'Arrived / Start Job'}</span>
                     </Button>
                   )}
 
@@ -1839,10 +2060,21 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                       type="button"
                       disabled={statusUpdatingId === activeDrawerJob.id}
                       onClick={() => onInitiateCompleteJob(activeDrawerJob)}
-                      className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 col-span-2"
+                      className={cn(
+                        "h-11 font-bold text-xs gap-1.5 col-span-2 text-white",
+                        starterUsage?.isLimitReached
+                          ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-sm"
+                          : "bg-emerald-600 hover:bg-emerald-500"
+                      )}
                     >
-                      {statusUpdatingId === activeDrawerJob.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      Mark Job Complete
+                      {statusUpdatingId === activeDrawerJob.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : starterUsage?.isLimitReached ? (
+                        <Lock className="h-4 w-4" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      <span>{starterUsage?.isLimitReached ? 'Unlock Job & Complete ($99/mo)' : 'Mark Job Complete'}</span>
                     </Button>
                   )}
 
@@ -1853,8 +2085,8 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                       onClick={() => onOpenQuickQuote(activeDrawerJob)}
                       className="h-11 border-blue-200 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100/60 text-xs font-bold gap-1.5"
                     >
-                      <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      Create Estimate
+                      {starterUsage?.isLimitReached ? <Lock className="h-4 w-4 text-amber-500" /> : <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                      <span>{starterUsage?.isLimitReached ? 'Unlock to Estimate' : 'Create Estimate'}</span>
                     </Button>
                   )}
 
@@ -2017,13 +2249,25 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                     <span>Finalize Invoice</span>
                   </Button>
                 ) : (
-                  <Link
-                    href={`/client/invoices?create=true&contact_id=${activeDrawerJob.contact?.id || ''}&job_id=${activeDrawerJob.id}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (starterUsage?.isLimitReached && activeDrawerJob.status !== 'completed') {
+                        triggerStarterGating(activeDrawerJob)
+                        return
+                      }
+                      router.push(`/client/invoices?create=true&contact_id=${activeDrawerJob.contact?.id || ''}&job_id=${activeDrawerJob.id}${activeDrawerJob.quote?.id ? `&quote_id=${encodeURIComponent(activeDrawerJob.quote.id)}` : ''}`)
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-white shadow-xs cursor-pointer",
+                      starterUsage?.isLimitReached
+                        ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
+                        : "bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:text-zinc-900"
+                    )}
                   >
-                    <Receipt className="h-3.5 w-3.5" />
-                    <span>Generate Invoice</span>
-                  </Link>
+                    {starterUsage?.isLimitReached ? <Lock className="h-3.5 w-3.5" /> : <Receipt className="h-3.5 w-3.5" />}
+                    <span>{starterUsage?.isLimitReached ? 'Unlock to Invoice' : 'Generate Invoice'}</span>
+                  </button>
                 )}
 
                 <Button
@@ -2196,13 +2440,24 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
         onClose={() => setEnRouteJob(null)}
         job={enRouteJob}
         organizationName={orgName}
+        techSuggestions={[
+          ...teamMembers.map((m: any) => m?.full_name).filter(Boolean),
+          ...crews.map(c => c?.name).filter(Boolean),
+        ]}
         onConfirm={async payload => {
           if (!enRouteJob) return
-          await handleUpdateStatus(enRouteJob.id, 'en_route', {
+          const result = await handleUpdateStatus(enRouteJob.id, 'en_route', {
             etaMinutes: payload.etaMinutes,
             notifyCustomer: payload.notifyCustomer,
             technicianName: payload.technicianName
           })
+          if (result.upgradeRequired) {
+            setEnRouteJob(null)
+            return
+          }
+          if (!result.ok) {
+            throw new Error(result.error || 'Failed to update job status.')
+          }
           setEnRouteJob(null)
         }}
       />
@@ -2302,14 +2557,20 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
       {/* COMPLETE JOB MODAL (P0: Zero $0 Invoices & Safe Due Date) */}
       <Modal
         open={!!completionJob}
-        onOpenChange={(open) => !open && setCompletionJob(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            activeCompletionJobIdRef.current = null
+            setLoadingCompletionQuote(false)
+            setCompletionJob(null)
+          }
+        }}
         title={`Complete Job #${completionJob?.job_number || ''}`}
         description="Verify the billable service total and generate the customer invoice."
         size="md"
       >
         <div className="space-y-4 py-1">
           {/* Customer & Service Header */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block">
                 {completionJob?.contact?.name || 'Customer'}
@@ -2318,18 +2579,45 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 {completionJob?.service?.name || completionJob?.title || 'Field Service'}
               </span>
             </div>
-            {completionJob?.quote && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                <Check className="h-3 w-3" /> Estimate Attached: ${Number(completionJob.quote.total).toFixed(2)}
+            {loadingCompletionQuote ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-blue-700 bg-blue-50 dark:bg-blue-950/50 dark:text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                <Loader2 className="h-3 w-3 animate-spin" /> Checking approved estimates...
               </span>
-            )}
+            ) : completionJob?.quote ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <Check className="h-3 w-3" />{' '}
+                {completionJob.quote.status === 'accepted' ? 'Approved Estimate' : 'Estimate Attached'}
+                {completionJob.quote.quote_number ? ` #${completionJob.quote.quote_number}` : ''}: $
+                {Number(completionJob.quote.total).toFixed(2)}
+              </span>
+            ) : null}
           </div>
 
           {/* Billable Amount Input with Quick-Tap Chips */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
-              Final Billable Amount ($)
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Final Billable Amount ($)
+              </label>
+              {completionJob?.quote && Number(completionJob.quote.total) > 0 && (
+                Math.abs((Number(completionAmount) || 0) - Number(completionJob.quote.total)) >= 0.01 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      completionAmountTouchedRef.current = true
+                      setCompletionAmount(Number(completionJob.quote!.total).toFixed(2))
+                    }}
+                    className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                  >
+                    Use approved (${Number(completionJob.quote.total).toFixed(2)})
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    Auto-filled from estimate (editable)
+                  </span>
+                )
+              )}
+            </div>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">$</span>
               <Input
@@ -2338,7 +2626,10 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 min="0"
                 placeholder="0.00"
                 value={completionAmount}
-                onChange={(e) => setCompletionAmount(e.target.value)}
+                onChange={(e) => {
+                  completionAmountTouchedRef.current = true
+                  setCompletionAmount(e.target.value)
+                }}
                 className="pl-8 text-base font-mono font-bold h-11 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
               />
             </div>
@@ -2350,7 +2641,10 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 <button
                   key={amt}
                   type="button"
-                  onClick={() => setCompletionAmount(String(amt))}
+                  onClick={() => {
+                    completionAmountTouchedRef.current = true
+                    setCompletionAmount(String(amt))
+                  }}
                   className="px-2.5 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 cursor-pointer shadow-2xs"
                 >
                   ${amt}
@@ -2614,6 +2908,17 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
           )}
         </div>
       </Modal>
+
+      {/* Found Money Finish-Line Paywall Modal */}
+      <FoundMoneyUnlockModal
+        isOpen={showFoundMoneyModal}
+        onClose={() => setShowFoundMoneyModal(false)}
+        amountDue={gatedJobData?.amount}
+        customerName={gatedJobData?.customerName}
+        invoiceNumber={gatedJobData?.invoiceNumber}
+        operationMode={operationMode === 'multi_crew' ? 'multi_crew' : 'solo'}
+        onSuccess={() => loadJobs()}
+      />
 
     </div>
   )

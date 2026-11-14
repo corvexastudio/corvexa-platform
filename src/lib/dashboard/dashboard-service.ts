@@ -1,4 +1,26 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { parseServicePricing } from '../services/service-pricing.ts'
+
+export function cleanJobServiceTitle(
+  title: string,
+  customerName?: string | null,
+  serviceName?: string | null
+): string {
+  if (serviceName && serviceName.trim()) {
+    return serviceName.trim()
+  }
+  if (!title) return ''
+  let cleaned = title.trim()
+  if (customerName && customerName.trim()) {
+    const custTrim = customerName.trim()
+    const suffix = ` - ${custTrim}`
+    if (cleaned.toLowerCase().endsWith(suffix.toLowerCase())) {
+      cleaned = cleaned.slice(0, cleaned.length - suffix.length).trim()
+    }
+  }
+  cleaned = cleaned.replace(/^🧪\s*\[PRACTICE\]\s*/i, '').trim()
+  return cleaned || title
+}
 
 export interface AttentionItem {
   id: string
@@ -65,6 +87,7 @@ export interface JobTodayItem {
   id: string
   jobNumber: string
   title: string
+  cleanTitle?: string
   status: string
   scheduledStart: string
   scheduledEnd?: string | null
@@ -73,6 +96,13 @@ export interface JobTodayItem {
   technicianName?: string | null
   address?: string | null
   trackingToken?: string | null
+  serviceId?: string | null
+  serviceName?: string | null
+  servicePrice?: number | null
+  pricingModel?: string | null
+  pricingLabel?: string | null
+  quoteAmount?: number | null
+  quoteStatus?: string | null
 }
 
 export interface RecentCallItem {
@@ -117,7 +147,7 @@ export async function getAttentionQueue(
   // 1. Prepare queries for concurrent parallel execution
   let leadsQuery = supabase
     .from('leads')
-    .select('id, created_at, status, value, deleted_at, contacts(id, name, phone, deleted_at)')
+    .select('id, created_at, status, source, value, deleted_at, contacts(id, name, phone, deleted_at)')
     .eq('org_id', orgId)
     .eq('status', 'new')
     .order('created_at', { ascending: false })
@@ -139,7 +169,7 @@ export async function getAttentionQueue(
   // 2b. Unhandled Missed Calls (Past 24 Hours)
   const callsQuery = supabase
     .from('calls')
-    .select('id, from_number, status, created_at, contacts(id, name, phone)')
+    .select('id, caller_number, status, created_at, contacts(id, name, phone)')
     .eq('org_id', orgId)
     .eq('status', 'missed')
     .gte('created_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
@@ -251,12 +281,15 @@ export async function getAttentionQueue(
   if (newLeads && newLeads.length > 0) {
     for (const lead of newLeads) {
       const contactName = (lead.contacts as any)?.name || (lead.contacts as any)?.phone || 'New Customer'
+      const isRecovered = lead.source === 'missed_call'
       items.push({
         id: `lead-${lead.id}`,
         category: 'lead',
         urgency: 'critical',
-        title: `New lead: ${contactName}`,
-        subtitle: lead.value ? `Estimated value: $${Number(lead.value).toLocaleString()}` : 'Awaiting initial contact',
+        title: isRecovered ? `⚡ Missed Call Lead: ${contactName}` : `New lead: ${contactName}`,
+        subtitle: lead.value
+          ? `Estimated value: $${Number(lead.value).toLocaleString()}`
+          : (isRecovered ? '⚡ Lead recovered from missed call text-back' : 'Awaiting initial contact'),
         timestamp: lead.created_at,
         actionLabel: 'View Lead & Call',
         actionHref: '/client/leads',
@@ -286,7 +319,8 @@ export async function getAttentionQueue(
   // Process 2b: Inbound Missed Calls Awaiting Callback
   if (recentMissedCalls && recentMissedCalls.length > 0) {
     for (const call of recentMissedCalls) {
-      const contactName = (call.contacts as any)?.name || call.from_number || 'Unknown Caller'
+      const callerPhone = (call as any).caller_number || (call as any).from_number || (call.contacts as any)?.phone
+      const contactName = (call.contacts as any)?.name || callerPhone || 'Unknown Caller'
       const contactId = (call.contacts as any)?.id
       items.push({
         id: `call-${call.id}`,
@@ -297,7 +331,7 @@ export async function getAttentionQueue(
         timestamp: call.created_at,
         actionLabel: 'Call Back in Inbox',
         actionHref: contactId ? `/client/inbox?contact_id=${contactId}` : '/client/inbox',
-        metadata: { callId: call.id, phoneNumber: call.from_number }
+        metadata: { callId: call.id, phoneNumber: callerPhone }
       })
     }
   }
@@ -328,12 +362,13 @@ export async function getAttentionQueue(
     for (const appt of requestedAppts) {
       const contactName = (appt.contacts as any)?.name || 'Client'
       const serviceName = (appt.services as any)?.name || 'Service Appointment'
+      const isRecovered = appt.source === 'missed_call'
       items.push({
         id: `appt-${appt.id}`,
         category: 'appointment',
         urgency: 'critical',
-        title: `Booking request: ${contactName}`,
-        subtitle: `${serviceName} • ${new Date(appt.start_time).toLocaleDateString()} at ${new Date(appt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        title: isRecovered ? `⚡ Recovered Missed Call: ${contactName}` : `Booking request: ${contactName}`,
+        subtitle: `${serviceName} • ${isRecovered ? '⚡ Recovered via text-back • ' : ''}${new Date(appt.start_time).toLocaleDateString()} at ${new Date(appt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         timestamp: appt.start_time,
         actionLabel: 'Confirm Booking',
         actionHref: '/client/calendar',
@@ -794,7 +829,13 @@ export async function getJobsToday(
 
   const { data: jobs } = await supabase
     .from('jobs')
-    .select('id, job_number, title, status, scheduled_start, scheduled_end, tracking_token, contacts(name, phone, address), profiles(full_name)')
+    .select(`
+      id, job_number, title, status, scheduled_start, scheduled_end, tracking_token, service_id,
+      services(id, name, price, description),
+      quotes!jobs_quote_id_fkey(id, total_amount, status),
+      contacts(name, phone, address),
+      profiles(full_name)
+    `)
     .eq('org_id', orgId)
     .gte('scheduled_start', todayStart.toISOString())
     .lte('scheduled_start', todayEnd.toISOString())
@@ -805,19 +846,36 @@ export async function getJobsToday(
     !j.title?.includes('[PRACTICE]')
   )
 
-  return realJobs.map((j: any) => ({
-    id: j.id,
-    jobNumber: j.job_number,
-    title: j.title,
-    status: j.status,
-    scheduledStart: j.scheduled_start,
-    scheduledEnd: j.scheduled_end,
-    customerName: j.contacts?.name || 'Customer',
-    customerPhone: j.contacts?.phone || null,
-    technicianName: j.profiles?.full_name || 'Unassigned',
-    address: j.contacts?.address || null,
-    trackingToken: j.tracking_token || null
-  }))
+  return realJobs.map((j: any) => {
+    const rawService = Array.isArray(j.services) ? j.services[0] : j.services
+    const rawQuote = Array.isArray(j.quotes) ? j.quotes[0] : j.quotes
+    const pricing = rawService ? parseServicePricing(rawService.price, rawService.description) : null
+    const customerName = j.contacts?.name || 'Customer'
+    const serviceName = rawService?.name || null
+    const cleanTitle = cleanJobServiceTitle(j.title, customerName, serviceName)
+
+    return {
+      id: j.id,
+      jobNumber: j.job_number,
+      title: j.title,
+      cleanTitle,
+      status: j.status,
+      scheduledStart: j.scheduled_start,
+      scheduledEnd: j.scheduled_end,
+      customerName,
+      customerPhone: j.contacts?.phone || null,
+      technicianName: j.profiles?.full_name || 'Unassigned',
+      address: j.contacts?.address || null,
+      trackingToken: j.tracking_token || null,
+      serviceId: j.service_id || rawService?.id || null,
+      serviceName,
+      servicePrice: pricing?.price ?? null,
+      pricingModel: pricing?.model ?? null,
+      pricingLabel: pricing?.formattedPrice ?? null,
+      quoteAmount: rawQuote?.status === 'accepted' && rawQuote?.total_amount ? Number(rawQuote.total_amount) : null,
+      quoteStatus: rawQuote?.status || null
+    }
+  })
 }
 
 /**
@@ -830,18 +888,18 @@ export async function getRecentCalls(
 ): Promise<RecentCallItem[]> {
   const { data: calls } = await supabase
     .from('calls')
-    .select('id, from_number, status, created_at, contacts(name, phone)')
+    .select('id, caller_number, status, created_at, auto_reply_sent, contacts(name, phone)')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
     .limit(limit)
 
   return (calls || []).map((c: any) => ({
     id: c.id,
-    callerNumber: c.from_number,
+    callerNumber: c.caller_number || c.from_number || c.contacts?.phone || 'Unknown Caller',
     customerName: c.contacts?.name || null,
     status: c.status,
     createdAt: c.created_at,
-    autoReplySent: c.status === 'missed',
+    autoReplySent: typeof c.auto_reply_sent === 'boolean' ? c.auto_reply_sent : c.status === 'missed',
     customerReplied: false
   }))
 }
