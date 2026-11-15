@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -159,8 +159,8 @@ function AgencyLoginContent() {
       <header className="w-full px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
         <Link href="https://captodesk.com" className="inline-flex items-center gap-2.5 group">
           <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform shrink-0" size={32} priority />
-          <div className="flex items-center gap-1.5 text-left">
-            <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight">CaptoDesk</span>
+          <div className="flex items-center gap-2 text-left">
+            <BrandWordmark size="text-lg" theme="auto" />
             <span className="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
               Agency
             </span>

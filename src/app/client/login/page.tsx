@@ -5,7 +5,7 @@ import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 import { Loader2, CheckCircle2, ArrowRight, AlertCircle, Check, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -86,16 +86,9 @@ function LoginContent() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10">
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <BrandIcon className="h-9 w-9 group-hover:scale-105 transition-transform" size={36} priority />
-            <div className="flex flex-col">
-              <span className="text-white text-xl font-extrabold tracking-tight">
-                Capto<span className="text-blue-400">Desk</span>
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
-                The Field Operations System
-              </span>
-            </div>
+          <Link href="/" className="inline-flex items-center gap-2.5 group">
+            <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform" size={32} priority />
+            <BrandWordmark size="text-lg" theme="dark" />
           </Link>
         </div>
 
@@ -151,9 +144,9 @@ function LoginContent() {
       <div className="flex flex-1 flex-col justify-between p-6 sm:p-12 lg:p-16 min-h-screen">
         {/* Top bar for mobile */}
         <div className="flex items-center justify-between lg:hidden mb-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <BrandIcon className="h-8 w-8" size={32} priority />
-            <span className="text-slate-900 text-lg font-extrabold tracking-tight">Capto<span className="text-blue-600">Desk</span></span>
+            <BrandWordmark size="text-lg" theme="light" />
           </Link>
           <Link href="/" className="text-xs font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1">
             <ArrowLeft className="w-3.5 h-3.5" />

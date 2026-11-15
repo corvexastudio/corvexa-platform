@@ -30,7 +30,7 @@ import {
 import { DualPhoneSimulator } from '@/components/landing/dual-phone-simulator'
 import { RevenueCalculator } from '@/components/landing/revenue-calculator'
 import { FaqSection } from '@/components/landing/faq-section'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LandingPage() {
@@ -59,9 +59,7 @@ export default function LandingPage() {
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <BrandIcon className="w-8 h-8 group-hover:scale-105 transition-transform" priority />
-            <span className="text-lg font-black tracking-tight text-slate-900">
-              Capto<span className="text-blue-600">Desk</span>
-            </span>
+            <BrandWordmark size="text-lg" />
           </Link>
 
           {/* Desktop Nav Links (Streamlined High-Signal Links) */}
@@ -757,7 +755,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2.5">
             <BrandIcon className="w-6 h-6 rounded-md shadow-2xs" size={24} />
-            <span className="font-bold text-slate-800 text-sm">CaptoDesk</span>
+            <BrandWordmark size="text-sm" />
             <span className="text-slate-300">•</span>
             <span>The Field Growth System for Trade Contractors</span>
           </div>

@@ -19,7 +19,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'What happens if a robocaller, spammer, or wrong number calls?',
-    a: 'CaptoDesk verifies incoming telephony carrier metadata in real time. Confirmed robocalls, toll-free lines, and known spam registries are filtered out so automated text credits are never wasted on junk callers.'
+    a: 'CaptoDesk automatically filters out robocalls, toll-free numbers, and spam bots so you never waste auto-replies on junk callers.'
   },
   {
     q: 'How does the customer pay their invoice on the job site?',
@@ -35,7 +35,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Can I cancel or change plans at any time?',
-    a: 'Yes. CaptoDesk operates month-to-month with zero long-term contracts. If you ever cancel your Pro subscription, your account transitions to the Free Starter Pass, preserving your customer history and booking link with no surprise fees.'
+    a: 'Yes. All plans are month-to-month with zero long-term contracts. If you ever cancel, you keep your free booking link and customer records with zero surprise fees.'
   }
 ]
 

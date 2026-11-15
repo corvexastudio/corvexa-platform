@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +31,7 @@ import {
   Globe
 } from 'lucide-react'
 import { INDUSTRY_LIST, getIndustryPreset } from '@/lib/constants/industries'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 import { getFriendlyTimezoneLabel, DEFAULT_US_TIMEZONE } from '@/lib/temporal/timezone'
 
 const INDUSTRY_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -268,10 +269,10 @@ export default function OnboardingPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 px-4 py-8">
       <div className="w-full max-w-2xl transition-all duration-300">
         {/* Brand Header */}
-        <div className="flex items-center justify-center gap-2.5 mb-4">
-          <BrandIcon className="h-8 w-8 rounded-lg shadow-2xs" size={32} priority />
-          <span className="text-lg font-semibold tracking-tight text-slate-900 dark:text-zinc-100">CaptoDesk</span>
-        </div>
+        <Link href="/" className="flex items-center justify-center gap-2.5 mb-5 group">
+          <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform" size={32} priority />
+          <BrandWordmark size="text-lg" theme="auto" />
+        </Link>
 
         {/* Free Starter Pass Value Badge */}
         <div className="flex items-center justify-center mb-5">

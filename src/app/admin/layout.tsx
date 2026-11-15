@@ -16,6 +16,7 @@ import {
   Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 
 const navItems = [
   { href: '/admin', label: 'Platform Overview', icon: ActivitySquare, exact: true },
@@ -97,12 +98,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Header */}
         <div className="flex h-16 items-center justify-between border-b border-zinc-800/80 px-5">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Zap className="h-4 w-4 text-black font-black" />
-            </div>
-            <div>
-              <p className="text-sm font-extrabold text-white">CaptoDesk Ops</p>
-              <p className="text-[10px] text-amber-400 font-mono tracking-wider font-semibold">SUPER_ADMIN</p>
+            <BrandIcon className="h-8 w-8 shrink-0" size={32} priority />
+            <div className="flex items-center gap-2">
+              <BrandWordmark size="text-sm" theme="dark" />
+              <span className="text-[10px] text-amber-400 font-mono tracking-wider font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                OPS
+              </span>
             </div>
           </div>
           <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />

@@ -16,7 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { AgencyPortfolioOverview, getAgencyTierConfig } from '@/lib/agency/agency-types'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
@@ -100,11 +100,11 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
             <div className="flex items-center gap-3">
               <Link 
                 href={isSubdomain ? '/dashboard' : '/agency/dashboard'} 
-                className="flex items-center gap-2 group text-slate-900 dark:text-white font-bold text-base tracking-tight hover:opacity-95 transition-opacity"
+                className="flex items-center gap-2.5 group hover:opacity-95 transition-opacity"
               >
                 <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform shrink-0" size={32} priority />
-                <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-extrabold text-slate-900 dark:text-white text-base">CaptoDesk</span>
+                <div className="flex items-center gap-2 leading-none">
+                  <BrandWordmark size="text-lg" theme="auto" />
                   <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 font-semibold">
                     Agency
                   </span>

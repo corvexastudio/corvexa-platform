@@ -168,7 +168,7 @@ export function RevenueCalculator() {
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Free 3-Job Starter Pass included • Upgrade to Solo Pro anytime for 24/7 lead rescue</span>
+            <span>First 3 completed jobs included • Zero fees • No credit card required</span>
           </div>
         </div>
       </div>

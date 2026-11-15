@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 
 function AdminLoginContent() {
   const router = useRouter()
@@ -159,8 +160,12 @@ function AdminLoginContent() {
               Restricted Console • Super Admin Only
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            CaptoDesk Operations
+          <div className="flex items-center justify-center gap-2.5 mb-2">
+            <BrandIcon className="h-8 w-8" size={32} priority />
+            <BrandWordmark size="text-2xl" theme="dark" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+            Operations Console
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400">
             Dedicated administrative authentication portal.

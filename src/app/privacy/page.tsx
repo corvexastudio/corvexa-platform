@@ -1,6 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 import {
   ShieldCheck,
   Lock,
@@ -29,14 +29,7 @@ export default function PrivacyPolicyPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <BrandIcon className="w-8 h-8 group-hover:scale-105 transition-transform" priority />
-            <div className="flex flex-col">
-              <span className="text-base font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
-                Capto<span className="text-blue-600">Desk</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-semibold uppercase tracking-wider">
-                  LEGAL
-                </span>
-              </span>
-            </div>
+            <BrandWordmark size="text-lg" />
           </Link>
 
           <div className="flex items-center gap-4 text-xs font-semibold">

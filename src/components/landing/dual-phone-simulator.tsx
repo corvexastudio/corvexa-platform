@@ -99,8 +99,8 @@ export function DualPhoneSimulator() {
           {
             stage: 2 as DemoStage,
             number: '02',
-            title: 'Live Arrival Tracker',
-            desc: 'Live GPS arrival tracker texted to customer',
+            title: 'Live GPS Arrival Map',
+            desc: 'Real-time truck location texted to homeowner',
             icon: Navigation,
             color: 'text-blue-500'
           },
@@ -116,7 +116,7 @@ export function DualPhoneSimulator() {
             stage: 4 as DemoStage,
             number: '04',
             title: '5-Star Review Booster',
-            desc: 'Directs positive feedback straight to Google',
+            desc: 'Routes 5-star ratings directly to Google Maps',
             icon: Star,
             color: 'text-amber-500'
           }

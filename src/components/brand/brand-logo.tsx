@@ -65,3 +65,27 @@ export function BrandLogo({ className = 'h-9 w-auto', priority = false }: BrandL
     </div>
   )
 }
+
+interface BrandWordmarkProps {
+  className?: string
+  size?: string
+  theme?: 'light' | 'dark' | 'auto'
+}
+
+/**
+ * Standard CaptoDesk Wordmark (Signature "Capto" + blue "Desk")
+ */
+export function BrandWordmark({
+  className = '',
+  size = 'text-lg',
+  theme = 'light'
+}: BrandWordmarkProps) {
+  const baseTextColor = theme === 'dark' ? 'text-white' : theme === 'auto' ? 'text-slate-900 dark:text-white' : 'text-slate-900'
+  const deskColor = theme === 'dark' ? 'text-blue-400' : theme === 'auto' ? 'text-blue-600 dark:text-blue-400' : 'text-blue-600'
+
+  return (
+    <span className={`font-black tracking-tight ${baseTextColor} ${size} ${className}`}>
+      Capto<span className={deskColor}>Desk</span>
+    </span>
+  )
+}

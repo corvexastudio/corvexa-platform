@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { BrandIcon } from '@/components/brand/brand-logo'
+import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 
 export interface PoweredByBadgeProps {
   className?: string
@@ -32,12 +32,10 @@ export function PoweredByBadge({
         target="_blank"
         rel="noopener noreferrer"
         title="CaptoDesk - Trade Operations &amp; Customer Automation"
-        className="inline-flex items-center gap-1 font-bold text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group cursor-pointer"
+        className="inline-flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group cursor-pointer"
       >
         <BrandIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform shrink-0" size={16} />
-        <span className="tracking-tight text-slate-800 dark:text-zinc-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-          Capto<span className="text-blue-600 dark:text-blue-400">Desk</span>
-        </span>
+        <BrandWordmark size="text-xs" theme="auto" />
       </a>
     </div>
   )
