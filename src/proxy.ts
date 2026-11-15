@@ -75,6 +75,15 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(NextResponse.redirect(callbackUrl))
   }
 
+  // 1.2 Catch OAuth errors landing on bare root
+  if (url.searchParams.has('error') && pathname === '/') {
+    if (hostname.startsWith('agency.')) {
+      const loginUrl = new URL('/agency/login', request.url)
+      url.searchParams.forEach((v, k) => loginUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(loginUrl))
+    }
+  }
+
   // 2. Subdomain Routing: book.<domain> for public booking portal
   const isBookSubdomain = hostname.startsWith('book.')
   if (isBookSubdomain) {
@@ -167,7 +176,9 @@ export async function proxy(request: NextRequest) {
     // Bare root on agency subdomain (agency.captodesk.com/) -> Login if unauthenticated, Dashboard if authenticated
     if (hostname.startsWith('agency.') && (pathname === '/' || pathname === '')) {
       const target = user ? '/agency/dashboard' : '/agency/login'
-      return finalizeResponse(NextResponse.redirect(new URL(target, request.url)))
+      const targetUrl = new URL(target, request.url)
+      url.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(targetUrl))
     }
 
     if (isAgencyLogin) {

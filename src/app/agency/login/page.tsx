@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { 
   ArrowRight, 
   Lock, 
@@ -40,14 +40,28 @@ function GoogleIcon({ className }: { className?: string }) {
   )
 }
 
-export default function AgencyLoginPage() {
+function AgencyLoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [magicLinkSent, setMagicLinkSent] = useState(false)
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error_description') || searchParams.get('error')
+    if (errorParam) {
+      if (errorParam.includes('expired') || errorParam.includes('bad_oauth_state')) {
+        setError('Your sign-in session expired. Please click "Continue with Google" again to sign in.')
+      } else if (errorParam === 'link_expired') {
+        setError('Your sign-in link has expired. Please request a new one.')
+      } else {
+        setError(decodeURIComponent(errorParam.replace(/\+/g, ' ')))
+      }
+    }
+  }, [searchParams])
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true)
@@ -303,5 +317,17 @@ export default function AgencyLoginPage() {
       </footer>
 
     </div>
+  )
+}
+
+export default function AgencyLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+      </div>
+    }>
+      <AgencyLoginContent />
+    </Suspense>
   )
 }
