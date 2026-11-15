@@ -184,7 +184,7 @@ export default function AgencyBillingPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           {AGENCY_TIERS_LIST.map((tier) => {
             const isCurrent = Boolean(hasActiveSubscription && currentTier === tier.id)
             const isSwitching = switchingTier === tier.id
@@ -281,6 +281,29 @@ export default function AgencyBillingPage() {
               </div>
             )
           })}
+        </div>
+
+        {/* Enterprise & High Volume 50+ Slots Banner */}
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                Enterprise &bull; 50+ Slots
+              </span>
+            </div>
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mt-1">
+              Managing 50+ contractor locations or multiple marketing agency franchises?
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Custom carrier trunking, dedicated IP pools, custom white-label subdomains, and volume SLAs are available.
+            </p>
+          </div>
+          <a
+            href="mailto:partners@captodesk.com?subject=Wholesale%20Enterprise%2050%2B%20Slots%20Inquiry"
+            className="shrink-0 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold transition-colors"
+          >
+            Contact Partner Desk
+          </a>
         </div>
 
         {/* Clean 1-Line Capacity Callout */}

@@ -15,13 +15,13 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
   starter_3: {
     id: 'starter_3',
     name: 'Starter 3-Pack',
-    price: 129,
+    price: 149,
     slots: 3,
-    costPerSlot: 43.0,
+    costPerSlot: 49.67,
     description: 'Perfect for boutique agencies testing rapid lead recovery on 2 to 3 trade clients.',
     features: [
-      '1 Slot = 1 Solo Contractor (1 Van)',
-      'Multi-Van (2–5 Vans) Consumes 2 Slots',
+      '3 Wholesale Client Slots Included',
+      'Solo (1 slot) & Multi-Van (2 slots)',
       'Dedicated 10DLC Local Phone Numbers',
       'Automated Missed-Call Text-Back',
       'Campaign Lead & Revenue Attribution'
@@ -31,14 +31,14 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
   growth_10: {
     id: 'growth_10',
     name: 'Growth 10-Pack',
-    price: 349,
+    price: 399,
     slots: 10,
-    costPerSlot: 34.9,
+    costPerSlot: 39.9,
     description: 'Our most popular partner tier. Covers full home service rosters with maximum margin.',
     features: [
-      'Up to 10 Active Contractor Clients',
+      '10 Wholesale Client Slots Included',
       'All Starter Features Included',
-      'Free 10DLC Brand & Carrier Setups',
+      'Free 10DLC Brand & Carrier Registrations',
       'Priority Carrier Line Provisioning',
       'Dedicated Partner Support Channel',
       'Monthly Client Performance Reports'
@@ -47,16 +47,16 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
   },
   scale_25: {
     id: 'scale_25',
-    name: 'Scale 25-Pack',
-    price: 699,
+    name: 'Scale 25+ Pack',
+    price: 875,
     slots: 25,
-    costPerSlot: 27.96,
-    description: 'For scaling trade marketing firms managing multi-metro HVAC and plumbing clients.',
+    costPerSlot: 35.0,
+    description: 'For scaling trade marketing firms. Includes 25 slots with automatic $35/slot expansion.',
     features: [
-      'Up to 25 Active Contractor Clients',
+      '25 Wholesale Client Slots Included',
+      '+$35/mo per additional slot beyond 25',
       'All Growth Features Included',
-      'Custom Agency Domain Mapping',
-      'Quarterly Account Strategy Reviews',
+      'Custom Agency Domain & CNAME Mapping',
       'Dedicated Technical Account Manager',
       'Multi-Team Member Agency Logins'
     ],
@@ -64,13 +64,13 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
   },
   dominance_50: {
     id: 'dominance_50',
-    name: 'Dominance 50-Pack',
-    price: 1199,
+    name: 'Dominance 50-Pack (Legacy)',
+    price: 1750,
     slots: 50,
-    costPerSlot: 23.98,
+    costPerSlot: 35.0,
     description: 'Enterprise agency wholesale capacity with dedicated IP pool, custom portal branding, and executive support.',
     features: [
-      'Up to 50 Active Contractor Clients',
+      '50 Wholesale Client Slots Included',
       'All Scale Features Included',
       'Custom White-Label Portal & CNAME',
       'Dedicated High-Volume Carrier IP Pool',
@@ -81,7 +81,12 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
   }
 }
 
-export const AGENCY_TIERS_LIST: AgencyTierConfig[] = Object.values(AGENCY_TIERS_CONFIG)
+// 3 Core Flagship Tiers for Public Billing & Scaling
+export const AGENCY_TIERS_LIST: AgencyTierConfig[] = [
+  AGENCY_TIERS_CONFIG.starter_3,
+  AGENCY_TIERS_CONFIG.growth_10,
+  AGENCY_TIERS_CONFIG.scale_25
+]
 
 export function isValidAgencyTier(tier?: string | null): tier is AgencyTier {
   return Boolean(tier && tier in AGENCY_TIERS_CONFIG)

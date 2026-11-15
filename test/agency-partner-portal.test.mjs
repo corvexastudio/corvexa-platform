@@ -282,28 +282,31 @@ test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /a
   assert.ok(proxyContent.includes("url.searchParams.has('code')"))
 })
 
-test('Agency Tier Catalog: All 4 tiers exported with non-hardcoded pricing and slot capacities', () => {
-  assert.equal(AGENCY_TIERS_LIST.length, 4)
+test('Agency Tier Catalog: Strategy A flagship tiers exported with non-hardcoded pricing and slot capacities', () => {
+  assert.equal(AGENCY_TIERS_LIST.length, 3)
   
   const starter = getAgencyTierConfig('starter_3')
   assert.equal(starter.name, 'Starter 3-Pack')
   assert.equal(starter.slots, 3)
-  assert.equal(starter.price, 129)
+  assert.equal(starter.price, 149)
+  assert.equal(starter.costPerSlot, 49.67)
 
   const growth = getAgencyTierConfig('growth_10')
   assert.equal(growth.name, 'Growth 10-Pack')
   assert.equal(growth.slots, 10)
-  assert.equal(growth.price, 349)
+  assert.equal(growth.price, 399)
+  assert.equal(growth.costPerSlot, 39.9)
 
   const scale = getAgencyTierConfig('scale_25')
-  assert.equal(scale.name, 'Scale 25-Pack')
+  assert.equal(scale.name, 'Scale 25+ Pack')
   assert.equal(scale.slots, 25)
-  assert.equal(scale.price, 699)
+  assert.equal(scale.price, 875)
+  assert.equal(scale.costPerSlot, 35.0)
 
+  // Backwards compatibility legacy tier
   const dominance = getAgencyTierConfig('dominance_50')
-  assert.equal(dominance.name, 'Dominance 50-Pack')
   assert.equal(dominance.slots, 50)
-  assert.equal(dominance.price, 1199)
+  assert.equal(dominance.price, 1750)
 })
 
 test('Agency Tier Switching: Can upgrade or select plan dynamically', async () => {
