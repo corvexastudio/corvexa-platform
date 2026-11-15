@@ -57,21 +57,11 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <BrandIcon className="w-8 h-8 group-hover:scale-105 transition-transform" priority />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg font-black tracking-tight text-slate-900">
-                  Capto<span className="text-blue-600">Desk</span>
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold uppercase tracking-wider hidden sm:inline">
-                  PRO
-                </span>
-              </div>
-              <span className="text-[10px] font-semibold text-slate-500 tracking-wide uppercase font-mono -mt-1 hidden sm:block">
-                For Trade Contractors
-              </span>
-            </div>
+            <span className="text-lg font-black tracking-tight text-slate-900">
+              Capto<span className="text-blue-600">Desk</span>
+            </span>
           </Link>
 
           {/* Desktop Nav Links (Streamlined High-Signal Links) */}
@@ -80,7 +70,7 @@ export default function LandingPage() {
               How It Works
             </a>
             <a href="#engines" className="hover:text-blue-600 transition-colors">
-              Core Engines
+              Features
             </a>
             <a href="#calculator" className="hover:text-blue-600 transition-colors">
               ROI Calculator
@@ -149,7 +139,7 @@ export default function LandingPage() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-slate-50 rounded-lg"
               >
-                Core Engines
+                Features
               </a>
               <a
                 href="#calculator"
@@ -275,166 +265,95 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 4. The 4 Operational Revenue Engines (Bento Grid) ── */}
-      <section id="engines" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
-        <div className="text-center max-w-3xl mx-auto space-y-2">
+      {/* ── 4. Core Features Grid ── */}
+      <section id="engines" className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
           <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
-            CORE CAPABILITIES
+            HOW IT WORKS
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            Four Ways CaptoDesk Captures Lost Revenue
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            Four Ways CaptoDesk Protects Your Revenue
           </h2>
-          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto">
-            Built specifically for field trades. No complicated software, no customer app downloads, and no evening invoice chasing.
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+            Everything you need to capture missed calls, dispatch jobs, and collect payment from your truck.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* Bento 1: 8-Second Missed Call Catcher (7 Columns) */}
-          <div className="lg:col-span-7 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
+          {/* Card 1: Missed Call Recovery */}
+          <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/80 flex items-center justify-center">
                 <PhoneMissed className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Stop losing service calls to the next contractor on Google.
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                8-Second Missed-Call Recovery
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Most homeowners with urgent repairs won&apos;t leave a voicemail—they hang up and call the next number. CaptoDesk texts them back within 8 seconds to answer their emergency and lock in the visit before they call someone else.
+                When you can&apos;t answer, CaptoDesk instantly texts the caller to handle their emergency and secure the visit before they call another contractor.
               </p>
             </div>
-
-            {/* Visual Chat Preview */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs font-sans">
-              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 border-b border-slate-200/60 pb-2">
-                <span className="flex items-center gap-1.5 text-rose-600 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                  Missed Call: (555) 234-5678
-                </span>
-                <span>Auto-Text Sent in 6.2s</span>
-              </div>
-              <div className="max-w-[90%] bg-white border border-slate-200 text-slate-800 p-3 rounded-xl rounded-tl-xs shadow-2xs leading-relaxed">
-                &quot;Hey Sarah! Mike here with Apex Plumbing. Missed your call while finishing a service job—what&apos;s going on with your plumbing?&quot;
-              </div>
-              <div className="max-w-[90%] ml-auto bg-blue-600 text-white p-3 rounded-xl rounded-tr-xs shadow-2xs leading-relaxed">
-                &quot;Water heater is leaking all over my basement floor! Can someone come out today?&quot;
-              </div>
-              <div className="text-[11px] text-emerald-700 font-bold text-right pt-1 flex items-center justify-end gap-1">
-                <Check className="w-3.5 h-3.5" />
-                <span>Homeowner stopped calling competitors • Job locked in</span>
-              </div>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Automated 2-way conversational text &bull; Zero app downloads</span>
             </div>
           </div>
 
-          {/* Bento 2: Instant Mobile Invoicing (5 Columns) */}
-          <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
+          {/* Card 2: On-Site Mobile Payments */}
+          <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center">
                 <CreditCard className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Collect payment before you pull out of the driveway.
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                Driveway Apple Pay &amp; Card Checkout
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Tap &quot;Complete Job&quot; on your phone. An itemized invoice opens instantly on the homeowner&apos;s screen. They pay on the spot with Apple Pay, Google Pay, or card. Zero paper checks, zero evening billing.
+                Tap &quot;Complete Job&quot; to send an itemized invoice to the homeowner&apos;s phone. They pay on site via Apple Pay, Google Pay, or card.
               </p>
             </div>
-
-            {/* Visual Invoice Receipt Card */}
-            <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3 shadow-md">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-400">Invoice #INV-2026-084:</span>
-                <span className="font-mono text-base font-bold text-white">$650.00</span>
-              </div>
-              <div className="space-y-1.5 text-[11px] pt-2 border-t border-slate-800">
-                <div className="flex justify-between text-slate-300">
-                  <span>Service:</span>
-                  <span>Water Heater Relief Valve &amp; Flush</span>
-                </div>
-                <div className="flex justify-between text-emerald-400 font-bold">
-                  <span>Payment Status:</span>
-                  <span>Paid via Apple Pay (On Site)</span>
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-[11px] text-emerald-300 text-center font-bold">
-                ✓ Receipt texted to homeowner • Paid in 15 seconds
-              </div>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Instant digital receipts &bull; Zero evening billing paperwork</span>
             </div>
           </div>
 
-          {/* Bento 3: Uber-Style Live GPS Arrival (5 Columns) */}
-          <div className="lg:col-span-5 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
+          {/* Card 3: Live Arrival Tracking */}
+          <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center">
                 <Navigation className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Eliminate &quot;Where is the tech?&quot; phone calls.
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                Live Technician Arrival Map
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Tap &quot;On My Way&quot; when you leave the shop. The homeowner gets a text with your photo, vehicle info, and a live arrival map. Customers know exactly when to open the gate, and your phone stays quiet while driving.
+                Tap &quot;On My Way&quot; to text the homeowner your photo, truck details, and a real-time GPS arrival map with an accurate ETA.
               </p>
             </div>
-
-            {/* Visual Tracker Card */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                <span className="flex items-center gap-1.5 text-blue-600">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                  Technician En Route
-                </span>
-                <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 text-[11px]">
-                  ETA 12 Min
-                </span>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center text-sm font-bold">
-                  MR
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Mike Rodriguez (Master Tech)</p>
-                  <p className="text-[11px] text-slate-500">Apex Plumbing Truck #3 • 4.9 ★ (142 reviews)</p>
-                </div>
-              </div>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Real-time GPS tracking &bull; Stops &quot;Where are you?&quot; phone calls</span>
             </div>
           </div>
 
-          {/* Bento 4: 5-Star Reputation Shield (7 Columns) */}
-          <div className="lg:col-span-7 rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6">
+          {/* Card 4: Automated 5-Star Reviews */}
+          <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center">
                 <Star className="w-5 h-5" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Turn happy homeowners into 5-star Google reviews.
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                Automated Google Review Booster
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Minutes after payment clears, CaptoDesk texts a 1-tap review request. Delighted customers head straight to your Google Business Profile. Any private concerns get routed to your phone first so you can handle them directly.
+                Minutes after payment clears, customers receive a 1-tap review link. 5-star ratings route straight to Google; private concerns route to you.
               </p>
             </div>
-
-            {/* Visual Smart Routing Badge */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
-                <div className="flex items-center gap-1 text-emerald-800 font-bold">
-                  <Star className="w-4 h-4 fill-emerald-600 text-emerald-600" />
-                  <span>4 or 5 Stars (Delighted)</span>
-                </div>
-                <p className="text-[11px] text-emerald-700">
-                  Routes straight to your Google Business Profile to boost your SEO ranking.
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 space-y-1">
-                <div className="flex items-center gap-1 text-rose-800 font-bold">
-                  <ShieldCheck className="w-4 h-4 text-rose-600" />
-                  <span>1 to 3 Stars (Private Shield)</span>
-                </div>
-                <p className="text-[11px] text-rose-700">
-                  Sent privately to your dashboard so you can make it right before public damage.
-                </p>
-              </div>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Smart reputation filter &bull; Builds local Google Maps ranking</span>
             </div>
           </div>
 
