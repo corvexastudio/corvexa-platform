@@ -104,49 +104,49 @@ export default function AgencyBillingPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1 font-mono">
-            <Link href="/agency/dashboard" className="hover:text-emerald-400 flex items-center gap-1">
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 mb-1 font-mono">
+            <Link href="/agency/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" />
               <span>Portfolio</span>
             </Link>
             <span>/</span>
-            <span className="text-slate-300">Partner Capacity & Billing</span>
+            <span className="text-slate-800 dark:text-zinc-200">Partner Capacity & Billing</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <span>Slot Capacity & Wholesale Billing</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
             Manage your agency’s wholesale slot packs, view active occupancy, and upgrade client capacity.
           </p>
         </div>
       </div>
 
       {/* Active Subscription Overview Card */}
-      <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+      <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 transition-colors">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs uppercase font-mono font-bold text-emerald-400 tracking-wider">
+            <span className="text-xs uppercase font-mono font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">
               Active Wholesale Plan
             </span>
-            <Badge className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px]">
+            <Badge className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px]">
               Active Auto-Renew
             </Badge>
           </div>
-          <h2 className="text-xl font-bold text-white mt-1">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
             Growth 10-Pack ($349.00 / month)
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Billed on the 1st of every month via Stripe Wholesale Auto-Debit. Covers up to 10 contractor clients ($34.90/client/mo).
           </p>
         </div>
 
-        <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
+        <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-zinc-800 pt-4 md:pt-0 md:pl-6">
           <div className="flex flex-col">
-            <span className="text-xs text-slate-400 font-medium">Slot Occupancy</span>
-            <div className="text-xl font-extrabold text-white font-mono mt-0.5">
-              {usedSlots} / {totalSlots} <span className="text-xs text-slate-400 font-sans font-normal">Assigned</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Slot Occupancy</span>
+            <div className="text-xl font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+              {usedSlots} / {totalSlots} <span className="text-xs text-slate-500 dark:text-zinc-400 font-sans font-normal">Assigned</span>
             </div>
-            <span className="text-[11px] text-emerald-400 font-semibold mt-0.5">
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
               {totalSlots - usedSlots} slots available to deploy
             </span>
           </div>
@@ -155,8 +155,8 @@ export default function AgencyBillingPage() {
 
       {/* Wholesale Tier Upgrade Grid */}
       <div className="space-y-3 pt-2">
-        <h2 className="text-base font-bold text-white">Wholesale Capacity Plans</h2>
-        <p className="text-xs text-slate-400">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white">Wholesale Capacity Plans</h2>
+        <p className="text-xs text-slate-500 dark:text-zinc-400">
           Scale your agency capacity with discounted volume licensing. Slots can be reassigned between clients anytime.
         </p>
 
@@ -170,8 +170,8 @@ export default function AgencyBillingPage() {
                 className={cn(
                   "p-5 rounded-xl border flex flex-col justify-between transition-all relative",
                   tier.highlight 
-                    ? "bg-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-950/20" 
-                    : "bg-slate-900/60 border-slate-800"
+                    ? "bg-white dark:bg-zinc-900 border-2 border-emerald-500 shadow-md" 
+                    : "bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 shadow-2xs"
                 )}
               >
                 {tier.highlight && (
@@ -182,48 +182,48 @@ export default function AgencyBillingPage() {
 
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-white text-base">{tier.name}</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">{tier.name}</h3>
                     {isCurrent && (
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                         Current
                       </span>
                     )}
                   </div>
 
                   <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-white font-mono">${tier.price}</span>
-                    <span className="text-xs text-slate-400">/ month</span>
+                    <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">${tier.price}</span>
+                    <span className="text-xs text-slate-500 dark:text-zinc-400">/ month</span>
                   </div>
-                  <div className="text-[11px] text-emerald-400 font-mono mt-0.5">
+                  <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 font-semibold">
                     ${tier.costPerSlot.toFixed(2)} per client slot
                   </div>
 
-                  <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-zinc-400 mt-3 leading-relaxed">
                     {tier.description}
                   </p>
 
-                  <div className="mt-4 pt-4 border-t border-slate-800 space-y-2 text-xs">
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800 space-y-2 text-xs">
                     {tier.features.map((feat, idx) => (
-                      <div key={`feat-${idx}`} className="flex items-start gap-2 text-slate-300">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                      <div key={`feat-${idx}`} className="flex items-start gap-2 text-slate-700 dark:text-zinc-300">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         <span>{feat}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-slate-800">
+                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-zinc-800">
                   {isCurrent ? (
                     <Button
                       disabled
-                      className="w-full h-9 text-xs font-semibold bg-slate-800 text-slate-400 rounded-lg"
+                      className="w-full h-9 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 rounded-lg"
                     >
                       Current Active Plan
                     </Button>
                   ) : (
                     <Button
                       type="button"
-                      className="w-full h-9 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
+                      className="w-full h-9 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg cursor-pointer shadow-2xs"
                       onClick={() => toast.info(`To upgrade to ${tier.name}, contact your partner account lead or email partners@captodesk.com`)}
                     >
                       {tier.price > 349 ? 'Upgrade Capacity' : 'Select Plan'}
