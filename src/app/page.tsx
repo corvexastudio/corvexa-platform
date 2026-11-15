@@ -115,7 +115,7 @@ export default function LandingPage() {
                   href="/client/login?mode=signup"
                   className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Claim Free 3-Job Pass</span>
+                  <span>Start Free (3 Jobs)</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </>
@@ -191,7 +191,7 @@ export default function LandingPage() {
                 href="/client/login?mode=signup"
                 className="w-full py-2.5 text-center text-xs font-bold text-white bg-blue-600 rounded-xl shadow-sm"
               >
-                Claim Free 3-Job Pass
+                Start Free (3 Jobs)
               </Link>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function LandingPage() {
           {/* Editorial Category Eyebrow */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/80 shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            <span>BUILT FOR PLUMBING, HVAC, ELECTRICAL, ROOFING &amp; FIELD TRADES</span>
+            <span>AUTOMATED FRONT DESK FOR FIELD TRADES</span>
           </div>
 
           {/* Primary Headline - Sharp, Visceral, Clean */}
@@ -218,7 +218,7 @@ export default function LandingPage() {
 
           {/* Sub-Headline - Direct Outcome */}
           <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            When you can&apos;t pick up, CaptoDesk instantly texts the customer in 8 seconds, reserves the booking on your calendar, tracks your truck live, and collects payment on site with Apple Pay.
+            When you can&apos;t answer, CaptoDesk texts the customer in 8 seconds, books their diagnostic visit, tracks your truck live, and collects payment on site before you drive away.
           </p>
 
           {/* Primary Call to Action Buttons */}
@@ -227,29 +227,16 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <span>Claim Free 3-Job Pass</span>
+              <span>Start Free (3 Jobs Included)</span>
               <ArrowRight className="w-4 h-4 text-white" />
             </Link>
             <a
               href="#simulator"
               className="w-full sm:w-auto px-6 py-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer"
             >
-              <span>Watch 60-Sec Live Demo</span>
+              <span>Watch 60-Sec Demo</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </a>
-          </div>
-
-          {/* Trust Guarantees */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Free 3-Job Starter Pass • $0 platform fees
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Automated dispatch, card pay &amp; reviews
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" /> Zero customer app downloads
-            </span>
           </div>
         </div>
 
@@ -259,32 +246,32 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 3. Infrastructure & Trade Authority Strip ── */}
+      {/* ── 3. Trade Authority & Proof Strip ── */}
       <section className="border-y border-slate-200 bg-white py-8 px-4">
         <div className="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           <div className="p-2">
             <span className="font-mono text-3xl sm:text-4xl font-extrabold text-blue-600 block">8.2s</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Average Text Response Time</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Average Text-Back Speed</span>
           </div>
           <div className="p-2">
             <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 block">3 Jobs Free</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">$0 Starter Pass • Full Dispatch &amp; Card Pay</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Zero fees to test on your own line</span>
           </div>
           <div className="p-2">
             <span className="font-mono text-3xl sm:text-4xl font-extrabold text-emerald-600 block">0 Apps</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Zero Customer Friction (Mobile Web)</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">No customer downloads needed</span>
           </div>
           <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-indigo-600 block">Instant</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Digital On-Site Invoicing</span>
+            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-indigo-600 block">On Site</span>
+            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Driveway Apple Pay &amp; card pay</span>
           </div>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[11px] font-mono text-slate-400">
-          <span>✓ TELNYX TIER-1 TELECOM RAILS</span>
-          <span>✓ 10DLC CARRIER REGISTERED</span>
-          <span>✓ TCPA COMPLIANT ARCHITECTURE</span>
-          <span>✓ 99.9% UPTIME INFRASTRUCTURE</span>
+        <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[11px] font-mono text-slate-500">
+          <span>✓ Works with your existing mobile phone</span>
+          <span>✓ Verified carrier line (never marked spam)</span>
+          <span>✓ No contracts — cancel anytime</span>
+          <span>✓ 2-minute setup</span>
         </div>
       </section>
 
@@ -292,13 +279,13 @@ export default function LandingPage() {
       <section id="engines" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-2">
           <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
-            01 / FIELD OPERATIONS HUB
+            CORE CAPABILITIES
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            The 4 Engines That Stop Revenue Leaks
+            Four Ways CaptoDesk Captures Lost Revenue
           </h2>
           <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto">
-            Engineered for work gloves and dusty trucks. Stop losing jobs, eliminate anxious &quot;Where are you?&quot; calls, and get paid before you leave the driveway.
+            Built specifically for field trades. No complicated software, no customer app downloads, and no evening invoice chasing.
           </p>
         </div>
 
@@ -311,10 +298,10 @@ export default function LandingPage() {
                 <PhoneMissed className="w-5 h-5" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Stop losing $650 service calls to Google competitors.
+                Stop losing service calls to the next contractor on Google.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                85% of homeowners hang up on voicemail and immediately call the next contractor on Google. CaptoDesk intercepts them in 8 seconds with an automated 2-way conversational text, answers their emergency, and locks in their booking before they search anyone else.
+                Most homeowners with urgent repairs won&apos;t leave a voicemail—they hang up and call the next number. CaptoDesk texts them back within 8 seconds to answer their emergency and lock in the visit before they call someone else.
               </p>
             </div>
 
@@ -347,10 +334,10 @@ export default function LandingPage() {
                 <CreditCard className="w-5 h-5" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Get paid before you turn the truck key.
+                Collect payment before you pull out of the driveway.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Tap &quot;Finish Job&quot; on your phone. An itemized invoice instantly appears on the homeowner&apos;s live tracking screen. They tap Apple Pay or card right from their driveway. Zero paper checks. Zero evening invoice chasing.
+                Tap &quot;Complete Job&quot; on your phone. An itemized invoice opens instantly on the homeowner&apos;s screen. They pay on the spot with Apple Pay, Google Pay, or card. Zero paper checks, zero evening billing.
               </p>
             </div>
 
@@ -383,10 +370,10 @@ export default function LandingPage() {
                 <Navigation className="w-5 h-5" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Kill &quot;Where is my technician?&quot; calls forever.
+                Eliminate &quot;Where is the tech?&quot; phone calls.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Tap &quot;On My Way&quot; with one thumb in your truck. The homeowner gets a live tracking link with your photo, truck, and real-time GPS arrival map. Anxious customers stay calm; your phone stays quiet.
+                Tap &quot;On My Way&quot; when you leave the shop. The homeowner gets a text with your photo, vehicle info, and a live arrival map. Customers know exactly when to open the gate, and your phone stays quiet while driving.
               </p>
             </div>
 
@@ -420,10 +407,10 @@ export default function LandingPage() {
                 <Star className="w-5 h-5" />
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Dominate your local Google Maps rankings on autopilot.
+                Turn happy homeowners into 5-star Google reviews.
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                5 minutes after payment, CaptoDesk texts the customer a 1-tap review link. Happy customers are routed directly to leave 5 stars on Google. Unhappy feedback is routed privately to your inbox before it damages your public reputation.
+                Minutes after payment clears, CaptoDesk texts a 1-tap review request. Delighted customers head straight to your Google Business Profile. Any private concerns get routed to your phone first so you can handle them directly.
               </p>
             </div>
 
@@ -463,13 +450,13 @@ export default function LandingPage() {
       <section id="comparison" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-2">
           <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
-            03 / THE FIELD TRUTH
+            THE COMPARISON
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             Why Contractors Choose CaptoDesk
           </h2>
           <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto">
-            Compare CaptoDesk against traditional answering services and complex $400/mo enterprise software.
+            Compare CaptoDesk against traditional answering services and complex $400/mo enterprise platforms.
           </p>
         </div>
 
@@ -479,22 +466,22 @@ export default function LandingPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 flex flex-col justify-between space-y-6 shadow-xs">
             <div className="space-y-4">
               <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider block">Option 1</span>
-              <h3 className="text-lg font-bold text-slate-900">Voicemail &amp; Answering Services</h3>
+              <h3 className="text-lg font-bold text-slate-900">Voicemail &amp; Call Centers</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Answering services charge $300 to $800/mo and only take messages. By the time you call back, the customer hired someone else.
+                Answering services charge $300 to $800/mo just to take messages. By the time you call back, the customer already hired someone else.
               </p>
               <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
                 <li className="flex items-start gap-2 text-rose-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> 2-hour callback delay loses 85% of leads
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Slow callbacks lose 80%+ of emergency calls
                 </li>
                 <li className="flex items-start gap-2 text-rose-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> No live technician tracking
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Costly monthly fees for basic message-taking
                 </li>
                 <li className="flex items-start gap-2 text-rose-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Chasing unpaid paper checks
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Customer has to explain problem twice
                 </li>
                 <li className="flex items-start gap-2 text-rose-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Zero automated Google reviews
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Zero live tracking or on-site checkout
                 </li>
               </ul>
             </div>
@@ -504,22 +491,22 @@ export default function LandingPage() {
           <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 flex flex-col justify-between space-y-6 shadow-xs">
             <div className="space-y-4">
               <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider block">Option 2</span>
-              <h3 className="text-lg font-bold text-slate-900">Jobber / ServiceTitan</h3>
+              <h3 className="text-lg font-bold text-slate-900">Heavy Field CRMs (ServiceTitan, Jobber)</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Complex enterprise platforms that require weeks of training, force customers to install apps, and take excessive cuts of your revenue.
+                Designed for large corporate fleets with dedicated office dispatchers and full-time IT staff.
               </p>
               <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
                 <li className="flex items-start gap-2 text-amber-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Chasing late invoices and manual billing
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> $250 - $500/mo base subscription before add-ons
                 </li>
                 <li className="flex items-start gap-2 text-amber-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Forces customers to download an app
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Steep 3-week learning curve for technicians
                 </li>
                 <li className="flex items-start gap-2 text-amber-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> 4-week onboarding learning curve
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Forces customers to install separate mobile apps
                 </li>
                 <li className="flex items-start gap-2 text-amber-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> $200 - $500/mo base subscription
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Lacks instant 8-second 2-way missed-call recovery
                 </li>
               </ul>
             </div>
@@ -534,23 +521,23 @@ export default function LandingPage() {
               <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider block">The Modern Standard</span>
               <h3 className="text-xl font-bold text-slate-900">CaptoDesk Platform</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Fires in 8 seconds, gives customers an Uber-like experience with zero app downloads, and collects instant payment on site.
+                Responds in 8 seconds, gives customers an Uber-like arrival screen, and collects payment on site.
               </p>
               <ul className="space-y-2.5 text-xs text-slate-800 pt-2 border-t border-blue-100">
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 8-second 2-way text locks in leads
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 8-second text recovery locks in urgent leads
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Instant on-site Apple Pay &amp; card checkout
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Driveway Apple Pay &amp; card pay before turning the key
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Zero customer app downloads required
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Live arrival tracking texted with zero app downloads
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Live in 2 minutes with simple carrier forwarding
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 2-minute setup using your existing phone number
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Free 3-Job Starter Pass ($0 fees, no card required)
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 3 jobs free to test on your own line with zero fees
                 </li>
               </ul>
             </div>
@@ -559,7 +546,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/20 transition-all block cursor-pointer"
             >
-              Start Free (3 Jobs)
+              Start Free (3 Jobs Included)
             </Link>
           </div>
 
@@ -570,13 +557,13 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-10">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <span className="text-xs font-mono font-bold text-emerald-600 uppercase tracking-widest block">
-            04 / TRANSPARENT PRICING
+            TRANSPARENT PRICING
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             Simple Pricing. Zero Contracts.
           </h2>
           <p className="text-xs sm:text-sm text-slate-600">
-            Process your first 3 jobs 100% free with the Starter Pass, or upgrade to Solo Pro for 24/7 missed-call rescue.
+            Test CaptoDesk on your first 3 jobs completely free. Upgrade anytime to activate 24/7 missed-call text recovery.
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -623,7 +610,7 @@ export default function LandingPage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  FREE STARTER PASS
+                  STARTER PASS
                 </span>
                 <span className="text-xs text-slate-500 font-mono">Solo Tradesman</span>
               </div>
@@ -631,23 +618,19 @@ export default function LandingPage() {
               <div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-extrabold text-slate-900 font-mono">$0</span>
-                  <span className="text-xs font-semibold text-slate-500">/ first 3 jobs ($0 fees)</span>
+                  <span className="text-xs font-semibold text-slate-500">/ first 3 jobs</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Process your first 3 customer jobs 100% free with automated dispatch &amp; card checkout.</p>
+                <p className="text-xs text-slate-500 mt-1">Full dispatch, mobile invoicing, and booking links to test with zero commitment.</p>
               </div>
 
               <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-100 pt-4">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span><strong>First 3 completed jobs 100% free</strong> ($0 fees)</span>
+                  <span><strong>Dedicated booking link</strong> (captodesk.com/book/[your-name])</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span><strong>Dedicated booking link</strong> (captodesk.com/book/[slug])</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Unlimited homeowner bookings (never blocked)</span>
+                  <span>Unlimited homeowner bookings</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -655,19 +638,23 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Mobile field portal &amp; Before/After photos</span>
+                  <span>Live homeowner arrival tracking link</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Digital invoicing &amp; on-site card checkout</span>
+                  <span>Mobile invoicing &amp; on-site card checkout</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Automated 5-star Google review booster</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>First 3 completed jobs included with $0 platform fees</span>
+                </div>
                 <div className="flex items-center gap-2 text-slate-400">
                   <X className="w-4 h-4 shrink-0" />
-                  <span>Dedicated carrier phone number &amp; 24/7 missed-call rescue (Pro)</span>
+                  <span>Dedicated carrier line &amp; 24/7 missed-call rescue (Solo Pro)</span>
                 </div>
               </div>
             </div>
@@ -676,7 +663,7 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs text-center transition-all block cursor-pointer"
             >
-              Claim Free 3-Job Pass
+              Start Free (3 Jobs Included)
             </Link>
           </div>
 
@@ -816,15 +803,15 @@ export default function LandingPage() {
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold">
             <CalendarCheck className="w-4 h-4" />
-            <span>START WITH A FREE 3-JOB STARTER PASS</span>
+            <span>TEST ON YOUR NEXT SERVICE CALL</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight max-w-3xl mx-auto leading-tight">
-            Stop Losing Jobs While You&apos;re on Ladders. Get Started Today.
+            Start capturing missed calls on your next job.
           </h2>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Process your first 3 customer jobs 100% free with no credit card required, or upgrade to Solo Pro to activate 24/7 automated missed-call rescue and live arrival tracking.
+            Set up in 2 minutes using your existing mobile number. Your first 3 completed jobs are 100% free with zero fees and no credit card required.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -832,16 +819,16 @@ export default function LandingPage() {
               href="/client/login?mode=signup"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Claim Free 3-Job Pass</span>
+              <span>Start Free (3 Jobs Included)</span>
               <ArrowRight className="w-4 h-4 text-emerald-300" />
             </Link>
-            <Link
-              href="/contact"
+            <a
+              href="#simulator"
               className="w-full sm:w-auto px-6 py-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Request 10-Min Live Demo</span>
+              <span>Watch 60-Sec Demo</span>
               <ChevronRight className="w-4 h-4 text-slate-400" />
-            </Link>
+            </a>
           </div>
         </div>
       </section>

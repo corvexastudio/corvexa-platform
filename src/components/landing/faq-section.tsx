@@ -15,7 +15,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'How does the free online booking link work?',
-    a: "Every contractor can claim a free, dedicated booking page (book.captodesk.com/your-business) with zero credit card required. You can add it to your website, Google Business Profile, or text it to customers so homeowners can schedule service appointments directly on your calendar."
+    a: "Every contractor can claim a free, dedicated booking page (captodesk.com/book/your-business) with zero credit card required. You can add it to your website, Google Business Profile, or text it to customers so homeowners can schedule service appointments directly on your calendar."
   },
   {
     q: 'What happens if a robocaller, spammer, or wrong number calls?',
@@ -46,13 +46,13 @@ export function FaqSection() {
     <div className="w-full max-w-4xl mx-auto space-y-4">
       <div className="text-center mb-8">
         <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block mb-2">
-          05 / CONTRACTOR QUESTIONS &amp; ANSWERS
+          COMMON QUESTIONS
         </span>
         <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           Frequently Asked Questions
         </h2>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          No corporate buzzwords. Here is how CaptoDesk actually works on the job site.
+          Everything you need to know about setting up and running CaptoDesk in the field.
         </p>
       </div>
 

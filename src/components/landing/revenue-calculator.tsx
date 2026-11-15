@@ -22,14 +22,14 @@ export function RevenueCalculator() {
       <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <span className="text-xs font-mono font-bold text-rose-600 uppercase tracking-widest block mb-2">
-          02 / REVENUE LOSS CALCULATOR
+        <span className="text-xs font-mono font-bold text-emerald-600 uppercase tracking-widest block mb-2">
+          REVENUE IMPACT
         </span>
         <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          How Much Are Missed Calls Costing Your Business?
+          How Much Are Missed Calls Costing You?
         </h2>
         <p className="text-sm sm:text-base text-slate-600 mt-2">
-          When a homeowner with an urgent service need hits voicemail, they hang up and call the next contractor on Google Maps. Adjust the numbers below to see what you could be recovering.
+          When someone with an urgent repair hits voicemail, they usually call the next contractor on Google. Adjust the sliders to see what automated text-back recovers for your business.
         </p>
       </div>
 
