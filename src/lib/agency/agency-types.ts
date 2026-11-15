@@ -20,11 +20,11 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
     costPerSlot: 43.0,
     description: 'Perfect for boutique agencies testing rapid lead recovery on 2 to 3 trade clients.',
     features: [
-      'Up to 3 Active Contractor Clients',
+      '1 Slot = 1 Solo Contractor (1 Van)',
+      'Multi-Van (2–5 Vans) Consumes 2 Slots',
       'Dedicated 10DLC Local Phone Numbers',
       'Automated Missed-Call Text-Back',
-      'Campaign Lead & Revenue Attribution',
-      'Solo & Multi-Van (Up to 5 Techs Included)'
+      'Campaign Lead & Revenue Attribution'
     ],
     highlight: false
   },

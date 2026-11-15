@@ -309,10 +309,10 @@ export default function AgencyBillingPage() {
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
             <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
               <Layers className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>1 Slot = 1 Contractor Client</span>
+              <span>Solo Contractor (1 Van) = 1 Slot</span>
             </div>
             <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
-              Each slot gives your client a dedicated workspace, phone line, and booking portal. Direct contractors pay $99/mo (Solo) or $199/mo (Fleet); as an agency partner, your wholesale cost is just $23.98 to $43.00/slot/mo.
+              A solo trade operator with 1 primary van consumes 1 capacity slot ($23.98 to $43.00/slot/mo). Compare this to direct contractor retail at $99/mo—giving your agency a massive 65% to 75% margin.
             </p>
           </div>
 
@@ -320,10 +320,10 @@ export default function AgencyBillingPage() {
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
             <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
               <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <span>Multi-Van Included (Up to 5 Techs)</span>
+              <span>Multi-Van (2–5 Vans) = 2 Slots</span>
             </div>
             <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
-              Every agency client slot includes multi-technician dispatch, field technician mobile links, and live crew scheduling for up to 5 technicians per contractor. No surprise per-van fees.
+              Contractor clients operating 2 to 5 vans with field technicians consume 2 capacity slots. At ~$70/mo wholesale vs $199/mo retail, your agency still saves 65% while covering expanded carrier and dispatch volume.
             </p>
           </div>
 
@@ -334,7 +334,7 @@ export default function AgencyBillingPage() {
               <span>Reassign Slots Anytime (Zero Churn)</span>
             </div>
             <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
-              If a contractor client pauses their marketing retainer, their slot opens immediately. Reassign the license to a new plumbing, HVAC, or roofing client with 1 click without paying setup fees.
+              If a contractor client pauses their marketing retainer, their allocated slots reopen immediately. Reassign the capacity to any new plumbing, HVAC, or roofing client with 1 click with zero setup fees.
             </p>
           </div>
         </div>
