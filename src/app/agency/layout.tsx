@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils'
 import { AgencyPortfolioOverview } from '@/lib/agency/agency-types'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { BrandIcon } from '@/components/brand/brand-logo'
 
 const NAV_ITEMS = [
   { href: '/agency/dashboard', label: 'Client Portfolio & Slots', icon: Layers, exact: true },
@@ -70,9 +71,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                 href="/agency/dashboard" 
                 className="flex items-center gap-2 group text-slate-900 dark:text-white font-bold text-base tracking-tight hover:opacity-95 transition-opacity"
               >
-                <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-xs shadow-xs">
-                  CP
-                </div>
+                <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform shrink-0" size={32} priority />
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1.5 leading-none">
                     <span className="font-extrabold text-slate-900 dark:text-white text-sm">CaptoDesk</span>

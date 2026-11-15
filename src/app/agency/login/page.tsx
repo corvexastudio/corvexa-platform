@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { BrandIcon } from '@/components/brand/brand-logo'
 
 export default function AgencyLoginPage() {
   const router = useRouter()
@@ -100,10 +101,8 @@ export default function AgencyLoginPage() {
       <div className="w-full max-w-md space-y-6">
         
         <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center font-black text-white text-sm shadow-md">
-              CP
-            </div>
+          <Link href="/" className="inline-flex items-center gap-2.5 group">
+            <BrandIcon className="h-9 w-9 group-hover:scale-105 transition-transform shrink-0" size={36} priority />
             <div className="flex items-center gap-1.5 text-left">
               <span className="font-extrabold text-slate-900 dark:text-white text-lg tracking-tight">CaptoDesk</span>
               <span className="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
