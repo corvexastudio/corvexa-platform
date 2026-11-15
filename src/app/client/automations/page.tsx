@@ -591,7 +591,7 @@ export default function AutomationsPage() {
             </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
-            Telnyx direct carrier route
+            Verified direct carrier route
           </p>
         </div>
       </div>
@@ -612,7 +612,7 @@ export default function AutomationsPage() {
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-              Carrier route: Direct Telnyx Voice & SMS Gateway with automated multi-zone failover
+              Carrier route: Direct Telecom Voice &amp; SMS Gateway with automated multi-zone failover
             </p>
           </div>
         </div>

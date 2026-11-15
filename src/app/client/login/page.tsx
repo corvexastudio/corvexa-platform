@@ -138,7 +138,7 @@ function LoginContent() {
         <div className="relative z-10 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>10DLC Certified • TCPA Compliant Architecture</span>
+            <span>Carrier-verified • 256-bit encryption</span>
           </div>
           <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
             <span>Back to captodesk.com</span>

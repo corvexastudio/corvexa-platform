@@ -378,7 +378,7 @@ export default function ContactPage() {
       {/* ── Footer ── */}
       <footer className="border-t border-slate-200 bg-white py-8 px-4 text-center text-xs text-slate-500 mt-16">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} CaptoDesk Platform. All rights reserved. 10DLC &amp; TCPA Compliant Carrier Architecture.</p>
+          <p>© {new Date().getFullYear()} CaptoDesk. All rights reserved.</p>
           <div className="flex items-center gap-4 text-slate-600">
             <Link href="/privacy" className="hover:text-slate-900">Privacy Policy</Link>
             <span>•</span>

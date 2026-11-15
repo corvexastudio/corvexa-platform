@@ -1471,7 +1471,7 @@ export default function SettingsPage() {
                           <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span><strong>1 Dedicated Telnyx Line</strong> (10DLC verified)</span>
+                              <span><strong>1 Dedicated Business Line</strong> (Carrier verified)</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1696,7 +1696,7 @@ export default function SettingsPage() {
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                   <Radio className="w-4 h-4 text-blue-600" />
                   {hasDedicatedLine
-                    ? 'Dedicated Business Phone Line (Telnyx Gateway)'
+                    ? 'Dedicated Business Phone Line (Direct Carrier Route)'
                     : telephonyMeta.plan_id === 'free' || telephonyMeta.subscription_status === 'trial'
                       ? 'Shared Trial Toll-Free Line (3-Job Starter Pass)'
                       : 'Dedicated Business Line (Provisioning Active)'}

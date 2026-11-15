@@ -635,7 +635,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Full 10DLC Carrier Registration Included</span>
+                  <span>Carrier Registration Included (Never Marked Spam)</span>
                 </div>
               </div>
             </div>
@@ -787,9 +787,13 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-          <p>© {new Date().getFullYear()} CaptoDesk Platform. All rights reserved. 10DLC &amp; TCPA Compliant Carrier Architecture.</p>
-          <p>Carrier Telephony Powered by Telnyx Tier-1 Telecom Rails</p>
+        <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+          <p>© {new Date().getFullYear()} CaptoDesk. All rights reserved.</p>
+          <div className="flex items-center gap-4 text-slate-400">
+            <span>Carrier-verified delivery</span>
+            <span>•</span>
+            <span>256-bit encryption</span>
+          </div>
         </div>
       </footer>
 

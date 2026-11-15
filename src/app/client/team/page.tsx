@@ -637,7 +637,7 @@ export default function TeamPage() {
 
           <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              {hasDedicatedPhoneNumber(organization) ? 'Dedicated Telnyx DID' : 'Outbound Toll-Free Line'}
+              {hasDedicatedPhoneNumber(organization) ? 'Dedicated Business Number' : 'Outbound Toll-Free Line'}
             </span>
             <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mt-1 font-mono tabular-nums truncate">
               {formatPhoneNumber(resolveSenderPhone(organization))}
