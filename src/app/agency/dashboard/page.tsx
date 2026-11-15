@@ -238,7 +238,7 @@ export default function AgencyDashboardPage() {
                 All {overview.total_slots} Wholesale Capacity Slots Available
               </p>
               <p className="text-xs text-slate-600 dark:text-zinc-400">
-                Deploy your first contractor client to activate 5-second missed call text-back, mobile field dispatch, and closed-loop revenue defense.
+                Deploy your first contractor client to activate automated missed-call text-back and appointment tracking.
               </p>
             </div>
           </div>

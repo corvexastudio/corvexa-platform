@@ -11,12 +11,6 @@ import {
   Layers, 
   ExternalLink,
   ChevronRight,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  Sparkles,
-  Search,
-  Plus,
   LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -27,14 +21,16 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
 const NAV_ITEMS = [
-  { href: '/agency/dashboard', label: 'Client Portfolio & Slots', icon: Layers, exact: true },
-  { href: '/agency/attribution', label: 'UTM Lead Attribution', icon: BarChart3 },
-  { href: '/agency/embeds', label: 'Client Embed Library', icon: Code2 },
-  { href: '/agency/billing', label: 'Slot Capacity & Billing', icon: CreditCard },
+  { href: '/agency/dashboard', label: 'Clients & Slots', icon: Layers, exact: true },
+  { href: '/agency/attribution', label: 'Lead Attribution', icon: BarChart3 },
+  { href: '/agency/embeds', label: 'Client Embeds', icon: Code2 },
+  { href: '/agency/billing', label: 'Capacity & Billing', icon: CreditCard },
 ]
 
 export default function AgencyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const isLoginPage = pathname === '/agency/login' || pathname.startsWith('/agency/login')
+
   const [overview, setOverview] = useState<AgencyPortfolioOverview | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -50,6 +46,12 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
   }
 
   useEffect(() => {
+    // Skip overview fetch entirely when on the login screen
+    if (isLoginPage) {
+      setLoading(false)
+      return
+    }
+
     async function loadAgencyOverview() {
       try {
         const res = await fetch('/api/agency/overview')
@@ -65,7 +67,12 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     }
 
     loadAgencyOverview()
-  }, [])
+  }, [isLoginPage])
+
+  // If on login route, render standalone without authenticated dashboard chrome
+  if (isLoginPage) {
+    return <>{children}</>
+  }
 
   const totalSlots = overview?.total_slots ?? 0
   const usedSlots = overview?.used_slots ?? 0
@@ -74,6 +81,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-900 dark:selection:bg-emerald-500/30 dark:selection:text-emerald-200 transition-colors">
+      
       {/* Topmost Partner Console Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -86,15 +94,10 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                 className="flex items-center gap-2 group text-slate-900 dark:text-white font-bold text-base tracking-tight hover:opacity-95 transition-opacity"
               >
                 <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform shrink-0" size={32} priority />
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <span className="font-extrabold text-slate-900 dark:text-white text-sm">CaptoDesk</span>
-                    <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 font-semibold">
-                      Partner Console
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium leading-tight">
-                    Home Service Agency Network
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="font-extrabold text-slate-900 dark:text-white text-base">CaptoDesk</span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 font-semibold">
+                    Agency
                   </span>
                 </div>
               </Link>
@@ -115,7 +118,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               </div>
             </div>
 
-            {/* Center / Right: High-Density Slot Capacity Bar + ThemeToggle */}
+            {/* Center / Right: High-Density Slot Capacity Bar + ThemeToggle + Sign Out */}
             <div className="flex items-center gap-3">
               
               {/* Capacity Progress Pill */}
@@ -150,7 +153,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 transition-colors"
-                title="Open Contractor Field App"
+                title="Open Contractor App"
               >
                 <span>Contractor View</span>
                 <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
@@ -208,18 +211,16 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
         {children}
       </main>
 
-      {/* Subtle Partner Footer */}
+      {/* Clean Enterprise Partner Footer */}
       <footer className="w-full border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-4 text-xs text-slate-500 dark:text-zinc-400 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-700 dark:text-zinc-300">CaptoDesk Agency Partner Network</span>
-            <span>•</span>
-            <span className="font-mono text-slate-500 dark:text-zinc-400">10DLC Carrier Verified • Direct Telnyx SIP Routing</span>
+            <span className="font-medium text-slate-600 dark:text-zinc-400">© 2026 CaptoDesk Agency Partner Network</span>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-slate-500 dark:text-zinc-400">
+          <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-zinc-400">
             <Link href="/privacy" className="hover:text-slate-800 dark:hover:text-zinc-200">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-slate-800 dark:hover:text-zinc-200">Terms of Service</Link>
-            <span className="text-slate-400 dark:text-zinc-600">v2.4.0-production</span>
+            <a href="mailto:partners@captodesk.com" className="hover:text-slate-800 dark:hover:text-zinc-200">Partner Support</a>
           </div>
         </div>
       </footer>
