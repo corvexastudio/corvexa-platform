@@ -38,6 +38,15 @@ test('Agency Portfolio: Computes correct slot allocations and capacity metrics',
                 },
                 error: null
               })
+            }),
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  total_slots: 10
+                },
+                error: null
+              })
             })
           })
         }
@@ -107,6 +116,15 @@ test('Agency Deploy Client: Enforces slot exhaustion limit', async () => {
         return {
           select: () => ({
             or: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  total_slots: 3
+                },
+                error: null
+              })
+            }),
+            eq: () => ({
               maybeSingle: async () => ({
                 data: {
                   ...DEFAULT_DEMO_AGENCY,
@@ -184,6 +202,12 @@ test('Agency Attribution: Maps UTM campaign sources to client revenue', async ()
         return {
           select: () => ({
             or: () => ({
+              maybeSingle: async () => ({
+                data: { ...DEFAULT_DEMO_AGENCY, total_slots: 3 },
+                error: null
+              })
+            }),
+            eq: () => ({
               maybeSingle: async () => ({
                 data: { ...DEFAULT_DEMO_AGENCY, total_slots: 3 },
                 error: null
@@ -297,13 +321,24 @@ test('Agency Tier Switching: Can upgrade or select plan dynamically', async () =
                 },
                 error: null
               })
+            }),
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  subscription_tier: updatedTier || 'growth_10',
+                  total_slots: updatedSlots || 10
+                },
+                error: null
+              })
             })
           }),
           update: (payload) => {
             updatedTier = payload.subscription_tier
             updatedSlots = payload.total_slots
             return {
-              or: async () => ({ data: null, error: null })
+              or: async () => ({ data: null, error: null }),
+              eq: async () => ({ data: null, error: null })
             }
           }
         }
@@ -350,6 +385,16 @@ test('Agency Tier Downgrade: Prevents switching if active clients exceed target 
         return {
           select: () => ({
             or: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  subscription_tier: 'growth_10',
+                  total_slots: 10
+                },
+                error: null
+              })
+            }),
+            eq: () => ({
               maybeSingle: async () => ({
                 data: {
                   ...DEFAULT_DEMO_AGENCY,

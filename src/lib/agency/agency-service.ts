@@ -56,11 +56,11 @@ export async function getAgencyPortfolioOverview(
   let hasPartnerAgenciesTable = true
 
   try {
-    const { data: dbAgency, error: agencyErr } = await supabase
-      .from('partner_agencies')
-      .select('*')
-      .or(`slug.eq.${agencySlugOrId},id.eq.${agencySlugOrId}`)
-      .maybeSingle()
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(agencySlugOrId)
+    const agencyQuery = isUuid
+      ? supabase.from('partner_agencies').select('*').eq('id', agencySlugOrId)
+      : supabase.from('partner_agencies').select('*').eq('slug', agencySlugOrId)
+    const { data: dbAgency, error: agencyErr } = await agencyQuery.maybeSingle()
 
     if (agencyErr) {
       if (agencyErr.code === 'PGRST205' || agencyErr.message?.includes('schema cache')) {
@@ -363,14 +363,26 @@ export async function updateAgencySubscriptionTier(
 
   // 2. Update database record in partner_agencies if table exists
   try {
-    const { error: updateErr } = await supabase
-      .from('partner_agencies')
-      .update({
-        subscription_tier: newTier,
-        total_slots: targetCapacity,
-        updated_at: new Date().toISOString()
-      })
-      .or(`slug.eq.${agencySlugOrId},id.eq.${agencySlugOrId}`)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(agencySlugOrId)
+    const updateQuery = isUuid
+      ? supabase
+          .from('partner_agencies')
+          .update({
+            subscription_tier: newTier,
+            total_slots: targetCapacity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', agencySlugOrId)
+      : supabase
+          .from('partner_agencies')
+          .update({
+            subscription_tier: newTier,
+            total_slots: targetCapacity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('slug', agencySlugOrId)
+
+    const { error: updateErr } = await updateQuery
 
     if (updateErr) {
       console.warn('[AGENCY TIER UPDATE] DB update warning:', updateErr.message)
