@@ -95,8 +95,8 @@ export default function AgencyBillingPage() {
   }, [])
 
   const currentTier = overview?.agency?.subscription_tier || 'growth_10'
-  const usedSlots = overview?.used_slots || 7
-  const totalSlots = overview?.total_slots || 10
+  const usedSlots = overview?.used_slots ?? 0
+  const totalSlots = overview?.total_slots ?? 10
 
   return (
     <div className="space-y-6">

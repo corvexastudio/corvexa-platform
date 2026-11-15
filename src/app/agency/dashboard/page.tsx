@@ -225,6 +225,34 @@ export default function AgencyDashboardPage() {
         </div>
       </div>
 
+      {/* Zero Clients Onboarding Helper Banner */}
+      {overview && overview.used_slots === 0 && (
+        <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center shrink-0 text-emerald-700 dark:text-emerald-400">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                All {overview.total_slots} Wholesale Capacity Slots Available
+              </p>
+              <p className="text-xs text-slate-600 dark:text-zinc-400">
+                Deploy your first contractor client to activate 5-second missed call text-back, mobile field dispatch, and closed-loop revenue defense.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setIsDeployModalOpen(true)}
+            className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Deploy Client #1</span>
+          </Button>
+        </div>
+      )}
+
       {/* Retainer Defense KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
@@ -233,28 +261,28 @@ export default function AgencyDashboardPage() {
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
             <span>Slot Allocation</span>
             <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
-              {overview?.agency?.subscription_tier === 'growth_10' ? 'Growth 10-Pack' : 'Growth Pack'}
+              {overview?.agency?.subscription_tier === 'starter_3' ? 'Starter 3-Pack' : overview?.agency?.subscription_tier === 'scale_25' ? 'Scale 25-Pack' : 'Growth 10-Pack'}
             </span>
           </div>
           <div className="mt-3">
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-                {overview?.used_slots ?? 7}
+                {overview?.used_slots ?? 0}
               </span>
               <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                / {overview?.total_slots ?? 10} Slots Active
+                / {overview?.total_slots ?? 0} Slots Active
               </span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full mt-2 overflow-hidden flex">
               <div 
                 className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                style={{ width: `${overview?.occupancy_rate ?? 70}%` }} 
+                style={{ width: `${overview?.occupancy_rate ?? 0}%` }} 
               />
             </div>
           </div>
           <div className="mt-3 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
             <CheckCircle2 className="h-3 w-3" />
-            <span>{overview?.available_slots ?? 3} open slots ready to deploy</span>
+            <span>{overview?.available_slots ?? 0} open slots ready to deploy</span>
           </div>
         </div>
 
@@ -266,7 +294,7 @@ export default function AgencyDashboardPage() {
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-              {overview?.total_30d_missed_calls_recovered ?? 48}
+              {overview?.total_30d_missed_calls_recovered ?? 0}
             </span>
             <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">Auto-Text Bookings</span>
           </div>
@@ -283,7 +311,7 @@ export default function AgencyDashboardPage() {
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-              {overview?.total_30d_booked_jobs ?? 114}
+              {overview?.total_30d_booked_jobs ?? 0}
             </span>
             <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">30-Day Total</span>
           </div>
@@ -300,12 +328,12 @@ export default function AgencyDashboardPage() {
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
-              ${(overview?.total_30d_invoiced_revenue ?? 128450).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ${(overview?.total_30d_invoiced_revenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </span>
           </div>
           <div className="mt-3 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1.5">
             <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 font-bold font-mono">
-              {overview?.estimated_client_retainer_roi ?? 8.6}x ROI
+              {overview?.estimated_client_retainer_roi ?? 0}x ROI
             </span>
             <span>on client retainers</span>
           </div>
@@ -535,7 +563,7 @@ export default function AgencyDashboardPage() {
               <span>Deploy Client into Available Slot</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 dark:text-zinc-400">
-              Provisions a dedicated trade booking portal, seeds services, and assigns a missed-call line. Uses 1 of your {overview?.available_slots ?? 3} open slots.
+              Provisions a dedicated trade booking portal, seeds services, and assigns a missed-call line. Uses 1 of your {overview?.available_slots ?? 0} open slots.
             </DialogDescription>
           </DialogHeader>
 

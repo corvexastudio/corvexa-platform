@@ -68,6 +68,9 @@ export default function AgencyAttributionPage() {
   // Aggregated totals
   const totalBookings = filteredItems.reduce((acc, i) => acc + i.bookings_count, 0)
   const totalRevenue = filteredItems.reduce((acc, i) => acc + i.invoiced_revenue, 0)
+  const retainerRoiFactor = totalRevenue > 0 && uniqueClients.length > 0 
+    ? (totalRevenue / (uniqueClients.length * 2500)).toFixed(1)
+    : '0.0'
 
   return (
     <div className="space-y-6">
@@ -126,10 +129,12 @@ export default function AgencyAttributionPage() {
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Average Retainer Defense Factor</span>
           <div className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-2">
-            <span>8.8x</span>
-            <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-              High Retention
-            </span>
+            <span>{retainerRoiFactor}x</span>
+            {Number(retainerRoiFactor) > 0 && (
+              <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+                High Retention
+              </span>
+            )}
           </div>
           <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Zero client churn risk</span>
         </div>
@@ -182,37 +187,53 @@ export default function AgencyAttributionPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
-              {filteredItems.map((item, idx) => (
-                <tr key={`attr-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-zinc-850/50 transition-colors">
-                  <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-zinc-100">
-                    {item.client_name}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex flex-col">
-                      <span className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
-                        {item.utm_campaign}
-                      </span>
-                      <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono mt-0.5">
-                        source: {item.utm_source}
-                      </span>
+              {filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 px-4 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-2">
+                      <BarChart3 className="h-8 w-8 text-slate-300 dark:text-zinc-600" />
+                      <p className="font-bold text-slate-800 dark:text-zinc-200 text-sm">
+                        No Marketing Attribution Data Yet
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                        Tag your contractor client links with standard UTM parameters (e.g. <code className="font-mono bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-emerald-600">?utm_source=google-ads</code>) to view closed-loop appointments and revenue here.
+                      </p>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-zinc-400">
-                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-[10px] font-semibold text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
-                      {item.utm_medium || 'cpc'}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800 dark:text-zinc-200">
-                    {item.bookings_count} jobs
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                    {item.conversion_rate}%
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-zinc-100 text-sm">
-                    ${item.invoiced_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredItems.map((item, idx) => (
+                  <tr key={`attr-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-zinc-850/50 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-zinc-100">
+                      {item.client_name}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
+                          {item.utm_campaign}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono mt-0.5">
+                          source: {item.utm_source}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-zinc-400">
+                      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-[10px] font-semibold text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                        {item.utm_medium || 'cpc'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800 dark:text-zinc-200">
+                      {item.bookings_count} jobs
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                      {item.conversion_rate}%
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-zinc-100 text-sm">
+                      ${item.invoiced_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

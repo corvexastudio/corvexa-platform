@@ -53,10 +53,10 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     loadAgencyOverview()
   }, [])
 
-  const totalSlots = overview?.total_slots || 10
-  const usedSlots = overview?.used_slots || 7
-  const availableSlots = overview?.available_slots || 3
-  const occupancyRate = overview?.occupancy_rate || 70
+  const totalSlots = overview?.total_slots ?? 0
+  const usedSlots = overview?.used_slots ?? 0
+  const availableSlots = overview?.available_slots ?? 0
+  const occupancyRate = overview?.occupancy_rate ?? 0
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-900 dark:selection:bg-emerald-500/30 dark:selection:text-emerald-200 transition-colors">
@@ -93,7 +93,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               <div className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs text-slate-700 dark:text-zinc-300">
                 <Building2 className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
                 <span className="font-semibold text-slate-900 dark:text-white">
-                  {overview?.agency?.name || 'Lokal Media House'}
+                  {overview?.agency?.name || 'Agency Partner'}
                 </span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
                   {overview?.agency?.subscription_tier === 'growth_10' ? 'Growth 10-Pack' : 'Growth Pack'}
