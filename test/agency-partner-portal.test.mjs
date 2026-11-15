@@ -279,6 +279,7 @@ test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /a
   assert.ok(proxyContent.includes('/agency/dashboard'))
   assert.ok(proxyContent.includes("user ? '/agency/dashboard' : '/agency/login'"))
   assert.ok(proxyContent.includes('/agency/login'))
+  assert.ok(proxyContent.includes("url.searchParams.has('code')"))
 })
 
 test('Agency Tier Catalog: All 4 tiers exported with non-hardcoded pricing and slot capacities', () => {

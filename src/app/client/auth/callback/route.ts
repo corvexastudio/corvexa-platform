@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') as 'invite' | 'magiclink' | 'recovery' | 'email' | null
   const next = searchParams.get('next') ?? '/client/dashboard'
 
-  const errorRedirect = new URL('/client/login?error=link_expired', origin)
+  const isAgencyCallback = next.startsWith('/agency') || origin.includes('agency.')
+  const errorRedirect = new URL(
+    isAgencyCallback ? '/agency/login?error=link_expired' : '/client/login?error=link_expired',
+    origin
+  )
 
   // Track cookies to commit onto the outgoing redirect response
   const cookiesToSetOnRedirect: { name: string; value: string; options?: any }[] = []

@@ -66,6 +66,15 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(supabaseResponse)
   }
 
+  // 1.1 Catch orphan OAuth/Magic Link callbacks landing on root or other paths with ?code=
+  if (url.searchParams.has('code') && !pathname.includes('/auth/callback')) {
+    const callbackUrl = new URL('/auth/callback', request.url)
+    url.searchParams.forEach((value, key) => {
+      callbackUrl.searchParams.set(key, value)
+    })
+    return finalizeResponse(NextResponse.redirect(callbackUrl))
+  }
+
   // 2. Subdomain Routing: book.<domain> for public booking portal
   const isBookSubdomain = hostname.startsWith('book.')
   if (isBookSubdomain) {
