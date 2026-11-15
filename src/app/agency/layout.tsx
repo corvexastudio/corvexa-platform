@@ -16,12 +16,15 @@ import {
   Clock,
   Sparkles,
   Search,
-  Plus
+  Plus,
+  LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgencyPortfolioOverview, getAgencyTierConfig } from '@/lib/agency/agency-types'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { BrandIcon } from '@/components/brand/brand-logo'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
 
 const NAV_ITEMS = [
   { href: '/agency/dashboard', label: 'Client Portfolio & Slots', icon: Layers, exact: true },
@@ -34,6 +37,17 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const [overview, setOverview] = useState<AgencyPortfolioOverview | null>(null)
   const [loading, setLoading] = useState(true)
+
+  async function handleSignOut() {
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.warn('[SIGN OUT] Error:', err)
+    } finally {
+      window.location.href = '/agency/login'
+    }
+  }
 
   useEffect(() => {
     async function loadAgencyOverview() {
@@ -144,6 +158,18 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
 
               {/* Theme Toggle (Light / Dark Switcher) */}
               <ThemeToggle className="h-8 w-8" />
+
+              {/* Sign Out Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="h-8 px-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 gap-1.5 cursor-pointer"
+                title="Sign out of Partner Network"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </Button>
             </div>
 
           </div>

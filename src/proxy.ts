@@ -155,21 +155,42 @@ export async function proxy(request: NextRequest) {
       return finalizeResponse(supabaseResponse)
     }
 
+    // Bare root on agency subdomain (agency.captodesk.com/) -> Login if unauthenticated, Dashboard if authenticated
+    if (hostname.startsWith('agency.') && (pathname === '/' || pathname === '')) {
+      const target = user ? '/agency/dashboard' : '/agency/login'
+      return finalizeResponse(NextResponse.redirect(new URL(target, request.url)))
+    }
+
     if (isAgencyLogin) {
+      if (user) {
+        return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
+      }
       if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
         return finalizeResponse(NextResponse.rewrite(new URL(`/agency/login`, request.url)))
       }
       return finalizeResponse(supabaseResponse)
     }
-    // Subdomain rewrite: agency.captodesk.com/* -> /agency/*
+
+    // SEC: Enforce authentication on all protected agency console routes
+    if (!user) {
+      const loginUrl = new URL('/agency/login', request.url)
+      if (pathname !== '/agency/dashboard' && pathname !== '/dashboard') {
+        loginUrl.searchParams.set('redirect', pathname)
+      }
+      return finalizeResponse(NextResponse.redirect(loginUrl))
+    }
+
+    // Subdomain rewrite for authenticated user: agency.captodesk.com/* -> /agency/*
     if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
-      const targetPath = (pathname === '/' || pathname === '') ? '/agency/dashboard' : `/agency${pathname}`
+      const targetPath = `/agency${pathname}`
       return finalizeResponse(NextResponse.rewrite(new URL(targetPath, request.url)))
     }
+
     // Bare /agency redirects to /agency/dashboard
     if (pathname === '/agency' || pathname === '/agency/') {
       return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
     }
+
     return finalizeResponse(supabaseResponse)
   }
 

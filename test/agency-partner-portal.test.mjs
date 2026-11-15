@@ -269,7 +269,7 @@ test('Agency Attribution: Maps UTM campaign sources to client revenue', async ()
   assert.ok(googleAds.invoiced_revenue > 0)
 })
 
-test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /agency', () => {
+test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /agency with unauthenticated login guard', () => {
   const proxyPath = path.resolve(import.meta.dirname || process.cwd(), '../src/proxy.ts')
   const fallbackPath = path.resolve(process.cwd(), 'src/proxy.ts')
   const resolved = fs.existsSync(proxyPath) ? proxyPath : fallbackPath
@@ -277,6 +277,8 @@ test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /a
   assert.ok(proxyContent.includes("hostname.startsWith('agency.')"))
   assert.ok(proxyContent.includes("pathname.startsWith('/agency')"))
   assert.ok(proxyContent.includes('/agency/dashboard'))
+  assert.ok(proxyContent.includes("user ? '/agency/dashboard' : '/agency/login'"))
+  assert.ok(proxyContent.includes('/agency/login'))
 })
 
 test('Agency Tier Catalog: All 4 tiers exported with non-hardcoded pricing and slot capacities', () => {

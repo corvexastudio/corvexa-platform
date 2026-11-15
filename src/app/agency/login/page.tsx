@@ -93,11 +93,6 @@ export default function AgencyLoginPage() {
       })
 
       if (signInError) {
-        // Fallback for partner demo exploration
-        if (email.includes('agency') || email.includes('partner') || email.includes('lmh')) {
-          router.push('/agency/dashboard')
-          return
-        }
         setError(signInError.message)
         return
       }
@@ -300,17 +295,6 @@ export default function AgencyLoginPage() {
 
             </form>
           )}
-
-          {/* Demo Explorer Shortcut */}
-          <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/80 text-center">
-            <Link
-              href="/agency/dashboard"
-              className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline font-semibold inline-flex items-center gap-1"
-            >
-              <span>Explore Demo Agency Partner Console</span>
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
 
         </div>
 
