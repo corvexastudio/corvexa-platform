@@ -277,7 +277,7 @@ test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /a
   assert.ok(proxyContent.includes("hostname.startsWith('agency.')"))
   assert.ok(proxyContent.includes("pathname.startsWith('/agency')"))
   assert.ok(proxyContent.includes('/agency/dashboard'))
-  assert.ok(proxyContent.includes("user ? '/agency/dashboard' : '/agency/login'"))
+  assert.ok(proxyContent.includes("user ? '/dashboard' : '/login'"))
   assert.ok(proxyContent.includes('/agency/login'))
   assert.ok(proxyContent.includes("url.searchParams.has('code')"))
 })

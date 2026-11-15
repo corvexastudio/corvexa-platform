@@ -164,51 +164,81 @@ export async function proxy(request: NextRequest) {
   }
 
   // 4.2. Agency Subdomain & Path Routing: agency.<domain> or /agency for B2B Partner Portal
-  const isAgencyPath = hostname.startsWith('agency.') || pathname.startsWith('/agency')
-  const isAgencyLogin = pathname === '/agency/login' || pathname.startsWith('/agency/login') || (hostname.startsWith('agency.') && (pathname === '/login' || pathname === '/login/'))
+  const isAgencySubdomain = hostname.startsWith('agency.')
+  const isAgencyPath = isAgencySubdomain || pathname.startsWith('/agency')
 
   if (isAgencyPath) {
-    // Pass API requests through directly without subdomain path prefix rewrite
-    if (pathname.startsWith('/api/')) {
+    // Pass API requests, static assets, and auth callbacks through directly
+    if (
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/brand') ||
+      pathname.includes('.')
+    ) {
       return finalizeResponse(supabaseResponse)
     }
 
-    // Bare root on agency subdomain (agency.captodesk.com/) -> Login if unauthenticated, Dashboard if authenticated
-    if (hostname.startsWith('agency.') && (pathname === '/' || pathname === '')) {
-      const target = user ? '/agency/dashboard' : '/agency/login'
-      const targetUrl = new URL(target, request.url)
-      url.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
-      return finalizeResponse(NextResponse.redirect(targetUrl))
-    }
-
-    if (isAgencyLogin) {
-      if (user) {
-        return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
+    // A. Clean Subdomain Routing: agency.captodesk.com
+    if (isAgencySubdomain) {
+      // 1. Strip redundant /agency prefix on agency subdomain (e.g. /agency/login -> /login, /agency/dashboard -> /dashboard)
+      if (pathname.startsWith('/agency')) {
+        const cleanPath = pathname.replace(/^\/agency/, '') || '/'
+        const cleanUrl = new URL(cleanPath, request.url)
+        url.searchParams.forEach((v, k) => cleanUrl.searchParams.set(k, v))
+        return finalizeResponse(NextResponse.redirect(cleanUrl))
       }
-      if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
-        return finalizeResponse(NextResponse.rewrite(new URL(`/agency/login`, request.url)))
+
+      // 2. Bare root on agency subdomain: / -> /dashboard (if authenticated) or /login (if unauthenticated)
+      if (pathname === '/' || pathname === '') {
+        const target = user ? '/dashboard' : '/login'
+        const targetUrl = new URL(target, request.url)
+        url.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
+        return finalizeResponse(NextResponse.redirect(targetUrl))
       }
-      return finalizeResponse(supabaseResponse)
-    }
 
-    // SEC: Enforce authentication on all protected agency console routes
-    if (!user) {
-      const loginUrl = new URL('/agency/login', request.url)
-      if (pathname !== '/agency/dashboard' && pathname !== '/dashboard') {
-        loginUrl.searchParams.set('redirect', pathname)
+      // 3. Login route on agency subdomain: /login
+      if (pathname === '/login' || pathname === '/login/') {
+        if (user) {
+          return finalizeResponse(NextResponse.redirect(new URL('/dashboard', request.url)))
+        }
+        return finalizeResponse(NextResponse.rewrite(new URL('/agency/login', request.url)))
       }
-      return finalizeResponse(NextResponse.redirect(loginUrl))
+
+      // 4. SEC: Enforce authentication on all protected agency console routes
+      if (!user) {
+        const loginUrl = new URL('/login', request.url)
+        if (pathname !== '/dashboard') {
+          loginUrl.searchParams.set('redirect', pathname)
+        }
+        return finalizeResponse(NextResponse.redirect(loginUrl))
+      }
+
+      // 5. Rewrite clean path to internal /agency route (/dashboard -> /agency/dashboard, /attribution -> /agency/attribution)
+      return finalizeResponse(NextResponse.rewrite(new URL(`/agency${pathname}`, request.url)))
     }
 
-    // Subdomain rewrite for authenticated user: agency.captodesk.com/* -> /agency/*
-    if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
-      const targetPath = `/agency${pathname}`
-      return finalizeResponse(NextResponse.rewrite(new URL(targetPath, request.url)))
+    // B. Path-based Routing on main brand domain: captodesk.com/agency/*
+    // In production on captodesk.com, redirect to clean agency subdomain
+    if (hostname.includes('captodesk.com') && !isAgencySubdomain) {
+      const cleanPath = pathname.replace(/^\/agency/, '') || '/dashboard'
+      return finalizeResponse(NextResponse.redirect(new URL(`https://agency.captodesk.com${cleanPath}`, request.url)))
     }
 
-    // Bare /agency redirects to /agency/dashboard
+    // Localhost / preview fallback
     if (pathname === '/agency' || pathname === '/agency/') {
       return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
+    }
+
+    const isLegacyLogin = pathname === '/agency/login' || pathname.startsWith('/agency/login')
+    if (isLegacyLogin) {
+      if (user) return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
+      return finalizeResponse(supabaseResponse)
+    }
+
+    if (!user) {
+      const loginUrl = new URL('/agency/login', request.url)
+      loginUrl.searchParams.set('redirect', pathname)
+      return finalizeResponse(NextResponse.redirect(loginUrl))
     }
 
     return finalizeResponse(supabaseResponse)

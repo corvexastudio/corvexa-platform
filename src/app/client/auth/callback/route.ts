@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
 
   const isAgencyCallback = next.startsWith('/agency') || origin.includes('agency.')
   const errorRedirect = new URL(
-    isAgencyCallback ? '/agency/login?error=link_expired' : '/client/login?error=link_expired',
+    isAgencyCallback 
+      ? (origin.includes('agency.') ? '/login?error=link_expired' : '/agency/login?error=link_expired')
+      : '/client/login?error=link_expired',
     origin
   )
 
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     if (user) {
       // For agency partners, bypass contractor tenant onboarding and route directly to agency destination
-      if (safeDestination.startsWith('/agency')) {
+      if (safeDestination.startsWith('/agency') || origin.includes('agency.')) {
         destination = safeDestination
       } else {
         const { data: profile } = await supabase

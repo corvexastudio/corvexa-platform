@@ -20,16 +20,24 @@ import { BrandIcon } from '@/components/brand/brand-logo'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
-const NAV_ITEMS = [
-  { href: '/agency/dashboard', label: 'Clients & Slots', icon: Layers, exact: true },
-  { href: '/agency/attribution', label: 'Lead Attribution', icon: BarChart3 },
-  { href: '/agency/embeds', label: 'Client Embeds', icon: Code2 },
-  { href: '/agency/billing', label: 'Capacity & Billing', icon: CreditCard },
+const BASE_NAV_ITEMS = [
+  { path: '/dashboard', label: 'Clients & Slots', icon: Layers, exact: true },
+  { path: '/attribution', label: 'Lead Attribution', icon: BarChart3 },
+  { path: '/embeds', label: 'Client Embeds', icon: Code2 },
+  { path: '/billing', label: 'Capacity & Billing', icon: CreditCard },
 ]
 
 export default function AgencyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isLoginPage = pathname === '/agency/login' || pathname.startsWith('/agency/login')
+  const cleanPathname = pathname.replace(/^\/agency/, '') || '/'
+  const isLoginPage = cleanPathname === '/login' || cleanPathname.startsWith('/login')
+  const isSubdomain = typeof window !== 'undefined' ? window.location.hostname.startsWith('agency.') : !pathname.startsWith('/agency')
+  const prefix = isSubdomain ? '' : '/agency'
+
+  const navItems = BASE_NAV_ITEMS.map(item => ({
+    ...item,
+    href: `${prefix}${item.path}`
+  }))
 
   const [overview, setOverview] = useState<AgencyPortfolioOverview | null>(null)
   const [loading, setLoading] = useState(true)
@@ -41,7 +49,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     } catch (err) {
       console.warn('[SIGN OUT] Error:', err)
     } finally {
-      window.location.href = '/agency/login'
+      window.location.href = isSubdomain ? '/login' : '/agency/login'
     }
   }
 
@@ -90,7 +98,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
             {/* Left Brand & Agency Selector */}
             <div className="flex items-center gap-3">
               <Link 
-                href="/agency/dashboard" 
+                href={isSubdomain ? '/dashboard' : '/agency/dashboard'} 
                 className="flex items-center gap-2 group text-slate-900 dark:text-white font-bold text-base tracking-tight hover:opacity-95 transition-opacity"
               >
                 <BrandIcon className="h-8 w-8 group-hover:scale-105 transition-transform shrink-0" size={32} priority />
@@ -179,16 +187,16 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
 
           {/* Subnavigation Bar */}
           <nav className="flex space-x-1 border-t border-slate-100 dark:border-zinc-800 pt-1 pb-2 overflow-x-auto no-scrollbar">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const isActive = item.exact 
-                ? pathname === item.href 
-                : pathname.startsWith(item.href)
+                ? cleanPathname === item.path 
+                : cleanPathname.startsWith(item.path)
 
               const Icon = item.icon
 
               return (
                 <Link
-                  key={item.href}
+                  key={item.path}
                   href={item.href}
                   className={cn(
                     "inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap",

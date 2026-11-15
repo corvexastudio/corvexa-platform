@@ -69,7 +69,9 @@ function AgencyLoginContent() {
 
     try {
       const supabase = createClient()
-      const redirectTo = `${window.location.origin}/auth/callback?next=/agency/dashboard`
+      const isSubdomain = typeof window !== 'undefined' && window.location.hostname.startsWith('agency.')
+      const targetDashboard = isSubdomain ? '/dashboard' : '/agency/dashboard'
+      const redirectTo = `${window.location.origin}/auth/callback?next=${targetDashboard}`
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -108,7 +110,8 @@ function AgencyLoginContent() {
         return
       }
 
-      router.push('/agency/dashboard')
+      const isSubdomain = typeof window !== 'undefined' && window.location.hostname.startsWith('agency.')
+      router.push(isSubdomain ? '/dashboard' : '/agency/dashboard')
     } catch (err: any) {
       setError(err?.message || 'Authentication error')
     } finally {
@@ -127,10 +130,12 @@ function AgencyLoginContent() {
 
     try {
       const supabase = createClient()
+      const isSubdomain = typeof window !== 'undefined' && window.location.hostname.startsWith('agency.')
+      const targetDashboard = isSubdomain ? '/dashboard' : '/agency/dashboard'
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/agency/dashboard`
+          emailRedirectTo: `${window.location.origin}${targetDashboard}`
         }
       })
 
