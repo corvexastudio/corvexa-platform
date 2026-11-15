@@ -119,28 +119,25 @@ export default function AgencyBillingPage() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase font-mono font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">
-                Active Wholesale Plan
+                Active Plan
               </span>
-              <Badge className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px]">
-                Active
-              </Badge>
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
               {activeTierConfig.name} (${activeTierConfig.price}.00 / month)
             </h2>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-              Billed monthly to your payment method on file. Covers up to {totalSlots} contractor clients (${activeTierConfig.costPerSlot.toFixed(2)}/client/mo).
+              Billed monthly. Covers up to {totalSlots} contractor clients (${activeTierConfig.costPerSlot.toFixed(2)}/client/mo).
             </p>
           </div>
 
           <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-zinc-800 pt-4 md:pt-0 md:pl-6">
             <div className="flex flex-col">
-              <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Slot Occupancy</span>
+              <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Slot Capacity</span>
               <div className="text-xl font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
-                {usedSlots} / {totalSlots} <span className="text-xs text-slate-500 dark:text-zinc-400 font-sans font-normal">Assigned</span>
+                {usedSlots} / {totalSlots}
               </div>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-                {Math.max(0, totalSlots - usedSlots)} slots available to deploy
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-0.5">
+                {Math.max(0, totalSlots - usedSlots)} available
               </span>
             </div>
           </div>
@@ -152,15 +149,12 @@ export default function AgencyBillingPage() {
               <span className="text-xs uppercase font-mono font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">
                 Setup Required
               </span>
-              <Badge className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 text-[10px]">
-                Plan Selection Pending
-              </Badge>
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-              Select Your Wholesale Capacity Package
+              Choose a Wholesale Plan
             </h2>
             <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-2xl leading-relaxed">
-              All 4 wholesale tiers are available for immediate subscription. Choose the slot capacity that matches your agency&apos;s contractor client roster to activate dedicated phone lines, missed-call auto-text recovery, and client booking portals.
+              Select a client capacity package to activate dedicated phone lines, missed-call auto-text, and contractor booking portals.
             </p>
           </div>
 

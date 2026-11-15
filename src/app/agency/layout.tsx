@@ -146,16 +146,14 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                     <span className="text-slate-500 dark:text-zinc-400 font-medium">Slot Capacity</span>
                     <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
                       {hasActiveSubscription ? (
-                        <>
-                          {usedSlots} / {totalSlots} <span className="text-slate-500 font-normal">Active</span>
-                        </>
+                        `${usedSlots} / ${totalSlots}`
                       ) : (
-                        <span className="text-slate-500 font-normal">No active plan</span>
+                        <span className="text-slate-500 font-normal">No plan</span>
                       )}
                     </span>
                   </div>
                   {/* Visual Segmented Progress Bar */}
-                  <div className="w-36 h-2 bg-slate-200 dark:bg-zinc-700 rounded-full overflow-hidden flex">
+                  <div className="w-32 h-1.5 bg-slate-200 dark:bg-zinc-700 rounded-full overflow-hidden flex">
                     <div 
                       className="h-full bg-emerald-500 transition-all duration-500 rounded-full" 
                       style={{ width: `${Math.min(100, occupancyRate)}%` }}
@@ -163,20 +161,16 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                   </div>
                 </div>
 
-                <div className="border-l border-slate-200 dark:border-zinc-700 pl-3 flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-mono">
-                    {hasActiveSubscription ? 'Available' : 'Status'}
-                  </span>
-                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {hasActiveSubscription ? (
-                      `${availableSlots} open ${availableSlots === 1 ? 'slot' : 'slots'}`
-                    ) : (
-                      <Link href={isSubdomain ? '/billing' : '/agency/billing'} className="hover:underline">
-                        Choose Plan
-                      </Link>
-                    )}
-                  </span>
-                </div>
+                {!hasActiveSubscription && (
+                  <div className="border-l border-slate-200 dark:border-zinc-700 pl-2.5">
+                    <Link 
+                      href={isSubdomain ? '/billing' : '/agency/billing'} 
+                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
+                      Select Plan
+                    </Link>
+                  </div>
+                )}
               </div>
 
               {/* External Contractor App Link */}

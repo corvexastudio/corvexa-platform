@@ -249,12 +249,12 @@ export default function AgencyDashboardPage() {
         {/* KPI 1: Slot Capacity */}
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-            <span>Slot Allocation</span>
-            <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-750">
-              {hasActiveSubscription
-                ? getAgencyTierConfig(overview?.agency?.subscription_tier).name
-                : 'No Plan Selected'}
-            </span>
+            <span>Slot Capacity</span>
+            {hasActiveSubscription && (
+              <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-750">
+                {getAgencyTierConfig(overview?.agency?.subscription_tier).name}
+              </span>
+            )}
           </div>
           <div className="mt-3">
             <div className="flex items-baseline gap-2">
@@ -272,47 +272,42 @@ export default function AgencyDashboardPage() {
               />
             </div>
           </div>
-          <div className="mt-3 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3" />
-            <span>
-              {hasActiveSubscription
-                ? `${overview?.available_slots ?? 0} open slots available`
-                : 'Plan selection required'}
-            </span>
+          <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+            {hasActiveSubscription
+              ? `${overview?.available_slots ?? 0} slots available`
+              : 'No active package'}
           </div>
         </div>
 
         {/* KPI 2: Missed Calls Recovered */}
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-            <span>Missed Calls Recovered</span>
+            <span>Calls Recovered</span>
             <MessageSquare className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
               {overview?.total_30d_missed_calls_recovered ?? 0}
             </span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">Responses</span>
           </div>
           <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
-            Responded via automated text-back
+            Past 30 days
           </div>
         </div>
 
         {/* KPI 3: Booked Jobs */}
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-            <span>Booked Field Jobs</span>
+            <span>Booked Appointments</span>
             <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
               {overview?.total_30d_booked_jobs ?? 0}
             </span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">Appointments</span>
           </div>
           <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
-            Across active client roster
+            Past 30 days
           </div>
         </div>
 
@@ -333,10 +328,10 @@ export default function AgencyDashboardPage() {
                 <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 font-bold font-mono">
                   {overview?.estimated_client_retainer_roi}x ROI
                 </span>
-                <span>on client retainers</span>
+                <span>vs retainers</span>
               </span>
             ) : (
-              <span>Invoiced from completed client jobs</span>
+              <span>Past 30 days</span>
             )}
           </div>
         </div>

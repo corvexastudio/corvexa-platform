@@ -126,11 +126,10 @@ export default function AdminOverviewPage() {
             className="rounded-xl bg-zinc-900/80 border border-zinc-800 p-4 hover:border-emerald-500/40 transition-all group"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 group-hover:text-emerald-400">Active Tenants</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 group-hover:text-emerald-400">Active</span>
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
             </div>
             <div className="text-3xl font-extrabold text-white">{orgs?.active ?? 0}</div>
-            <p className="text-[11px] text-zinc-400 mt-1">Paying subscription active</p>
           </Link>
 
           {/* Trial */}
@@ -139,11 +138,10 @@ export default function AdminOverviewPage() {
             className="rounded-xl bg-zinc-900/80 border border-zinc-800 p-4 hover:border-blue-500/40 transition-all group"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 group-hover:text-blue-400">Trial Period</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 group-hover:text-blue-400">Trial</span>
               <span className="h-2 w-2 rounded-full bg-blue-500" />
             </div>
             <div className="text-3xl font-extrabold text-white">{orgs?.trial ?? 0}</div>
-            <p className="text-[11px] text-zinc-400 mt-1">Active evaluation window</p>
           </Link>
 
           {/* Suspended */}
@@ -152,11 +150,10 @@ export default function AdminOverviewPage() {
             className="rounded-xl bg-zinc-900/80 border border-zinc-800 p-4 hover:border-amber-500/40 transition-all group"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 group-hover:text-amber-400">Suspended</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 group-hover:text-amber-400">Past Due</span>
               <span className="h-2 w-2 rounded-full bg-amber-500" />
             </div>
             <div className="text-3xl font-extrabold text-amber-400">{orgs?.suspended ?? 0}</div>
-            <p className="text-[11px] text-zinc-400 mt-1">Past due / payment failure</p>
           </Link>
 
           {/* Churned */}
@@ -169,7 +166,6 @@ export default function AdminOverviewPage() {
               <span className="h-2 w-2 rounded-full bg-rose-500" />
             </div>
             <div className="text-3xl font-extrabold text-zinc-400">{orgs?.churned ?? 0}</div>
-            <p className="text-[11px] text-zinc-400 mt-1">Canceled accounts</p>
           </Link>
         </div>
       </section>

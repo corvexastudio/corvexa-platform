@@ -1772,7 +1772,7 @@ export default function SettingsPage() {
             <div className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <PhoneCall className="w-4 h-4 text-emerald-600" />
-                Cell Carrier Call Forwarding Hardware Cheat Sheet
+                Carrier Call Forwarding Setup
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                 {hasDedicatedLine
@@ -1869,7 +1869,7 @@ export default function SettingsPage() {
             <div className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-rose-600" />
-                Live GPS &amp; En-Route Tracking Mode
+                Dispatch Tracking Mode
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                 Controls what homeowners see on their live dispatch tracking link.
@@ -1921,7 +1921,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                   <Repeat className="w-4 h-4 text-amber-600" />
-                  Seasonal Customer Reactivation Autopilot
+                  Seasonal Customer Reactivation
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Automatically texts past customers 60-90 days after service to win repeat tune-ups and inspections.
@@ -2012,7 +2012,7 @@ export default function SettingsPage() {
             <div className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                Instant Homeowner Payment Options (Zero Processing Fees)
+                Direct Payment Methods (Zelle, Cash, Check)
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                 Include direct payment links on invoices (Zelle, Venmo, Cash App, PayPal.me) with zero merchant fees.

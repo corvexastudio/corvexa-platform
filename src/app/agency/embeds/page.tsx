@@ -94,17 +94,17 @@ export default function AgencyEmbedsPage() {
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              No Active Contractor Clients Deployed
+              No active clients
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
-              Connect a contractor client in your portfolio to generate custom booking buttons, floating widgets, and UTM tracking links.
+              Deploy a contractor client in your portfolio to generate booking buttons, widgets, and tracking links.
             </p>
           </div>
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs cursor-pointer"
           >
-            <span>Deploy First Client</span>
+            <span>Deploy Client</span>
             <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
           </Link>
         </div>

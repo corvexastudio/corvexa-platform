@@ -111,11 +111,11 @@ export default function AgencyAttributionPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs transition-colors">
-          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Attributed Booked Jobs</span>
+          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Attributed Bookings</span>
           <div className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-            {totalBookings} <span className="text-xs text-slate-500 font-sans font-normal">Appointments</span>
+            {totalBookings}
           </div>
-          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Tracked via campaign UTM tags</span>
+          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Past 30 days</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs transition-colors">
@@ -123,11 +123,11 @@ export default function AgencyAttributionPage() {
           <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
             ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
-          <span className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1 block">Invoiced from completed client jobs</span>
+          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Past 30 days</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
-          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Average Campaign ROI</span>
+          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Campaign ROI</span>
           <div className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-2">
             <span>{Number(retainerRoiFactor) > 0 ? `${retainerRoiFactor}x` : '—'}</span>
             {Number(retainerRoiFactor) > 0 && (
@@ -137,7 +137,7 @@ export default function AgencyAttributionPage() {
             )}
           </div>
           <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">
-            {Number(retainerRoiFactor) > 0 ? 'Attributed revenue vs client retainers' : 'Awaiting tracked revenue data'}
+            {Number(retainerRoiFactor) > 0 ? 'vs client retainers' : 'Past 30 days'}
           </span>
         </div>
 
@@ -195,10 +195,10 @@ export default function AgencyAttributionPage() {
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-2">
                       <BarChart3 className="h-8 w-8 text-slate-300 dark:text-zinc-600" />
                       <p className="font-bold text-slate-800 dark:text-zinc-200 text-sm">
-                        No Marketing Attribution Data Yet
+                        No campaign attribution data yet
                       </p>
                       <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                        Tag your contractor client links with standard UTM parameters (e.g. <code className="font-mono bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-emerald-600">?utm_source=google-ads</code>) to track appointments and revenue here.
+                        Tag contractor booking links with UTM parameters (e.g. <code className="font-mono bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-emerald-600">?utm_source=google-ads</code>) to track appointments and revenue.
                       </p>
                     </div>
                   </td>
