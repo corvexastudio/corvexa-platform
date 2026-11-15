@@ -147,12 +147,17 @@ export async function proxy(request: NextRequest) {
 
   // 4.2. Agency Subdomain & Path Routing: agency.<domain> or /agency for B2B Partner Portal
   const isAgencyPath = hostname.startsWith('agency.') || pathname.startsWith('/agency')
-  const isAgencyLogin = pathname === '/agency/login' || pathname.startsWith('/agency/login')
+  const isAgencyLogin = pathname === '/agency/login' || pathname.startsWith('/agency/login') || (hostname.startsWith('agency.') && (pathname === '/login' || pathname === '/login/'))
 
   if (isAgencyPath) {
+    // Pass API requests through directly without subdomain path prefix rewrite
+    if (pathname.startsWith('/api/')) {
+      return finalizeResponse(supabaseResponse)
+    }
+
     if (isAgencyLogin) {
       if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
-        return finalizeResponse(NextResponse.rewrite(new URL(`/agency${pathname}`, request.url)))
+        return finalizeResponse(NextResponse.rewrite(new URL(`/agency/login`, request.url)))
       }
       return finalizeResponse(supabaseResponse)
     }
