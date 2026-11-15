@@ -13,10 +13,7 @@ import {
   Download,
   AlertCircle,
   Loader2,
-  Truck,
-  Users,
-  RefreshCw,
-  HelpCircle
+  Info
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -285,58 +282,16 @@ export default function AgencyBillingPage() {
             )
           })}
         </div>
-      </div>
 
-      {/* Slot Capacity & Multi-Van Policy Card */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs space-y-5 transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-4">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Truck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>How Client Slots &amp; Multi-Van Fleets Work</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Transparent wholesale licensing designed for marketing agencies managing trade client rosters.
-            </p>
+        {/* Clean 1-Line Capacity Callout */}
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl bg-slate-100/70 dark:bg-zinc-850/60 border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-900 dark:text-white">Capacity Rule:</span>
+            <span>1 Slot = 1 Solo Contractor (1 Van). Multi-van operations (2–5 vans) consume 2 slots.</span>
           </div>
-          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
-            Wholesale Economics
+          <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 shrink-0">
+            Slots reassign freely upon client offboarding
           </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          {/* Pillar 1 */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
-              <Layers className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Solo Contractor (1 Van) = 1 Slot</span>
-            </div>
-            <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
-              A solo trade operator with 1 primary van consumes 1 capacity slot ($23.98 to $43.00/slot/mo). Compare this to direct contractor retail at $99/mo—giving your agency a massive 65% to 75% margin.
-            </p>
-          </div>
-
-          {/* Pillar 2 */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
-              <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <span>Multi-Van (2–5 Vans) = 2 Slots</span>
-            </div>
-            <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
-              Contractor clients operating 2 to 5 vans with field technicians consume 2 capacity slots. At ~$70/mo wholesale vs $199/mo retail, your agency still saves 65% while covering expanded carrier and dispatch volume.
-            </p>
-          </div>
-
-          {/* Pillar 3 */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
-              <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <span>Reassign Slots Anytime (Zero Churn)</span>
-            </div>
-            <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
-              If a contractor client pauses their marketing retainer, their allocated slots reopen immediately. Reassign the capacity to any new plumbing, HVAC, or roofing client with 1 click with zero setup fees.
-            </p>
-          </div>
         </div>
       </div>
 
