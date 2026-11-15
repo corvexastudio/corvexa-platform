@@ -145,6 +145,29 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(supabaseResponse)
   }
 
+  // 4.2. Agency Subdomain & Path Routing: agency.<domain> or /agency for B2B Partner Portal
+  const isAgencyPath = hostname.startsWith('agency.') || pathname.startsWith('/agency')
+  const isAgencyLogin = pathname === '/agency/login' || pathname.startsWith('/agency/login')
+
+  if (isAgencyPath) {
+    if (isAgencyLogin) {
+      if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
+        return finalizeResponse(NextResponse.rewrite(new URL(`/agency${pathname}`, request.url)))
+      }
+      return finalizeResponse(supabaseResponse)
+    }
+    // Subdomain rewrite: agency.captodesk.com/* -> /agency/*
+    if (hostname.startsWith('agency.') && !pathname.startsWith('/agency')) {
+      const targetPath = (pathname === '/' || pathname === '') ? '/agency/dashboard' : `/agency${pathname}`
+      return finalizeResponse(NextResponse.rewrite(new URL(targetPath, request.url)))
+    }
+    // Bare /agency redirects to /agency/dashboard
+    if (pathname === '/agency' || pathname === '/agency/') {
+      return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
+    }
+    return finalizeResponse(supabaseResponse)
+  }
+
   // 4.5. App Subdomain Routing: app.<domain> for contractor SaaS client portal
   const isAppSubdomain = hostname.startsWith('app.')
   if (isAppSubdomain) {

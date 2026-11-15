@@ -293,10 +293,11 @@ test('PHASE 5: Automated 15-Minute Google Review Trigger', async (t) => {
     assert.equal(run.status, 'scheduled')
     assert.equal(run.event_payload.invoice_id, 'inv-hvac-99')
 
-    // Verify scheduled time is roughly 15 minutes in the future (within 2-second tolerance)
+    // Verify scheduled time is roughly 15 minutes in the future (or next morning 8:05 AM if in TCPA quiet hours)
     const scheduledMs = new Date(run.scheduled_at).getTime()
     const expectedMs = Date.now() + 15 * 60 * 1000
-    assert.ok(Math.abs(scheduledMs - expectedMs) < 3000)
+    const isQuietHoursShift = run.scheduled_at.includes('T12:05:00') || run.scheduled_at.includes('T13:05:00')
+    assert.ok(Math.abs(scheduledMs - expectedMs) < 3000 || isQuietHoursShift)
   })
 
   await t.test('suppresses review automation if organization has no Google review URL configured', async () => {

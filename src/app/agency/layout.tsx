@@ -1,0 +1,199 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { 
+  Building2, 
+  BarChart3, 
+  Code2, 
+  CreditCard, 
+  Layers, 
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  Search,
+  Plus
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { AgencyPortfolioOverview } from '@/lib/agency/agency-types'
+
+const NAV_ITEMS = [
+  { href: '/agency/dashboard', label: 'Client Portfolio & Slots', icon: Layers, exact: true },
+  { href: '/agency/attribution', label: 'UTM Lead Attribution', icon: BarChart3 },
+  { href: '/agency/embeds', label: 'Client Embed Library', icon: Code2 },
+  { href: '/agency/billing', label: 'Slot Capacity & Billing', icon: CreditCard },
+]
+
+export default function AgencyLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const [overview, setOverview] = useState<AgencyPortfolioOverview | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadAgencyOverview() {
+      try {
+        const res = await fetch('/api/agency/overview')
+        if (res.ok) {
+          const data = await res.json()
+          setOverview(data)
+        }
+      } catch (err) {
+        console.warn('[AGENCY LAYOUT] Failed to fetch overview:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadAgencyOverview()
+  }, [])
+
+  const totalSlots = overview?.total_slots || 10
+  const usedSlots = overview?.used_slots || 7
+  const availableSlots = overview?.available_slots || 3
+  const occupancyRate = overview?.occupancy_rate || 70
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+      {/* Topmost Partner Console Header */}
+      <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/95 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
+            
+            {/* Left Brand & Agency Selector */}
+            <div className="flex items-center gap-3">
+              <Link 
+                href="/agency/dashboard" 
+                className="flex items-center gap-2 group text-white font-bold text-base tracking-tight hover:opacity-95 transition-opacity"
+              >
+                <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center font-black text-white text-xs shadow-xs">
+                  CP
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-1.5 leading-none">
+                    <span className="font-extrabold text-white text-sm">CaptoDesk</span>
+                    <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-semibold">
+                      Partner Console
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium leading-tight">
+                    Home Service Agency Network
+                  </span>
+                </div>
+              </Link>
+
+              <div className="hidden md:flex items-center text-slate-600 mx-1">
+                <ChevronRight className="h-4 w-4" />
+              </div>
+
+              {/* Active Agency Identity Pill */}
+              <div className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                <span className="font-semibold text-white">
+                  {overview?.agency?.name || 'Lokal Media House'}
+                </span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                  {overview?.agency?.subscription_tier === 'growth_10' ? 'Growth 10-Pack' : 'Growth Pack'}
+                </span>
+              </div>
+            </div>
+
+            {/* Center / Right: High-Density Slot Capacity Bar */}
+            <div className="flex items-center gap-4">
+              
+              {/* Capacity Progress Pill */}
+              <div className="hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800/80">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px] gap-4">
+                    <span className="text-slate-400 font-medium">Slot Capacity</span>
+                    <span className="font-mono font-bold text-slate-200">
+                      {usedSlots} / {totalSlots} <span className="text-slate-500 font-normal">Active</span>
+                    </span>
+                  </div>
+                  {/* Visual Segmented Progress Bar */}
+                  <div className="w-40 h-2 bg-slate-800 rounded-full overflow-hidden flex">
+                    <div 
+                      className="h-full bg-emerald-500 transition-all duration-500 rounded-full" 
+                      style={{ width: `${Math.min(100, occupancyRate)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-l border-slate-800 pl-3 flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Available</span>
+                  <span className="text-xs font-mono font-bold text-emerald-400">
+                    {availableSlots} open {availableSlots === 1 ? 'slot' : 'slots'}
+                  </span>
+                </div>
+              </div>
+
+              {/* External Contractor App Link */}
+              <Link
+                href="/client/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-colors"
+                title="Open Contractor Field App"
+              >
+                <span>Contractor View</span>
+                <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+              </Link>
+            </div>
+
+          </div>
+
+          {/* Subnavigation Bar */}
+          <nav className="flex space-x-1 border-t border-slate-900 pt-1 pb-2 overflow-x-auto no-scrollbar">
+            {NAV_ITEMS.map((item) => {
+              const isActive = item.exact 
+                ? pathname === item.href 
+                : pathname.startsWith(item.href)
+
+              const Icon = item.icon
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap",
+                    isActive
+                      ? "bg-slate-900 text-emerald-400 shadow-xs border border-slate-800"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4", isActive ? "text-emerald-400" : "text-slate-500")} />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
+      </header>
+
+      {/* Main Agency Workspace Body */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {children}
+      </main>
+
+      {/* Subtle Partner Footer */}
+      <footer className="w-full border-t border-slate-900 bg-slate-950 py-4 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-400">CaptoDesk Agency Partner Network</span>
+            <span>•</span>
+            <span className="font-mono text-slate-500">10DLC Carrier Verified • Direct Telnyx SIP Routing</span>
+          </div>
+          <div className="flex items-center gap-4 text-[11px] text-slate-400">
+            <Link href="/privacy" className="hover:text-slate-300">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-slate-300">Terms of Service</Link>
+            <span className="text-slate-600">v2.4.0-production</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
