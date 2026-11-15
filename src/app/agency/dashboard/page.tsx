@@ -611,13 +611,19 @@ export default function AgencyDashboardPage() {
 
                         {/* Management Workspace Link */}
                         <td className="py-3.5 px-4 text-right">
-                          <Link
-                            href={`/client/dashboard?tenant=${slot.organization_id || ''}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-slate-900 transition-colors shadow-2xs"
+                          <a
+                            href={
+                              typeof window !== 'undefined' && window.location.hostname.startsWith('agency.')
+                                ? `https://captodesk.com/client/dashboard?tenant=${slot.organization_id || ''}`
+                                : `/client/dashboard?tenant=${slot.organization_id || ''}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-slate-900 transition-colors shadow-2xs cursor-pointer"
                           >
                             <span>Workspace</span>
                             <ArrowUpRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
-                          </Link>
+                          </a>
                         </td>
                       </tr>
                     )

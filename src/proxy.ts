@@ -188,6 +188,15 @@ export async function proxy(request: NextRequest) {
         return finalizeResponse(NextResponse.redirect(cleanUrl))
       }
 
+      // 1.5. If request on agency subdomain is targeting contractor app (/client/*), route to captodesk.com
+      if (pathname.startsWith('/client')) {
+        const targetHost = hostname.includes('localhost') ? request.headers.get('host') || 'localhost:3000' : 'captodesk.com'
+        const protocol = request.nextUrl.protocol || 'https:'
+        const contractorUrl = new URL(`${protocol}//${targetHost}${pathname}`)
+        url.searchParams.forEach((v, k) => contractorUrl.searchParams.set(k, v))
+        return finalizeResponse(NextResponse.redirect(contractorUrl))
+      }
+
       // 2. Bare root on agency subdomain: / -> /dashboard (if authenticated) or /login (if unauthenticated)
       if (pathname === '/' || pathname === '') {
         const target = user ? '/dashboard' : '/login'

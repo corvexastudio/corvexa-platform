@@ -180,16 +180,16 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
               </div>
 
               {/* External Contractor App Link */}
-              <Link
-                href="/client/dashboard"
+              <a
+                href={isSubdomain ? "https://captodesk.com/client/dashboard" : "/client/dashboard"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 transition-colors"
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 transition-colors cursor-pointer"
                 title="Open Contractor App"
               >
                 <span>Contractor View</span>
                 <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
-              </Link>
+              </a>
 
               {/* Theme Toggle (Light / Dark Switcher) */}
               <ThemeToggle className="h-8 w-8" />
