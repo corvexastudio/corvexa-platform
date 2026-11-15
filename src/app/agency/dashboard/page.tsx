@@ -207,10 +207,10 @@ export default function AgencyDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <span>Client Portfolio & Slot Management</span>
+            <span>Client Portfolio & Slots</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-            Monitor real-time missed call recovery, direct calendar bookings, and verified invoiced revenue across your agency’s trade client roster.
+            Monitor call recovery, appointment bookings, and attributed revenue across your contractor accounts.
           </p>
         </div>
 
@@ -218,41 +218,13 @@ export default function AgencyDashboardPage() {
           <Button
             type="button"
             onClick={() => setIsDeployModalOpen(true)}
-            className="h-10 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs gap-2 rounded-lg cursor-pointer"
+            className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs gap-2 rounded-lg cursor-pointer transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span>Deploy Client Slot</span>
+            <span>Deploy Client</span>
           </Button>
         </div>
       </div>
-
-      {/* Zero Clients Onboarding Helper Banner */}
-      {overview && overview.used_slots === 0 && (
-        <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center shrink-0 text-emerald-700 dark:text-emerald-400">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                All {overview.total_slots} Wholesale Capacity Slots Available
-              </p>
-              <p className="text-xs text-slate-600 dark:text-zinc-400">
-                Deploy your first contractor client to activate automated missed-call text-back and appointment tracking.
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setIsDeployModalOpen(true)}
-            className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg gap-1.5 cursor-pointer shrink-0 shadow-2xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Deploy Client #1</span>
-          </Button>
-        </div>
-      )}
 
       {/* Retainer Defense KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -261,7 +233,7 @@ export default function AgencyDashboardPage() {
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
             <span>Slot Allocation</span>
-            <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+            <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-750">
               {getAgencyTierConfig(overview?.agency?.subscription_tier).name}
             </span>
           </div>
@@ -271,7 +243,7 @@ export default function AgencyDashboardPage() {
                 {overview?.used_slots ?? 0}
               </span>
               <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                / {overview?.total_slots ?? 0} Slots Active
+                / {overview?.total_slots ?? 0} Active
               </span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full mt-2 overflow-hidden flex">
@@ -283,7 +255,7 @@ export default function AgencyDashboardPage() {
           </div>
           <div className="mt-3 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
             <CheckCircle2 className="h-3 w-3" />
-            <span>{overview?.available_slots ?? 0} open slots ready to deploy</span>
+            <span>{overview?.available_slots ?? 0} open slots available</span>
           </div>
         </div>
 
@@ -297,10 +269,10 @@ export default function AgencyDashboardPage() {
             <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
               {overview?.total_30d_missed_calls_recovered ?? 0}
             </span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">Auto-Text Bookings</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">Responses</span>
           </div>
           <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
-            Within 5s of unanswered phone calls
+            Responded via automated text-back
           </div>
         </div>
 
@@ -314,17 +286,17 @@ export default function AgencyDashboardPage() {
             <span className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
               {overview?.total_30d_booked_jobs ?? 0}
             </span>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">30-Day Total</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-400 ml-2 font-medium">Appointments</span>
           </div>
           <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
-            Directly attributed to agency marketing
+            Across active client roster
           </div>
         </div>
 
-        {/* KPI 4: Verified Invoiced Revenue (Retainer Defense) */}
+        {/* KPI 4: Attributed Revenue */}
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs flex flex-col justify-between relative overflow-hidden transition-colors">
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-            <span>Verified Invoiced Revenue</span>
+            <span>Attributed Revenue</span>
             <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-3">
@@ -332,228 +304,279 @@ export default function AgencyDashboardPage() {
               ${(overview?.total_30d_invoiced_revenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </span>
           </div>
-          <div className="mt-3 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium flex items-center gap-1.5">
-            <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 font-bold font-mono">
-              {overview?.estimated_client_retainer_roi ?? 0}x ROI
-            </span>
-            <span>on client retainers</span>
+          <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
+            {Number(overview?.estimated_client_retainer_roi) > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-medium">
+                <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 font-bold font-mono">
+                  {overview?.estimated_client_retainer_roi}x ROI
+                </span>
+                <span>on client retainers</span>
+              </span>
+            ) : (
+              <span>Invoiced from completed client jobs</span>
+            )}
           </div>
         </div>
 
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 transition-colors">
-        
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
-          <Input
-            type="text"
-            placeholder="Filter by contractor name, phone, or slug..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-xs bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus-visible:border-emerald-500 rounded-lg"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+      {/* Zero Clients Onboarding State vs Active Roster Table */}
+      {overview && overview.used_slots === 0 ? (
+        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 sm:p-12 text-center shadow-2xs transition-colors">
+          <div className="max-w-xl mx-auto space-y-6">
+            <div className="h-12 w-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
+              <Building2 className="h-6 w-6" />
+            </div>
 
-        {/* Trade Vertical Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'all', label: `All (${tradeCounts.all})` },
-            { id: 'plumbing', label: `Plumbing (${tradeCounts.plumbing})` },
-            { id: 'hvac', label: `HVAC (${tradeCounts.hvac})` },
-            { id: 'electrical', label: `Electrical (${tradeCounts.electrical})` },
-            { id: 'roofing', label: `Roofing (${tradeCounts.roofing})` },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedTrade(tab.id)}
-              className={cn(
-                "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer",
-                selectedTrade === tab.id
-                  ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-2xs"
-                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
+            <div className="space-y-2">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                No contractor clients deployed yet
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                You have {overview.available_slots} open capacity slots in your {getAgencyTierConfig(overview?.agency?.subscription_tier).name} plan. Deploy your first client to configure missed-call text-back, online bookings, and lead attribution.
+              </p>
+            </div>
+
+            {/* 3-Step Onboarding Guide */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700/60">
+                <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 block mb-1">STEP 01</span>
+                <span className="text-xs font-semibold text-slate-900 dark:text-white block">Assign Client Slot</span>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                  Enter contractor business name, trade specialty, and owner phone.
+                </p>
+              </div>
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700/60">
+                <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 block mb-1">STEP 02</span>
+                <span className="text-xs font-semibold text-slate-900 dark:text-white block">Connect Phone Line</span>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                  Forward unanswered shop calls to trigger instant 5-second SMS recovery.
+                </p>
+              </div>
+              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700/60">
+                <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 block mb-1">STEP 03</span>
+                <span className="text-xs font-semibold text-slate-900 dark:text-white block">Track Attributed ROI</span>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                  Embed booking widgets and monitor verified job revenue in real time.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Button
+                type="button"
+                onClick={() => setIsDeployModalOpen(true)}
+                className="h-10 px-5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs gap-2 cursor-pointer transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Deploy First Client</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Filter Toolbar */}
+          <div className="p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 transition-colors">
+            
+            {/* Search */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
+              <Input
+                type="text"
+                placeholder="Filter by contractor name, phone, or slug..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 text-xs bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus-visible:border-emerald-500 rounded-lg"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+            </div>
 
-      </div>
+            {/* Trade Vertical Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {[
+                { id: 'all', label: `All (${tradeCounts.all})` },
+                { id: 'plumbing', label: `Plumbing (${tradeCounts.plumbing})` },
+                { id: 'hvac', label: `HVAC (${tradeCounts.hvac})` },
+                { id: 'electrical', label: `Electrical (${tradeCounts.electrical})` },
+                { id: 'roofing', label: `Roofing (${tradeCounts.roofing})` },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedTrade(tab.id)}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer",
+                    selectedTrade === tab.id
+                      ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-2xs"
+                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-      {/* Master Client Slot Table */}
-      <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-2xs transition-colors">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-850/60 text-slate-500 dark:text-zinc-400 font-semibold text-[11px] uppercase tracking-wider">
-                <th className="py-3 px-4 w-16">Slot</th>
-                <th className="py-3 px-4">Contractor & Industry</th>
-                <th className="py-3 px-4">Telephony & Line</th>
-                <th className="py-3 px-4 text-center">30-Day Activity</th>
-                <th className="py-3 px-4 text-right">Invoiced Cash</th>
-                <th className="py-3 px-4 text-center">Embed Code</th>
-                <th className="py-3 px-4 text-right">Management</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
-              {filteredSlots.map((slot) => {
-                const isAvailable = slot.status === 'available'
-                const tradeMeta = TRADE_CONFIG[slot.industry || 'general'] || TRADE_CONFIG.general
-                const TradeIcon = tradeMeta.icon
+          </div>
 
-                if (isAvailable) {
-                  return (
-                    <tr 
-                      key={`slot-${slot.slot_number}`}
-                      className="bg-slate-50/40 dark:bg-zinc-900/40 hover:bg-slate-50/80 dark:hover:bg-zinc-850/40 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-400 dark:text-zinc-500">
-                        #{slot.slot_number.toString().padStart(2, '0')}
+          {/* Master Client Slot Table */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-2xs transition-colors">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-850/60 text-slate-500 dark:text-zinc-400 font-semibold text-[11px] uppercase tracking-wider">
+                    <th className="py-3 px-4 w-16">Slot</th>
+                    <th className="py-3 px-4">Contractor & Trade</th>
+                    <th className="py-3 px-4">Phone Line</th>
+                    <th className="py-3 px-4 text-center">30-Day Activity</th>
+                    <th className="py-3 px-4 text-right">Attributed Revenue</th>
+                    <th className="py-3 px-4 text-center">Embeds</th>
+                    <th className="py-3 px-4 text-right">Workspace</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
+                  {filteredSlots.filter(s => s.status === 'active').map((slot) => {
+                    const tradeMeta = TRADE_CONFIG[slot.industry || 'general'] || TRADE_CONFIG.general
+                    const TradeIcon = tradeMeta.icon
+
+                    return (
+                      <tr 
+                        key={`slot-${slot.slot_number}`}
+                        className="hover:bg-slate-50/80 dark:hover:bg-zinc-850/50 transition-colors"
+                      >
+                        {/* Slot Number */}
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-400 dark:text-zinc-500">
+                          #{slot.slot_number.toString().padStart(2, '0')}
+                        </td>
+
+                        {/* Contractor & Trade */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-white text-sm">
+                                {slot.business_name}
+                              </span>
+                              <span className={cn(
+                                "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border",
+                                tradeMeta.color
+                              )}>
+                                <TradeIcon className="h-3 w-3" />
+                                <span>{tradeMeta.label}</span>
+                              </span>
+                            </div>
+                            {slot.slug && (
+                              <a 
+                                href={`https://captodesk.com/book/${slot.slug}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                <span>captodesk.com/book/{slot.slug}</span>
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Telephony Line */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 font-mono text-slate-700 dark:text-zinc-300">
+                              <Phone className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                              <span>{slot.phone || 'Dedicated Carrier Line'}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono mt-0.5">
+                              {slot.is_missed_call_active ? 'Missed-Call Auto-Text Active' : 'Standby'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* 30-Day Activity */}
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="inline-flex items-center gap-2 font-mono">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold" title="Missed Calls Auto-Recovered">
+                              {slot.month_missed_calls_recovered} calls
+                            </span>
+                            <span className="text-slate-300 dark:text-zinc-600">•</span>
+                            <span className="text-slate-800 dark:text-zinc-200 font-bold" title="Booked Jobs">
+                              {slot.month_jobs_count} jobs
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Invoiced Revenue */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                            ${slot.month_invoiced_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </div>
+                          <span className="text-[10px] text-slate-400 dark:text-zinc-500">Collected MTD</span>
+                        </td>
+
+                        {/* Embed Code Button */}
+                        <td className="py-3.5 px-4 text-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedSlotForEmbed(slot)}
+                            className="h-8 px-2.5 text-xs text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 font-mono gap-1 cursor-pointer"
+                            title="Get website button embed & UTM link"
+                          >
+                            <Code2 className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
+                            <span>Embed</span>
+                          </Button>
+                        </td>
+
+                        {/* Management Workspace Link */}
+                        <td className="py-3.5 px-4 text-right">
+                          <Link
+                            href={`/client/dashboard?tenant=${slot.organization_id || ''}`}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-slate-900 transition-colors shadow-2xs"
+                          >
+                            <span>Workspace</span>
+                            <ArrowUpRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
+                          </Link>
+                        </td>
+                      </tr>
+                    )
+                  })}
+
+                  {/* Summary of Open Slots */}
+                  {overview && overview.available_slots > 0 && (
+                    <tr className="bg-slate-50/50 dark:bg-zinc-850/30 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                      <td colSpan={6} className="py-3 px-4 text-xs text-slate-500 dark:text-zinc-400">
+                        <span className="font-semibold text-slate-700 dark:text-zinc-300">
+                          {overview.available_slots} open {overview.available_slots === 1 ? 'slot' : 'slots'} available
+                        </span>
+                        <span className="ml-2 text-[11px] text-slate-400 dark:text-zinc-500">
+                          in your {getAgencyTierConfig(overview?.agency?.subscription_tier).name} plan.
+                        </span>
                       </td>
-                      <td colSpan={5} className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-zinc-600" />
-                          <span className="font-semibold text-slate-600 dark:text-zinc-400">
-                            Available Capacity Slot
-                          </span>
-                          <span className="text-[11px] text-slate-400 dark:text-zinc-500">
-                            — Ready to assign to a new plumbing, HVAC, or trade client.
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-3 px-4 text-right">
                         <Button
                           type="button"
                           size="sm"
-                          onClick={() => {
-                            setIsDeployModalOpen(true)
-                          }}
+                          onClick={() => setIsDeployModalOpen(true)}
                           className="h-8 px-3 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-lg gap-1.5 cursor-pointer"
                         >
                           <Plus className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span>Assign Client</span>
+                          <span>Deploy Client</span>
                         </Button>
                       </td>
                     </tr>
-                  )
-                }
-
-                return (
-                  <tr 
-                    key={`slot-${slot.slot_number}`}
-                    className="hover:bg-slate-50/80 dark:hover:bg-zinc-850/50 transition-colors"
-                  >
-                    {/* Slot Number */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-400 dark:text-zinc-500">
-                      #{slot.slot_number.toString().padStart(2, '0')}
-                    </td>
-
-                    {/* Contractor & Industry */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 dark:text-white text-sm">
-                            {slot.business_name}
-                          </span>
-                          <span className={cn(
-                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border",
-                            tradeMeta.color
-                          )}>
-                            <TradeIcon className="h-3 w-3" />
-                            <span>{tradeMeta.label}</span>
-                          </span>
-                        </div>
-                        {slot.slug && (
-                          <a 
-                            href={`https://captodesk.com/book/${slot.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline flex items-center gap-1 mt-0.5"
-                          >
-                            <span>captodesk.com/book/{slot.slug}</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Telephony Line */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5 font-mono text-slate-700 dark:text-zinc-300">
-                          <Phone className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                          <span>{slot.phone || 'Toll-Free Platform Line'}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono mt-0.5">
-                          {slot.is_missed_call_active ? 'Missed-Call 5s Active' : 'Standby Mode'}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* 30-Day Activity */}
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="inline-flex items-center gap-2 font-mono">
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold" title="Missed Calls Auto-Recovered">
-                          {slot.month_missed_calls_recovered} calls
-                        </span>
-                        <span className="text-slate-300 dark:text-zinc-600">•</span>
-                        <span className="text-slate-800 dark:text-zinc-200 font-bold" title="Booked Jobs">
-                          {slot.month_jobs_count} jobs
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Invoiced Cash */}
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="font-mono font-bold text-slate-900 dark:text-white text-sm">
-                        ${slot.month_invoiced_revenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </div>
-                      <span className="text-[10px] text-slate-400 dark:text-zinc-500">Collected MTD</span>
-                    </td>
-
-                    {/* Embed Code Button */}
-                    <td className="py-3.5 px-4 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedSlotForEmbed(slot)}
-                        className="h-8 px-2.5 text-xs text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 font-mono gap-1 cursor-pointer"
-                        title="Get website button embed & UTM link"
-                      >
-                        <Code2 className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500" />
-                        <span>Embed</span>
-                      </Button>
-                    </td>
-
-                    {/* Management Impersonation Link */}
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/client/dashboard?tenant=${slot.organization_id || ''}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-slate-900 transition-colors shadow-2xs"
-                      >
-                        <span>Workspace</span>
-                        <ArrowUpRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Deploy Client Modal */}
       <Dialog open={isDeployModalOpen} onOpenChange={setIsDeployModalOpen}>

@@ -70,18 +70,18 @@ export default function AgencyEmbedsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 mb-1 font-mono">
-            <Link href="/agency/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
+            <Link href="/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" />
               <span>Portfolio</span>
             </Link>
             <span>/</span>
-            <span className="text-slate-800 dark:text-zinc-200">Client Embed Library</span>
+            <span className="text-slate-800 dark:text-zinc-200">Client Embeds</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <span>Website Booking Buttons & Embed Snippets</span>
+            <span>Website Booking Embeds</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-            Generate clean, conversion-tested HTML buttons and UTM-parameterized links for your web development team.
+            Generate embeddable booking buttons and links for your contractor clients' websites.
           </p>
         </div>
       </div>
@@ -97,14 +97,14 @@ export default function AgencyEmbedsPage() {
               No Active Contractor Clients Deployed
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
-              Website booking buttons, mobile emergency floating widgets, and UTM tracking generators are dynamically tailored to each active client. Deploy a client in your portfolio to generate their embeds.
+              Connect a contractor client in your portfolio to generate custom booking buttons, floating widgets, and UTM tracking links.
             </p>
           </div>
           <Link
-            href="/agency/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs"
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs cursor-pointer"
           >
-            <span>Go to Portfolio & Deploy Client</span>
+            <span>Deploy First Client</span>
             <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
           </Link>
         </div>

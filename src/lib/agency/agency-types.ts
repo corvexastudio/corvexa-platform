@@ -22,9 +22,9 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
     features: [
       'Up to 3 Active Contractor Clients',
       'Dedicated 10DLC Local Phone Numbers',
-      '5-Second Missed Call Auto-Text Engine',
-      'UTM Closed-Loop Revenue Attribution',
-      'Zero-Login Mobile Field Dispatch'
+      'Automated Missed-Call Text-Back',
+      'Campaign Lead & Revenue Attribution',
+      'Mobile Field Technician Dispatch'
     ],
     highlight: false
   },
@@ -40,8 +40,8 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
       'All Starter Features Included',
       'Free 10DLC Brand & Carrier Setups',
       'Priority Carrier Line Provisioning',
-      'Dedicated Partner Success Channel',
-      'Monthly PDF Retainer Defense Reports'
+      'Dedicated Partner Support Channel',
+      'Monthly Client Performance Reports'
     ],
     highlight: true
   },
@@ -56,7 +56,7 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
       'Up to 25 Active Contractor Clients',
       'All Growth Features Included',
       'Custom Agency Domain Mapping',
-      'Quarterly Retainer Strategy Audits',
+      'Quarterly Account Strategy Reviews',
       'Dedicated Technical Account Manager',
       'Multi-Team Member Agency Logins'
     ],
@@ -73,8 +73,8 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
       'Up to 50 Active Contractor Clients',
       'All Scale Features Included',
       'Custom White-Label Portal & CNAME',
-      'Dedicated Telnyx 10DLC Carrier IP Pool',
-      'Bi-Weekly Partner Executive Strategy Calls',
+      'Dedicated High-Volume Carrier IP Pool',
+      'Dedicated Partner Success Manager',
       'Unlimited Agency Team Logins & Permissions'
     ],
     highlight: false

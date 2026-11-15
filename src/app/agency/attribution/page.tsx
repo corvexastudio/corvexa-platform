@@ -79,12 +79,12 @@ export default function AgencyAttributionPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 mb-1 font-mono">
-            <Link href="/agency/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
+            <Link href="/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" />
               <span>Portfolio</span>
             </Link>
             <span>/</span>
-            <span className="text-slate-800 dark:text-zinc-200">Closed-Loop UTM Attribution</span>
+            <span className="text-slate-800 dark:text-zinc-200">Lead Attribution</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <span>Marketing Campaign ROI & Attribution</span>
@@ -115,7 +115,7 @@ export default function AgencyAttributionPage() {
           <div className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
             {totalBookings} <span className="text-xs text-slate-500 font-sans font-normal">Appointments</span>
           </div>
-          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Tagged with UTM parameters</span>
+          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Tracked via campaign UTM tags</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs transition-colors">
@@ -123,20 +123,22 @@ export default function AgencyAttributionPage() {
           <div className="mt-2 text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
             ${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
-          <span className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1 block">Collected from completed client jobs</span>
+          <span className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1 block">Invoiced from completed client jobs</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Average Campaign ROI</span>
           <div className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-2">
-            <span>{retainerRoiFactor}x</span>
+            <span>{Number(retainerRoiFactor) > 0 ? `${retainerRoiFactor}x` : '—'}</span>
             {Number(retainerRoiFactor) > 0 && (
               <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                High Retention
+                Active ROI
               </span>
             )}
           </div>
-          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">Zero client churn risk</span>
+          <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">
+            {Number(retainerRoiFactor) > 0 ? 'Attributed revenue vs client retainers' : 'Awaiting tracked revenue data'}
+          </span>
         </div>
 
       </div>
@@ -183,7 +185,7 @@ export default function AgencyAttributionPage() {
                 <th className="py-3 px-4">Medium</th>
                 <th className="py-3 px-4 text-center">Booked Jobs</th>
                 <th className="py-3 px-4 text-center">Conversion Rate</th>
-                <th className="py-3 px-4 text-right">Invoiced Cash</th>
+                <th className="py-3 px-4 text-right">Attributed Revenue</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
@@ -196,7 +198,7 @@ export default function AgencyAttributionPage() {
                         No Marketing Attribution Data Yet
                       </p>
                       <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                        Tag your contractor client links with standard UTM parameters (e.g. <code className="font-mono bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-emerald-600">?utm_source=google-ads</code>) to view closed-loop appointments and revenue here.
+                        Tag your contractor client links with standard UTM parameters (e.g. <code className="font-mono bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-emerald-600">?utm_source=google-ads</code>) to track appointments and revenue here.
                       </p>
                     </div>
                   </td>

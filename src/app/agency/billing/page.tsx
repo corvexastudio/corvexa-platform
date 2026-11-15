@@ -92,18 +92,18 @@ export default function AgencyBillingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 mb-1 font-mono">
-            <Link href="/agency/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
+            <Link href="/dashboard" className="hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" />
               <span>Portfolio</span>
             </Link>
             <span>/</span>
-            <span className="text-slate-800 dark:text-zinc-200">Partner Capacity & Billing</span>
+            <span className="text-slate-800 dark:text-zinc-200">Capacity & Billing</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <span>Wholesale Capacity & Plan Selection</span>
+            <span>Wholesale Capacity & Plans</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-            Manage your agency’s wholesale slot packs, view active occupancy, and switch client capacity on-demand.
+            Manage wholesale client slots, track capacity, and adjust your plan.
           </p>
         </div>
       </div>
@@ -116,14 +116,14 @@ export default function AgencyBillingPage() {
               Active Wholesale Plan
             </span>
             <Badge className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px]">
-              Active Auto-Renew
+              Active
             </Badge>
           </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
             {activeTierConfig.name} (${activeTierConfig.price}.00 / month)
           </h2>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Billed on the 1st of every month via Stripe Wholesale Auto-Debit. Covers up to {totalSlots} contractor clients (${activeTierConfig.costPerSlot.toFixed(2)}/client/mo).
+            Billed monthly to your payment method on file. Covers up to {totalSlots} contractor clients (${activeTierConfig.costPerSlot.toFixed(2)}/client/mo).
           </p>
         </div>
 
