@@ -34,9 +34,9 @@ export const DEFAULT_DEMO_AGENCY: PartnerAgency = {
   slug: 'agency-partner',
   contact_email: 'partners@captodesk.com',
   contact_phone: null,
-  total_slots: 10,
-  subscription_tier: 'growth_10',
-  subscription_status: 'active',
+  total_slots: 0,
+  subscription_tier: 'none',
+  subscription_status: 'pending_subscription',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }
@@ -123,7 +123,7 @@ export async function getAgencyPortfolioOverview(
 
   // 4. Map client slots strictly from real linked organizations
   const slots: AgencyClientSlot[] = []
-  const totalSlotsCount = agency.total_slots || 10
+  const totalSlotsCount = typeof agency.total_slots === 'number' ? agency.total_slots : 10
   const usedSlotsCount = Math.min(clientOrgs.length, totalSlotsCount)
 
   for (let i = 0; i < totalSlotsCount; i++) {
@@ -369,6 +369,7 @@ export async function updateAgencySubscriptionTier(
           .from('partner_agencies')
           .update({
             subscription_tier: newTier,
+            subscription_status: 'active',
             total_slots: targetCapacity,
             updated_at: new Date().toISOString()
           })
@@ -377,6 +378,7 @@ export async function updateAgencySubscriptionTier(
           .from('partner_agencies')
           .update({
             subscription_tier: newTier,
+            subscription_status: 'active',
             total_slots: targetCapacity,
             updated_at: new Date().toISOString()
           })

@@ -83,6 +83,10 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
 
 export const AGENCY_TIERS_LIST: AgencyTierConfig[] = Object.values(AGENCY_TIERS_CONFIG)
 
+export function isValidAgencyTier(tier?: string | null): tier is AgencyTier {
+  return Boolean(tier && tier in AGENCY_TIERS_CONFIG)
+}
+
 export function getAgencyTierConfig(tier?: string | null): AgencyTierConfig {
   if (tier && tier in AGENCY_TIERS_CONFIG) {
     return AGENCY_TIERS_CONFIG[tier as AgencyTier]
@@ -97,8 +101,8 @@ export interface PartnerAgency {
   contact_email: string
   contact_phone?: string | null
   total_slots: number
-  subscription_tier: AgencyTier
-  subscription_status: 'trial' | 'active' | 'past_due' | 'canceled'
+  subscription_tier: AgencyTier | 'none' | null
+  subscription_status: 'pending_subscription' | 'trial' | 'active' | 'past_due' | 'canceled'
   primary_owner_id?: string | null
   metadata?: Record<string, any>
   created_at: string

@@ -25,7 +25,8 @@ import {
   Home,
   CheckCircle2,
   AlertCircle,
-  Code2
+  Code2,
+  CreditCard
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { 
@@ -200,6 +201,10 @@ export default function AgencyDashboardPage() {
     }
   }, [overview?.slots])
 
+  // Subscription state
+  const currentTier = overview?.agency?.subscription_tier
+  const hasActiveSubscription = overview?.agency?.subscription_status === 'active' && Boolean(currentTier) && currentTier !== 'none'
+
   return (
     <div className="space-y-6">
       
@@ -215,14 +220,26 @@ export default function AgencyDashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            onClick={() => setIsDeployModalOpen(true)}
-            className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs gap-2 rounded-lg cursor-pointer transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Deploy Client</span>
-          </Button>
+          {hasActiveSubscription ? (
+            <Button
+              type="button"
+              onClick={() => setIsDeployModalOpen(true)}
+              className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs gap-2 rounded-lg cursor-pointer transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Deploy Client</span>
+            </Button>
+          ) : (
+            <Link href="/billing">
+              <Button
+                type="button"
+                className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs gap-2 rounded-lg cursor-pointer transition-colors"
+              >
+                <CreditCard className="h-4 w-4" />
+                <span>Select Capacity Plan</span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -234,7 +251,9 @@ export default function AgencyDashboardPage() {
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
             <span>Slot Allocation</span>
             <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-750">
-              {getAgencyTierConfig(overview?.agency?.subscription_tier).name}
+              {hasActiveSubscription
+                ? getAgencyTierConfig(overview?.agency?.subscription_tier).name
+                : 'No Plan Selected'}
             </span>
           </div>
           <div className="mt-3">
@@ -255,7 +274,11 @@ export default function AgencyDashboardPage() {
           </div>
           <div className="mt-3 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
             <CheckCircle2 className="h-3 w-3" />
-            <span>{overview?.available_slots ?? 0} open slots available</span>
+            <span>
+              {hasActiveSubscription
+                ? `${overview?.available_slots ?? 0} open slots available`
+                : 'Plan selection required'}
+            </span>
           </div>
         </div>
 
@@ -320,8 +343,61 @@ export default function AgencyDashboardPage() {
 
       </div>
 
-      {/* Zero Clients Onboarding State vs Active Roster Table */}
-      {overview && overview.used_slots === 0 ? (
+      {/* Main Content Area: Unsubscribed vs Zero Clients vs Active Roster */}
+      {!hasActiveSubscription ? (
+        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 sm:p-12 text-center shadow-2xs transition-colors">
+          <div className="max-w-xl mx-auto space-y-6">
+            <div className="h-12 w-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
+              <CreditCard className="h-6 w-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Select a Wholesale Capacity Plan
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                Welcome to your CaptoDesk Partner Console. Select a wholesale client capacity package (from 3 to 50 contractor slots) to deploy client portals, activate dedicated phone lines, and track revenue attribution.
+              </p>
+            </div>
+
+            {/* Available plans overview */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left pt-2">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750">
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">STARTER</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">3 Slots</span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$129/mo</span>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 ring-1 ring-emerald-500/20">
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">POPULAR</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">10 Slots</span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$349/mo</span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750">
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">SCALE</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">25 Slots</span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$699/mo</span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750">
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">ENTERPRISE</span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">50 Slots</span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$1199/mo</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Link href="/billing">
+                <Button
+                  type="button"
+                  className="h-10 px-5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-2xs gap-2 cursor-pointer transition-colors"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  <span>Choose Wholesale Plan</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : overview && overview.used_slots === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 sm:p-12 text-center shadow-2xs transition-colors">
           <div className="max-w-xl mx-auto space-y-6">
             <div className="h-12 w-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">

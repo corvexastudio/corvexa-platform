@@ -48,13 +48,14 @@ export default function AgencyBillingPage() {
     loadData()
   }, [])
 
-  const currentTier = overview?.agency?.subscription_tier || 'growth_10'
-  const activeTierConfig = getAgencyTierConfig(currentTier)
+  const currentTier = overview?.agency?.subscription_tier
+  const hasActiveSubscription = overview?.agency?.subscription_status === 'active' && Boolean(currentTier) && currentTier !== 'none'
+  const activeTierConfig = hasActiveSubscription && currentTier ? getAgencyTierConfig(currentTier) : null
   const usedSlots = overview?.used_slots ?? 0
-  const totalSlots = overview?.total_slots ?? activeTierConfig.slots
+  const totalSlots = overview?.total_slots ?? (activeTierConfig?.slots ?? 0)
 
   async function handleSelectTier(tierId: AgencyTier) {
-    if (tierId === currentTier) return
+    if (hasActiveSubscription && tierId === currentTier) return
 
     setSwitchingTier(tierId)
     try {
@@ -62,14 +63,14 @@ export default function AgencyBillingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agencyId: overview?.agency?.id || 'lokal-media-house',
+          agencyId: overview?.agency?.id || 'agency-partner',
           tier: tierId
         })
       })
 
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error || 'Failed to switch plan')
+        toast.error(data.error || 'Failed to select plan')
         return
       }
 
@@ -77,7 +78,11 @@ export default function AgencyBillingPage() {
         setOverview(data.overview)
       }
       const targetConfig = getAgencyTierConfig(tierId)
-      toast.success(`Active wholesale plan updated to ${targetConfig.name} (${targetConfig.slots} client capacity slots).`)
+      toast.success(
+        hasActiveSubscription
+          ? `Wholesale plan updated to ${targetConfig.name} (${targetConfig.slots} client capacity slots).`
+          : `Subscribed to ${targetConfig.name} (${targetConfig.slots} client capacity slots activated).`
+      )
     } catch (err: any) {
       toast.error(err?.message || 'Error updating wholesale plan')
     } finally {
@@ -103,50 +108,80 @@ export default function AgencyBillingPage() {
             <span>Wholesale Capacity & Plans</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-            Manage wholesale client slots, track capacity, and adjust your plan.
+            Manage wholesale client slots, track capacity, and select your agency subscription.
           </p>
         </div>
       </div>
 
-      {/* Active Subscription Overview Card */}
-      <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 transition-colors">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase font-mono font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">
-              Active Wholesale Plan
-            </span>
-            <Badge className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px]">
-              Active
-            </Badge>
-          </div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-            {activeTierConfig.name} (${activeTierConfig.price}.00 / month)
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Billed monthly to your payment method on file. Covers up to {totalSlots} contractor clients (${activeTierConfig.costPerSlot.toFixed(2)}/client/mo).
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-zinc-800 pt-4 md:pt-0 md:pl-6">
-          <div className="flex flex-col">
-            <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Slot Occupancy</span>
-            <div className="text-xl font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
-              {usedSlots} / {totalSlots} <span className="text-xs text-slate-500 dark:text-zinc-400 font-sans font-normal">Assigned</span>
+      {/* Subscription Status Card: Active vs Pending Plan Selection */}
+      {hasActiveSubscription && activeTierConfig ? (
+        <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 transition-colors">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase font-mono font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">
+                Active Wholesale Plan
+              </span>
+              <Badge className="bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px]">
+                Active
+              </Badge>
             </div>
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-              {Math.max(0, totalSlots - usedSlots)} slots available to deploy
-            </span>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+              {activeTierConfig.name} (${activeTierConfig.price}.00 / month)
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+              Billed monthly to your payment method on file. Covers up to {totalSlots} contractor clients (${activeTierConfig.costPerSlot.toFixed(2)}/client/mo).
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-zinc-800 pt-4 md:pt-0 md:pl-6">
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Slot Occupancy</span>
+              <div className="text-xl font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+                {usedSlots} / {totalSlots} <span className="text-xs text-slate-500 dark:text-zinc-400 font-sans font-normal">Assigned</span>
+              </div>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                {Math.max(0, totalSlots - usedSlots)} slots available to deploy
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-5 rounded-xl bg-gradient-to-r from-emerald-50/80 via-white to-slate-50 dark:from-emerald-950/30 dark:via-zinc-900 dark:to-zinc-900 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase font-mono font-bold text-emerald-700 dark:text-emerald-400 tracking-wider">
+                Setup Required
+              </span>
+              <Badge className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 text-[10px]">
+                Plan Selection Pending
+              </Badge>
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Select Your Wholesale Capacity Package
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-2xl leading-relaxed">
+              All 4 wholesale tiers are available for immediate subscription. Choose the slot capacity that matches your agency&apos;s contractor client roster to activate dedicated phone lines, missed-call auto-text recovery, and client booking portals.
+            </p>
+          </div>
 
-      {/* Wholesale Tier Upgrade Grid */}
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400 shrink-0">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Switch or scale anytime</span>
+          </div>
+        </div>
+      )}
+
+      {/* Wholesale Tier Selection Grid */}
       <div className="space-y-3 pt-2">
         <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">All Available Wholesale Capacity Plans</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              {hasActiveSubscription ? 'All Available Wholesale Capacity Plans' : 'Choose Your Partner Plan'}
+            </h2>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Select or scale your wholesale capacity package anytime. All client slots can be reassigned freely across accounts.
+              {hasActiveSubscription 
+                ? 'Select or scale your wholesale capacity package anytime. All client slots can be reassigned freely across accounts.'
+                : 'Select any plan to subscribe. All tiers include full white-label telephony, missed-call auto-text, and client embed widgets.'}
             </p>
           </div>
           <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
@@ -156,8 +191,9 @@ export default function AgencyBillingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
           {AGENCY_TIERS_LIST.map((tier) => {
-            const isCurrent = currentTier === tier.id
+            const isCurrent = Boolean(hasActiveSubscription && currentTier === tier.id)
             const isSwitching = switchingTier === tier.id
+            const isUpgrade = Boolean(hasActiveSubscription && activeTierConfig && tier.price > activeTierConfig.price)
 
             return (
               <div 
@@ -166,25 +202,25 @@ export default function AgencyBillingPage() {
                   "p-5 rounded-xl border flex flex-col justify-between transition-all relative",
                   isCurrent
                     ? "bg-emerald-50/20 dark:bg-emerald-950/20 border-2 border-emerald-500 shadow-md ring-1 ring-emerald-500/20"
-                    : tier.highlight 
-                      ? "bg-white dark:bg-zinc-900 border-slate-300 dark:border-zinc-700 shadow-xs hover:border-emerald-400" 
+                    : tier.highlight && !hasActiveSubscription
+                      ? "bg-white dark:bg-zinc-900 border-2 border-emerald-500/80 shadow-xs hover:border-emerald-500 ring-1 ring-emerald-500/20"
                       : "bg-white dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700"
                 )}
               >
-                {tier.highlight && !isCurrent && (
+                {isCurrent && (
                   <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs">
-                    Popular
+                    Current Active
+                  </div>
+                )}
+                {!isCurrent && tier.highlight && (
+                  <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs">
+                    Most Popular
                   </div>
                 )}
 
                 <div>
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-slate-900 dark:text-white text-base">{tier.name}</h3>
-                    {isCurrent && (
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                        Current Active
-                      </span>
-                    )}
                   </div>
 
                   <div className="mt-3 flex items-baseline gap-1">
@@ -213,17 +249,17 @@ export default function AgencyBillingPage() {
                   {isCurrent ? (
                     <Button
                       disabled
-                      className="w-full h-9 text-xs font-semibold bg-emerald-100/50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg"
+                      className="w-full h-9 text-xs font-semibold bg-emerald-100/50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg cursor-default"
                     >
                       Current Active Plan
                     </Button>
                   ) : (
                     <Button
                       type="button"
-                      disabled={loading || !!switchingTier}
+                      disabled={loading || Boolean(switchingTier)}
                       className={cn(
                         "w-full h-9 text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs gap-1.5",
-                        tier.price > activeTierConfig.price
+                        tier.highlight || !hasActiveSubscription
                           ? "bg-emerald-600 hover:bg-emerald-500 text-white"
                           : "bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-slate-900"
                       )}
@@ -232,11 +268,15 @@ export default function AgencyBillingPage() {
                       {isSwitching ? (
                         <>
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Switching Plan...</span>
+                          <span>Activating...</span>
                         </>
                       ) : (
                         <span>
-                          {tier.price > activeTierConfig.price ? 'Upgrade to Plan' : 'Select This Plan'}
+                          {!hasActiveSubscription
+                            ? `Subscribe to ${tier.name}`
+                            : isUpgrade
+                            ? 'Upgrade to Plan'
+                            : 'Select This Plan'}
                         </span>
                       )}
                     </Button>

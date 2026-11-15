@@ -451,3 +451,51 @@ test('Agency Tier Downgrade: Prevents switching if active clients exceed target 
   )
 })
 
+test('Agency Onboarding: First-time sign-up starts in pending_subscription with all plans available and 0 active slots', async () => {
+  const newAgencyMockSupabase = {
+    from: (table) => {
+      if (table === 'partner_agencies') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  subscription_status: 'pending_subscription',
+                  subscription_tier: 'none',
+                  total_slots: 0
+                },
+                error: null
+              })
+            })
+          })
+        }
+      }
+      if (table === 'organizations') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null })
+            })
+          })
+        }
+      }
+      return {
+        select: () => ({
+          in: () => ({
+            gte: async () => ({ data: [], error: null }),
+            eq: () => ({ gte: async () => ({ data: [], error: null }) })
+          })
+        })
+      }
+    }
+  }
+
+  const overview = await getAgencyPortfolioOverview('new-agency', newAgencyMockSupabase)
+  assert.equal(overview.total_slots, 0)
+  assert.equal(overview.used_slots, 0)
+  assert.equal(overview.agency.subscription_status, 'pending_subscription')
+  assert.equal(overview.agency.subscription_tier, 'none')
+})
+
+

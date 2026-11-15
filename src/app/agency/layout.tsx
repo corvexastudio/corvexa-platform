@@ -82,6 +82,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     return <>{children}</>
   }
 
+  const hasActiveSubscription = overview?.agency?.subscription_status === 'active' && Boolean(overview?.agency?.subscription_tier) && overview?.agency?.subscription_tier !== 'none'
   const totalSlots = overview?.total_slots ?? 0
   const usedSlots = overview?.used_slots ?? 0
   const availableSlots = overview?.available_slots ?? 0
@@ -120,9 +121,18 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                 <span className="font-semibold text-slate-900 dark:text-white">
                   {overview?.agency?.name || 'Agency Partner'}
                 </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
-                  {getAgencyTierConfig(overview?.agency?.subscription_tier).name}
-                </span>
+                {hasActiveSubscription ? (
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+                    {getAgencyTierConfig(overview?.agency?.subscription_tier).name}
+                  </span>
+                ) : (
+                  <Link
+                    href={isSubdomain ? '/billing' : '/agency/billing'}
+                    className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors"
+                  >
+                    Select Plan
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -135,7 +145,13 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                   <div className="flex items-center justify-between text-[11px] gap-4">
                     <span className="text-slate-500 dark:text-zinc-400 font-medium">Slot Capacity</span>
                     <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
-                      {usedSlots} / {totalSlots} <span className="text-slate-500 font-normal">Active</span>
+                      {hasActiveSubscription ? (
+                        <>
+                          {usedSlots} / {totalSlots} <span className="text-slate-500 font-normal">Active</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-500 font-normal">No active plan</span>
+                      )}
                     </span>
                   </div>
                   {/* Visual Segmented Progress Bar */}
@@ -148,9 +164,17 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                 </div>
 
                 <div className="border-l border-slate-200 dark:border-zinc-700 pl-3 flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-mono">Available</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-mono">
+                    {hasActiveSubscription ? 'Available' : 'Status'}
+                  </span>
                   <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {availableSlots} open {availableSlots === 1 ? 'slot' : 'slots'}
+                    {hasActiveSubscription ? (
+                      `${availableSlots} open ${availableSlots === 1 ? 'slot' : 'slots'}`
+                    ) : (
+                      <Link href={isSubdomain ? '/billing' : '/agency/billing'} className="hover:underline">
+                        Choose Plan
+                      </Link>
+                    )}
                   </span>
                 </div>
               </div>
