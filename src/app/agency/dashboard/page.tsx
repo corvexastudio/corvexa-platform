@@ -33,7 +33,8 @@ import {
   AgencyPortfolioOverview, 
   AgencyClientSlot, 
   SlotStatus,
-  getAgencyTierConfig
+  getAgencyTierConfig,
+  AGENCY_TIERS_LIST
 } from '@/lib/agency/agency-types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -351,32 +352,38 @@ export default function AgencyDashboardPage() {
                 Select a Wholesale Capacity Plan
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
-                Welcome to your CaptoDesk Partner Console. Select a wholesale client capacity package (from 3 to 50 contractor slots) to deploy client portals, activate dedicated phone lines, and track revenue attribution.
+                Welcome to your CaptoDesk Partner Console. Select a wholesale client capacity package (from 3 to 25+ contractor slots) to deploy client portals, activate dedicated phone lines, and track revenue attribution.
               </p>
             </div>
 
             {/* Available plans overview */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left pt-2">
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750">
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">STARTER</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">3 Slots</span>
-                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$129/mo</span>
-              </div>
-              <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 ring-1 ring-emerald-500/20">
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">POPULAR</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">10 Slots</span>
-                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$349/mo</span>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750">
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">SCALE</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">25 Slots</span>
-                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$699/mo</span>
-              </div>
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750">
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block">ENTERPRISE</span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white block mt-0.5">50 Slots</span>
-                <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono block">$1199/mo</span>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
+              {AGENCY_TIERS_LIST.map((tier) => (
+                <div 
+                  key={tier.id}
+                  className={cn(
+                    "p-3 rounded-lg border",
+                    tier.highlight
+                      ? "bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 ring-1 ring-emerald-500/20"
+                      : "bg-slate-50 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-750"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold block uppercase">
+                      {tier.highlight ? 'MOST POPULAR' : tier.id === 'starter_3' ? 'STARTER' : 'SCALE'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
+                      ${tier.costPerSlot.toFixed(2)}/slot
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block mt-1">
+                    {tier.name}
+                  </span>
+                  <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-mono block mt-0.5 font-semibold">
+                    ${tier.price}/mo {tier.id === 'scale_25' ? '(+$35/slot add-on)' : ''}
+                  </span>
+                </div>
+              ))}
             </div>
 
             <div className="pt-2">
