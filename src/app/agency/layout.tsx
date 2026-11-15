@@ -19,7 +19,7 @@ import {
   Plus
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { AgencyPortfolioOverview } from '@/lib/agency/agency-types'
+import { AgencyPortfolioOverview, getAgencyTierConfig } from '@/lib/agency/agency-types'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { BrandIcon } from '@/components/brand/brand-logo'
 
@@ -96,7 +96,7 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
                   {overview?.agency?.name || 'Agency Partner'}
                 </span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
-                  {overview?.agency?.subscription_tier === 'growth_10' ? 'Growth 10-Pack' : 'Growth Pack'}
+                  {getAgencyTierConfig(overview?.agency?.subscription_tier).name}
                 </span>
               </div>
             </div>

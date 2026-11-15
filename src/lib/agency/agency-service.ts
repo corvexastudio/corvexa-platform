@@ -5,7 +5,14 @@ import type {
   AgencyPortfolioOverview, 
   PartnerAgency, 
   AgencyClientSlot, 
-  AgencyCampaignAttribution 
+  AgencyCampaignAttribution,
+  AgencyTier,
+  AgencyTierConfig
+} from './agency-types.ts'
+import {
+  AGENCY_TIERS_CONFIG,
+  AGENCY_TIERS_LIST,
+  getAgencyTierConfig
 } from './agency-types.ts'
 
 /**
@@ -326,3 +333,53 @@ export async function getAgencyAttributionReport(
     }
   ])
 }
+
+/**
+ * Update an agency's wholesale subscription plan and adjust total slot capacity.
+ * Validates that active deployed clients do not exceed the target capacity.
+ */
+export async function updateAgencySubscriptionTier(
+  agencySlugOrId: string = 'agency-partner',
+  newTier: AgencyTier,
+  supabaseOverride?: SupabaseClient
+): Promise<AgencyPortfolioOverview> {
+  const supabase = supabaseOverride || createAdminClient()
+
+  if (!newTier || !(newTier in AGENCY_TIER_CAPACITIES)) {
+    throw new Error(`Invalid agency tier: "${newTier}". Must be one of: starter_3, growth_10, scale_25, dominance_50.`)
+  }
+
+  const targetCapacity = AGENCY_TIER_CAPACITIES[newTier]
+
+  // 1. Fetch current overview to verify client occupancy bounds
+  const currentOverview = await getAgencyPortfolioOverview(agencySlugOrId, supabase)
+
+  if (currentOverview.used_slots > targetCapacity) {
+    const tierConfig = getAgencyTierConfig(newTier)
+    throw new Error(
+      `Cannot switch to ${tierConfig.name} (${targetCapacity} slots): Your agency currently has ${currentOverview.used_slots} active client slots deployed. Please offboard or reassign clients before reducing capacity.`
+    )
+  }
+
+  // 2. Update database record in partner_agencies if table exists
+  try {
+    const { error: updateErr } = await supabase
+      .from('partner_agencies')
+      .update({
+        subscription_tier: newTier,
+        total_slots: targetCapacity,
+        updated_at: new Date().toISOString()
+      })
+      .or(`slug.eq.${agencySlugOrId},id.eq.${agencySlugOrId}`)
+
+    if (updateErr) {
+      console.warn('[AGENCY TIER UPDATE] DB update warning:', updateErr.message)
+    }
+  } catch (err: any) {
+    console.warn('[AGENCY TIER UPDATE] Error updating partner_agencies table:', err?.message)
+  }
+
+  // 3. Return fresh overview reflecting new tier and slot allocation
+  return getAgencyPortfolioOverview(agencySlugOrId, supabase)
+}
+

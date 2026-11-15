@@ -54,20 +54,25 @@ export async function GET(request: NextRequest) {
     let destination = safeDestination
 
     if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('org_id, role')
-        .eq('id', user.id)
-        .maybeSingle()
+      // For agency partners, bypass contractor tenant onboarding and route directly to agency destination
+      if (safeDestination.startsWith('/agency')) {
+        destination = safeDestination
+      } else {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('org_id, role')
+          .eq('id', user.id)
+          .maybeSingle()
 
-      // If super_admin, direct them to /admin without forcing tenant onboarding
-      if (profile?.role === 'super_admin') {
-        destination = safeDestination !== '/client/dashboard' ? safeDestination : '/admin'
-      } else if (profile?.role === 'technician') {
-        destination = safeDestination !== '/client/dashboard' ? safeDestination : '/client/field'
-      } else if (!profile || !profile.org_id) {
-        // If brand new signup with Gmail, direct to 1-step onboarding
-        destination = '/client/onboarding'
+        // If super_admin, direct them to /admin without forcing tenant onboarding
+        if (profile?.role === 'super_admin') {
+          destination = safeDestination !== '/client/dashboard' ? safeDestination : '/admin'
+        } else if (profile?.role === 'technician') {
+          destination = safeDestination !== '/client/dashboard' ? safeDestination : '/client/field'
+        } else if (!profile || !profile.org_id) {
+          // If brand new signup with Gmail, direct to 1-step onboarding
+          destination = '/client/onboarding'
+        }
       }
     }
 

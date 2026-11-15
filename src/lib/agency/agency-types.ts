@@ -1,5 +1,95 @@
 export type AgencyTier = 'starter_3' | 'growth_10' | 'scale_25' | 'dominance_50'
 
+export interface AgencyTierConfig {
+  id: AgencyTier
+  name: string
+  price: number
+  slots: number
+  costPerSlot: number
+  description: string
+  features: string[]
+  highlight?: boolean
+}
+
+export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
+  starter_3: {
+    id: 'starter_3',
+    name: 'Starter 3-Pack',
+    price: 129,
+    slots: 3,
+    costPerSlot: 43.0,
+    description: 'Perfect for boutique agencies testing rapid lead recovery on 2 to 3 trade clients.',
+    features: [
+      'Up to 3 Active Contractor Clients',
+      'Dedicated 10DLC Local Phone Numbers',
+      '5-Second Missed Call Auto-Text Engine',
+      'UTM Closed-Loop Revenue Attribution',
+      'Zero-Login Mobile Field Dispatch'
+    ],
+    highlight: false
+  },
+  growth_10: {
+    id: 'growth_10',
+    name: 'Growth 10-Pack',
+    price: 349,
+    slots: 10,
+    costPerSlot: 34.9,
+    description: 'Our most popular partner tier. Covers full home service rosters with maximum margin.',
+    features: [
+      'Up to 10 Active Contractor Clients',
+      'All Starter Features Included',
+      'Free 10DLC Brand & Carrier Setups',
+      'Priority Carrier Line Provisioning',
+      'Dedicated Partner Success Channel',
+      'Monthly PDF Retainer Defense Reports'
+    ],
+    highlight: true
+  },
+  scale_25: {
+    id: 'scale_25',
+    name: 'Scale 25-Pack',
+    price: 699,
+    slots: 25,
+    costPerSlot: 27.96,
+    description: 'For scaling trade marketing firms managing multi-metro HVAC and plumbing clients.',
+    features: [
+      'Up to 25 Active Contractor Clients',
+      'All Growth Features Included',
+      'Custom Agency Domain Mapping',
+      'Quarterly Retainer Strategy Audits',
+      'Dedicated Technical Account Manager',
+      'Multi-Team Member Agency Logins'
+    ],
+    highlight: false
+  },
+  dominance_50: {
+    id: 'dominance_50',
+    name: 'Dominance 50-Pack',
+    price: 1199,
+    slots: 50,
+    costPerSlot: 23.98,
+    description: 'Enterprise agency wholesale capacity with dedicated IP pool, custom portal branding, and executive support.',
+    features: [
+      'Up to 50 Active Contractor Clients',
+      'All Scale Features Included',
+      'Custom White-Label Portal & CNAME',
+      'Dedicated Telnyx 10DLC Carrier IP Pool',
+      'Bi-Weekly Partner Executive Strategy Calls',
+      'Unlimited Agency Team Logins & Permissions'
+    ],
+    highlight: false
+  }
+}
+
+export const AGENCY_TIERS_LIST: AgencyTierConfig[] = Object.values(AGENCY_TIERS_CONFIG)
+
+export function getAgencyTierConfig(tier?: string | null): AgencyTierConfig {
+  if (tier && tier in AGENCY_TIERS_CONFIG) {
+    return AGENCY_TIERS_CONFIG[tier as AgencyTier]
+  }
+  return AGENCY_TIERS_CONFIG.growth_10
+}
+
 export interface PartnerAgency {
   id: string
   name: string

@@ -8,8 +8,14 @@ import {
   DEFAULT_DEMO_AGENCY,
   getAgencyPortfolioOverview,
   deployClientToAgencySlot,
-  getAgencyAttributionReport
+  getAgencyAttributionReport,
+  updateAgencySubscriptionTier
 } from '../src/lib/agency/agency-service.ts'
+import {
+  AGENCY_TIERS_CONFIG,
+  AGENCY_TIERS_LIST,
+  getAgencyTierConfig
+} from '../src/lib/agency/agency-types.ts'
 
 test('Agency Tier Capacities: Matches contracted slot bounds', () => {
   assert.equal(AGENCY_TIER_CAPACITIES.starter_3, 3)
@@ -240,8 +246,160 @@ test('Agency Attribution: Maps UTM campaign sources to client revenue', async ()
 })
 
 test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /agency', () => {
-  const proxyContent = fs.readFileSync(path.join(process.cwd(), 'src/proxy.ts'), 'utf-8')
+  const proxyPath = path.resolve(import.meta.dirname || process.cwd(), '../src/proxy.ts')
+  const fallbackPath = path.resolve(process.cwd(), 'src/proxy.ts')
+  const resolved = fs.existsSync(proxyPath) ? proxyPath : fallbackPath
+  const proxyContent = fs.readFileSync(resolved, 'utf-8')
   assert.ok(proxyContent.includes("hostname.startsWith('agency.')"))
   assert.ok(proxyContent.includes("pathname.startsWith('/agency')"))
   assert.ok(proxyContent.includes('/agency/dashboard'))
 })
+
+test('Agency Tier Catalog: All 4 tiers exported with non-hardcoded pricing and slot capacities', () => {
+  assert.equal(AGENCY_TIERS_LIST.length, 4)
+  
+  const starter = getAgencyTierConfig('starter_3')
+  assert.equal(starter.name, 'Starter 3-Pack')
+  assert.equal(starter.slots, 3)
+  assert.equal(starter.price, 129)
+
+  const growth = getAgencyTierConfig('growth_10')
+  assert.equal(growth.name, 'Growth 10-Pack')
+  assert.equal(growth.slots, 10)
+  assert.equal(growth.price, 349)
+
+  const scale = getAgencyTierConfig('scale_25')
+  assert.equal(scale.name, 'Scale 25-Pack')
+  assert.equal(scale.slots, 25)
+  assert.equal(scale.price, 699)
+
+  const dominance = getAgencyTierConfig('dominance_50')
+  assert.equal(dominance.name, 'Dominance 50-Pack')
+  assert.equal(dominance.slots, 50)
+  assert.equal(dominance.price, 1199)
+})
+
+test('Agency Tier Switching: Can upgrade or select plan dynamically', async () => {
+  let updatedTier = null
+  let updatedSlots = null
+
+  const mockSupabase = {
+    from: (table) => {
+      if (table === 'partner_agencies') {
+        return {
+          select: () => ({
+            or: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  subscription_tier: updatedTier || 'growth_10',
+                  total_slots: updatedSlots || 10
+                },
+                error: null
+              })
+            })
+          }),
+          update: (payload) => {
+            updatedTier = payload.subscription_tier
+            updatedSlots = payload.total_slots
+            return {
+              or: async () => ({ data: null, error: null })
+            }
+          }
+        }
+      }
+      if (table === 'organizations') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null })
+            })
+          })
+        }
+      }
+      return {
+        select: () => ({
+          in: () => ({
+            gte: async () => ({ data: [], error: null }),
+            eq: () => ({
+              gte: async () => ({ data: [], error: null })
+            })
+          })
+        })
+      }
+    }
+  }
+
+  // Switch to Scale 25-Pack
+  const result = await updateAgencySubscriptionTier('agency-partner', 'scale_25', mockSupabase)
+  assert.equal(updatedTier, 'scale_25')
+  assert.equal(updatedSlots, 25)
+  assert.equal(result.total_slots, 25)
+
+  // Switch to Dominance 50-Pack
+  const result50 = await updateAgencySubscriptionTier('agency-partner', 'dominance_50', mockSupabase)
+  assert.equal(updatedTier, 'dominance_50')
+  assert.equal(updatedSlots, 50)
+  assert.equal(result50.total_slots, 50)
+})
+
+test('Agency Tier Downgrade: Prevents switching if active clients exceed target capacity', async () => {
+  const mockSupabaseWithOccupancy = {
+    from: (table) => {
+      if (table === 'partner_agencies') {
+        return {
+          select: () => ({
+            or: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  ...DEFAULT_DEMO_AGENCY,
+                  subscription_tier: 'growth_10',
+                  total_slots: 10
+                },
+                error: null
+              })
+            })
+          })
+        }
+      }
+      if (table === 'organizations') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({
+                // 5 active clients deployed
+                data: [
+                  { id: '1', name: 'Org 1', industry: 'plumbing' },
+                  { id: '2', name: 'Org 2', industry: 'hvac' },
+                  { id: '3', name: 'Org 3', industry: 'roofing' },
+                  { id: '4', name: 'Org 4', industry: 'electrical' },
+                  { id: '5', name: 'Org 5', industry: 'pest' }
+                ],
+                error: null
+              })
+            })
+          })
+        }
+      }
+      return {
+        select: () => ({
+          in: () => ({
+            gte: async () => ({ data: [], error: null }),
+            eq: () => ({
+              gte: async () => ({ data: [], error: null })
+            })
+          })
+        })
+      }
+    }
+  }
+
+  // Downgrade to starter_3 (capacity 3) when 5 clients are active must throw
+  await assert.rejects(
+    async () => {
+      await updateAgencySubscriptionTier('agency-partner', 'starter_3', mockSupabaseWithOccupancy)
+    },
+    /Cannot switch to Starter 3-Pack \(3 slots\): Your agency currently has 5 active client slots deployed/
+  )
+})
+
