@@ -12,7 +12,11 @@ import {
   Layers, 
   Download,
   AlertCircle,
-  Loader2
+  Loader2,
+  Truck,
+  Users,
+  RefreshCw,
+  HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -280,6 +284,59 @@ export default function AgencyBillingPage() {
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* Slot Capacity & Multi-Van Policy Card */}
+      <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs space-y-5 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-4">
+          <div>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Truck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>How Client Slots &amp; Multi-Van Fleets Work</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+              Transparent wholesale licensing designed for marketing agencies managing trade client rosters.
+            </p>
+          </div>
+          <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
+            Wholesale Economics
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Pillar 1 */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+              <Layers className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>1 Slot = 1 Contractor Client</span>
+            </div>
+            <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
+              Each slot gives your client a dedicated workspace, phone line, and booking portal. Direct contractors pay $99/mo (Solo) or $199/mo (Fleet); as an agency partner, your wholesale cost is just $23.98 to $43.00/slot/mo.
+            </p>
+          </div>
+
+          {/* Pillar 2 */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+              <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>Multi-Van Included (Up to 5 Techs)</span>
+            </div>
+            <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
+              Every agency client slot includes multi-technician dispatch, field technician mobile links, and live crew scheduling for up to 5 technicians per contractor. No surprise per-van fees.
+            </p>
+          </div>
+
+          {/* Pillar 3 */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-750 space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+              <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span>Reassign Slots Anytime (Zero Churn)</span>
+            </div>
+            <p className="text-slate-600 dark:text-zinc-400 leading-relaxed text-[11px]">
+              If a contractor client pauses their marketing retainer, their slot opens immediately. Reassign the license to a new plumbing, HVAC, or roofing client with 1 click without paying setup fees.
+            </p>
+          </div>
         </div>
       </div>
 

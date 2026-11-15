@@ -241,6 +241,7 @@ export async function deployClientToAgencySlot(
     shopPhone: clientDetails.shopPhone,
     timezone: clientDetails.timezone || 'America/Chicago',
     googleReviewUrl: clientDetails.googleReviewUrl || undefined,
+    initialPlanStatus: 'fleet'
   })
 
   if (!onboardResult.success || !onboardResult.organization) {
@@ -252,11 +253,16 @@ export async function deployClientToAgencySlot(
 
   const tenant = onboardResult.organization
 
-  // 3. Link organization to the partner agency in database
+  // 3. Link organization to the partner agency in database and activate fleet access
   try {
     await supabase
       .from('organizations')
-      .update({ partner_agency_id: overview.agency.id })
+      .update({ 
+        partner_agency_id: overview.agency.id,
+        subscription_status: 'active',
+        plan_id: 'fleet',
+        operation_mode: 'multi_crew'
+      })
       .eq('id', tenant.id)
   } catch {
     // Non-fatal if migration column not present yet

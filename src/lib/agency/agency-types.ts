@@ -24,7 +24,7 @@ export const AGENCY_TIERS_CONFIG: Record<AgencyTier, AgencyTierConfig> = {
       'Dedicated 10DLC Local Phone Numbers',
       'Automated Missed-Call Text-Back',
       'Campaign Lead & Revenue Attribution',
-      'Mobile Field Technician Dispatch'
+      'Solo & Multi-Van (Up to 5 Techs Included)'
     ],
     highlight: false
   },
