@@ -809,10 +809,10 @@ export default function TeamPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Field Truck Mobile Route Portal (`/client/field`)
+                    Field Route Mobile Portal
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Streamlined, distraction-free dispatch cockpit designed for phone screens and truck dashboards.
+                    Mobile-optimized view for technicians on the road.
                   </p>
                 </div>
               </div>

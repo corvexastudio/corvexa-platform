@@ -489,7 +489,7 @@ export default function ReviewsPage() {
             )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
-            Automated Google review booster, front-door technician QR scanner, and private customer feedback interceptor.
+            Collect 5-star Google reviews and resolve customer feedback after completed jobs.
           </p>
         </div>
 
@@ -1054,10 +1054,10 @@ export default function ReviewsPage() {
             </div>
             <div className="space-y-1">
               <h2 className="font-bold text-slate-900 dark:text-zinc-100 text-sm">
-                Private Negative Feedback Interceptor
+                Private Customer Feedback
               </h2>
               <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
-                When customers rate their service <strong className="text-slate-900 dark:text-zinc-100">1, 2, or 3 stars</strong> on their live tracking link, their response is kept private and routed directly to this inbox while alerting your phone. This gives you the immediate opportunity to make things right before they post a negative review on Google.
+                Ratings under 4 stars on live arrival tracking links are kept private and routed here so you can resolve customer concerns directly.
               </p>
             </div>
           </div>
@@ -1251,8 +1251,8 @@ export default function ReviewsPage() {
       <Modal
         open={showQrModal}
         onOpenChange={setShowQrModal}
-        title="Technician Door QR Scanner"
-        description="Show this high-contrast QR code to homeowners at their front door. Their camera scans directly to your Google review link."
+        title="Customer Review QR Code"
+        description="Have customers scan this QR code on-site to open your Google review link directly."
         size="md"
       >
         <div className="space-y-4 py-2 flex flex-col items-center text-center">

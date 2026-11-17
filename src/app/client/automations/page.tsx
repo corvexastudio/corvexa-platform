@@ -447,7 +447,7 @@ export default function AutomationsPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Real-time automated communication rules configured for field service response and review growth.
+            Automated text replies, appointment reminders, and Google review requests.
           </p>
         </div>
 
@@ -665,7 +665,7 @@ export default function AutomationsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                    Fires an immediate SMS within 3 seconds of a missed call so prospective customers do not dial competitors.
+                    Sends an instant text with your booking link within 3 seconds of a missed call.
                   </p>
                 </div>
               </div>
@@ -811,14 +811,14 @@ export default function AutomationsPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                      Post-Job Google Review Booster
+                      Post-Job Google Review Request
                     </h2>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/40">
                       +30m Post-Completion
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                    Automatically sends an SMS asking homeowners to share honest feedback on your Google Business Profile after work is marked complete.
+                    Sends a Google review link by text after a job is marked completed.
                   </p>
                 </div>
               </div>

@@ -448,7 +448,7 @@ export default function ServicesPage() {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
-            Configure trade offerings, diagnostic inspection fees, baseline rates, and customer public booking availability.
+            Manage your service list, prices, and online booking options.
           </p>
         </div>
 
@@ -854,7 +854,7 @@ export default function ServicesPage() {
         open={isCatalogModalOpen}
         onOpenChange={setIsCatalogModalOpen}
         title="Load Trade Starter Catalog"
-        description="Select any home service trade to import 3 pre-curated services with flexible durations and quote-on-site workflows (no fixed pricing lock-in)."
+        description="Select your trade to load standard services. You can adjust prices and durations anytime."
         size="lg"
       >
         <div className="space-y-4 pt-1">

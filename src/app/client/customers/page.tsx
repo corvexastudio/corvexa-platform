@@ -223,7 +223,7 @@ export default function CustomersPage() {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
-            Verified homeowner profiles, property equipment notes, service cadences, and cumulative lifetime value.
+            Customer history, equipment details, and repeat service records.
           </p>
         </div>
 
@@ -550,7 +550,7 @@ export default function CustomersPage() {
         open={showAddModal}
         onOpenChange={setShowAddModal}
         title="Add Customer Profile"
-        description="Create a verified contact in your customer directory with property notes and service intervals."
+        description="Add a customer with address, equipment, and contact details."
         size="md"
       >
         <form onSubmit={handleAddCustomer} className="space-y-4">

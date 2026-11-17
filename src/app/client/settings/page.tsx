@@ -1856,9 +1856,9 @@ export default function SettingsPage() {
             <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
               <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div>
-                <span className="font-semibold">Using a discount mobile carrier or MVNO (Mint Mobile, Visible, Cricket, Metro, Google Fi)?</span>
+                <span className="font-semibold">Using a prepaid carrier (Mint, Visible, Cricket, Metro, Google Fi)?</span>
                 <p className="mt-0.5 text-amber-700 dark:text-amber-400/90 leading-relaxed">
-                  Discount mobile virtual network operators (MVNOs) may require carrier-specific forwarding star-codes or manual activation via your carrier&apos;s mobile app or customer support portal. If keypad dialing returns a carrier error, contact your wireless provider to request &quot;Conditional No-Answer Call Forwarding&quot; to your CaptoDesk phone number.
+                  Some prepaid carriers require activating call forwarding in their mobile app or contacting support to enable &quot;Conditional Call Forwarding&quot;.
                 </p>
               </div>
             </div>
@@ -1891,7 +1891,7 @@ export default function SettingsPage() {
                   {formData.tracking_mode === 'milestone' && <Check className="h-4 w-4 text-blue-600" />}
                 </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                  Shows clear stage progression: Scheduled ➔ En Route (with ETA) ➔ Arrived. Protects technician exact GPS location while on route.
+                  Shows stage progression: Scheduled ➔ En Route (with ETA) ➔ Arrived, while keeping your exact location private.
                 </p>
               </div>
 
@@ -1909,7 +1909,7 @@ export default function SettingsPage() {
                   {formData.tracking_mode === 'geofence' && <Check className="h-4 w-4 text-blue-600" />}
                 </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-                  Displays live moving van pin on interactive map once within {formData.tracking_geofence_miles} miles of the homeowner address.
+                  Shows live vehicle pin on a map once the technician is within {formData.tracking_geofence_miles} miles of the address.
                 </p>
               </div>
             </div>

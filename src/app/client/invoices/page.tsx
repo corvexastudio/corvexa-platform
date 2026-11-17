@@ -772,7 +772,7 @@ function ClientInvoicesContent() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Dispatch digital payment links via SMS, record on-site cash/checks, and auto-issue verified customer receipts.
+            Send text payment links, take card payments on-site, and track paid invoices.
           </p>
         </div>
 

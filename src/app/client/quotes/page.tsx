@@ -529,7 +529,7 @@ function ClientQuotesContent() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Build itemized estimates, require upfront deposits, and dispatch digital approval links via SMS.
+            Send estimates, collect deposits, and get customer approval by text.
           </p>
         </div>
 
