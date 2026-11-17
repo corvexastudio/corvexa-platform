@@ -505,7 +505,7 @@ export default function AutomationsPage() {
         <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-              Armed Rules
+              Active Automations
             </span>
             <div className="h-7 w-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Zap className="h-4 w-4" />
@@ -587,7 +587,7 @@ export default function AutomationsPage() {
               {loading ? '—' : (metrics.totalDispatches > 0 ? metrics.deliveryRate : '100%')}
             </span>
             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-              {metrics.totalDispatches > 0 ? '10DLC Verified' : '10DLC Ready'}
+              {metrics.totalDispatches > 0 ? 'Carrier Verified' : 'Carrier Ready'}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
@@ -605,14 +605,14 @@ export default function AutomationsPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-slate-900 dark:text-zinc-100">
-                Connected Line: {hasDedicatedPhoneNumber(settings) ? settings.telnyx_phone_number : `${resolveSenderPhone(settings)} (Shared Trial Toll-Free)`}
+                Connected Line: {hasDedicatedPhoneNumber(settings) ? settings.telnyx_phone_number : `${resolveSenderPhone(settings)} (Starter Pass Line)`}
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/40">
-                {hasDedicatedPhoneNumber(settings) ? 'Dedicated Business DID' : 'Verified Toll-Free Trial'}
+                {hasDedicatedPhoneNumber(settings) ? 'Dedicated Business Line' : 'Starter Pass Line'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-              Carrier route: Direct Telecom Voice &amp; SMS Gateway with automated multi-zone failover
+              Direct carrier route: Voice &amp; SMS active with duplicate protection
             </p>
           </div>
         </div>

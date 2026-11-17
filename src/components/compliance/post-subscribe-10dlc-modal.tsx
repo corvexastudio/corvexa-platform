@@ -86,7 +86,7 @@ export function PostSubscribe10DlcModal({
       const data = await res.json()
       if (res.ok && data.success) {
         setSubmitted(true)
-        toast.success('Carrier 10DLC registration submitted successfully!')
+        toast.success('Carrier verification submitted successfully!')
         if (onSuccess) onSuccess()
       } else {
         toast.error(data.error || 'Failed to submit carrier registration.')
@@ -110,15 +110,15 @@ export function PostSubscribe10DlcModal({
           </div>
           <div>
             <span className="text-base font-bold text-slate-900 dark:text-zinc-100">
-              {submitted ? 'Carrier Registration Submitted!' : `Welcome to ${planTierName}! Carrier Setup`}
+              {submitted ? 'Carrier Registration Submitted!' : `Welcome to ${planTierName}! Business Line Setup`}
             </span>
           </div>
         </div>
       }
       description={
         submitted
-          ? 'Your dedicated business line is now queued for A2P 10DLC brand approval.'
-          : 'US wireless carriers (Verizon, AT&T, T-Mobile) require 1-time 10DLC registration so your 3-second missed-call text-backs deliver reliably and are never filtered as spam.'
+          ? 'Your dedicated business line is now queued for carrier verification.'
+          : 'US mobile carriers (Verizon, AT&T, T-Mobile) require one-time business verification so your missed-call text-backs deliver reliably without being blocked.'
       }
     >
       {submitted ? (
@@ -131,7 +131,7 @@ export function PostSubscribe10DlcModal({
               Application Under Carrier Review
             </h4>
             <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
-              Our carrier team has queued your brand with TCR. In the meantime, your online booking link and mobile field portal are 100% active immediately.
+              Our team has submitted your business for verification. In the meantime, your online booking link and mobile field portal are 100% active immediately.
             </p>
           </div>
           <div className="pt-2">

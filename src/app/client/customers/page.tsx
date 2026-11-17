@@ -256,7 +256,7 @@ export default function CustomersPage() {
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Customers</p>
           <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '—' : counts.total}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Recorded CRM contacts</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Saved in directory</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
@@ -268,11 +268,11 @@ export default function CustomersPage() {
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Service Due / Overdue</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-400 tabular-nums mt-1">{loading ? '—' : counts.due + counts.overdue}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Reactivation candidates</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Due for repeat service</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Cumulative Lifetime Value</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Revenue Collected</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">
             {loading ? '—' : `$${Number(counts.totalLtv || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
           </p>
@@ -461,7 +461,7 @@ export default function CustomersPage() {
 
                         <TableCell className="py-3 px-4 text-right">
                           <span className="text-xs text-slate-500 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors inline-flex items-center gap-0.5 font-bold">
-                            <span>Dossier</span>
+                            <span>View Details</span>
                             <ChevronRight className="h-3 w-3" />
                           </span>
                         </TableCell>
@@ -533,7 +533,7 @@ export default function CustomersPage() {
                         onClick={() => router.push(`/client/customers/${contact.id}`)}
                         className="h-9 px-3 text-xs font-semibold border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
                       >
-                        <span>Open Dossier</span>
+                        <span>View Details</span>
                         <ChevronRight className="h-3 w-3 ml-1" />
                       </Button>
                     </div>

@@ -117,7 +117,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         })
       })
       if (res.ok) {
-        toast.success('Customer dossier updated successfully')
+        toast.success('Customer details updated successfully')
         loadProfile()
       } else {
         toast.error('Failed to update customer details')
@@ -194,7 +194,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
         <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-        <span className="text-xs text-slate-500 dark:text-zinc-400">Loading homeowner dossier...</span>
+        <span className="text-xs text-slate-500 dark:text-zinc-400">Loading customer details...</span>
       </div>
     )
   }
@@ -394,7 +394,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Split Layout: Main Medical Chart (7 cols) + Property Dossier (5 cols) */}
+      {/* Split Layout: Job History & Timeline (7 cols) + Property & Equipment (5 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Unified Chronological Timeline (7 cols) */}
@@ -405,7 +405,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
               <div>
                 <h2 className="font-bold text-sm text-slate-900 dark:text-zinc-100">
-                  Customer Medical Chart &amp; Activity
+                  Customer Activity &amp; Job History
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Chronological unified feed of dispatches, calls, quotes, invoices, and payments.
@@ -529,13 +529,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Right Column: Property Dossier, Equipment & Notes (5 cols) */}
+        {/* Right Column: Property Details, Equipment & Notes (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <form onSubmit={handleSaveContact} className="border border-slate-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
               <h2 className="font-bold text-sm text-slate-900 dark:text-zinc-100 flex items-center gap-2">
                 <Wrench className="w-4 h-4 text-blue-500" />
-                <span>Property &amp; Equipment Dossier</span>
+                <span>Property &amp; Equipment Details</span>
               </h2>
             </div>
 

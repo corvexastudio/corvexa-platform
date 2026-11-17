@@ -420,7 +420,7 @@ export default function TeamPage() {
             title="Toggle between Solo Operator View and Fleet Crew View"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500" />
-            <span>{currentMode === 'solo' ? 'Preview Fleet Mode' : 'Solo Dossier View'}</span>
+            <span>{currentMode === 'solo' ? 'Preview Fleet Mode' : 'Solo Operator View'}</span>
           </button>
 
           {currentMode === 'solo' ? (
@@ -718,7 +718,7 @@ export default function TeamPage() {
       {/* Solo Operator Mode Cockpit */}
       {currentMode === 'solo' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Operator Dossier, Truck Portal, and Expansion Card */}
+          {/* Left Column: Operator Profile, Route Link, and Fleet Expansion */}
           <div className="lg:col-span-7 space-y-6">
             {/* Operator Credentials Card */}
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-4">
@@ -778,12 +778,12 @@ export default function TeamPage() {
                 <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800/80 space-y-1">
                   <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    10DLC Carrier Status
+                    SMS Carrier Status
                   </span>
                   <p className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     {organization?.carrier_registration_status === 'verified' || organization?.carrier_registration_status === 'registered'
-                      ? 'A2P Verified & Active'
+                      ? 'Carrier Verified & Active'
                       : hasDedicatedPhoneNumber(organization)
                         ? 'Dedicated Line Active'
                         : 'Verified Trial Toll-Free'}
@@ -955,7 +955,7 @@ export default function TeamPage() {
                   <li>• Stripe payouts, bank account, and SaaS subscription billing</li>
                   <li>• Staff invites, role assignments, and team removal</li>
                   <li>• Service catalog price book &amp; flat rate adjustments</li>
-                  <li>• 10DLC telephony compliance and call forwarding configuration</li>
+                  <li>• Business phone, messaging, and call forwarding configuration</li>
                 </ul>
               </div>
 

@@ -1066,10 +1066,10 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  Legal Entity &amp; 10DLC Tax Compliance
+                  Business Legal Details &amp; Tax ID
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Required for TCR carrier registration and professional invoice footers.
+                  Required for verified business texting and invoice footers.
                 </p>
               </div>
             </div>
@@ -1475,7 +1475,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span><strong>3-Second Missed Call</strong> AI Text-Back</span>
+                              <span><strong>3-Second Missed Call</strong> Auto-Text</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1491,7 +1491,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Domino&apos;s live technician tracking links</span>
+                              <span>Live homeowner arrival map (/t/[token])</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1684,7 +1684,7 @@ export default function SettingsPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: PHONE & 10DLC CARRIER HARDWARE                                      */}
+      {/* TAB 3: BUSINESS PHONE & CALL FORWARDING                                     */}
       {/* ========================================================================= */}
       {activeTab === 'telephony' && (
         <form onSubmit={handleSave} className="space-y-6">
@@ -1699,7 +1699,7 @@ export default function SettingsPage() {
                     ? 'Dedicated Business Phone Line (Direct Carrier Route)'
                     : telephonyMeta.plan_id === 'free' || telephonyMeta.subscription_status === 'trial'
                       ? 'Shared Trial Toll-Free Line (3-Job Starter Pass)'
-                      : 'Dedicated Business Line (Provisioning Active)'}
+                      : 'Dedicated Business Line (Activating...)'}
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                   {hasDedicatedLine
@@ -1718,7 +1718,7 @@ export default function SettingsPage() {
               )}>
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {hasDedicatedLine
-                  ? (isCarrierVerified ? 'Dedicated DID • Verified' : 'Dedicated DID • Active')
+                  ? (isCarrierVerified ? 'Dedicated Line • Verified' : 'Dedicated Line • Active')
                   : 'Verified Platform Toll-Free'}
               </span>
             </div>
@@ -2222,7 +2222,7 @@ export default function SettingsPage() {
         <div className="space-y-4 py-2">
           {selectedTargetPlan?.amount === 0 ? (
             <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-              Your dedicated 10DLC phone line and automated text-back will be paused at the end of the current billing cycle. You will keep your Free Starter Pass with unlimited online customer bookings, calendar scheduling, customer CRM, and job photos with $0 platform fees.
+              Your dedicated business phone line and automated text-back will be paused at the end of the current billing cycle. You will keep your Free Starter Pass with unlimited online customer bookings, calendar scheduling, customer CRM, and job photos with $0 platform fees.
             </div>
           ) : (
             <p className="text-xs text-zinc-600 dark:text-zinc-400">

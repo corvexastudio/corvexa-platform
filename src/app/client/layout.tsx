@@ -911,10 +911,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   </div>
                   <div>
                     <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                      Action Required: Register for US Carrier 10DLC (Missed-Call Text-Back)
+                      Action Required: Verify Your Business Number for Direct Texting
                     </h3>
                     <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
-                      US wireless carriers (Verizon, AT&amp;T, T-Mobile) require all automated business text messages to be pre-registered under A2P 10DLC. Complete your legal entity name, EIN, and address so your missed-call text-backs are verified and never filtered.
+                      US mobile carriers (Verizon, AT&amp;T, T-Mobile) require business verification for automated texts. Add your legal business name and address so your missed-call text-backs deliver reliably without being blocked.
                     </p>
                   </div>
                 </div>
@@ -1166,7 +1166,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         onSuccess={() => {
           setNeeds10DlcPrompt(false)
           setShow10DlcModal(false)
-          toast.success('Carrier 10DLC registration submitted successfully!')
+          toast.success('Carrier verification submitted successfully!')
         }}
       />
     </WorkspaceContext.Provider>

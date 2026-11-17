@@ -998,17 +998,17 @@ export default function InboxPage() {
                         ? "border-blue-200 bg-blue-50/80 text-blue-700 hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
                         : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-slate-50"
                     )}
-                    title={dossierOpen ? "Collapse Dossier to expand chat" : "Expand Customer Dossier"}
+                    title={dossierOpen ? "Collapse details to expand chat" : "Expand Customer Details"}
                   >
                     {dossierOpen ? (
                       <>
                         <PanelRightClose className="h-3.5 w-3.5" />
-                        <span className="hidden xl:inline text-[11px]">Hide Dossier</span>
+                        <span className="hidden xl:inline text-[11px]">Hide Details</span>
                       </>
                     ) : (
                       <>
                         <PanelRightOpen className="h-3.5 w-3.5" />
-                        <span className="text-[11px]">Dossier</span>
+                        <span className="text-[11px]">Details</span>
                       </>
                     )}
                   </button>
@@ -1019,7 +1019,7 @@ export default function InboxPage() {
                     onClick={() => setMobileDossierOpen(true)}
                     className="lg:hidden h-8 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 text-xs font-semibold bg-white dark:bg-zinc-900"
                   >
-                    Dossier
+                    Details
                   </button>
                 </div>
               </div>
@@ -1172,14 +1172,14 @@ export default function InboxPage() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-                Customer Dossier
+                Customer Details
               </span>
               <button
                 type="button"
                 onClick={() => setDossierOpen(false)}
                 className="h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Collapse Dossier"
-                aria-label="Collapse Customer Dossier"
+                title="Collapse Details"
+                aria-label="Collapse Customer Details"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -1300,7 +1300,7 @@ export default function InboxPage() {
               aria-label="View customer profile"
               className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors"
             >
-              <span>Full Customer Dossier & CRM</span>
+              <span>View Full Customer Profile</span>
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -1448,12 +1448,12 @@ export default function InboxPage() {
         </form>
       </Modal>
 
-      {/* Mobile Dossier Drawer Modal */}
+      {/* Mobile Details Drawer Modal */}
       {mobileDossierOpen && activeConv && (
         <Modal
           open={mobileDossierOpen}
           onOpenChange={setMobileDossierOpen}
-          title="Customer Dossier & Lead Info"
+          title="Customer & Lead Details"
         >
           <div className="space-y-4 py-1 text-xs">
             <div>

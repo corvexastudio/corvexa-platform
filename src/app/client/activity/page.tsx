@@ -207,11 +207,11 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Message payload if present */}
+            {/* Message content if present */}
             {selected.metadata?.message && (
               <div className="mb-3">
                 <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-zinc-400 mb-1.5 flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" /> Message Payload
+                  <MessageSquare className="h-3 w-3" /> Message Text
                 </p>
                 <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-800 dark:text-zinc-300 rounded-xl p-3">
                   {selected.metadata.message}
