@@ -771,7 +771,7 @@ export default function ServicesPage() {
                   {/* Title & 48px Touch Toggle */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 truncate" title={svc.name}>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 line-clamp-2 leading-snug min-h-[2.5rem] flex items-center" title={svc.name}>
                         {svc.name}
                       </h3>
                     </div>

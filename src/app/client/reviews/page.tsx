@@ -48,6 +48,8 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { TRADE_REVIEW_TEMPLATES, type TradeReviewTemplate } from '@/lib/constants/trade-review-templates'
+import { formatCustomerName } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 
 interface ReviewRequestItem {
   id: string
@@ -552,13 +554,13 @@ export default function ReviewsPage() {
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Private Interceptions</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Direct Customer Feedback</p>
           <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{feedbackLoading ? '—' : feedbackList.length}</p>
           <p className="text-[11px] mt-0.5 font-medium">
             {unresolvedCount > 0 ? (
               <span className="text-rose-600 dark:text-rose-400 font-semibold tabular-nums">{unresolvedCount} need follow-up</span>
             ) : (
-              <span className="text-emerald-600 dark:text-emerald-400">All complaints resolved</span>
+              <span className="text-emerald-600 dark:text-emerald-400">All feedback resolved</span>
             )}
           </p>
         </div>
@@ -594,7 +596,7 @@ export default function ReviewsPage() {
           )}
         >
           <ShieldAlert className={cn("h-3.5 w-3.5", activeTab === 'feedback' ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-zinc-500")} />
-          <span>Private Complaints Interceptor</span>
+          <span>Direct Customer Feedback</span>
           {unresolvedCount > 0 ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
               <span>{unresolvedCount}</span>
@@ -659,7 +661,7 @@ export default function ReviewsPage() {
                   <span>Dispatch One-Off Review Invite</span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Send an instant FTC-compliant SMS invitation directly to a customer's phone from the truck.
+                  Send a direct review invite by SMS to a recent customer.
                 </p>
               </div>
 
@@ -725,7 +727,7 @@ export default function ReviewsPage() {
                     <span>Trade Preset (21 Home Service Trades)</span>
                   </Label>
                   <span className="text-[11px] text-slate-400 dark:text-zinc-500">
-                    Compliant non-gating copy
+                    Industry templates
                   </span>
                 </div>
 
@@ -949,10 +951,10 @@ export default function ReviewsPage() {
                         <TableRow key={req.id} className="border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-colors">
                           <TableCell className="py-3 px-4">
                             <div className="font-semibold text-xs text-slate-900 dark:text-zinc-100">
-                              {req.contacts?.name || 'Customer'}
+                              {formatCustomerName(req.contacts?.name) || 'Customer'}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                              {req.contacts?.phone || '—'}
+                              {req.contacts?.phone ? formatNationalUs(req.contacts.phone) : '—'}
                             </div>
                           </TableCell>
 
@@ -1097,7 +1099,7 @@ export default function ReviewsPage() {
           {/* Complaints Feed */}
           <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
-              <h2 className="font-bold text-xs text-slate-900 dark:text-zinc-200">Customer Complaints Log</h2>
+              <h2 className="font-bold text-xs text-slate-900 dark:text-zinc-200">Direct Customer Feedback Log</h2>
               <span className="text-[11px] text-slate-500 dark:text-zinc-500 tabular-nums">{filteredFeedback.length} records</span>
             </div>
 
@@ -1115,10 +1117,10 @@ export default function ReviewsPage() {
               <div className="p-8">
                 <EmptyState
                   icon={ShieldCheck}
-                  title="No Intercepted Complaints"
+                  title="No Direct Feedback Issues"
                   description={
                     feedbackFilter === 'unresolved'
-                      ? "Great work! All intercepted customer issues have been resolved."
+                      ? "Great work! All direct customer feedback issues have been resolved."
                       : "When customers rate their job under 4 stars on their tracking link, their comment is routed here privately, alerting you before it reaches Google."
                   }
                 />

@@ -425,7 +425,7 @@ export default function CustomersPage() {
                           {contact.tags && contact.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {contact.tags.slice(0, 3).map((t: string) => (
-                                <span key={t} className="text-[10px] bg-slate-100 text-slate-600 dark:bg-zinc-950 dark:text-zinc-400 px-1.5 py-0.2 rounded border border-slate-200 dark:border-zinc-800 font-medium">
+                                <span key={t} className="text-[10px] bg-slate-100 text-slate-600 dark:bg-zinc-950 dark:text-zinc-400 px-1.5 py-0.2 rounded border border-slate-200 dark:border-zinc-800 font-medium capitalize">
                                   {t}
                                 </span>
                               ))}

@@ -50,6 +50,8 @@ import {
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { INDUSTRY_LIST, INDUSTRY_PRESETS, getIndustryPreset, type IndustryPreset } from '@/lib/constants/industries'
+import { formatCustomerName } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 
 interface QuoteItem {
   id?: string
@@ -557,7 +559,7 @@ function ClientQuotesContent() {
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Active Pipeline</p>
             <Clock className="h-4 w-4 text-amber-500/80" />
           </div>
-          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums font-mono mt-1">${pendingValue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums font-mono mt-1">${pendingValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
             {pendingQuotes.length} estimate{pendingQuotes.length === 1 ? '' : 's'} awaiting homeowner response
           </p>
@@ -568,7 +570,7 @@ function ClientQuotesContent() {
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Approved Revenue</p>
             <CheckCircle2 className="h-4 w-4 text-emerald-500/80" />
           </div>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums font-mono mt-1">${acceptedValue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums font-mono mt-1">${acceptedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
             {acceptedQuotes.length} approved · ready to schedule & invoice
           </p>
@@ -699,10 +701,10 @@ function ClientQuotesContent() {
 
                       <TableCell className="py-3.5 px-4">
                         <div className="font-semibold text-xs text-slate-900 dark:text-zinc-100">
-                          {quote.contact?.name || 'Homeowner'}
+                          {formatCustomerName(quote.contact?.name) || 'Homeowner'}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                          {quote.contact?.phone}
+                          {quote.contact?.phone ? formatNationalUs(quote.contact.phone) : '—'}
                         </div>
                       </TableCell>
 
@@ -737,11 +739,11 @@ function ClientQuotesContent() {
 
                       <TableCell className="py-3.5 px-4 text-right tabular-nums">
                         <div className="font-bold text-xs text-slate-900 dark:text-zinc-100 font-mono">
-                          ${Number(quote.total).toFixed(2)}
+                          ${Number(quote.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         {quote.requires_deposit && (
                           <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">
-                            Deposit: ${Number(quote.deposit_amount || 0).toFixed(2)}
+                            Deposit: ${Number(quote.deposit_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         )}
                       </TableCell>
@@ -863,16 +865,18 @@ function ClientQuotesContent() {
                         {getQuoteStatusBadge(quote.status)}
                       </div>
                       <h3 className="font-semibold text-xs text-slate-900 dark:text-zinc-100 mt-1">{quote.title}</h3>
-                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">{quote.contact?.name || 'Homeowner'} • {quote.contact?.phone}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                        {formatCustomerName(quote.contact?.name) || 'Homeowner'} • {quote.contact?.phone ? formatNationalUs(quote.contact.phone) : '—'}
+                      </p>
                     </div>
 
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-900 dark:text-zinc-100 tabular-nums font-mono">
-                        ${Number(quote.total).toFixed(2)}
+                        ${Number(quote.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       {quote.requires_deposit && (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          Dep: ${Number(quote.deposit_amount || 0).toFixed(2)}
+                          Dep: ${Number(quote.deposit_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       )}
                       <p className="text-[10px] text-slate-400 dark:text-zinc-500">

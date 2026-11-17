@@ -55,6 +55,8 @@ import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { INDUSTRY_LIST, getIndustryPreset, type IndustryPreset } from '@/lib/constants/industries'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
+import { formatCustomerName } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 
 interface InvoiceItem {
   id?: string
@@ -813,7 +815,7 @@ function ClientInvoicesContent() {
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Receivables Due</p>
             <Clock className="h-4 w-4 text-blue-500/80" />
           </div>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums font-mono mt-1">${totalDue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums font-mono mt-1">${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
             {unpaidInvoices.length} open invoice{unpaidInvoices.length === 1 ? '' : 's'}
           </p>
@@ -824,7 +826,7 @@ function ClientInvoicesContent() {
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Collected</p>
             <CheckCircle2 className="h-4 w-4 text-emerald-500/80" />
           </div>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums font-mono mt-1">${totalPaid.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums font-mono mt-1">${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
             {paidInvoices.length} paid in full
           </p>
@@ -837,7 +839,7 @@ function ClientInvoicesContent() {
           </div>
           <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums font-mono mt-1">{overdueInvoices.length}</p>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 font-mono">
-            ${overdueAmount.toFixed(2)} past due date
+            ${overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} past due date
           </p>
         </div>
 
@@ -846,7 +848,7 @@ function ClientInvoicesContent() {
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Gross Invoiced</p>
             <DollarSign className="h-4 w-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums font-mono mt-1">${totalInvoiced.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums font-mono mt-1">${totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
             {invoices.length} lifetime invoices
           </p>
@@ -963,10 +965,10 @@ function ClientInvoicesContent() {
 
                       <TableCell className="py-3.5 px-4">
                         <div className="font-semibold text-xs text-slate-900 dark:text-zinc-100">
-                          {inv.contact?.name || 'Customer'}
+                          {formatCustomerName(inv.contact?.name) || 'Customer'}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                          {inv.contact?.phone}
+                          {inv.contact?.phone ? formatNationalUs(inv.contact.phone) : '—'}
                         </div>
                       </TableCell>
 
@@ -1012,11 +1014,11 @@ function ClientInvoicesContent() {
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4 text-right font-semibold text-xs text-blue-600 dark:text-blue-400 font-mono tabular-nums">
-                        ${Number(inv.amount_due).toFixed(2)}
+                        ${Number(inv.amount_due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4 text-right font-bold text-xs text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
-                        ${Number(inv.total).toFixed(2)}
+                        ${Number(inv.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4 text-right">
