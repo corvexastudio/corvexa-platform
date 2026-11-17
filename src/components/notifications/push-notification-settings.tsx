@@ -154,9 +154,6 @@ export function PushNotificationSettings() {
                 <PhoneMissed className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
                 Missed Calls
               </span>
-              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-200/60 dark:bg-zinc-900 border border-slate-300/60 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-semibold">
-                Critical
-              </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400">
               Recovered calls and instant caller replies.
@@ -178,9 +175,6 @@ export function PushNotificationSettings() {
                 <MessageSquare className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
                 Customer Replies
               </span>
-              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-200/60 dark:bg-zinc-900 border border-slate-300/60 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-semibold">
-                Critical
-              </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400">
               Inbound SMS messages from leads &amp; clients.
@@ -201,9 +195,6 @@ export function PushNotificationSettings() {
               <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200 flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
                 New Bookings
-              </span>
-              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-200/60 dark:bg-zinc-900 border border-slate-300/60 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-semibold">
-                Critical
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400">

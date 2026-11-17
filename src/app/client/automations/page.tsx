@@ -443,7 +443,7 @@ export default function AutomationsPage() {
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              24/7 Autopilot Live
+              Automations Active
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
@@ -605,7 +605,7 @@ export default function AutomationsPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-slate-900 dark:text-zinc-100">
-                Connected Line: {hasDedicatedPhoneNumber(settings) ? settings.telnyx_phone_number : `${resolveSenderPhone(settings)} (Starter Pass Line)`}
+                Connected Line: {hasDedicatedPhoneNumber(settings) ? settings.telnyx_phone_number : resolveSenderPhone(settings)}
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/40">
                 {hasDedicatedPhoneNumber(settings) ? 'Dedicated Business Line' : 'Starter Pass Line'}
@@ -908,7 +908,7 @@ export default function AutomationsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                    Eliminates costly customer no-shows with automated multi-touch notifications before arrival.
+                    Automated confirmation and reminder texts sent before scheduled arrival.
                   </p>
                 </div>
               </div>
@@ -1193,7 +1193,7 @@ export default function AutomationsPage() {
               Recent Automation Dispatches
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Live audit stream of triggered SMS responses, review invites, and booking confirmations.
+              Activity log of automated SMS responses, review invites, and reminders.
             </p>
           </div>
 
@@ -1204,14 +1204,14 @@ export default function AutomationsPage() {
             onClick={loadSettings}
             className="min-h-[40px] px-3 text-xs font-semibold border-slate-200 dark:border-zinc-800 cursor-pointer"
           >
-            Refresh Audit Stream
+            Refresh Log
           </Button>
         </div>
 
         {loadingLogs ? (
           <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
             <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-            <span className="text-xs">Loading audit stream...</span>
+            <span className="text-xs">Loading activity log...</span>
           </div>
         ) : activityLogs.length === 0 ? (
           <div className="py-8 text-center border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-4">

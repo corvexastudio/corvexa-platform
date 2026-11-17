@@ -801,7 +801,7 @@ export default function SettingsPage() {
           )}
         >
           <Smartphone className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
-          <span className="truncate">Phone &amp; Hardware</span>
+          <span className="truncate">Phone &amp; Call Forwarding</span>
         </button>
 
         <button
@@ -853,20 +853,20 @@ export default function SettingsPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                      {formData.logo_url ? 'Custom Brand Logo Active' : 'Automated Trade Monogram Active'}
+                      {formData.logo_url ? 'Company Logo' : 'Company Monogram'}
                     </span>
                     <span className={cn(
                       "px-2 py-0.5 rounded-full text-[10px] font-semibold",
                       formData.logo_url ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
                     )}>
-                      {formData.logo_url ? 'Custom Logo' : 'Smart Monogram'}
+                      {formData.logo_url ? 'Custom Logo' : 'Automatic'}
                     </span>
                   </div>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-sm leading-relaxed">
-                    Appears on homeowner invoices, online booking, live GPS tracking, and your workspace sidebar.
+                    Appears on invoices, online booking, arrival tracking, and your sidebar.
                   </p>
                   <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                    Recommended: Square or horizontal PNG/JPG with transparent or light background (max 5MB).
+                    Square or horizontal PNG or JPG (max 5MB).
                   </p>
                 </div>
               </div>
@@ -1024,7 +1024,7 @@ export default function SettingsPage() {
                         {formData.operation_mode === 'solo' && <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />}
                       </div>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        1 clean route, auto-assigned bookings, zero fleet clutter. Fits 1-2 person single-truck setups.
+                        Single route with auto-assigned bookings. Designed for 1–2 person setups.
                       </p>
                     </div>
                   </button>
@@ -1051,7 +1051,7 @@ export default function SettingsPage() {
                         {formData.operation_mode === 'multi_crew' && <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />}
                       </div>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        Multi-truck dispatch swimlanes, driver routing, morning crew SMS broadcast, and fleet roster.
+                        Multi-truck dispatch calendar, driver routing, morning SMS broadcasts, and crew roster.
                       </p>
                     </div>
                   </button>
@@ -1189,7 +1189,7 @@ export default function SettingsPage() {
               className="h-10 px-5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs min-h-[48px] sm:min-h-0 cursor-pointer"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
-              {saving ? 'Saving...' : 'Save Business Settings'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
 
@@ -1251,7 +1251,7 @@ export default function SettingsPage() {
                           ) : isPayingActive ? (
                             'Billed monthly via direct card processing'
                           ) : (
-                            'Free 3-Job Starter Pass. Process your first 3 customer jobs 100% free with automated dispatch, Stripe card invoicing, and Google reviews.'
+                            'Process your first 3 customer jobs with full dispatch, card invoicing, and automated review requests.'
                           )}
                         </p>
                       </div>
@@ -1465,7 +1465,7 @@ export default function SettingsPage() {
                           {/* Waived Setup Fee Callout Badge */}
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>Setup &amp; Carrier Reg: <span className="line-through text-zinc-400 dark:text-zinc-500">$199.00</span> <strong className="text-emerald-600 dark:text-emerald-400 font-bold">$0.00 (Waived!)</strong></span>
+                            <span>Carrier Registration: <span className="line-through text-zinc-400 dark:text-zinc-500">$199.00</span> <strong className="text-emerald-600 dark:text-emerald-400 font-bold">$0 (Waived)</strong></span>
                           </div>
 
                           <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 pt-2 border-t border-zinc-100 dark:border-zinc-800">
@@ -1522,7 +1522,7 @@ export default function SettingsPage() {
                               className="w-full h-10 sm:h-9 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5 min-h-[48px] sm:min-h-0"
                             >
                               {submittingPlanChange ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
-                              <span>Upgrade to Solo (${billingCycle === 'yearly' ? '$990/yr' : '$99/mo'})</span>
+                              <span>Upgrade to Solo ({billingCycle === 'yearly' ? '$990/yr' : '$99/mo'})</span>
                             </Button>
                           )}
                         </div>
@@ -1573,7 +1573,7 @@ export default function SettingsPage() {
                           {/* Waived Setup Fee Callout Badge */}
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>Setup &amp; Carrier Reg: <span className="line-through text-zinc-400 dark:text-zinc-500">$299.00</span> <strong className="text-emerald-600 dark:text-emerald-400 font-bold">$0.00 (Waived!)</strong></span>
+                            <span>Carrier Registration: <span className="line-through text-zinc-400 dark:text-zinc-500">$299.00</span> <strong className="text-emerald-600 dark:text-emerald-400 font-bold">$0 (Waived)</strong></span>
                           </div>
 
                           <ul className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300 pt-2 border-t border-zinc-100 dark:border-zinc-800">
@@ -1621,7 +1621,7 @@ export default function SettingsPage() {
                               className="w-full h-10 sm:h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs cursor-pointer flex items-center justify-center gap-1.5 min-h-[48px] sm:min-h-0"
                             >
                               {submittingPlanChange ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
-                              <span>Upgrade to Multi-Crew (${billingCycle === 'yearly' ? '$1,990/yr' : '$199/mo'})</span>
+                              <span>Upgrade to Multi-Crew ({billingCycle === 'yearly' ? '$1,990/yr' : '$199/mo'})</span>
                             </Button>
                           )}
                         </div>
@@ -1994,7 +1994,7 @@ export default function SettingsPage() {
               className="h-10 px-5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs min-h-[48px] sm:min-h-0 cursor-pointer"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
-              {saving ? 'Saving...' : 'Save Telephony Settings'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
 
@@ -2117,7 +2117,7 @@ export default function SettingsPage() {
 
               <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="space-y-0.5">
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100">Monday Morning Executive Summary SMS</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">Monday Morning Business Summary SMS</span>
                   <p className="text-[11px] text-zinc-500">
                     Dispatches a weekly report at 8:00 AM every Monday with jobs completed, revenue collected, and calls captured.
                   </p>
@@ -2153,7 +2153,7 @@ export default function SettingsPage() {
               className="h-10 px-5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs min-h-[48px] sm:min-h-0 cursor-pointer"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Save className="w-4 h-4 mr-1.5" />}
-              {saving ? 'Saving...' : 'Save Payment Settings'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
 

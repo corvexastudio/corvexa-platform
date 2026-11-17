@@ -60,7 +60,7 @@ export function ThemeSettingsSelector() {
       id: 'light',
       label: 'Light Theme',
       tag: 'Default',
-      description: 'Crisp, high-contrast clean interface optimized for daylight, work trucks, and office desks.',
+      description: 'High-contrast clean theme for daytime work.',
       icon: Sun,
       previewBg: 'bg-slate-50 border-slate-200',
       previewCard: 'bg-white border-slate-200 text-slate-900'
@@ -69,7 +69,7 @@ export function ThemeSettingsSelector() {
       id: 'dark',
       label: 'Dark Theme',
       tag: 'Night mode',
-      description: 'Sleek, low-light theme designed for evening hours, battery saving, and reduced glare.',
+      description: 'Reduced eye strain for low-light environments.',
       icon: Moon,
       previewBg: 'bg-zinc-950 border-zinc-800',
       previewCard: 'bg-zinc-900 border-zinc-800 text-zinc-100'
@@ -78,7 +78,7 @@ export function ThemeSettingsSelector() {
       id: 'system',
       label: 'System Preference',
       tag: 'Auto sync',
-      description: 'Automatically switches theme according to your operating system or browser settings.',
+      description: 'Automatically matches your device preference.',
       icon: Laptop,
       previewBg: 'bg-gradient-to-r from-slate-100 to-zinc-900 border-slate-300 dark:border-zinc-700',
       previewCard: 'bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xs text-slate-900 dark:text-zinc-100'

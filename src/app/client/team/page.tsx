@@ -644,7 +644,7 @@ export default function TeamPage() {
             </div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1">
               <Radio className="w-3 h-3 text-blue-500 shrink-0" />
-              24/7 Missed-Call Autopilot
+              Instant Missed-Call Auto-Text
             </div>
           </div>
 
@@ -874,7 +874,7 @@ export default function TeamPage() {
                     Ready to add your first helper or second truck?
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Scale into multi-van calendar dispatch without operational friction.
+                    Upgrade to multi-van dispatch, live route tracking, and crew scheduling.
                   </p>
                 </div>
               </div>
@@ -974,7 +974,7 @@ export default function TeamPage() {
                   <li>• Calendar scheduling and van dispatch assignment</li>
                   <li>• 2-Way customer SMS messaging and phone call logs</li>
                   <li>• Work order management and estimate creation</li>
-                  <li>• <strong className="text-rose-600 dark:text-rose-400">Strictly blocked:</strong> Company bank payouts &amp; SaaS billing</li>
+                  <li>• <strong className="text-zinc-700 dark:text-zinc-300">Restricted:</strong> Company bank payouts and subscription billing</li>
                 </ul>
               </div>
 
@@ -993,7 +993,7 @@ export default function TeamPage() {
                   <li>• Distraction-free mobile field route portal (`/client/field`)</li>
                   <li>• Property gate codes, equipment history, and job notes</li>
                   <li>• On-site invoice payment collection via mobile terminal</li>
-                  <li>• <strong className="text-rose-600 dark:text-rose-400">Strictly blocked:</strong> Customer database export, settings, and finances</li>
+                  <li>• <strong className="text-zinc-700 dark:text-zinc-300">Restricted:</strong> Customer database export, account settings, and banking</li>
                 </ul>
               </div>
             </div>
