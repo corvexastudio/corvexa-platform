@@ -21,6 +21,8 @@ import { exportToCsv } from '@/lib/export/csv-export'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { formatDateInTz, formatTimeInTz, formatDateToIsoYmdInTz, getFriendlyTimezoneLabel } from '@/lib/temporal/timezone'
+import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 import { type Crew } from '@/lib/crews/crew-manager'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import {
@@ -1269,13 +1271,14 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
                         <span className="inline-flex items-center gap-1 font-medium">
                           <Users className="h-3.5 w-3.5 text-slate-400" />
-                          {job.contact?.name || 'Customer'} ({job.contact?.phone})
+                          {formatCustomerName(job.contact?.name) || 'Customer'}
+                          {job.contact?.phone ? ` · ${formatNationalUs(job.contact.phone)}` : ''}
                         </span>
 
                         {job.contact?.address && (
                           <span className="inline-flex items-center gap-1 text-slate-600 dark:text-zinc-300">
                             <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                            {job.contact.address}
+                            {formatStandardUsAddress(job.contact.address)}
                           </span>
                         )}
                       </div>
@@ -1512,10 +1515,10 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
                           <td className="py-3 px-4">
                             <span className="font-medium text-slate-800 dark:text-zinc-200 block">
-                              {job.contact?.name || 'Customer'}
+                              {formatCustomerName(job.contact?.name) || 'Customer'}
                             </span>
                             <span className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
-                              {job.contact?.phone}
+                              {job.contact?.phone ? formatNationalUs(job.contact.phone) : '—'}
                             </span>
                           </td>
 

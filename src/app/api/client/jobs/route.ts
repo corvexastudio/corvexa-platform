@@ -13,6 +13,10 @@ export async function GET(request: Request) {
   const { orgId, supabase } = tenantResult
   const { searchParams } = new URL(request.url)
   const isTodayOnly = searchParams.get('today') === 'true'
+  const dateParam = searchParams.get('date')
+  const startDateParam = searchParams.get('start_date')
+  const endDateParam = searchParams.get('end_date')
+  const statusParam = searchParams.get('status')
   const crewIdParam = searchParams.get('crew_id')
   const limitParam = searchParams.get('limit')
   const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 50
@@ -43,6 +47,10 @@ export async function GET(request: Request) {
     }
   }
 
+  if (statusParam && statusParam !== 'all') {
+    query = query.eq('status', statusParam)
+  }
+
   const includeDeleted = searchParams.get('include_deleted') === 'true'
   if (!includeDeleted) {
     query = query.is('deleted_at', null)
@@ -52,7 +60,14 @@ export async function GET(request: Request) {
     query = query.gte('scheduled_start', cursor.timestamp).neq('id', cursor.id)
   }
 
-  if (isTodayOnly) {
+  if (dateParam) {
+    const dayStart = `${dateParam}T00:00:00.000Z`
+    const dayEnd = `${dateParam}T23:59:59.999Z`
+    query = query.gte('scheduled_start', dayStart).lte('scheduled_start', dayEnd)
+  } else if (startDateParam || endDateParam) {
+    if (startDateParam) query = query.gte('scheduled_start', startDateParam)
+    if (endDateParam) query = query.lte('scheduled_start', endDateParam)
+  } else if (isTodayOnly) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tonight = new Date()
@@ -78,13 +93,23 @@ export async function GET(request: Request) {
       .order('scheduled_start', { ascending: true })
       .limit(limit + 1)
 
+    if (statusParam && statusParam !== 'all') {
+      fallbackQuery = fallbackQuery.eq('status', statusParam)
+    }
     if (!includeDeleted) {
       fallbackQuery = fallbackQuery.is('deleted_at', null)
     }
     if (cursor) {
       fallbackQuery = fallbackQuery.gte('scheduled_start', cursor.timestamp).neq('id', cursor.id)
     }
-    if (isTodayOnly) {
+    if (dateParam) {
+      const dayStart = `${dateParam}T00:00:00.000Z`
+      const dayEnd = `${dateParam}T23:59:59.999Z`
+      fallbackQuery = fallbackQuery.gte('scheduled_start', dayStart).lte('scheduled_start', dayEnd)
+    } else if (startDateParam || endDateParam) {
+      if (startDateParam) fallbackQuery = fallbackQuery.gte('scheduled_start', startDateParam)
+      if (endDateParam) fallbackQuery = fallbackQuery.lte('scheduled_start', endDateParam)
+    } else if (isTodayOnly) {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const tonight = new Date()

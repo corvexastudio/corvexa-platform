@@ -42,6 +42,8 @@ import { EnRouteModal } from '@/components/jobs/en-route-modal'
 import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { getTodayInTimezone } from '@/lib/booking/availability'
+import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
+import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
 import { cn } from '@/lib/utils'
 
 interface FieldJob {
@@ -166,11 +168,11 @@ export default function FieldPage() {
   const [noteText, setNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
-  // Fetch Jobs Route Data
+  // Fetch Jobs Route Data for Selected Day
   const { data, isLoading: loading, isError, refetch } = useQuery({
-    queryKey: ['field-jobs'],
+    queryKey: ['field-jobs', selectedDate],
     queryFn: async () => {
-      const res = await fetch('/api/client/jobs?limit=100')
+      const res = await fetch(`/api/client/jobs?date=${encodeURIComponent(selectedDate)}&limit=100`)
       if (!res.ok) throw new Error('Failed to load field jobs')
       return res.json()
     },
@@ -698,14 +700,14 @@ export default function FieldPage() {
                   <h2 className="text-base font-bold text-slate-900 dark:text-zinc-100">
                     {job.title}
                   </h2>
-                  {job.service?.name && (
+                  {job.service?.name && !job.title?.toLowerCase().includes(job.service.name.toLowerCase()) && (
                     <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-0.5">
                       Service: {job.service.name}
                     </div>
                   )}
                   {job.description && (
                     <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                      {job.description}
+                      {job.description === 'Booked via booking_page' ? 'Booked via Online Booking' : job.description.replace(/booking_page/g, 'Online Booking')}
                     </p>
                   )}
                 </div>
@@ -716,7 +718,7 @@ export default function FieldPage() {
                     <div className="flex items-center gap-1.5">
                       <Key className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                       <span className="uppercase tracking-wider text-[10px] font-extrabold text-amber-800 dark:text-amber-300">
-                        Gate Code & Property Access Notes
+                        {job.contact?.notes ? 'Access & Property Notes' : 'Job Instructions'}
                       </span>
                     </div>
                     {job.contact?.notes && (
@@ -736,12 +738,12 @@ export default function FieldPage() {
                 <div className="p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800 bg-slate-50/90 dark:bg-zinc-950/60 space-y-3">
                   <div className="space-y-1">
                     <div className="font-bold text-sm text-slate-900 dark:text-zinc-100">
-                      {job.contact?.name || 'Homeowner'}
+                      {formatCustomerName(job.contact?.name) || 'Homeowner'}
                     </div>
                     {job.contact?.address && (
                       <div className="text-xs text-slate-600 dark:text-zinc-400 flex items-start gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                        <span className="font-medium">{job.contact.address}</span>
+                        <span className="font-medium">{formatStandardUsAddress(job.contact.address)}</span>
                       </div>
                     )}
                   </div>
@@ -961,7 +963,7 @@ export default function FieldPage() {
                           <div className="flex items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 shadow-2xs">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>Paid • ${Number(linkedInvoice.total || 0).toFixed(2)}</span>
+                              <span>Paid • ${Number(linkedInvoice.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </span>
                             <Button
                               variant="outline"
@@ -983,7 +985,7 @@ export default function FieldPage() {
                               className="min-h-[44px] px-3.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 cursor-pointer shadow-2xs gap-1.5"
                             >
                               <DollarSign className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Collect Payment (#{linkedInvoice.invoice_number} • ${Number(linkedInvoice.total || 0).toFixed(2)})</span>
+                              <span>Collect Payment (#{linkedInvoice.invoice_number} • ${Number(linkedInvoice.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
                             </Button>
                           )
                         ) : (

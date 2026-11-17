@@ -689,7 +689,7 @@ export default function InboxPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h1 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">
-                Inbound Communications
+                Messages
               </h1>
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1199,7 +1199,7 @@ export default function InboxPage() {
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/50 p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1">
-                <Target className="h-3 w-3 text-blue-600" /> Lead Pipeline
+                <Target className="h-3 w-3 text-blue-600" /> Lead Status
               </span>
               {activeConv.lead?.status ? (
                 <span className={cn(
@@ -1212,7 +1212,7 @@ export default function InboxPage() {
                   {activeConv.lead.status}
                 </span>
               ) : (
-                <span className="text-[10px] text-slate-400">Unregistered Lead</span>
+                <span className="text-[10px] text-slate-400 font-medium">New Contact</span>
               )}
             </div>
 
@@ -1315,8 +1315,8 @@ export default function InboxPage() {
       <Modal
         open={showComposeModal}
         onOpenChange={setShowComposeModal}
-        title="Compose Inbound SMS & Lead"
-        description="Dispatch a text to an existing customer or initialize a new inbound lead."
+        title="New Text Message"
+        description="Send an SMS message to an existing customer or new contact."
       >
         <form onSubmit={handleComposeSend} className="space-y-3.5 pt-1">
           <div>

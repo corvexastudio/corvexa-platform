@@ -148,7 +148,7 @@ export function BookingShareBar({
             }`}
           >
             <Share2 className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-            <span>{showChannels ? 'Hide Setup' : 'Placement Guide'}</span>
+            <span>{showChannels ? 'Hide Tips' : 'Where to Share'}</span>
           </button>
 
           <button
