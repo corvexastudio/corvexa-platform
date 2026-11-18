@@ -1183,11 +1183,13 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* 2. Missed Call Recovery */}
+          {/* 2. Missed Call Recovery (or Online Booking Speed on Starter Pass) */}
           <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Missed Call Recovery</div>
+            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">
+              {isPayingCustomer ? 'Missed Call Recovery' : 'Online Booking Speed'}
+            </div>
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
-              {outcomes?.recoveredConversations?.recoveryRate ?? 0}%
+              {isPayingCustomer ? `${outcomes?.recoveredConversations?.recoveryRate ?? 0}%` : 'Instant (24/7)'}
             </div>
           </div>
 

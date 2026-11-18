@@ -1373,7 +1373,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span><strong>Unlimited Public Booking Link</strong> (/book/[slug])</span>
+                              <span><strong>Unlimited Public Booking Link</strong> (captodesk.com/book/your-name)</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1475,7 +1475,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span><strong>3-Second Missed Call</strong> Auto-Text</span>
+                              <span><strong>8-Second Missed Call</strong> Auto-Text</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1491,7 +1491,7 @@ export default function SettingsPage() {
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Live homeowner arrival map (/t/[token])</span>
+                              <span>Live homeowner arrival map (Real-time GPS tracking)</span>
                             </li>
                             <li className="flex items-center gap-2">
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
