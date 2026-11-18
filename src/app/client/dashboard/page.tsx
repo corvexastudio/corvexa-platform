@@ -173,6 +173,8 @@ export default function DashboardPage() {
   const operations: OperationalMetrics | null = data?.operations || null
   const outcomes: OutcomeMetrics | null = data?.outcomes || null
   const jobsToday: JobTodayItem[] = data?.jobsToday || []
+  const upcomingJobs: JobTodayItem[] = data?.upcomingJobs || []
+  const nextUpJob: JobTodayItem | null = data?.nextUpJob || null
   const recentCalls: RecentCallItem[] = data?.recentCalls || []
   const loading = isLoading
   const error = isError ? (queryError?.message || 'Failed to load dashboard metrics.') : null
@@ -466,15 +468,14 @@ export default function DashboardPage() {
             >
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
-            <FilterTabs
-              tabs={[
-                { id: '7d', label: '7 Days' },
-                { id: '30d', label: '30 Days' },
-              ]}
-              activeTab={period}
-              onChange={(val) => setPeriod(val as TimeRange)}
-              ariaLabel="Dashboard time period"
-            />
+            <Link
+              href="/client/calendar"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-2xs cursor-pointer"
+              title="Schedule a new appointment"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Schedule Job</span>
+            </Link>
             <Button
               variant="outline"
               size="icon-touch"
@@ -522,42 +523,6 @@ export default function DashboardPage() {
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-      )}
-
-      {/* Free 3-Job Starter Pass Status Banner (hidden once Starter Pass or Trial limit is reached) */}
-      {!isPayingCustomer && !data?.starterUsage?.isLimitReached && !(data?.trialStatus?.isTrial && data?.trialStatus?.isExceeded) && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs text-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-            <div>
-              <span className="font-bold text-slate-900 dark:text-zinc-100">
-                Free 3-Job Starter Pass Active
-              </span>
-              <span className="text-slate-400 dark:text-zinc-500 mx-2 hidden sm:inline">•</span>
-              <span className="text-slate-600 dark:text-zinc-400 block sm:inline mt-0.5 sm:mt-0">
-                First 3 customer jobs include automated dispatch, Stripe card invoicing, and Google reviews with $0 platform fees.
-              </span>
-            </div>
-          </div>
-          <Link
-            href="/client/settings?tab=billing"
-            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0 self-start sm:self-auto"
-          >
-            Plan details &rarr;
-          </Link>
-        </div>
-      )}
-
-      {/* Day-1 Native SMS & Quick Share Booking Link Bar (Only for Free / Unpaid accounts that haven't dismissed it) */}
-      {!isPayingCustomer && !bookingShareDismissed && (
-        <BookingShareBar
-          slug={orgSlug}
-          showUpgradeCallout={false}
-          onDismiss={handleDismissBookingBar}
-          onTestMissedCall={() => {
-            setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: true })
-          }}
-        />
       )}
 
       {/* 1-Tap Web & Mobile Push Soft-Prompt Banner (Never interrupts if already subscribed or dismissed) */}
@@ -684,69 +649,139 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : nonPracticeJobs.length === 0 ? (
-            (() => {
-              const nextUpcomingBooking = attentionQueue.find(i => i.category === 'appointment')
-              if (nextUpcomingBooking) {
-                return (
-                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                          No stops remaining for today • Next booking is coming up!
-                        </h3>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-zinc-300 pl-4">
-                        {nextUpcomingBooking.title} — {nextUpcomingBooking.subtitle || 'Auto-confirmed via SMS'}.
-                      </p>
-                    </div>
+            <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 shadow-2xs space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                    Today&apos;s Route
+                  </span>
+                </div>
+                <Badge variant="success" size="sm" className="font-semibold">
+                  All Clear Today
+                </Badge>
+              </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Link
-                        href="/client/calendar"
-                        className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-                      >
-                        <Calendar className="h-3.5 w-3.5" />
-                        <span>View on Calendar</span>
-                      </Link>
-                    </div>
-                  </div>
-                )
-              }
-
-              return (
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0" />
-                      <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                        No appointments scheduled for today
-                      </h3>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 pl-4">
-                      Confirmed bookings and route jobs will appear here.
+              {nextUpJob ? (
+                <div className="space-y-3.5">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
+                      No remaining stops today • Next booking is scheduled
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Your immediate next confirmed service call is coming up:
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 p-4 sm:p-5 shadow-2xs space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-600 text-white shadow-xs">
+                          <Clock className="w-3 h-3" />
+                          {formatDateInTz(nextUpJob.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })} at {formatTimeInTz(nextUpJob.scheduledStart, orgTimezone)}
+                        </span>
+                        <span className="text-xs font-mono font-semibold text-slate-500 dark:text-zinc-400">
+                          #{nextUpJob.jobNumber}
+                        </span>
+                      </div>
+                      {(nextUpJob.servicePrice || nextUpJob.quoteAmount) && (
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-800">
+                          ${nextUpJob.quoteAmount || nextUpJob.servicePrice}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 dark:text-zinc-100">
+                        {nextUpJob.cleanTitle || nextUpJob.title}
+                      </h4>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mt-0.5">
+                        Customer: {nextUpJob.customerName}
+                      </p>
+                      {nextUpJob.address && (
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1 mt-1">
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{nextUpJob.address}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-blue-200/60 dark:border-blue-900/40">
+                      <Link
+                        href="/client/calendar"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>View on Calendar</span>
+                      </Link>
+                      {nextUpJob.address && (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nextUpJob.address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>Preview Route</span>
+                        </a>
+                      )}
+                      {nextUpJob.customerPhone && (
+                        <a
+                          href={`tel:${nextUpJob.customerPhone}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Call Customer</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100">
+                    No appointments scheduled for today
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Your route is clear today. You can schedule a walk-in, send an estimate, or share your booking link with customers.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
                     <Link
                       href="/client/calendar"
-                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Schedule Job</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Schedule a Job</span>
                     </Link>
                     <Link
                       href="/client/quotes"
-                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
                     >
-                      <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                      <FileText className="w-3.5 h-3.5 text-slate-500" />
                       <span>New Quote</span>
                     </Link>
                   </div>
                 </div>
-              )
-            })()
+              )}
+
+              {/* Fill-the-Day Callout */}
+              <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-slate-600 dark:text-zinc-300 font-medium">
+                    Have open availability today? Share your booking link to fill same-day slots.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyBookingUrl}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0 cursor-pointer"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  <span>{bookingCopied ? 'Link Copied!' : 'Copy Booking Link'}</span>
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-3.5">
               {/* Driver's Seat Hero Card (Solo Owner Command) */}
@@ -1053,120 +1088,302 @@ export default function DashboardPage() {
               })()}
             </div>
           )}
-        </div>
 
-        {/* Right Column (5 cols): Pipeline Overview */}
-        <div className="lg:col-span-5 space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Pipeline Overview
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {/* Open Leads */}
-            <Link
-              href="/client/leads"
-              className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-800 transition-all group block"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Open Leads</span>
-                <Target className="h-3.5 w-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
+          {/* ── Upcoming Jobs Queue (Next 48 Hours to 7 Days) ── */}
+          <div className="space-y-3 pt-3">
+            <div className="flex items-center justify-between px-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Coming Up This Week
+                </h3>
+                {upcomingJobs.length > 0 && (
+                  <Badge variant="neutral" size="sm" className="font-semibold tabular-nums">
+                    {upcomingJobs.length} {upcomingJobs.length === 1 ? 'Booking' : 'Bookings'}
+                  </Badge>
+                )}
               </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                {operations?.newLeads ?? 0}
-              </div>
-            </Link>
-
-            {/* Pending Estimates / Active Bookings */}
-            {canViewQuotes ? (
-              <Link
-                href="/client/quotes"
-                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Pending Quotes</span>
-                  <FileText className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {operations?.quotesAwaitingResponse ?? 0}
-                </div>
-              </Link>
-            ) : (
               <Link
                 href="/client/calendar"
-                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Active Bookings</span>
-                  <CalendarCheck className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {operations?.activeBookings ?? 0}
-                </div>
+                <span>Full Schedule</span>
+                <ArrowRight className="w-3 h-3" />
               </Link>
-            )}
+            </div>
 
-            {/* Unpaid Invoices / Today's Jobs */}
-            {canViewInvoices && canViewFinancials ? (
-              <Link
-                href="/client/invoices"
-                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Unpaid Invoices</span>
-                  <CreditCard className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  ${((outcomes?.paymentCollection?.invoicedAmount ?? 0) - (outcomes?.paymentCollection?.collectedAmount ?? 0)).toLocaleString()}
-                </div>
-              </Link>
+            {upcomingJobs.length === 0 ? (
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400 dark:text-zinc-500">
+                No future appointments scheduled in the next 14 days. Bookings from your link will appear here.
+              </div>
             ) : (
+              <div className="space-y-2">
+                {upcomingJobs.slice(0, 4).map((job) => {
+                  const cleanTitle = job.cleanTitle || job.title
+                  return (
+                    <div
+                      key={job.id}
+                      className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {cleanTitle}
+                          </span>
+                          <Badge variant="neutral" size="sm" className="font-semibold text-[10px] capitalize">
+                            {job.status ? job.status.replace('_', ' ') : 'Confirmed'}
+                          </Badge>
+                          {(job.servicePrice || job.quoteAmount) && (
+                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                              ${job.quoteAmount || job.servicePrice}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.customerName}</span>
+                          {job.address && (
+                            <>
+                              <span>&bull;</span>
+                              <span className="truncate">{job.address}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                        <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
+                          <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>
+                            {formatDateInTz(job.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="text-slate-400">&bull;</span>
+                          <span>{formatTimeInTz(job.scheduledStart, orgTimezone)}</span>
+                        </div>
+                        <Link
+                          href="/client/calendar"
+                          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Details &rarr;
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column (5 cols): Front Desk & Real-Time Operational Pulse */}
+        <div className="lg:col-span-5 space-y-4">
+          
+          {/* 1. Public Booking Link Front Desk Card */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Public Booking Front Desk
+                </span>
+              </div>
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <span>Live Site</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-slate-600 dark:text-zinc-300 truncate select-all">
+                {bookingUrl}
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyBookingUrl}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+              >
+                {bookingCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
+                    <span>Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-3.5 h-3.5" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+              Clients can book 24/7 without phone tag. Share on Google, truck signage, or customer text messages.
+            </p>
+          </div>
+
+          {/* 2. Operational Pipeline Pulse */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between px-0.5">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Operations Pulse
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Open Leads */}
               <Link
-                href="/client/jobs"
-                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
+                href="/client/leads"
+                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-800 transition-all group block"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Today&apos;s Jobs</span>
-                  <Briefcase className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Open Leads</span>
+                  <Target className="h-3.5 w-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
                 </div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  {operations?.jobsToday ?? jobsToday.length}
+                <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  {operations?.newLeads ?? 0}
                 </div>
               </Link>
-            )}
 
-            {/* Inbound Call Recovery */}
-            <Link
-              href="/client/inbox"
-              className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-purple-300 dark:hover:border-purple-800 transition-all group block"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Calls Handled</span>
-                <PhoneCall className="h-3.5 w-3.5 text-purple-500 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mt-2 tabular-nums group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                {outcomes?.recoveredConversations?.totalMissedCalls ?? 0}
-              </div>
-            </Link>
+              {/* Pending Estimates / Active Bookings */}
+              {canViewQuotes ? (
+                <Link
+                  href="/client/quotes"
+                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Pending Quotes</span>
+                    <FileText className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {operations?.quotesAwaitingResponse ?? 0}
+                  </div>
+                </Link>
+              ) : (
+                <Link
+                  href="/client/calendar"
+                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Active Bookings</span>
+                    <CalendarCheck className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {operations?.activeBookings ?? 0}
+                  </div>
+                </Link>
+              )}
+
+              {/* Unpaid Invoices / Today's Jobs */}
+              {canViewInvoices && canViewFinancials ? (
+                <Link
+                  href="/client/invoices"
+                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Unpaid Invoices</span>
+                    <CreditCard className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    ${((outcomes?.paymentCollection?.invoicedAmount ?? 0) - (outcomes?.paymentCollection?.collectedAmount ?? 0)).toLocaleString()}
+                  </div>
+                </Link>
+              ) : (
+                <Link
+                  href="/client/calendar"
+                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Today&apos;s Stops</span>
+                    <Briefcase className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    {nonPracticeJobs.length}
+                  </div>
+                </Link>
+              )}
+
+              {/* Inbound Call Recovery / Activity */}
+              <Link
+                href="/client/inbox"
+                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-purple-300 dark:hover:border-purple-800 transition-all group block"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Calls Handled</span>
+                  <PhoneCall className="h-3.5 w-3.5 text-purple-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  {outcomes?.recoveredConversations?.totalMissedCalls ?? 0}
+                </div>
+              </Link>
+            </div>
           </div>
+
+          {/* 3. Recent Customer Activity */}
+          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Recent Inquiries &amp; Calls
+              </h2>
+              <Link href="/client/inbox" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                Inbox &rarr;
+              </Link>
+            </div>
+
+            {recentCalls.length === 0 ? (
+              <p className="text-xs text-slate-400 dark:text-zinc-500 py-1">
+                No recent customer calls logged. Inbound calls with auto-replies appear here.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {recentCalls.slice(0, 3).map((call) => (
+                  <div key={call.id} className="flex items-center justify-between gap-2 text-xs py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-0">
+                    <div className="min-w-0">
+                      <span className="font-semibold text-slate-800 dark:text-zinc-200 truncate block">
+                        {call.customerName || call.callerNumber}
+                      </span>
+                      <span className="text-[11px] text-slate-400 capitalize">
+                        {call.status} • {call.autoReplySent ? 'Instant SMS auto-reply' : 'Direct call'}
+                      </span>
+                    </div>
+                    <Link
+                      href="/client/inbox"
+                      className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                    >
+                      Reply
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>
 
-      {/* ── Section 3: Performance ── */}
-      <section className="space-y-3.5">
-        <div className="flex items-center justify-between border-t border-slate-200 dark:border-zinc-800 pt-6">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-            Performance
-          </h2>
-          <Badge variant="neutral" size="default">
-            {period === '7d' ? 'Last 7 Days' : 'Last 30 Days'}
-          </Badge>
+      {/* ── Section 3: Performance & Outcomes ── */}
+      <section className="space-y-3.5 border-t border-slate-200 dark:border-zinc-800 pt-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+              Performance &amp; Outcomes
+            </h2>
+          </div>
+          <FilterTabs
+            tabs={[
+              { id: '7d', label: '7 Days' },
+              { id: '30d', label: '30 Days' },
+            ]}
+            activeTab={period}
+            onChange={(val) => setPeriod(val as TimeRange)}
+            ariaLabel="Performance time period"
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* 1. Revenue Collected (or Calls Recovered if restricted) */}
+          {/* 1. Revenue Collected */}
           {canViewFinancials ? (
             <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Payments Collected</div>
@@ -1218,57 +1435,6 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </section>
-
-      {/* ── Section 4: Recent Calls ── */}
-      <section className="space-y-3.5 border-t border-slate-200 dark:border-zinc-800 pt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-            Recent Calls
-          </h2>
-          <Link href="/client/inbox" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors">
-            View All in Inbox &rarr;
-          </Link>
-        </div>
-
-        {recentCalls.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 p-6 text-xs text-slate-500 dark:text-zinc-400 text-center shadow-2xs">
-            No recent calls logged.
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800/80">
-            {recentCalls.slice(0, 5).map(call => (
-              <div 
-                key={call.id}
-                className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/80 dark:hover:bg-zinc-850/60 transition-colors text-xs"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <PhoneCall className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="font-bold text-slate-900 dark:text-zinc-100 font-mono">{call.callerNumber}</span>
-                    <span className="text-slate-500 dark:text-zinc-400 text-[11px] ml-2 truncate">
-                      {call.autoReplySent ? 'Instant SMS auto-reply sent' : 'Call answered or logged'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                    {call.createdAt ? formatTimeInTz(call.createdAt, orgTimezone) : 'Recent'}
-                  </span>
-                  <Link
-                    href="/client/inbox"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-                  >
-                    Reply
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* Achievement & Milestone Celebration Modal (Pop-up after Booking or Missed Call) */}

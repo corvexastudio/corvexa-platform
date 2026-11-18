@@ -120,6 +120,8 @@ export interface DashboardOverview {
   operations: OperationalMetrics
   outcomes: OutcomeMetrics
   jobsToday: JobTodayItem[]
+  upcomingJobs: JobTodayItem[]
+  nextUpJob: JobTodayItem | null
   recentCalls: RecentCallItem[]
 }
 
@@ -905,6 +907,73 @@ export async function getRecentCalls(
 }
 
 /**
+ * Retrieves upcoming field jobs starting after today up to 14 days ahead.
+ */
+export async function getUpcomingJobs(
+  supabase: SupabaseClient,
+  orgId: string,
+  limit: number = 5
+): Promise<JobTodayItem[]> {
+  const todayEnd = new Date()
+  todayEnd.setHours(23, 59, 59, 999)
+
+  const maxFuture = new Date()
+  maxFuture.setDate(maxFuture.getDate() + 14)
+
+  const { data: jobs } = await supabase
+    .from('jobs')
+    .select(`
+      id, job_number, title, status, scheduled_start, scheduled_end, tracking_token, service_id,
+      services(id, name, price, description),
+      quotes!jobs_quote_id_fkey(id, total_amount, status),
+      contacts(name, phone, address),
+      profiles(full_name)
+    `)
+    .eq('org_id', orgId)
+    .gt('scheduled_start', todayEnd.toISOString())
+    .lte('scheduled_start', maxFuture.toISOString())
+    .not('status', 'eq', 'cancelled')
+    .order('scheduled_start', { ascending: true })
+    .limit(limit)
+
+  const realJobs = (jobs || []).filter((j: any) => 
+    !j.job_number?.includes('PRACTICE') && 
+    !j.title?.includes('[PRACTICE]')
+  )
+
+  return realJobs.map((j: any) => {
+    const rawService = Array.isArray(j.services) ? j.services[0] : j.services
+    const rawQuote = Array.isArray(j.quotes) ? j.quotes[0] : j.quotes
+    const pricing = rawService ? parseServicePricing(rawService.price, rawService.description) : null
+    const customerName = j.contacts?.name || 'Customer'
+    const serviceName = rawService?.name || null
+    const cleanTitle = cleanJobServiceTitle(j.title, customerName, serviceName)
+
+    return {
+      id: j.id,
+      jobNumber: j.job_number,
+      title: j.title,
+      cleanTitle,
+      status: j.status,
+      scheduledStart: j.scheduled_start,
+      scheduledEnd: j.scheduled_end,
+      customerName,
+      customerPhone: j.contacts?.phone || null,
+      technicianName: j.profiles?.full_name || 'Unassigned',
+      address: j.contacts?.address || null,
+      trackingToken: j.tracking_token || null,
+      serviceId: j.service_id || rawService?.id || null,
+      serviceName,
+      servicePrice: pricing?.price ?? null,
+      pricingModel: pricing?.model ?? null,
+      pricingLabel: pricing?.formattedPrice ?? null,
+      quoteAmount: rawQuote?.status === 'accepted' && rawQuote?.total_amount ? Number(rawQuote.total_amount) : null,
+      quoteStatus: rawQuote?.status || null
+    }
+  })
+}
+
+/**
  * Complete dashboard aggregator that runs queries efficiently in parallel.
  */
 export async function getDashboardOverview(
@@ -912,19 +981,24 @@ export async function getDashboardOverview(
   orgId: string,
   timeRange: TimeRange = '30d'
 ): Promise<DashboardOverview> {
-  const [attentionQueue, operations, outcomes, jobsToday, recentCalls] = await Promise.all([
+  const [attentionQueue, operations, outcomes, jobsToday, upcomingJobs, recentCalls] = await Promise.all([
     getAttentionQueue(supabase, orgId),
     getOperationalMetrics(supabase, orgId, timeRange),
     getOutcomeMetrics(supabase, orgId, timeRange),
     getJobsToday(supabase, orgId),
+    getUpcomingJobs(supabase, orgId, 5),
     getRecentCalls(supabase, orgId, 5)
   ])
+
+  const nextUpJob = jobsToday.length === 0 ? (upcomingJobs[0] || null) : null
 
   return {
     attentionQueue,
     operations,
     outcomes,
     jobsToday,
+    upcomingJobs,
+    nextUpJob,
     recentCalls
   }
 }
