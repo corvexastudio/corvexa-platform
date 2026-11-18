@@ -373,7 +373,7 @@ export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }
               {activeStage === 1 && (
                 <div className="space-y-3">
                   <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-400 font-mono flex items-center justify-between">
-                    <span>Safari • captodesk.com/book/apex</span>
+                    <span>Safari • book.captodesk.com/apex</span>
                     <span className="text-emerald-400">Confirmed ✓</span>
                   </div>
 

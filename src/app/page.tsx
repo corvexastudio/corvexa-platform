@@ -170,7 +170,7 @@ export default function LandingPage() {
                 Zero Phone Forwarding or Number Changes
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Keep your current phone setup untouched. Simply paste your custom <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] text-slate-800 font-mono">captodesk.com/book/[your-name]</code> link onto Google Maps, Instagram, or your website.
+                Keep your current phone setup untouched. Simply paste your custom <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] text-slate-800 font-mono">book.captodesk.com/[your-name]</code> link onto Google Maps, Instagram, or your website.
               </p>
             </div>
           </div>
@@ -502,7 +502,7 @@ export default function LandingPage() {
               <div className="space-y-2.5 text-xs text-slate-600 border-t border-slate-100 pt-4">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span><strong>Dedicated booking link</strong> (captodesk.com/book/[your-name])</span>
+                  <span><strong>Dedicated booking link</strong> (book.captodesk.com/[your-name])</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />

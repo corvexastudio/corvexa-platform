@@ -167,7 +167,7 @@ export function ClaimBookingModal({ open, onClose }: ClaimBookingModalProps) {
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 dark:text-zinc-400 px-1 pt-0.5">
               <span>Link Preview:</span>
               <span className="font-semibold text-blue-600 dark:text-blue-400 truncate">
-                captodesk.com/book/<span className="underline">{liveSlug}</span>
+                book.captodesk.com/<span className="underline">{liveSlug}</span>
               </span>
             </div>
           </div>

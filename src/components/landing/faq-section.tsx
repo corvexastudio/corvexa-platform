@@ -11,7 +11,7 @@ interface FaqItem {
 const FAQS: FaqItem[] = [
   {
     q: 'How does the free online booking link work?',
-    a: "Every contractor can claim a free, dedicated booking page (captodesk.com/book/your-business) with zero credit card required. You simply paste your link into your Google Business Profile, Instagram bio, or website so homeowners can schedule service appointments directly on your dispatch calendar without phone tag."
+    a: "Every contractor can claim a free, dedicated booking page (book.captodesk.com/your-business) with zero credit card required. You simply paste your link into your Google Business Profile, Instagram bio, or website so homeowners can schedule service appointments directly on your dispatch calendar without phone tag."
   },
   {
     q: 'Do my customers need to download an app or create an account?',

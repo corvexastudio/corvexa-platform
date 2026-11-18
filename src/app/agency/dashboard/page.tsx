@@ -550,12 +550,12 @@ export default function AgencyDashboardPage() {
                             </div>
                             {slot.slug && (
                               <a 
-                                href={`https://captodesk.com/book/${slot.slug}`}
+                                href={`https://book.captodesk.com/${slot.slug}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline flex items-center gap-1 mt-0.5"
                               >
-                                <span>captodesk.com/book/{slot.slug}</span>
+                                <span>book.captodesk.com/{slot.slug}</span>
                                 <ExternalLink className="h-2.5 w-2.5" />
                               </a>
                             )}
