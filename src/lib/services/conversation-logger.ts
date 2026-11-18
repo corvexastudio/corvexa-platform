@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export interface LogOutboundMessageInput {
   orgId: string
   contactId?: string | null
+  phone?: string | null
   body: string
   deliveryStatus: 'sent' | 'failed' | 'delivered' | string
   telnyxMessageId?: string | null
@@ -29,6 +30,7 @@ export async function logOutboundConversationMessage(
   const {
     orgId,
     contactId,
+    phone,
     body,
     deliveryStatus,
     telnyxMessageId = null,
@@ -39,7 +41,31 @@ export async function logOutboundConversationMessage(
     incrementUnread = false,
   } = input
 
-  if (!orgId || !contactId) {
+  let resolvedContactId = contactId
+  if (!resolvedContactId && phone && orgId) {
+    try {
+      const cleanPhone = phone.replace(/[^\d+]/g, '')
+      let contactQuery: any = supabase
+        .from('contacts')
+        .select('id')
+        .eq('org_id', orgId)
+
+      if (typeof contactQuery?.or === 'function') {
+        contactQuery = contactQuery.or(`phone.eq.${cleanPhone},phone.eq.${phone}`)
+      } else {
+        contactQuery = contactQuery.eq('phone', cleanPhone)
+      }
+
+      const { data: matchedContact } = await contactQuery.limit(1).maybeSingle()
+      if (matchedContact?.id) {
+        resolvedContactId = matchedContact.id
+      }
+    } catch {
+      // Non-blocking lookup
+    }
+  }
+
+  if (!orgId || !resolvedContactId) {
     return { conversationId: null, messageLogged: false }
   }
 
@@ -50,7 +76,7 @@ export async function logOutboundConversationMessage(
     .from('conversations')
     .select('id, unread_count')
     .eq('org_id', orgId)
-    .eq('contact_id', contactId)
+    .eq('contact_id', resolvedContactId)
     .maybeSingle()
 
   if (lookupError) {
@@ -64,7 +90,7 @@ export async function logOutboundConversationMessage(
       .from('conversations')
       .insert({
         org_id: orgId,
-        contact_id: contactId,
+        contact_id: resolvedContactId,
         status: 'open',
         last_message_at: nowIso,
         last_message_preview: body,

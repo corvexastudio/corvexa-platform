@@ -12,6 +12,7 @@ import {
 } from '../compliance/compliance-engine.ts'
 import { generateDocumentNumber } from '../services/document-counter.ts'
 import { resolveSenderPhone } from '../billing/plans.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
 export interface QuoteLineItemInput {
   description: string
@@ -352,7 +353,7 @@ export async function sendQuote(
     })
 
     if (compliance.allowed) {
-      await sendTelnyxSms({
+      const smsRes = await sendTelnyxSms({
         to: contact.phone,
         from: senderNumber,
         text: compliance.formattedText
@@ -366,6 +367,19 @@ export async function sendQuote(
         messageType: 'transactional',
         reason: 'quote_sent'
       })
+
+      if (quote.contact_id) {
+        await logOutboundConversationMessage(supabase, {
+          orgId,
+          contactId: quote.contact_id,
+          phone: contact.phone,
+          body: compliance.formattedText,
+          deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+          telnyxMessageId: smsRes?.messageId || null,
+          automationSource: 'quote_sent',
+          failureReason: smsRes?.error || null
+        })
+      }
     }
   }
 
@@ -784,11 +798,24 @@ export async function customerAcceptQuote(
     })
 
     if (compliance.allowed) {
-      await sendTelnyxSms({
+      const smsRes = await sendTelnyxSms({
         to: contact.phone,
         from: senderNumber,
         text: compliance.formattedText
       })
+
+      if (quote.contact_id) {
+        await logOutboundConversationMessage(supabase, {
+          orgId: quote.org_id,
+          contactId: quote.contact_id,
+          phone: contact.phone,
+          body: compliance.formattedText,
+          deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+          telnyxMessageId: smsRes?.messageId || null,
+          automationSource: 'quote_accepted',
+          failureReason: smsRes?.error || null
+        })
+      }
     }
   }
 

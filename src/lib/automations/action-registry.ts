@@ -162,18 +162,18 @@ async function handleSendSms(
   }
 
   // Ensure inbox conversation exists/updates and log outbound SMS
-  if (context.contactId) {
-    await logOutboundConversationMessage(supabase, {
-      orgId,
-      contactId: context.contactId,
-      body: outboundText,
-      deliveryStatus: smsRes.success ? 'sent' : 'failed',
-      telnyxMessageId: smsRes.messageId,
-      automationSource: flowType === 'missed_call_recovery' ? 'missed_call_recovery' : 'automation_engine',
-      failureReason: smsRes.error || null,
-      incrementUnread: flowType === 'missed_call_recovery',
-    })
-  }
+  const effectiveContactId = context.contactId || params.contactId || eventPayload?.contact_id || eventPayload?.contactId
+  await logOutboundConversationMessage(supabase, {
+    orgId,
+    contactId: effectiveContactId || undefined,
+    phone: norm.e164,
+    body: outboundText,
+    deliveryStatus: smsRes.success ? 'sent' : 'failed',
+    telnyxMessageId: smsRes.messageId,
+    automationSource: flowType === 'missed_call_recovery' ? 'missed_call_recovery' : (flowType || 'automation_engine'),
+    failureReason: smsRes.error || null,
+    incrementUnread: flowType === 'missed_call_recovery',
+  })
 
   return {
     success: smsRes.success,

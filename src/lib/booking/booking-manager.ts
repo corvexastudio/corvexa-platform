@@ -18,6 +18,7 @@ import { verifyOutboundCompliance, recordConsent, logComplianceAudit } from '../
 import { notifyOwner } from '../notifications/notification-service.ts'
 import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted, resolveSenderPhone } from '../billing/subscription-service.ts'
 import { formatCustomerName, formatStandardUsAddress } from './customer-input-formatter.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -695,52 +696,19 @@ export async function createBooking(
           })
 
           // LIFECYCLE-001: Sync confirmation SMS into Inbox conversations thread
-          try {
-            if (contactId) {
-              let { data: conversation } = await supabase
-                .from('conversations')
-                .select('id')
-                .eq('org_id', orgId)
-                .eq('contact_id', contactId)
-                .maybeSingle()
-
-              if (!conversation) {
-                const { data: newConv } = await supabase
-                  .from('conversations')
-                  .insert({
-                    org_id: orgId,
-                    contact_id: contactId,
-                    last_message_preview: compliance.formattedText
-                  })
-                  .select('id')
-                  .single()
-                conversation = newConv
-              } else {
-                await supabase
-                  .from('conversations')
-                  .update({
-                    last_message_preview: compliance.formattedText,
-                    last_message_at: new Date().toISOString()
-                  })
-                  .eq('id', conversation.id)
-              }
-
-              if (conversation) {
-                await supabase.from('messages').insert({
-                  org_id: orgId,
-                  conversation_id: conversation.id,
-                  direction: 'outbound',
-                  sender_type: 'system',
-                  body: compliance.formattedText,
-                  delivery_status: smsResult?.success ? 'sent' : 'failed',
-                  telnyx_message_id: smsResult?.messageId,
-                  automation_source: 'booking_confirmation',
-                  failure_reason: smsResult?.error || null
-                })
-              }
-            }
-          } catch (convErr) {
-            console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
+          if (contactId) {
+            await logOutboundConversationMessage(supabase, {
+              orgId,
+              contactId,
+              phone: normalizedPhone.e164,
+              body: compliance.formattedText,
+              deliveryStatus: smsResult?.success ? 'sent' : 'failed',
+              telnyxMessageId: smsResult?.messageId || null,
+              automationSource: 'booking_confirmation',
+              failureReason: smsResult?.error || null
+            }).catch(convErr => {
+              console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
+            })
           }
         }
       }
@@ -758,7 +726,8 @@ export async function createBooking(
       serviceName: activeService.name,
       startTime,
       displayTime,
-      manageUrl
+      manageUrl,
+      contactId: contactId || undefined
     })
   }
 
@@ -824,6 +793,7 @@ export async function scheduleAppointmentReminders(
     startTime: string
     displayTime: string
     manageUrl: string
+    contactId?: string | null
   }
 ) {
   const {
@@ -835,7 +805,8 @@ export async function scheduleAppointmentReminders(
     serviceName,
     startTime,
     displayTime,
-    manageUrl
+    manageUrl,
+    contactId
   } = details
 
   const startMs = new Date(startTime).getTime()
@@ -854,12 +825,14 @@ export async function scheduleAppointmentReminders(
       action_params: {
         to: customerPhone,
         from: senderNumber,
-        text: text24h
+        text: text24h,
+        contactId: contactId || undefined
       },
       status: 'scheduled',
       scheduled_at: new Date(reminder24hMs).toISOString(),
       event_payload: {
         appointment_id: appointmentId,
+        contact_id: contactId || undefined,
         reminder_type: '24h'
       }
     })
@@ -878,12 +851,14 @@ export async function scheduleAppointmentReminders(
       action_params: {
         to: customerPhone,
         from: senderNumber,
-        text: text2h
+        text: text2h,
+        contactId: contactId || undefined
       },
       status: 'scheduled',
       scheduled_at: new Date(reminder2hMs).toISOString(),
       event_payload: {
         appointment_id: appointmentId,
+        contact_id: contactId || undefined,
         reminder_type: '2h'
       }
     })
@@ -1055,11 +1030,24 @@ export async function customerCancelBooking(
     })
 
     if (compliance.allowed) {
-      await sendTelnyxSms({
+      const smsRes = await sendTelnyxSms({
         to: contact.phone,
         from: senderNumber,
         text: compliance.formattedText
       })
+
+      if (contact.id) {
+        await logOutboundConversationMessage(supabase, {
+          orgId: apt.org_id,
+          contactId: contact.id,
+          phone: contact.phone,
+          body: compliance.formattedText,
+          deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+          telnyxMessageId: smsRes?.messageId || null,
+          automationSource: 'booking_cancellation',
+          failureReason: smsRes?.error || null
+        })
+      }
     }
   }
 
@@ -1309,7 +1297,8 @@ export async function customerRescheduleBooking(
       serviceName: service.name,
       startTime: newStartTime,
       displayTime,
-      manageUrl
+      manageUrl,
+      contactId: contact.id
     })
 
     // 5. Send reschedule SMS
@@ -1325,11 +1314,24 @@ export async function customerRescheduleBooking(
     })
 
     if (compliance.allowed) {
-      await sendTelnyxSms({
+      const smsRes = await sendTelnyxSms({
         to: contact.phone,
         from: senderNumber,
         text: compliance.formattedText
       })
+
+      if (contact.id) {
+        await logOutboundConversationMessage(supabase, {
+          orgId: apt.org_id,
+          contactId: contact.id,
+          phone: contact.phone,
+          body: compliance.formattedText,
+          deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+          telnyxMessageId: smsRes?.messageId || null,
+          automationSource: 'booking_reschedule',
+          failureReason: smsRes?.error || null
+        })
+      }
     }
   }
 
@@ -1502,11 +1504,24 @@ export async function ownerUpdateBookingStatus(
       })
 
       if (confirmCompliance.allowed) {
-        await sendTelnyxSms({
+        const smsRes = await sendTelnyxSms({
           to: contact.phone,
           from: senderNumber,
           text: confirmCompliance.formattedText
         })
+
+        if (contact.id) {
+          await logOutboundConversationMessage(supabase, {
+            orgId,
+            contactId: contact.id,
+            phone: contact.phone,
+            body: confirmCompliance.formattedText,
+            deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+            telnyxMessageId: smsRes?.messageId || null,
+            automationSource: 'booking_confirmed',
+            failureReason: smsRes?.error || null
+          })
+        }
       }
 
       // Schedule reminders
@@ -1519,7 +1534,8 @@ export async function ownerUpdateBookingStatus(
         serviceName: apt.service_type || 'Service Call',
         startTime: apt.start_time,
         displayTime,
-        manageUrl
+        manageUrl,
+        contactId: contact.id
       })
     } else if (newStatus === 'cancelled') {
       // Invalidate reminders
@@ -1545,11 +1561,24 @@ export async function ownerUpdateBookingStatus(
         })
 
         if (cancelCompliance.allowed) {
-          await sendTelnyxSms({
+          const smsRes = await sendTelnyxSms({
             to: contact.phone,
             from: senderNumber,
             text: cancelCompliance.formattedText
           })
+
+          if (contact.id) {
+            await logOutboundConversationMessage(supabase, {
+              orgId,
+              contactId: contact.id,
+              phone: contact.phone,
+              body: cancelCompliance.formattedText,
+              deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+              telnyxMessageId: smsRes?.messageId || null,
+              automationSource: 'booking_cancellation',
+              failureReason: smsRes?.error || null
+            })
+          }
         }
       }
     }

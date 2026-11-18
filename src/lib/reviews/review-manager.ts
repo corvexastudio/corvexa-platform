@@ -7,6 +7,7 @@ import { isPhoneSuppressed, isTcpaQuietHours, verifyOutboundCompliance, logCompl
 import { calculateNextMorning805 } from '../services/call-recovery.ts'
 import { renderSituationAwareText, resolveOperationMode } from '../notifications/situation-templates.ts'
 import { resolveSenderPhone } from '../billing/plans.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
 export interface ReviewEligibilityResult {
   eligible: boolean
@@ -452,6 +453,20 @@ export async function dispatchReviewRequest(
     messageType: 'marketing',
     metadata: { flowType: 'review_request', body: messageBody }
   })
+
+  // 6.6. Sync review invitation into Inbox conversations thread
+  if (contactId) {
+    await logOutboundConversationMessage(supabase, {
+      orgId,
+      contactId,
+      phone: contact.phone,
+      body: messageBody,
+      deliveryStatus: 'sent',
+      telnyxMessageId: smsResult.messageId || null,
+      automationSource: 'review_request',
+      failureReason: smsResult.error || null
+    })
+  }
 
   // 7. Audit log event
   await logAuditEvent(supabase, {

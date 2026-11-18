@@ -9,6 +9,7 @@ import { verifyOutboundCompliance, logComplianceAudit } from '../compliance/comp
 import { generateDocumentNumber } from '../services/document-counter.ts'
 import { scheduleInvoiceReviewAutomation } from '../reviews/review-manager.ts'
 import { resolveSenderPhone } from '../billing/plans.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
 export type InvoiceStatus =
   | 'draft'
@@ -565,7 +566,7 @@ export async function sendInvoice(
     })
 
     if (compliance.allowed) {
-      await sendTelnyxSms({
+      const smsRes = await sendTelnyxSms({
         to: contact.phone,
         from: senderPhone,
         text: compliance.formattedText
@@ -579,6 +580,19 @@ export async function sendInvoice(
         messageType: 'transactional',
         reason: 'invoice_sent'
       })
+
+      if (contact.id) {
+        await logOutboundConversationMessage(supabase, {
+          orgId,
+          contactId: contact.id,
+          phone: contact.phone,
+          body: compliance.formattedText,
+          deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+          telnyxMessageId: smsRes?.messageId || null,
+          automationSource: 'invoice_sent',
+          failureReason: smsRes?.error || null
+        })
+      }
     }
   }
 
@@ -879,11 +893,24 @@ export async function recordPayment(
         })
 
         if (compliance.allowed) {
-          await sendTelnyxSms({
+          const smsRes = await sendTelnyxSms({
             to: contact.phone,
             from: senderPhone,
             text: compliance.formattedText
           })
+
+          if (contact.id) {
+            await logOutboundConversationMessage(supabase, {
+              orgId: invoice.org_id,
+              contactId: contact.id,
+              phone: contact.phone,
+              body: compliance.formattedText,
+              deliveryStatus: smsRes?.success ? 'sent' : 'failed',
+              telnyxMessageId: smsRes?.messageId || null,
+              automationSource: 'invoice_paid',
+              failureReason: smsRes?.error || null
+            })
+          }
         }
       }
     }

@@ -4,6 +4,7 @@ import { logAuditEvent } from '../security/audit-logger.ts'
 import { resolveSenderPhone } from '../billing/plans.ts'
 import { isPhoneSuppressed, formatCompliantOutboundText, logComplianceAudit } from '../compliance/compliance-engine.ts'
 import { isTcpaQuietHours } from '../services/safety-rules.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
 export type LifecycleStatus = 'active' | 'due' | 'overdue' | 'inactive'
 
@@ -256,6 +257,17 @@ export async function evaluateCustomerReactivation(
             action: 'message_sent',
             messageType: 'marketing',
             reason: 'customer_reactivation'
+          })
+
+          await logOutboundConversationMessage(supabase, {
+            orgId,
+            contactId: contact.id,
+            phone: contact.phone,
+            body: compliantText,
+            deliveryStatus: 'sent',
+            telnyxMessageId: result.messageId || null,
+            automationSource: 'lifecycle_retention',
+            failureReason: result.error || null
           })
 
           await logAuditEvent(supabase, {

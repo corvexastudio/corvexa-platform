@@ -3,6 +3,7 @@ import { normalizePhoneToE164 } from '../telephony/phone-normalizer.ts'
 import { isTcpaQuietHours } from '../services/safety-rules.ts'
 export { isTcpaQuietHours } from '../services/safety-rules.ts'
 import { sendTelnyxSms } from '../telnyx.ts'
+import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
 export type MessageClassification = 'transactional' | 'marketing'
 
@@ -569,10 +570,18 @@ export async function handleInboundComplianceKeyword(
 
     // 4. Send single carrier-mandated confirmation SMS
     if (!params.suppressReply) {
+      const optOutText = `${orgName}: You have been unsubscribed and will receive no further messages. Reply START to resubscribe or HELP for assistance.`
       await sendTelnyxSms({
         to: cleanFrom,
         from: cleanTo,
-        text: `${orgName}: You have been unsubscribed and will receive no further messages. Reply START to resubscribe or HELP for assistance.`
+        text: optOutText
+      })
+      await logOutboundConversationMessage(supabase, {
+        orgId: org.id,
+        phone: cleanFrom,
+        body: optOutText,
+        deliveryStatus: 'sent',
+        automationSource: 'compliance_opt_out'
       })
     }
 
@@ -627,10 +636,18 @@ export async function handleInboundComplianceKeyword(
 
     // 5. Send carrier-mandated confirmation SMS
     if (!params.suppressReply) {
+      const optInText = `${orgName}: You have resubscribed to receive service updates and notifications. Msg&data rates may apply. Reply HELP for info, STOP to opt out.`
       await sendTelnyxSms({
         to: cleanFrom,
         from: cleanTo,
-        text: `${orgName}: You have resubscribed to receive service updates and notifications. Msg&data rates may apply. Reply HELP for info, STOP to opt out.`
+        text: optInText
+      })
+      await logOutboundConversationMessage(supabase, {
+        orgId: org.id,
+        phone: cleanFrom,
+        body: optInText,
+        deliveryStatus: 'sent',
+        automationSource: 'compliance_opt_in'
       })
     }
 
@@ -655,6 +672,13 @@ export async function handleInboundComplianceKeyword(
         to: cleanFrom,
         from: cleanTo,
         text: helpText
+      })
+      await logOutboundConversationMessage(supabase, {
+        orgId: org.id,
+        phone: cleanFrom,
+        body: helpText,
+        deliveryStatus: 'sent',
+        automationSource: 'compliance_help'
       })
     }
 
