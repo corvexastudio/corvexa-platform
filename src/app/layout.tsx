@@ -34,9 +34,9 @@ export const metadata: Metadata = {
     siteName: "CaptoDesk",
     images: [
       {
-        url: "/opengraph-image.png",
-        width: 1200,
-        height: 630,
+        url: "/hero-banner.jpg",
+        width: 1920,
+        height: 1080,
         alt: "CaptoDesk - Free Online Booking Link & Live Arrival Tracker for Local Crews",
       },
     ],
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
     description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
-    images: ["/opengraph-image.png"],
+    images: ["/hero-banner.jpg"],
   },
 }
 
