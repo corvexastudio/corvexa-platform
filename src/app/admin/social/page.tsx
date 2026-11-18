@@ -427,6 +427,20 @@ export default function AdminSocialPage() {
                 </div>
               </div>
 
+              {/* Zero-EXIF AI Sanitizer Badge */}
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="font-bold text-emerald-300">Zero-EXIF Sanitizer Active: </span>
+                    <span className="text-zinc-400">Media is re-encoded to strip C2PA/AI provenance manifests, preventing Facebook &amp; Instagram &quot;AI Content&quot; labels.</span>
+                  </div>
+                </div>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-0 text-[10px] shrink-0 font-mono">
+                  CLEAN
+                </Badge>
+              </div>
+
               {/* Action Buttons */}
               <div className="pt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="text-[11px] text-zinc-400">

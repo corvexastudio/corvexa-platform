@@ -173,7 +173,7 @@ Zero phone tag. Zero lost jobs.
 👉 Claim your Free 3-Job Starter Pass today (no credit card required): captodesk.com
 
 #contractorsofinstagram #plumberlife #hvaclife #electricianlife #bluecollar #servicebusiness #fieldservice #smallbusinessowner #captodesk`,
-    mediaUrl: '/marketing/captodesk_social_ad_square_v2_1795021712948.jpg',
+    mediaUrl: '/marketing/post1_ladder_clean.jpg',
     mediaType: 'image'
   },
   {
@@ -203,7 +203,7 @@ Claim your free starter pass — your first 3 customer jobs are 100% free with S
 🔗 Visit captodesk.com
 
 #tradebusiness #fieldservice #handyman #electrician #plumbingcontractor #hvaccontractor #smallbiz #dispatchsoftware #captodesk`,
-    mediaUrl: '/marketing/captodesk_social_marketing_booking_link_1795021699936.jpg',
+    mediaUrl: '/marketing/post2_booking_clean.jpg',
     mediaType: 'image'
   },
   {
@@ -228,7 +228,7 @@ First 3 customer jobs are 100% free with $0 fees.
 👉 Start today at captodesk.com
 
 #plumbing #hvac #electrician #contractor #contractorlife #fieldservicemanagement #cashflow #googlereviews #captodesk`,
-    mediaUrl: '/marketing/captodesk_driveway_payments_social_ad_v2_1795021726957.jpg',
+    mediaUrl: '/marketing/post3_driveway_clean.jpg',
     mediaType: 'image'
   },
   {
@@ -246,7 +246,7 @@ Watch how CaptoDesk auto-saves a $1,200 job in 8 seconds with an instant SMS cal
 First 3 customer jobs 100% free with zero credit card required at captodesk.com!
 
 #plumbertok #hvactok #electriciantok #trades #bluecollar #contractorsofinstagram #shorts #captodesk`,
-    mediaUrl: '/marketing/captodesk_social_ad_square_v2_1795021712948.jpg',
+    mediaUrl: '/marketing/post1_ladder_clean.jpg',
     mediaType: 'video',
     videoScript: {
       duration: '25 seconds',
