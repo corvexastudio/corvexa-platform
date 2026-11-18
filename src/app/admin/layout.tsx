@@ -13,13 +13,15 @@ import {
   Zap,
   ArrowLeft,
   LogOut,
-  Users
+  Users,
+  Share2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 
 const navItems = [
   { href: '/admin', label: 'Platform Overview', icon: ActivitySquare, exact: true },
+  { href: '/admin/social', label: 'Social Marketing Engine', icon: Share2 },
   { href: '/admin/organizations', label: 'Tenant Health', icon: Building2 },
   { href: '/admin/staff', label: 'Staff & Access', icon: Users },
   { href: '/admin/events', label: 'Events & Debugging', icon: Terminal },
