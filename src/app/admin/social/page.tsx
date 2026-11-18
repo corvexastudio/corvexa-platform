@@ -24,7 +24,9 @@ import {
   ArrowRight,
   TrendingUp,
   ShieldCheck,
-  Zap
+  Zap,
+  Trash2,
+  CalendarCheck2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,7 +41,7 @@ import {
 } from '@/lib/social/social-engine'
 
 export default function AdminSocialPage() {
-  const [activeTab, setActiveTab] = useState<'composer' | 'video_studio' | 'channels' | 'logs'>('composer')
+  const [activeTab, setActiveTab] = useState<'composer' | 'scheduler' | 'video_studio' | 'channels' | 'logs'>('scheduler')
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatformId[]>(['facebook', 'instagram', 'youtube', 'tiktok'])
   
   // Post Editor State
@@ -59,6 +61,117 @@ export default function AdminSocialPage() {
   // Video Script State (for Short Video Studio)
   const [activeVideoPreset, setActiveVideoPreset] = useState<SocialCampaignPreset>(PREBUILT_CAMPAIGNS[3])
   const [copiedScript, setCopiedScript] = useState(false)
+
+  // Scheduler & Hormozi Multiplier State
+  const [scheduleSettings, setScheduleSettings] = useState({
+    postsPerDay: 3,
+    autoGenerateCreatives: true,
+    includeVideos: true,
+    includeImages: true,
+    activePlatforms: ['facebook', 'instagram'] as SocialPlatformId[],
+    timeSlots: [
+      { id: 'morning', label: 'Morning Pre-Job (Crews Leaving Yard)', time: '06:30', preferredType: 'image' },
+      { id: 'lunch', label: 'Lunch Break (Eating in the Truck)', time: '12:15', preferredType: 'video' },
+      { id: 'evening', label: 'Evening Pack-Up (Teardown & Quotes)', time: '17:45', preferredType: 'image' }
+    ]
+  })
+  const [scheduledQueue, setScheduledQueue] = useState<any[]>([])
+  const [loadingSchedule, setLoadingSchedule] = useState(false)
+  const [generatingQueue, setGeneratingQueue] = useState(false)
+  const [multiplierPillar, setMultiplierPillar] = useState<'voicemail' | 'driveway' | 'booking' | 'reviews'>('voicemail')
+
+  // Load scheduler queue on mount
+  useEffect(() => {
+    fetchSchedule()
+  }, [])
+
+  const fetchSchedule = async () => {
+    try {
+      setLoadingSchedule(true)
+      const res = await fetch('/api/admin/social/schedule')
+      const data = await res.json()
+      if (data.success) {
+        if (data.settings) setScheduleSettings(data.settings)
+        if (data.queue) setScheduledQueue(data.queue)
+      }
+    } catch (e) {
+      console.warn('Failed to fetch schedule', e)
+    } finally {
+      setLoadingSchedule(false)
+    }
+  }
+
+  const handleUpdatePostsPerDay = async (num: number) => {
+    const updated = { ...scheduleSettings, postsPerDay: num }
+    setScheduleSettings(updated)
+    try {
+      await fetch('/api/admin/social/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_settings', settings: updated })
+      })
+      toast.success(`Cadence set to ${num} posts/day across ${updated.activePlatforms.length} platforms.`)
+    } catch {
+      toast.error('Failed to update cadence')
+    }
+  }
+
+  const handleAutoGenerateQueue = async (days = 3) => {
+    setGeneratingQueue(true)
+    try {
+      const res = await fetch('/api/admin/social/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'auto_generate', days })
+      })
+      const data = await res.json()
+      if (data.success && data.queue) {
+        setScheduledQueue(data.queue)
+        toast.success(`Generated & queued ${data.queue.length} posts and reels across next ${days} days!`)
+      }
+    } catch {
+      toast.error('Failed to generate queue')
+    } finally {
+      setGeneratingQueue(false)
+    }
+  }
+
+  const handleDispatchQueued = async (postId: string) => {
+    try {
+      toast.info('Dispatching scheduled post live...')
+      const res = await fetch('/api/admin/social/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dispatch_post', postId })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Dispatched post live!')
+        fetchSchedule()
+      } else {
+        toast.error(data.error || 'Failed to dispatch post')
+      }
+    } catch {
+      toast.error('Error dispatching post')
+    }
+  }
+
+  const handleDeleteQueued = async (postId: string) => {
+    try {
+      const res = await fetch('/api/admin/social/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_post', postId })
+      })
+      const data = await res.json()
+      if (data.success && data.queue) {
+        setScheduledQueue(data.queue)
+        toast.success('Removed post from queue.')
+      }
+    } catch {
+      toast.error('Failed to delete post')
+    }
+  }
 
   // Toggle platform selection
   const togglePlatform = (id: SocialPlatformId) => {
@@ -215,7 +328,19 @@ export default function AdminSocialPage() {
       </div>
 
       {/* ── Navigation Tabs ── */}
-      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-3 flex-wrap">
+        <button
+          onClick={() => setActiveTab('scheduler')}
+          className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+            activeTab === 'scheduler'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
+          }`}
+        >
+          <Calendar className="h-3.5 w-3.5 text-amber-400" />
+          <span>Auto-Pilot Scheduler (Daily Cadence)</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('composer')}
           className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all ${
@@ -264,6 +389,374 @@ export default function AdminSocialPage() {
           <span>Dispatch History</span>
         </button>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 1.5: AUTO-PILOT SCHEDULER & CONTENT MULTIPLIER (HORMOZI ENGINE)
+      ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'scheduler' && (
+        <div className="space-y-6">
+          {/* 1. HORMOZI CONTENT MULTIPLIER PYRAMID */}
+          <div className="rounded-xl border border-blue-500/30 bg-gradient-to-b from-[#0B132B] via-[#0A0E18] to-black p-5 sm:p-6 space-y-6 shadow-xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-zinc-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-400 text-black font-extrabold text-[11px] px-2.5 py-0.5">
+                    Hormozi Volume Engine
+                  </Badge>
+                  <h2 className="text-base font-bold text-white flex items-center gap-1.5">
+                    <span>The Content Multiplier Architecture</span>
+                  </h2>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  1 Core Message ➡️ 3 Hook Variations ➡️ 4 Multi-Cast Reel &amp; Short Channels = 12 Video Placements/Day + 8 Image Carousels (28 Touchpoints Daily).
+                </p>
+              </div>
+
+              {/* Core Pillar Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400 font-medium">Core Message:</span>
+                <select
+                  value={multiplierPillar}
+                  onChange={(e: any) => setMultiplierPillar(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-700 text-xs text-zinc-200 rounded-lg px-3 py-1.5 font-semibold focus:outline-none focus:border-blue-500"
+                >
+                  <option value="voicemail">Missed Calls ($1,200 Voicemail Loss)</option>
+                  <option value="driveway">Driveway Apple Pay (Zero Checks)</option>
+                  <option value="booking">24/7 Google &amp; IG Booking Calendar</option>
+                  <option value="reviews">Automated 5-Star Google Reviews</option>
+                </select>
+              </div>
+            </div>
+
+            {/* VISUAL MULTIPLIER PYRAMID DIAGRAM */}
+            <div className="space-y-4">
+              {/* Level 1: Core Message */}
+              <div className="max-w-md mx-auto text-center p-3.5 rounded-xl border border-blue-500/50 bg-blue-600/10 shadow-lg space-y-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-blue-400">
+                  Level 1 • The Core Message
+                </span>
+                <div className="text-sm font-extrabold text-white">
+                  {multiplierPillar === 'voicemail' && '"82% of Homeowners Hang Up on Voicemail & Hire the Next Guy"'}
+                  {multiplierPillar === 'driveway' && '"Never Wait 45 Days for Checks: Driveway Apple Pay"'}
+                  {multiplierPillar === 'booking' && '"Lock in Emergency Jobs at 10 PM While You Sleep"'}
+                  {multiplierPillar === 'reviews' && '"Hit #1 on Google Maps with 100% Automated 5-Star Reviews"'}
+                </div>
+              </div>
+
+              {/* Connecting Lines */}
+              <div className="h-4 w-0.5 bg-blue-500/40 mx-auto" />
+
+              {/* Level 2: 3 Distinct Hook Angles */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-wide">
+                      Hook A • Curiosity &amp; Warning
+                    </span>
+                    <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-300">
+                      Slot 1 • 06:30 AM
+                    </Badge>
+                  </div>
+                  <div className="text-xs font-bold text-zinc-100">
+                    &ldquo;NEVER answer this call when you&apos;re under a cast-iron sink or on a ladder.&rdquo;
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Targets contractors before leaving the yard. Stirs curiosity and addresses drop-tool accidents.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-red-500/30 bg-red-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold text-red-400 uppercase tracking-wide">
+                      Hook B • Financial Loss Aversion
+                    </span>
+                    <Badge variant="outline" className="text-[9px] border-red-500/40 text-red-300">
+                      Slot 2 • 12:15 PM
+                    </Badge>
+                  </div>
+                  <div className="text-xs font-bold text-zinc-100">
+                    &ldquo;The $1,200 voicemail trap: why letting calls ring flushes jobs down the drain.&rdquo;
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Targets contractors during lunch in the truck. Hits direct financial pain and lost tickets.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wide">
+                      Hook C • Trade Reality &amp; Solution
+                    </span>
+                    <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-300">
+                      Slot 3 • 05:45 PM
+                    </Badge>
+                  </div>
+                  <div className="text-xs font-bold text-zinc-100">
+                    &ldquo;10-Second Auto Text-Back: Lock in the job while your hands stay on the tools.&rdquo;
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Targets contractors during job teardown. Positions CaptoDesk as the immediate $0 free fix.
+                  </p>
+                </div>
+              </div>
+
+              {/* Connecting Lines */}
+              <div className="h-4 w-0.5 bg-zinc-700 mx-auto" />
+
+              {/* Level 3: 4 Multi-Cast Placement Channels */}
+              <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/60 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold text-zinc-200">Simultaneous Multi-Cast Distribution:</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold text-[10px]">
+                    Instagram Reels (9:16)
+                  </Badge>
+                  <Badge className="bg-blue-600 text-white font-semibold text-[10px]">
+                    Facebook Reels (9:16)
+                  </Badge>
+                  <Badge className="bg-black border border-cyan-400 text-cyan-300 font-semibold text-[10px]">
+                    TikTok Business
+                  </Badge>
+                  <Badge className="bg-red-600 text-white font-semibold text-[10px]">
+                    YouTube Shorts
+                  </Badge>
+                  <Badge className="bg-blue-700 text-white font-semibold text-[10px]">
+                    Meta Photo Feeds (1:1)
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. DAILY CADENCE & SCHEDULING CONTROLS */}
+          <div className="rounded-xl border border-zinc-800 bg-[#0A0E18] p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-blue-400" />
+                  <span>Automated Daily Cadence &amp; Creative Generation</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Distributes posts across high-traffic contractor breaks to maximize reach without triggering spam throttles.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => handleAutoGenerateQueue(3)}
+                  disabled={generatingQueue}
+                  className="h-8.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-semibold gap-1.5 shadow-sm"
+                >
+                  <Sparkles className={`h-3.5 w-3.5 text-amber-300 ${generatingQueue ? 'animate-spin' : ''}`} />
+                  <span>{generatingQueue ? 'Generating...' : '⚡ Auto-Generate Next 3 Days (9 Posts)'}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAutoGenerateQueue(7)}
+                  disabled={generatingQueue}
+                  className="h-8.5 text-xs bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                >
+                  <span>Auto-Queue 7 Days (21 Posts)</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Cadence Selection Buttons */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+              {[
+                { count: 1, label: '1 Post / Day', sub: 'Baseline Growth', tag: 'Safe' },
+                { count: 2, label: '2 Posts / Day', sub: 'Morning + Evening', tag: 'Steady' },
+                { count: 3, label: '3 Posts / Day', sub: 'Morning, Lunch & Evening', tag: 'Hormozi Model' },
+                { count: 5, label: '5 Posts / Day', sub: 'Full Aggressive Multi-Cast', tag: 'High Scale' }
+              ].map((c) => {
+                const isSelected = scheduleSettings.postsPerDay === c.count
+                return (
+                  <button
+                    key={c.count}
+                    type="button"
+                    onClick={() => handleUpdatePostsPerDay(c.count)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? 'bg-blue-600/15 border-blue-500 text-white shadow-md'
+                        : 'bg-zinc-900/40 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-zinc-200">{c.label}</span>
+                      <Badge className={`text-[9px] ${isSelected ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>
+                        {c.tag}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-1">{c.sub}</div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Auto-Generation Feature Matrix */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+              <div className="p-3 rounded-lg border border-zinc-800/80 bg-zinc-900/30 flex items-center gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="font-semibold text-zinc-200">Zero-EXIF Trade Photos</div>
+                  <div className="text-[11px] text-zinc-500">Sanitized camera pixel arrays (Bypasses AI tags)</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg border border-zinc-800/80 bg-zinc-900/30 flex items-center gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="font-semibold text-zinc-200">9:16 Real B-Roll Reels</div>
+                  <div className="text-[11px] text-zinc-500">Real trade footage + kinetic text overlays</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg border border-zinc-800/80 bg-zinc-900/30 flex items-center gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="font-semibold text-zinc-200">Voiceover &amp; Trending Beat</div>
+                  <div className="text-[11px] text-zinc-500">Sequential contractor narration + beat (-1.2 dB)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. UPCOMING CONTENT QUEUE */}
+          <div className="rounded-xl border border-zinc-800 bg-[#0A0E18] overflow-hidden space-y-0">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarCheck2 className="h-4 w-4 text-blue-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  Upcoming Scheduled Drip Queue ({scheduledQueue.filter(q => q.status === 'queued').length} Queued)
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchSchedule}
+                disabled={loadingSchedule}
+                className="h-7 text-xs text-zinc-400 hover:text-zinc-200"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${loadingSchedule ? 'animate-spin' : ''}`} />
+                <span>Refresh Queue</span>
+              </Button>
+            </div>
+
+            <div className="divide-y divide-zinc-800/80">
+              {scheduledQueue.length === 0 ? (
+                <div className="p-10 text-center space-y-3">
+                  <p className="text-xs text-zinc-500">Your scheduled content queue is currently empty.</p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAutoGenerateQueue(3)}
+                    disabled={generatingQueue}
+                    className="bg-blue-600 hover:bg-blue-500 text-xs font-semibold"
+                  >
+                    ⚡ Auto-Generate Next 3 Days of Content
+                  </Button>
+                </div>
+              ) : (
+                scheduledQueue.map((item) => {
+                  const isQueued = item.status === 'queued'
+                  const isVideo = item.mediaType === 'video'
+                  return (
+                    <div key={item.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-zinc-900/20 transition-colors">
+                      {/* Left: Timing & Visual Type Badge */}
+                      <div className="flex items-start gap-3">
+                        <div className="shrink-0 w-12 text-center pt-1">
+                          {isVideo ? (
+                            <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px] flex items-center justify-center gap-1 w-full">
+                              <Video className="h-2.5 w-2.5" />
+                              <span>REEL</span>
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] flex items-center justify-center gap-1 w-full">
+                              <FileText className="h-2.5 w-2.5" />
+                              <span>POST</span>
+                            </Badge>
+                          )}
+                          <span className="text-[10px] text-zinc-500 uppercase font-mono block mt-1">
+                            {item.slot}
+                          </span>
+                        </div>
+
+                        {/* Middle: Content & Title */}
+                        <div className="space-y-1 max-w-xl">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs text-zinc-100">{item.title}</span>
+                            <Badge variant="outline" className="text-[9px] text-zinc-400 border-zinc-700 capitalize">
+                              {item.trade}
+                            </Badge>
+                            <span className="text-[11px] text-zinc-500">
+                              {new Date(item.scheduledTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })} at{' '}
+                              {new Date(item.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
+                            {item.content}
+                          </p>
+
+                          <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-500">
+                            <span>Platforms: {item.platforms.join(', ')}</span>
+                            <span>•</span>
+                            <a 
+                              href={item.mediaUrl} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-blue-400 hover:underline flex items-center gap-0.5"
+                            >
+                              <span>Preview Creative</span>
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Status & Actions */}
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <Badge 
+                          className={
+                            isQueued 
+                              ? 'bg-amber-400/10 text-amber-300 border-amber-400/20 text-[10px]' 
+                              : 'bg-emerald-400/10 text-emerald-300 border-emerald-400/20 text-[10px]'
+                          }
+                        >
+                          {isQueued ? 'QUEUED' : 'PUBLISHED'}
+                        </Badge>
+
+                        {isQueued && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleDispatchQueued(item.id)}
+                            className="h-7 px-3 text-[11px] bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+                          >
+                            <Send className="h-3 w-3 mr-1" />
+                            <span>Post Now</span>
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteQueued(item.id)}
+                          className="h-7 w-7 p-0 text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           TAB 1: MULTI-CAST COMPOSER

@@ -297,16 +297,29 @@ export async function dispatchToPlatform(
     try {
       const pageId = process.env.META_PAGE_ID
       const token = process.env.META_ACCESS_TOKEN
-      const url = `https://graph.facebook.com/v20.0/${pageId}/photos`
+      const isVideo = payload.mediaType === 'video'
       
+      const url = isVideo 
+        ? `https://graph.facebook.com/v20.0/${pageId}/videos`
+        : `https://graph.facebook.com/v20.0/${pageId}/photos`
+      
+      const body = isVideo
+        ? {
+            file_url: payload.mediaUrl,
+            description: payload.content,
+            title: payload.title || 'CaptoDesk Reel',
+            access_token: token
+          }
+        : {
+            url: payload.mediaUrl,
+            caption: payload.content,
+            access_token: token
+          }
+
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: payload.mediaUrl,
-          caption: payload.content,
-          access_token: token
-        })
+        body: JSON.stringify(body)
       })
       const data = await res.json()
       if (res.ok && data.id) {
@@ -314,9 +327,9 @@ export async function dispatchToPlatform(
           platform,
           success: true,
           postId: data.id,
-          permalink: `https://facebook.com/${data.id}`,
+          permalink: isVideo ? `https://facebook.com/reel/${data.id}` : `https://facebook.com/${data.id}`,
           mode: 'live',
-          message: 'Published successfully to Facebook Page feed.',
+          message: isVideo ? 'Published successfully to Facebook Reels/Video.' : 'Published successfully to Facebook Page feed.',
           timestamp
         }
       }
@@ -330,18 +343,40 @@ export async function dispatchToPlatform(
     try {
       const igId = process.env.META_IG_USER_ID
       const token = process.env.META_ACCESS_TOKEN
+      const isVideo = payload.mediaType === 'video'
 
       // Step 1: Create media container
+      const containerBody = isVideo
+        ? {
+            media_type: 'REELS',
+            video_url: payload.mediaUrl,
+            caption: payload.content,
+            share_to_feed: true,
+            access_token: token
+          }
+        : {
+            image_url: payload.mediaUrl,
+            caption: payload.content,
+            access_token: token
+          }
+
       const containerRes = await fetch(`https://graph.facebook.com/v20.0/${igId}/media`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_url: payload.mediaUrl,
-          caption: payload.content,
-          access_token: token
-        })
+        body: JSON.stringify(containerBody)
       })
       const containerData = await containerRes.json()
+
+      // If video, poll status_code until FINISHED
+      if (isVideo && containerData.id) {
+        for (let poll = 0; poll < 15; poll++) {
+          await new Promise(r => setTimeout(r, 4000))
+          const checkRes = await fetch(`https://graph.facebook.com/v20.0/${containerData.id}?fields=status_code&access_token=${token}`)
+          const checkData = await checkRes.json()
+          if (checkData.status_code === 'FINISHED') break
+          if (checkData.status_code === 'ERROR') throw new Error('Video transcoding failed on Meta servers')
+        }
+      }
 
       // Step 2: Publish media container
       if (containerData.id) {
@@ -359,9 +394,9 @@ export async function dispatchToPlatform(
             platform,
             success: true,
             postId: publishData.id,
-            permalink: `https://instagram.com/p/${publishData.id}`,
+            permalink: isVideo ? `https://instagram.com/reel/${publishData.id}` : `https://instagram.com/p/${publishData.id}`,
             mode: 'live',
-            message: 'Published successfully to Instagram Business Feed.',
+            message: isVideo ? 'Published successfully to Instagram Reels.' : 'Published successfully to Instagram Business Feed.',
             timestamp
           }
         }
@@ -402,4 +437,201 @@ export async function dispatchToPlatform(
 export async function multiCastPost(payload: SocialPostPayload): Promise<DispatchResult[]> {
   const promises = payload.platforms.map(p => dispatchToPlatform(p, payload))
   return Promise.all(promises)
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUTOMATED SOCIAL SCHEDULING & DRIP QUEUE
+// ─────────────────────────────────────────────────────────────
+
+export interface ScheduledPostItem {
+  id: string
+  slot: 'morning' | 'lunch' | 'evening' | 'night'
+  scheduledTime: string
+  platforms: SocialPlatformId[]
+  mediaType: 'image' | 'video'
+  mediaUrl: string
+  title: string
+  content: string
+  status: 'queued' | 'published' | 'failed'
+  topic: string
+  trade: string
+  publishedAt?: string
+}
+
+export interface DailyScheduleSettings {
+  postsPerDay: number
+  autoGenerateCreatives: boolean
+  includeVideos: boolean
+  includeImages: boolean
+  activePlatforms: SocialPlatformId[]
+  timeSlots: Array<{
+    id: 'morning' | 'lunch' | 'evening' | 'night'
+    label: string
+    time: string
+    preferredType: 'image' | 'video'
+  }>
+}
+
+export const DEFAULT_SCHEDULE_SETTINGS: DailyScheduleSettings = {
+  postsPerDay: 3,
+  autoGenerateCreatives: true,
+  includeVideos: true,
+  includeImages: true,
+  activePlatforms: ['facebook', 'instagram'],
+  timeSlots: [
+    { id: 'morning', label: 'Morning Pre-Job (Crews Leaving Yard)', time: '06:30', preferredType: 'image' },
+    { id: 'lunch', label: 'Lunch Break (Eating in the Truck)', time: '12:15', preferredType: 'video' },
+    { id: 'evening', label: 'Evening Pack-Up (Teardown & Quotes)', time: '17:45', preferredType: 'image' }
+  ]
+}
+
+// 6 Core Pre-Sanitized Content Batches for Trade Contractors
+const AUTOMATED_CONTENT_TEMPLATES = [
+  {
+    topic: 'Missed Call 15-Sec Recovery',
+    trade: 'plumber',
+    mediaType: 'video' as const,
+    mediaUrl: 'https://captodesk.com/marketing/captodesk_reel_with_broll.mp4',
+    title: 'Stop Losing $1,200 Jobs to Voicemail',
+    content: `When you're under a cast-iron sink or 20 feet up on a ladder, DO NOT scramble down to answer your phone.
+
+82% of homeowners don't leave voicemails anymore. They hang up and tap the next guy on Google Maps. 
+
+CaptoDesk automatically spots missed calls and texts them your booking link in 10 seconds:
+"Hey! Sorry I missed your call, on a job right now. Grab an open slot on my schedule here: book.captodesk.com or text me what's going on."
+
+Homeowners book their slot before calling anyone else. Your first 3 jobs are completely free to try.
+Check it out at captodesk.com (or tap the link in bio).
+
+#plumber #contractorlife #trades #bluecollar #hvac #electrician #smallbusiness #captodesk`
+  },
+  {
+    topic: 'Driveway Payments & Apple Pay',
+    trade: 'electrician',
+    mediaType: 'image' as const,
+    mediaUrl: 'https://captodesk.com/marketing/post3_driveway_clean.jpg',
+    title: 'Stop Waiting 45 Days for Homeowner Checks',
+    content: `Still writing paper invoices on the dashboard or waiting 4 weeks for a check to clear?
+
+Here is the 2026 way:
+The second you wrap up a job, hand the customer your phone or text them a secure one-tap link:
+Apple Pay, Google Pay, or Credit Card right in their driveway.
+
+Money clears before you pull out of their street. Zero card reader hardware to buy, zero monthly platform fees for your first 3 jobs.
+
+Try it free today at captodesk.com.
+
+#electrician #electrical #contractor #bluecollar #payments #servicebusiness #fieldservice #captodesk`
+  },
+  {
+    topic: '24/7 Online Booking Link',
+    trade: 'hvac',
+    mediaType: 'image' as const,
+    mediaUrl: 'https://captodesk.com/marketing/post2_booking_clean.jpg',
+    title: 'Wake Up to 2 New AC Jobs Already on Your Schedule',
+    content: `Most homeowners look for HVAC service at 9:30 PM when the compressor kicks off and the house hits 82 degrees.
+
+If you don't have a 24/7 direct booking link in your Google Maps profile, you're handing emergency calls to the franchise across town.
+
+With CaptoDesk, homeowners select an open diagnostic window directly from your Instagram bio or Google listing. You wake up with jobs routed and locked in.
+
+Start your first 3 jobs 100% free with no credit card required at captodesk.com.
+
+#hvac #hvaclife #hvacservice #contractorsofinstagram #tradesman #acrepair #captodesk`
+  },
+  {
+    topic: 'Automated 5-Star Google Reviews',
+    trade: 'general contractor',
+    mediaType: 'image' as const,
+    mediaUrl: 'https://captodesk.com/marketing/hero_banner_clean.jpg',
+    title: 'How to Hit #1 on Google Maps in Your Local Zip Code',
+    content: `The easiest way to double your incoming calls is having 40 more Google reviews than the guy down the street.
+
+The problem? Remembering to text customers after a 10-hour day never happens.
+
+CaptoDesk automates the entire loop:
+Mark the invoice paid ➡️ customer receives a clean SMS review invite 15 minutes later ➡️ 5-star review lands directly on your Google Business Profile.
+
+Your first 3 jobs are completely free at captodesk.com.
+
+#contractor #roofing #remodeling #homeimprovement #googlemaps #seo #fieldservice #captodesk`
+  },
+  {
+    topic: 'Ladder Safety & Missed Calls',
+    trade: 'roofer',
+    mediaType: 'image' as const,
+    mediaUrl: 'https://captodesk.com/marketing/post1_ladder_clean.jpg',
+    title: 'Never Scramble Down a 24-Foot Ladder for a Telemarketer',
+    content: `You're balancing on a second-story roof pitch, phone vibrates in your back pocket.
+
+You scramble down the rungs, peel your gloves off out of breath... and it's a recorded message asking about duct cleaning.
+
+Stop dropping your tools.
+CaptoDesk's automated AI call triage filters spam and instantly texts real homeowners your booking link while you stay safe on the ladder.
+
+Claim your free 3-job starter pass at captodesk.com.
+
+#roofing #roofer #safetyfirst #contractorlife #bluecollar #trades #fieldservice #captodesk`
+  },
+  {
+    topic: 'Cast-Iron Sink Plumbing Diagnostic',
+    trade: 'plumber',
+    mediaType: 'image' as const,
+    mediaUrl: 'https://captodesk.com/marketing/post1_authentic_clean.jpg',
+    title: 'Greasy Hands Shouldn\'t Cost You $800 Leads',
+    content: `When your hands are covered in grease and pipe dope, the last thing you can touch is a glass phone screen.
+
+CaptoDesk keeps your business running while your hands stay on the tools:
+Auto-reply SMS within 10 seconds ➡️ customer books diagnostic slot ➡️ job added to your route.
+
+Test it completely free on your next 3 jobs at captodesk.com.
+
+#plumbing #draincleaning #emergencyplumber #bluecollarlife #smallbiz #trades #captodesk`
+  }
+]
+
+/**
+ * Automatically generates a multi-day queue of scheduled social posts based on daily cadence.
+ */
+export function generateAutomatedQueue(days: number = 3, settings: DailyScheduleSettings = DEFAULT_SCHEDULE_SETTINGS): ScheduledPostItem[] {
+  const queue: ScheduledPostItem[] = []
+  const now = new Date()
+
+  let templateIdx = 0
+  const slotsToUse = settings.timeSlots.slice(0, settings.postsPerDay)
+
+  for (let dayOffset = 0; dayOffset < days; dayOffset++) {
+    const targetDate = new Date(now)
+    targetDate.setDate(now.getDate() + dayOffset)
+
+    for (const slot of slotsToUse) {
+      const [hours, minutes] = slot.time.split(':').map(Number)
+      const scheduledDateTime = new Date(targetDate)
+      scheduledDateTime.setHours(hours, minutes, 0, 0)
+
+      // Skip slots that are already in the past for today
+      if (scheduledDateTime < now) {
+        continue
+      }
+
+      const template = AUTOMATED_CONTENT_TEMPLATES[templateIdx % AUTOMATED_CONTENT_TEMPLATES.length]
+      templateIdx++
+
+      queue.push({
+        id: `sched-${Date.now().toString().slice(-5)}-${dayOffset}-${slot.id}`,
+        slot: slot.id,
+        scheduledTime: scheduledDateTime.toISOString(),
+        platforms: settings.activePlatforms,
+        mediaType: template.mediaType,
+        mediaUrl: template.mediaUrl,
+        title: template.title,
+        content: template.content,
+        status: 'queued',
+        topic: template.topic,
+        trade: template.trade
+      })
+    }
+  }
+
+  return queue
 }
