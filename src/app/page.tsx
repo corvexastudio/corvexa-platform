@@ -206,6 +206,29 @@ export default function LandingPage() {
           </div>
 
         </div>
+
+        {/* Link Placement Visual Showcase */}
+        <div className="mt-10 pt-8 border-t border-slate-100 max-w-4xl mx-auto space-y-4">
+          <div className="text-center space-y-1.5">
+            <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider block">
+              WHERE YOUR CUSTOMERS CLICK
+            </span>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+              Paste Your Link Once on Google Maps &amp; Instagram
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto">
+              Homeowners browsing local crews on Google or social media click your link and pick an appointment slot directly into your schedule.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/90 overflow-hidden shadow-sm bg-white">
+            <img
+              src="/booking-placement-guide.jpg"
+              alt="How CaptoDesk booking links appear on Google Business Profile and Instagram Bio"
+              className="w-full h-auto object-cover"
+              loading="lazy"
+            />
+          </div>
+        </div>
       </section>
 
       {/* ── 4. How It Works Section (4 Core Features + Upgrade Banner) ── */}
@@ -300,6 +323,16 @@ export default function LandingPage() {
             </div>
           </div>
 
+        </div>
+
+        {/* 4-Step Visual Workflow Panorama */}
+        <div className="rounded-3xl border border-slate-200/90 overflow-hidden shadow-sm bg-white p-2 sm:p-4">
+          <img
+            src="/workflow-showcase.jpg"
+            alt="CaptoDesk 4-Step Field Workflow: Instant Online Booking, Real-Time GPS Tracking, Driveway Apple Pay, and Automated 5-Star Reviews"
+            className="w-full h-auto rounded-2xl object-cover"
+            loading="lazy"
+          />
         </div>
 
         {/* Paid Upgrade Callout Banner */}
