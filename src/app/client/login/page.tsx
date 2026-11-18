@@ -1,12 +1,12 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
-import { Loader2, CheckCircle2, ArrowRight, AlertCircle, Check, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { Loader2, CheckCircle2, ArrowRight, AlertCircle, Check, ShieldCheck, ArrowLeft, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -42,6 +42,42 @@ function LoginContent() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const linkError = searchParams.get('error')
+
+  const [pendingClaim, setPendingClaim] = useState<{
+    businessName: string
+    slug: string
+    trade?: string
+  } | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('captodesk_pending_claim')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed.businessName && parsed.slug) {
+            setPendingClaim(parsed)
+            return
+          }
+        }
+      } catch {
+        // Fallback to query params
+      }
+    }
+    const nameParam = searchParams.get('name')
+    if (nameParam) {
+      const slug = nameParam
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'your-business'
+      setPendingClaim({
+        businessName: nameParam,
+        slug,
+        trade: searchParams.get('trade') || undefined,
+      })
+    }
+  }, [searchParams])
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true)
@@ -99,11 +135,11 @@ function LoginContent() {
           </div>
 
           <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
-            Never lose another job while you&apos;re on a ladder.
+            Turn Google Maps &amp; Instagram visitors into booked jobs.
           </h1>
 
           <p className="text-slate-300 text-base lg:text-lg leading-relaxed">
-            Your missed calls caught in 8 seconds, appointments booked online, truck arrivals tracked live, and payment collected on site with Apple Pay.
+            Your 24/7 online booking link, live GPS arrival texts, and driveway Apple Pay checkout in 2 minutes.
           </p>
 
           <div className="space-y-3 pt-2 text-sm text-slate-200">
@@ -111,19 +147,19 @@ function LoginContent() {
               <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                 <Check className="w-3.5 h-3.5" />
               </div>
-              <span><strong>Free online booking link</strong> for your website, cards &amp; truck wraps</span>
+              <span><strong>Custom online booking link</strong> for Google Maps, Instagram &amp; truck wraps</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                 <Check className="w-3.5 h-3.5" />
               </div>
-              <span><strong>Works with your existing number</strong> with simple forwarding (*62)</span>
+              <span><strong>Live Uber-style arrival map</strong> texted to customers with zero app downloads</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                 <Check className="w-3.5 h-3.5" />
               </div>
-              <span><strong>Zero customer app downloads</strong> or complicated passwords</span>
+              <span><strong>First 3 completed jobs 100% free</strong> with no credit card or phone forwarding</span>
             </div>
           </div>
         </div>
@@ -167,14 +203,42 @@ function LoginContent() {
                 </div>
               )}
 
+              {/* Reserved Booking Link Continuity Banner */}
+              {pendingClaim && (
+                <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/90 via-sky-50/50 to-indigo-50/40 p-4 text-slate-900 shadow-2xs relative overflow-hidden">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-700">
+                        <Sparkles className="w-3 h-3 text-blue-600 shrink-0" />
+                        <span>Booking Link Reserved</span>
+                      </div>
+                      <div className="font-mono font-bold text-xs sm:text-sm text-slate-900 truncate">
+                        book.captodesk.com/<span className="text-blue-600 underline underline-offset-2">{pendingClaim.slug}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-normal">
+                        Sign in below to activate this link, open your dispatch dashboard, and run your first 3 jobs $0.
+                      </p>
+                    </div>
+                    <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Reserved</span>
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {isSignUp ? 'Claim Your Free 3-Job Starter Pass' : 'Sign in to CaptoDesk'}
+                  {pendingClaim
+                    ? 'Activate Your Free Booking Link'
+                    : (isSignUp ? 'Claim Your Free 3-Job Starter Pass' : 'Sign in to CaptoDesk')}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 mt-1.5 leading-relaxed">
-                  {isSignUp
-                    ? 'Process your first 3 customer jobs 100% free with automated dispatch & card checkout. Zero credit card required.'
-                    : 'Access your dispatch calendar, message inbox, and customer leads.'}
+                  {pendingClaim
+                    ? '1-click sign in to launch your dispatch calendar, mobile invoice checkout, and live arrival texts.'
+                    : (isSignUp
+                      ? 'Process your first 3 customer jobs 100% free with automated dispatch & card checkout. Zero credit card required.'
+                      : 'Access your dispatch calendar, message inbox, and customer leads.')}
                 </p>
               </div>
 
@@ -193,7 +257,7 @@ function LoginContent() {
                 ) : (
                   <>
                     <GoogleIcon className="h-5 w-5 shrink-0" />
-                    <span>{isSignUp ? 'Continue with Google' : 'Sign in with Google'}</span>
+                    <span>{pendingClaim ? 'Activate with Google (Instant)' : (isSignUp ? 'Continue with Google' : 'Sign in with Google')}</span>
                   </>
                 )}
               </button>
@@ -235,7 +299,7 @@ function LoginContent() {
                     <><Loader2 className="h-4 w-4 animate-spin" /> Sending sign-in link...</>
                   ) : (
                     <>
-                      <span>{isSignUp ? 'Claim Free 3-Job Pass' : 'Send Sign-In Link'}</span>
+                      <span>{pendingClaim ? 'Activate with Work Email' : (isSignUp ? 'Claim Free 3-Job Pass' : 'Send Sign-In Link')}</span>
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
@@ -273,7 +337,12 @@ function LoginContent() {
                   <strong className="text-slate-900 font-bold">{email}</strong>
                 </p>
               </div>
-              <p className="text-xs text-slate-500">Tap the link in your email to instantly open your dashboard.</p>
+              {pendingClaim && (
+                <div className="w-full text-center py-2 px-3 rounded-xl bg-blue-50/80 border border-blue-200 text-xs font-mono text-slate-700 truncate">
+                  Reserved Link: <span className="font-bold text-blue-600">book.captodesk.com/{pendingClaim.slug}</span>
+                </div>
+              )}
+              <p className="text-xs text-slate-500">Tap the link in your email to instantly open your dashboard and activate your link.</p>
               <button
                 type="button"
                 onClick={() => setSent(false)}

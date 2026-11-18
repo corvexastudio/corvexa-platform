@@ -334,6 +334,12 @@ export default function OnboardingPage() {
                 className="h-10 sm:h-9 rounded-md text-base sm:text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
                 required
               />
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                <span>Public booking link:</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400">
+                  book.captodesk.com/{businessName ? businessName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'your-business' : 'your-business'}
+                </span>
+              </div>
             </div>
 
             {/* Auto-detected Operational Timezone Indicator */}
