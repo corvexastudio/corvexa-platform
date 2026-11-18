@@ -14,8 +14,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://captodesk.com'),
-  title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
-  description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
+  title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
+  description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
-    description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
+    title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
+    description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
     url: "https://captodesk.com",
     siteName: "CaptoDesk",
     images: [
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "CaptoDesk - Capture more leads. Close more jobs. Keep more customers.",
+        alt: "CaptoDesk - Free Online Booking Link & Live Arrival Tracker for Local Crews",
       },
     ],
     locale: "en_US",
@@ -45,8 +45,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "CaptoDesk | 24/7 Digital Front Desk & Lead Recovery",
-    description: "Automated missed-call text-back and Google review system for local service businesses and contractors.",
+    title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
+    description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
     images: ["/opengraph-image.png"],
   },
 }

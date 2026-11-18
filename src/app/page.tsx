@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  PhoneCall,
-  PhoneMissed,
+  Calendar,
   Navigation,
   CreditCard,
   Star,
@@ -25,16 +24,19 @@ import {
   HelpCircle,
   Building,
   ExternalLink,
-  CalendarCheck
+  CalendarCheck,
+  PhoneCall,
+  Smartphone
 } from 'lucide-react'
 import { DualPhoneSimulator } from '@/components/landing/dual-phone-simulator'
-import { RevenueCalculator } from '@/components/landing/revenue-calculator'
 import { FaqSection } from '@/components/landing/faq-section'
+import { ClaimBookingModal } from '@/components/landing/claim-booking-modal'
 import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
 
@@ -53,8 +55,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFB] text-slate-900 selection:bg-blue-600 selection:text-white font-[var(--font-sans)] antialiased overflow-x-hidden">
       
-      {/* ── 1. Top Navigation Bar ── */}
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+      {/* ── 1. Minimal Navigation Bar ── */}
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -62,16 +64,13 @@ export default function LandingPage() {
             <BrandWordmark size="text-lg" />
           </Link>
 
-          {/* Desktop Nav Links (Streamlined High-Signal Links) */}
+          {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
-            <a href="#simulator" className="hover:text-blue-600 transition-colors">
+            <a href="#preview" className="hover:text-blue-600 transition-colors">
               How It Works
             </a>
-            <a href="#engines" className="hover:text-blue-600 transition-colors">
+            <a href="#features" className="hover:text-blue-600 transition-colors">
               Features
-            </a>
-            <a href="#calculator" className="hover:text-blue-600 transition-colors">
-              ROI Calculator
             </a>
             <a href="#pricing" className="hover:text-blue-600 transition-colors">
               Pricing
@@ -82,242 +81,169 @@ export default function LandingPage() {
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {isAuthenticated ? (
               <Link
                 href="/client/dashboard"
                 className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
               >
-                <span>Go to Dashboard</span>
+                <span>Dashboard</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             ) : (
               <>
                 <Link
                   href="/client/login"
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
                 >
                   Sign In
                 </Link>
-                <Link
-                  href="/client/login?mode=signup"
-                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                <button
+                  type="button"
+                  onClick={() => setShowClaimModal(true)}
+                  className="px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm shadow-blue-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Start Free (3 Jobs)</span>
+                  <span>Start Free</span>
                   <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                </button>
               </>
             )}
           </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-hidden"
-            aria-label="Toggle navigation menu"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
         </div>
-
-        {/* Mobile Dropdown Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3 shadow-lg">
-            <div className="flex flex-col space-y-2 text-sm font-semibold text-slate-700">
-              <a
-                href="#simulator"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg"
-              >
-                How It Works
-              </a>
-              <a
-                href="#engines"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg"
-              >
-                Features
-              </a>
-              <a
-                href="#calculator"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg"
-              >
-                ROI Calculator
-              </a>
-              <a
-                href="#pricing"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg"
-              >
-                Pricing
-              </a>
-              <a
-                href="#faq"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg"
-              >
-                FAQ
-              </a>
-              <Link
-                href="/contact"
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 hover:bg-slate-50 rounded-lg text-blue-600 font-bold"
-              >
-                Contact &amp; Demo
-              </Link>
-            </div>
-            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-              <Link
-                href="/client/login"
-                className="w-full py-2.5 text-center text-xs font-bold text-slate-700 bg-slate-100 rounded-xl"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/client/login?mode=signup"
-                className="w-full py-2.5 text-center text-xs font-bold text-white bg-blue-600 rounded-xl shadow-sm"
-              >
-                Start Free (3 Jobs)
-              </Link>
-            </div>
-          </div>
-        )}
       </header>
 
       {/* ── 2. Hero Section ── */}
       <section className="relative pt-12 pb-14 sm:pt-20 sm:pb-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
-        {/* Soft Ambient Radial Lights */}
+        {/* Soft Ambient Radial Light */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-96 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(37,99,235,0.10),rgba(255,255,255,0))] pointer-events-none" />
 
         <div className="space-y-6 relative z-10">
-          {/* Editorial Category Eyebrow */}
+          {/* Eyebrow Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200/80 shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            <span>AUTOMATED FRONT DESK FOR FIELD TRADES</span>
+            <span>BOOKING LINKS &amp; LIVE DISPATCH FOR FIELD CREWS</span>
           </div>
 
-          {/* Primary Headline - Sharp, Visceral, Clean */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 leading-[1.08] max-w-4xl mx-auto">
-            Never lose another job <br className="hidden sm:inline" />
-            <span className="text-blue-600">while you&apos;re on a ladder.</span>
+          {/* Headline (H1) */}
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.12] max-w-4xl mx-auto">
+            Turn Google Maps Visitors Into Booked Jobs—With Uber-Style Live Arrival Tracking.
           </h1>
 
-          {/* Sub-Headline - Direct Outcome */}
-          <p className="text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            When you can&apos;t answer, CaptoDesk texts the customer in 8 seconds, books their diagnostic visit, tracks your truck live, and collects payment on site before you drive away.
+          {/* Subheadline */}
+          <p className="text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            Every day without a booking link, local customers click the next crew on Google. Launch your custom booking page, live GPS arrival texts, driveway Apple Pay invoicing, and auto Google reviews in 2 minutes. Run your first 3 jobs 100% free—no credit card or phone forwarding required.
           </p>
 
-          {/* Primary Call to Action Buttons */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto">
-            <Link
-              href="/client/login?mode=signup"
+          {/* Single Primary CTA */}
+          <div className="pt-2 flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => setShowClaimModal(true)}
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
-              <span>Start Free (3 Jobs Included)</span>
+              <span>Get My Free Booking Link (First 3 Jobs Free)</span>
               <ArrowRight className="w-4 h-4 text-white" />
-            </Link>
-            <a
-              href="#simulator"
-              className="w-full sm:w-auto px-6 py-4 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-2xs cursor-pointer"
-            >
-              <span>Watch 60-Sec Demo</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </a>
+            </button>
+            <span className="text-xs text-slate-500 font-medium">
+              Live in 2 minutes &bull; First 3 completed jobs $0 &bull; No phone setup required
+            </span>
           </div>
         </div>
 
-        {/* ── HERO PEDESTAL: The Live Interactive Phone Simulator ── */}
-        <div id="simulator" className="mt-12 sm:mt-16">
-          <DualPhoneSimulator />
+        {/* ── Visual Proof: Live Workflow Preview (Dual Phone Simulator) ── */}
+        <div id="preview" className="mt-12 sm:mt-16">
+          <DualPhoneSimulator onOpenClaim={() => setShowClaimModal(true)} />
         </div>
       </section>
 
-      {/* ── 3. Trade Authority & Proof Strip ── */}
-      <section className="border-y border-slate-200 bg-white py-8 px-4">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-          <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-blue-600 block">8.2s</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Average Text-Back Speed</span>
+      {/* ── 3. Three Objection-Killing Bullets (Replacing the 4-Stat Grid) ── */}
+      <section className="border-y border-slate-200 bg-white py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+          
+          {/* Bullet 1 */}
+          <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-extrabold text-sm flex items-center justify-center shrink-0 mt-0.5">
+              1
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">
+                Zero Phone Forwarding or Number Changes
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Keep your current phone setup untouched. Simply paste your custom <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] text-slate-800 font-mono">captodesk.com/book/[your-name]</code> link onto Google Maps, Instagram, or your website.
+              </p>
+            </div>
           </div>
-          <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 block">3 Jobs Free</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Zero fees to test on your own line</span>
-          </div>
-          <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-emerald-600 block">0 Apps</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">No customer downloads needed</span>
-          </div>
-          <div className="p-2">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold text-indigo-600 block">On Site</span>
-            <span className="text-xs sm:text-sm text-slate-600 font-semibold mt-1 block">Driveway Apple Pay &amp; card pay</span>
-          </div>
-        </div>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[11px] font-mono text-slate-500">
-          <span>✓ Works with your existing mobile phone</span>
-          <span>✓ Verified carrier line (never marked spam)</span>
-          <span>✓ No contracts — cancel anytime</span>
-          <span>✓ 2-minute setup</span>
+          {/* Bullet 2 */}
+          <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 font-extrabold text-sm flex items-center justify-center shrink-0 mt-0.5">
+              2
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">
+                Built for Trucks, Not Office Desks
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Add your top services in 2 minutes, update job status in 2 thumb taps, and text homeowners a live Uber-style arrival map with zero app downloads.
+              </p>
+            </div>
+          </div>
+
+          {/* Bullet 3 */}
+          <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50/70 border border-slate-100">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 font-extrabold text-sm flex items-center justify-center shrink-0 mt-0.5">
+              3
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">
+                First 3 Completed Jobs 100% Free
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Test live arrival tracking, driveway Apple Pay checkout, and automatic Google review requests on real customers before paying a dime.
+              </p>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      {/* ── 4. Core Features Grid ── */}
-      <section id="engines" className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
+      {/* ── 4. How It Works Section (4 Core Features + Upgrade Banner) ── */}
+      <section id="features" className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
         <div className="text-center max-w-2xl mx-auto space-y-3">
           <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
-            HOW IT WORKS
+            BUILT FOR SOLO OPERATORS &amp; SMALL CREWS
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            Four Ways CaptoDesk Protects Your Revenue
+            Four Ways CaptoDesk Wins &amp; Completes More Jobs
           </h2>
           <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-            Everything you need to capture missed calls, dispatch jobs, and collect payment from your truck.
+            Everything you need to turn profile views into booked jobs, 5-star reviews, and instant payouts.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
-          {/* Card 1: Missed Call Recovery */}
+          {/* Card 1: 24/7 Booking Link */}
           <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200/80 flex items-center justify-center">
-                <PhoneMissed className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center">
+                <Calendar className="w-5 h-5" />
               </div>
               <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                8-Second Missed-Call Recovery
+                24/7 Google &amp; Instagram Booking Link
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                When you can&apos;t answer, CaptoDesk instantly texts the caller to handle their emergency and secure the visit before they call another contractor.
+                Let homeowners pick an open time slot directly from your Google Business Profile or social bio while you&apos;re out on a job—no phone tag required.
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Automated 2-way conversational text &bull; Zero app downloads</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-semibold text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Included Free &bull; First 3 Jobs</span>
             </div>
           </div>
 
-          {/* Card 2: On-Site Mobile Payments */}
-          <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center">
-                <CreditCard className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                Driveway Apple Pay &amp; Card Checkout
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Tap &quot;Complete Job&quot; to send an itemized invoice to the homeowner&apos;s phone. They pay on site via Apple Pay, Google Pay, or card.
-              </p>
-            </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Instant digital receipts &bull; Zero evening billing paperwork</span>
-            </div>
-          </div>
-
-          {/* Card 3: Live Arrival Tracking */}
+          {/* Card 2: Live Technician Arrival Map */}
           <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center">
@@ -327,16 +253,35 @@ export default function LandingPage() {
                 Live Technician Arrival Map
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Tap &quot;On My Way&quot; to text the homeowner your photo, truck details, and a real-time GPS arrival map with an accurate ETA.
+                Tap &quot;On My Way&quot; to text the customer your photo, truck details, and a real-time GPS arrival map with an accurate ETA—stopping &quot;Where are you?&quot; calls.
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Real-time GPS tracking &bull; Stops &quot;Where are you?&quot; phone calls</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-semibold text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Included Free &bull; First 3 Jobs</span>
             </div>
           </div>
 
-          {/* Card 4: Automated 5-Star Reviews */}
+          {/* Card 3: Driveway Apple Pay & Card Checkout */}
+          <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
+            <div className="space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                Driveway Apple Pay &amp; Card Checkout
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Tap &quot;Complete Job&quot; to text an itemized digital invoice. Customers pay on site in seconds via Apple Pay, Google Pay, or card.
+              </p>
+            </div>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-semibold text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Included Free &bull; First 3 Jobs</span>
+            </div>
+          </div>
+
+          {/* Card 4: Automated Google Review Booster */}
           <div className="p-7 sm:p-8 rounded-2xl border border-slate-200/90 bg-white shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-6">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center">
@@ -346,24 +291,43 @@ export default function LandingPage() {
                 Automated Google Review Booster
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Minutes after payment clears, customers receive a 1-tap review link. 5-star ratings route straight to Google; private concerns route to you.
+                Minutes after payment clears, happy customers get a 1-tap Google review link while private concerns route directly to you first.
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Smart reputation filter &bull; Builds local Google Maps ranking</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-semibold text-emerald-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Included Free &bull; First 3 Jobs</span>
             </div>
           </div>
 
         </div>
+
+        {/* Paid Upgrade Callout Banner */}
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 text-left">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+              <PhoneCall className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-slate-900">
+                Need 24/7 Missed-Call Text-Back too?
+              </p>
+              <p className="text-xs text-slate-600">
+                Upgrade to Solo Pro ($99/mo) anytime to unlock a dedicated local business number that texts missed callers back in 8 seconds.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowClaimModal(true)}
+            className="shrink-0 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            Explore Plans &rarr;
+          </button>
+        </div>
       </section>
 
-      {/* ── 5. Revenue Calculator Section ── */}
-      <section id="calculator" className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-slate-50/70 border-y border-slate-200/80">
-        <RevenueCalculator />
-      </section>
-
-      {/* ── 6. Comparison Section ── */}
+      {/* ── 5. Comparison Section ── */}
       <section id="comparison" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-2">
           <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-widest block">
@@ -389,7 +353,7 @@ export default function LandingPage() {
               </p>
               <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
                 <li className="flex items-start gap-2 text-rose-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Slow callbacks lose 80%+ of emergency calls
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Slow callbacks lose urgent Google Maps searchers
                 </li>
                 <li className="flex items-start gap-2 text-rose-600">
                   <X className="w-4 h-4 shrink-0 mt-0.5" /> Costly monthly fees for basic message-taking
@@ -423,7 +387,7 @@ export default function LandingPage() {
                   <X className="w-4 h-4 shrink-0 mt-0.5" /> Forces customers to install separate mobile apps
                 </li>
                 <li className="flex items-start gap-2 text-amber-600">
-                  <X className="w-4 h-4 shrink-0 mt-0.5" /> Lacks instant 8-second 2-way missed-call recovery
+                  <X className="w-4 h-4 shrink-0 mt-0.5" /> No instant booking link setup in 2 minutes
                 </li>
               </ul>
             </div>
@@ -432,45 +396,46 @@ export default function LandingPage() {
           {/* Column 3: CaptoDesk (Elevated Winner) */}
           <div className="rounded-3xl border-2 border-blue-600 bg-gradient-to-b from-blue-50/50 via-white to-white p-6 sm:p-7 flex flex-col justify-between space-y-6 shadow-xl relative">
             <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-600 text-white text-[11px] font-extrabold uppercase tracking-wider shadow-sm">
-              ENGINEERED FOR FIELD TRADES
+              BUILT FOR TRUCKS, NOT DESKS
             </span>
             <div className="space-y-4 pt-1">
               <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider block">The Modern Standard</span>
               <h3 className="text-xl font-bold text-slate-900">CaptoDesk Platform</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Responds in 8 seconds, gives customers an Uber-like arrival screen, and collects payment on site.
+                Gives customers a 24/7 booking link, an Uber-like live arrival screen, and instant on-site checkout.
               </p>
               <ul className="space-y-2.5 text-xs text-slate-800 pt-2 border-t border-blue-100">
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 8-second text recovery locks in urgent leads
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Custom booking link live on Google Maps &amp; IG in 2 minutes
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Driveway Apple Pay &amp; card pay before turning the key
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Live GPS arrival tracking texted with zero customer app downloads
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Live arrival tracking texted with zero app downloads
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Driveway Apple Pay &amp; card checkout before you pull away
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 2-minute setup using your existing phone number
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> Zero phone forwarding or number changes required to start
                 </li>
                 <li className="flex items-start gap-2 font-semibold text-slate-900">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> 3 jobs free to test on your own line with zero fees
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> First 3 completed jobs 100% free with zero platform fees
                 </li>
               </ul>
             </div>
 
-            <Link
-              href="/client/login?mode=signup"
+            <button
+              type="button"
+              onClick={() => setShowClaimModal(true)}
               className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/20 transition-all block cursor-pointer"
             >
-              Start Free (3 Jobs Included)
-            </Link>
+              Get My Free Booking Link &rarr;
+            </button>
           </div>
 
         </div>
       </section>
 
-      {/* ── 7. Transparent Pricing ── */}
+      {/* ── 6. Transparent Pricing ── */}
       <section id="pricing" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-10">
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <span className="text-xs font-mono font-bold text-emerald-600 uppercase tracking-widest block">
@@ -480,7 +445,7 @@ export default function LandingPage() {
             Simple Pricing. Zero Contracts.
           </h2>
           <p className="text-xs sm:text-sm text-slate-600">
-            Test CaptoDesk on your first 3 jobs completely free. Upgrade anytime to activate 24/7 missed-call text recovery.
+            Run your first 3 completed jobs 100% free. Upgrade anytime to unlock unlimited jobs plus a dedicated business line with 24/7 missed-call text-back.
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -510,12 +475,6 @@ export default function LandingPage() {
                 2 Months Free
               </span>
             </button>
-          </div>
-
-          <div className="pt-2">
-            <span className="text-xs text-slate-500 font-medium">
-              Dedicated business phone number and carrier setup included with all Pro plans.
-            </span>
           </div>
         </div>
 
@@ -576,12 +535,13 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <Link
-              href="/client/login?mode=signup"
+            <button
+              type="button"
+              onClick={() => setShowClaimModal(true)}
               className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs text-center transition-all block cursor-pointer"
             >
-              Start Free (3 Jobs Included)
-            </Link>
+              Get My Free Booking Link &rarr;
+            </button>
           </div>
 
           {/* Card 2: CaptoDesk Solo (Most Popular) */}
@@ -638,12 +598,13 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <Link
-              href="/client/login?mode=signup"
+            <button
+              type="button"
+              onClick={() => setShowClaimModal(true)}
               className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/25 transition-all block cursor-pointer"
             >
               Get Started with Solo Pro
-            </Link>
+            </button>
           </div>
 
           {/* Card 3: CaptoDesk Multi-Crew */}
@@ -679,7 +640,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Dedicated Technician Field Mode (/client/field)</span>
+                  <span>Dedicated Technician Field Mode</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -707,12 +668,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 8. Contractor FAQ ── */}
+      {/* ── 7. Contractor FAQ ── */}
       <section id="faq" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
         <FaqSection />
       </section>
 
-      {/* ── 9. Final High-Trust CTA Banner ── */}
+      {/* ── 8. Final Urgent CTA Banner ── */}
       <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
         <div className="rounded-3xl border border-slate-200/90 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white p-8 sm:p-14 text-center space-y-6 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -720,52 +681,46 @@ export default function LandingPage() {
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold">
             <CalendarCheck className="w-4 h-4" />
-            <span>TEST ON YOUR NEXT SERVICE CALL</span>
+            <span>START FREE IN 2 MINUTES</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight max-w-3xl mx-auto leading-tight">
-            Start capturing missed calls on your next job.
+            Put Your Booking Link on Google Maps Before Tonight&apos;s Searches Go to Another Crew.
           </h2>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Set up in 2 minutes using your existing mobile number. Your first 3 completed jobs are 100% free with zero fees and no credit card required.
+            Launch your booking page, live arrival tracker, and automated Google review booster in 2 minutes. Your first 3 completed jobs are 100% free—no credit card or call forwarding required.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/client/login?mode=signup"
+            <button
+              type="button"
+              onClick={() => setShowClaimModal(true)}
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <span>Start Free (3 Jobs Included)</span>
+              <span>Get My Free Booking Link (First 3 Jobs Free)</span>
               <ArrowRight className="w-4 h-4 text-emerald-300" />
-            </Link>
-            <a
-              href="#simulator"
-              className="w-full sm:w-auto px-6 py-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <span>Watch 60-Sec Demo</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </a>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ── 10. Footer ── */}
+      {/* ── 9. Footer ── */}
       <footer className="border-t border-slate-200 bg-white py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2.5">
             <BrandIcon className="w-6 h-6 rounded-md shadow-2xs" size={24} />
             <BrandWordmark size="text-sm" />
-            <span className="text-slate-300">•</span>
-            <span>The Field Growth System for Trade Contractors</span>
+            <span className="text-slate-300">&bull;</span>
+            <span>Online Booking &amp; Live Arrival Dispatch for Field Crews</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-6">
             <Link href="/client/login" className="hover:text-slate-900 transition-colors">
               Contractor Login
             </Link>
-            <a href="#simulator" className="hover:text-slate-900 transition-colors">
-              Live Demo
+            <a href="#preview" className="hover:text-slate-900 transition-colors">
+              Live Preview
             </a>
             <a href="#pricing" className="hover:text-slate-900 transition-colors">
               Pricing
@@ -786,14 +741,20 @@ export default function LandingPage() {
         </div>
 
         <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-          <p>© {new Date().getFullYear()} CaptoDesk. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} CaptoDesk. All rights reserved.</p>
           <div className="flex items-center gap-4 text-slate-400">
-            <span>Carrier-verified delivery</span>
-            <span>•</span>
-            <span>256-bit encryption</span>
+            <span>Live arrival tracking</span>
+            <span>&bull;</span>
+            <span>Instant mobile checkout</span>
           </div>
         </div>
       </footer>
+
+      {/* ── 10. Claim Booking Link Modal ── */}
+      <ClaimBookingModal
+        open={showClaimModal}
+        onClose={() => setShowClaimModal(false)}
+      />
 
     </div>
   )

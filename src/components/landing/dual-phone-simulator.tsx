@@ -17,12 +17,13 @@ import {
   Clock,
   Sparkles,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  CalendarCheck
 } from 'lucide-react'
 
 export type DemoStage = 1 | 2 | 3 | 4
 
-export function DualPhoneSimulator() {
+export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }) {
   const [activeStage, setActiveStage] = useState<DemoStage>(1)
   const [isPlaying, setIsPlaying] = useState<boolean>(true)
   const [simulatedRating, setSimulatedRating] = useState<number>(5)
@@ -46,18 +47,18 @@ export function DualPhoneSimulator() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-mono font-bold text-emerald-700 uppercase tracking-wider">
-              INTERACTIVE TEST DRIVE
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span className="text-xs font-mono font-bold text-blue-700 uppercase tracking-wider">
+              LIVE WORKFLOW PREVIEW
             </span>
             <span className="text-xs text-slate-300">•</span>
             <span className="text-xs text-slate-500 font-mono hidden sm:inline">15-SECOND WALKTHROUGH</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">
-            Watch a $650 Job Get Saved, Tracked, and Paid
+            Watch a $385 Job Get Booked, Tracked, and Paid
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Compare what you see in your truck vs what the homeowner sees on their phone in real time.
+            Compare what you tap in your truck vs. what the homeowner sees on their phone in real time.
           </p>
         </div>
 
@@ -91,10 +92,10 @@ export function DualPhoneSimulator() {
           {
             stage: 1 as DemoStage,
             number: '01',
-            title: '8s Missed Call Catch',
-            desc: 'Auto-text fires before they call a competitor',
-            icon: PhoneMissed,
-            color: 'text-rose-500'
+            title: 'Instant Online Booking',
+            desc: 'Customer books from your Google/IG link',
+            icon: CalendarCheck,
+            color: 'text-blue-600'
           },
           {
             stage: 2 as DemoStage,
@@ -180,42 +181,35 @@ export function DualPhoneSimulator() {
             <div className="min-h-[400px] flex flex-col justify-between text-xs">
               {activeStage === 1 && (
                 <div className="space-y-3">
-                  <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl p-3 text-rose-200">
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-rose-400 mb-1">
+                  <div className="bg-blue-950/50 border border-blue-500/40 rounded-xl p-3 text-blue-200">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-blue-400 mb-1">
                       <span className="flex items-center gap-1">
-                        <PhoneMissed className="w-3.5 h-3.5" />
-                        Missed Call Detected
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                        New Online Booking
                       </span>
                       <span className="font-mono">2:14 PM</span>
                     </div>
                     <p className="font-bold text-white text-sm">Sarah Jenkins</p>
-                    <p className="text-[11px] text-rose-300">(555) 839-2041 • Google Local Ad</p>
+                    <p className="text-[11px] text-blue-300">(555) 839-2041 • via Google Maps Link</p>
                   </div>
 
-                  <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-3 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] text-emerald-400 font-semibold">
-                      <span className="flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        Auto-Text Dispatched
-                      </span>
-                      <span className="font-mono text-slate-400">in 6.2s</span>
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold">
+                      <span>Service Requested</span>
+                      <span className="font-mono text-emerald-400 font-bold">$385.00</span>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-300 text-[11px] leading-relaxed">
-                      &quot;Hey Sarah, Mike here with Apex Plumbing. Missed your call while finishing a job—how can we help you today?&quot;
-                    </div>
+                    <p className="text-white font-bold text-xs">Water Heater Diagnostic &amp; Flush</p>
+                    <p className="text-[11px] text-slate-400">456 Saint Mary Square • Today at 2:30 PM</p>
                   </div>
 
                   <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
-                    <span className="text-[10px] text-slate-400 block mb-1 uppercase font-mono">Customer Responded (30s later)</span>
-                    <p className="text-slate-200 text-xs italic">&quot;Water heater is leaking into my basement! Can you come today?&quot;</p>
+                    <span className="text-[10px] text-slate-400 block mb-1 uppercase font-mono">Automated Route Sync</span>
+                    <p className="text-slate-200 text-xs">Auto-assigned to your truck schedule with 1-tap GPS directions.</p>
                   </div>
 
-                  <button
-                    type="button"
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/25 flex items-center justify-center gap-1.5"
-                  >
-                    <span>✓ Book Diagnostic Visit for 3:30 PM</span>
-                  </button>
+                  <div className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-600/25 flex items-center justify-center gap-1.5">
+                    <span>✓ Added to Today&apos;s Truck Route</span>
+                  </div>
                 </div>
               )}
 
@@ -379,33 +373,37 @@ export function DualPhoneSimulator() {
               {activeStage === 1 && (
                 <div className="space-y-3">
                   <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 text-[11px] text-slate-400 font-mono flex items-center justify-between">
-                    <span>Messages • Apex Plumbing</span>
-                    <span className="text-emerald-400">Now</span>
+                    <span>Safari • captodesk.com/book/apex</span>
+                    <span className="text-emerald-400">Confirmed ✓</span>
                   </div>
 
-                  <div className="space-y-2">
-                    {/* Incoming SMS from Contractor */}
-                    <div className="max-w-[85%] bg-slate-800 text-slate-200 p-3 rounded-2xl rounded-tl-sm text-xs leading-relaxed shadow-sm">
-                      <p className="font-semibold text-emerald-400 text-[11px] mb-0.5">Mike from Apex Plumbing</p>
-                      Hey Sarah! I missed your call because I was finishing up a job. What&apos;s going on with your plumbing?
+                  <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 text-center space-y-2">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-6 h-6" />
                     </div>
+                    <h4 className="text-sm font-bold text-white">Your Visit is Confirmed!</h4>
+                    <p className="text-[11px] text-slate-300">
+                      Apex Plumbing will arrive today between <span className="text-white font-bold">2:30 PM – 3:30 PM</span>.
+                    </p>
+                  </div>
 
-                    {/* Customer Reply */}
-                    <div className="max-w-[85%] ml-auto bg-blue-600 text-white p-3 rounded-2xl rounded-tr-sm text-xs leading-relaxed shadow-sm">
-                      Water heater is leaking into my basement! Can you come today?
+                  <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2 text-[11px]">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Service:</span>
+                      <span className="text-white font-semibold">Water Heater Diagnostic</span>
                     </div>
-
-                    {/* Instant Confirmation Link */}
-                    <div className="max-w-[85%] bg-slate-800 text-slate-200 p-3 rounded-2xl rounded-tl-sm text-xs leading-relaxed shadow-sm">
-                      Got it! I have you down for 3:30 PM today. You can track my truck live here:
-                      <span className="block mt-1 font-mono text-[11px] text-cyan-400 underline">
-                        captodesk.com/t/apex-7821
-                      </span>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Location:</span>
+                      <span className="text-white font-semibold">456 Saint Mary Square</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Estimated Total:</span>
+                      <span className="text-emerald-400 font-bold">$385.00</span>
                     </div>
                   </div>
 
                   <div className="p-2.5 bg-slate-900/60 rounded-xl text-center text-[10px] text-slate-400">
-                    Sarah stopped searching Google. Job locked in under 60 seconds.
+                    Booked in 45 seconds from Google Maps link. Zero phone tag required.
                   </div>
                 </div>
               )}
@@ -600,13 +598,22 @@ export function DualPhoneSimulator() {
           </div>
         </div>
 
-        <Link
-          href="/client/login?mode=signup"
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs whitespace-nowrap shadow-sm transition-all"
-        >
-          <span>Claim Free 3-Job Pass</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        {onOpenClaim ? (
+          <button
+            type="button"
+            onClick={onOpenClaim}
+            className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs whitespace-nowrap shadow-sm transition-all cursor-pointer"
+          >
+            <span>Get My Free Booking Link →</span>
+          </button>
+        ) : (
+          <Link
+            href="/client/login?mode=signup"
+            className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs whitespace-nowrap shadow-sm transition-all"
+          >
+            <span>Get My Free Booking Link →</span>
+          </Link>
+        )}
       </div>
     </div>
   )

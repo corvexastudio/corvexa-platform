@@ -136,17 +136,44 @@ export default function OnboardingPage() {
           return
         }
 
-        // Prefill suggested Title-Cased business name from metadata or email
-        const metaName = user.user_metadata?.full_name || user.user_metadata?.name
-        if (metaName && !businessName) {
-          const formatted = toTitleCase(metaName)
-          setBusinessName(`${formatted}'s Services`)
-          setLegalBusinessName(`${formatted}'s Services`)
-        } else if (user.email && !businessName) {
-          const rawPrefix = user.email.split('@')[0].replace(/[._-]/g, ' ')
-          const formatted = toTitleCase(rawPrefix)
-          setBusinessName(`${formatted}'s Services`)
-          setLegalBusinessName(`${formatted}'s Services`)
+        // Prefill from landing page claim if present
+        let hasClaim = false
+        if (typeof window !== 'undefined') {
+          try {
+            const rawClaim = localStorage.getItem('captodesk_pending_claim')
+            if (rawClaim) {
+              const claim = JSON.parse(rawClaim)
+              if (claim.businessName) {
+                setBusinessName(claim.businessName)
+                setLegalBusinessName(claim.businessName)
+                hasClaim = true
+              }
+              if (claim.trade) setSelectedIndustry(claim.trade)
+              if (claim.phone) setPhone(claim.phone)
+              if (claim.cityState) {
+                const parts = claim.cityState.split(',')
+                if (parts[0]) setAddressCity(parts[0].trim())
+                if (parts[1]) setAddressState(parts[1].trim())
+              }
+            }
+          } catch {
+            // Ignore
+          }
+        }
+
+        // Prefill suggested Title-Cased business name from metadata or email if no claim
+        if (!hasClaim) {
+          const metaName = user.user_metadata?.full_name || user.user_metadata?.name
+          if (metaName && !businessName) {
+            const formatted = toTitleCase(metaName)
+            setBusinessName(`${formatted}'s Services`)
+            setLegalBusinessName(`${formatted}'s Services`)
+          } else if (user.email && !businessName) {
+            const rawPrefix = user.email.split('@')[0].replace(/[._-]/g, ' ')
+            const formatted = toTitleCase(rawPrefix)
+            setBusinessName(`${formatted}'s Services`)
+            setLegalBusinessName(`${formatted}'s Services`)
+          }
         }
       } catch (err) {
         console.warn('[ONBOARDING] Initial auth check warning:', err)

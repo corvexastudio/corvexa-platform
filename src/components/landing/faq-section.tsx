@@ -10,28 +10,24 @@ interface FaqItem {
 
 const FAQS: FaqItem[] = [
   {
-    q: 'Do I have to change my existing business phone number?',
-    a: "No. You keep your exact phone number on your trucks, business cards, website, and Google Business profile. You simply enable carrier call forwarding (takes 30 seconds by dialing *62 on your phone). Your phone rings normally; CaptoDesk only steps in when you are busy on a job, in an attic, or driving and cannot pick up."
-  },
-  {
     q: 'How does the free online booking link work?',
-    a: "Every contractor can claim a free, dedicated booking page (captodesk.com/book/your-business) with zero credit card required. You can add it to your website, Google Business Profile, or text it to customers so homeowners can schedule service appointments directly on your calendar."
-  },
-  {
-    q: 'What happens if a robocaller, spammer, or wrong number calls?',
-    a: 'CaptoDesk automatically filters out robocalls, toll-free numbers, and spam bots so you never waste auto-replies on junk callers.'
-  },
-  {
-    q: 'How does the customer pay their invoice on the job site?',
-    a: "When you tap 'Finish Job', an invoice card immediately appears on the homeowner's live tracking link. They can tap Apple Pay, Google Pay, or enter a card right from their phone with zero logins or app downloads. Digital receipts are texted and emailed automatically."
+    a: "Every contractor can claim a free, dedicated booking page (captodesk.com/book/your-business) with zero credit card required. You simply paste your link into your Google Business Profile, Instagram bio, or website so homeowners can schedule service appointments directly on your dispatch calendar without phone tag."
   },
   {
     q: 'Do my customers need to download an app or create an account?',
-    a: 'Zero downloads, zero passwords. Homeowners dislike installing apps for a contractor they only call once or twice a year. CaptoDesk runs entirely through a fast, lightweight mobile web link sent via SMS. It opens instantly on any iPhone or Android device.'
+    a: 'Zero downloads, zero passwords. Homeowners dislike installing apps for a contractor they only call a few times a year. CaptoDesk runs entirely through a fast, lightweight mobile web link sent via SMS. It opens instantly on any iPhone or Android device.'
+  },
+  {
+    q: 'How does the customer pay their invoice on the job site?',
+    a: "When you tap 'Complete Job' on your phone, an itemized invoice card immediately appears on the homeowner's live tracking link. They can tap Apple Pay, Google Pay, or enter a card right from their driveway. Digital receipts are texted and emailed automatically."
+  },
+  {
+    q: 'Do I have to change my existing business phone number?',
+    a: "Not at all—especially on the free Starter Pass, which requires zero phone setup or carrier changes. If you upgrade to Solo Pro for 24/7 missed-call text-back, you keep your existing number on your trucks and business cards, and simply enable 30-second conditional call forwarding (*62)."
   },
   {
     q: 'Can my crew or technicians use this on their phones?',
-    a: "Yes. In the Multi-Crew plan, every technician gets their own clean mobile login. When they leave for a job, they tap 'On My Way'. The homeowner instantly gets their live tracking link with the technician's name and ETA, eliminating 'Where are you?' phone calls to your main office line."
+    a: "Yes. In the Multi-Crew plan, every technician gets their own clean mobile login. When they leave for a job, they tap 'On My Way'. The homeowner instantly gets their live tracking link with the technician's name and ETA, eliminating 'Where are you?' phone calls to your line."
   },
   {
     q: 'Can I cancel or change plans at any time?',
