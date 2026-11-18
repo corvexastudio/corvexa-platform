@@ -16,7 +16,7 @@ export async function GET(
   const { orgId, supabase, profile, role } = tenantResult
   const url = new URL(request.url)
   const periodParam = url.searchParams.get('period') as TimeRange || '30d'
-  const validPeriod: TimeRange = ['7d', '30d', 'all'].includes(periodParam) ? periodParam : '30d'
+  const validPeriod: TimeRange = ['7d', '30d', '90d', 'all'].includes(periodParam) ? periodParam : '30d'
 
   try {
     const [overview, trialStatus, starterUsage] = await Promise.all([

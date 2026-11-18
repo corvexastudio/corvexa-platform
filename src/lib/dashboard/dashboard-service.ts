@@ -125,12 +125,12 @@ export interface DashboardOverview {
   recentCalls: RecentCallItem[]
 }
 
-export type TimeRange = '7d' | '30d' | 'all'
+export type TimeRange = '7d' | '30d' | '90d' | 'all'
 
 export function getTimeRangeStart(range: TimeRange): string | null {
   if (range === 'all') return null
   const now = new Date()
-  const days = range === '7d' ? 7 : 30
+  const days = range === '7d' ? 7 : range === '90d' ? 90 : 30
   now.setDate(now.getDate() - days)
   return now.toISOString()
 }

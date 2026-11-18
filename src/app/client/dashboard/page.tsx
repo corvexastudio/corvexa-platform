@@ -34,7 +34,8 @@ import {
   Link2,
   Check,
   ExternalLink,
-  X
+  X,
+  BarChart3
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
@@ -42,7 +43,6 @@ import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
 import { PageHeader } from '@/components/ui/page-header'
-import { FilterTabs } from '@/components/ui/filter-tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { 
@@ -1323,78 +1323,28 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* ── Section 3: Performance & Outcomes ── */}
-      <section className="space-y-3.5 border-t border-slate-200 dark:border-zinc-800 pt-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Performance &amp; Outcomes
-            </h2>
+      {/* ── Section 3: Strategic Reports & Analytics Teaser ── */}
+      <section className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-900 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t-2 border-t-blue-500">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <BarChart3 className="h-5 w-5" />
           </div>
-          <FilterTabs
-            tabs={[
-              { id: '7d', label: '7 Days' },
-              { id: '30d', label: '30 Days' },
-            ]}
-            activeTab={period}
-            onChange={(val) => setPeriod(val as TimeRange)}
-            ariaLabel="Performance time period"
-          />
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+              Business Reports &amp; Analytics
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Review 30-day cash collections (${(outcomes?.paymentCollection?.collectedAmount ?? 0).toLocaleString()}), quote conversion funnels, and customer retention.
+            </p>
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* 1. Revenue Collected */}
-          {canViewFinancials ? (
-            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Payments Collected</div>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                ${(outcomes?.paymentCollection?.collectedAmount ?? 0).toLocaleString()}
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Calls Recovered</div>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                {outcomes?.recoveredConversations?.recoveredCount ?? 0}
-              </div>
-            </div>
-          )}
-
-          {/* 2. Missed Call Recovery (or Online Booking Speed on Starter Pass) */}
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">
-              {isPayingCustomer ? 'Missed Call Recovery' : 'Online Booking Speed'}
-            </div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
-              {isPayingCustomer ? `${outcomes?.recoveredConversations?.recoveryRate ?? 0}%` : 'Instant (24/7)'}
-            </div>
-          </div>
-
-          {/* 3. Bookings */}
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-            <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Booked Appointments</div>
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">
-              {outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0}
-            </div>
-          </div>
-
-          {/* 4. Quote Acceptance (or Repeat Bookings if restricted) */}
-          {canViewQuotes ? (
-            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Quote Acceptance Rate</div>
-              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                {outcomes?.quoteConversion?.conversionRate ?? 0}%
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-bold text-slate-500 dark:text-zinc-400">Repeat Bookings</div>
-              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                {outcomes?.repeatBookings?.repeatRate ?? 0}%
-              </div>
-            </div>
-          )}
-        </div>
+        <Link
+          href="/client/analytics"
+          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs shrink-0 group"
+        >
+          <span>View Full Analytics</span>
+          <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
       </section>
 
       {/* Achievement & Milestone Celebration Modal (Pop-up after Booking or Missed Call) */}

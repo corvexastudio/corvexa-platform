@@ -28,7 +28,8 @@ import {
   Lock,
   Mail,
   KeyRound,
-  CheckCircle2
+  CheckCircle2,
+  BarChart3
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -60,6 +61,7 @@ export const navSections = [
       { href: '/client/quotes', label: 'Quotes', icon: FileText },
       { href: '/client/invoices', label: 'Invoices', icon: CreditCard },
       { href: '/client/reviews', label: 'Reviews', icon: Star },
+      { href: '/client/analytics', label: 'Analytics', icon: BarChart3 },
     ]
   },
   {
@@ -524,7 +526,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Route guard for non-financial roles (dispatcher and member)
   useEffect(() => {
     if (authState === 'authorized' && (isDispatcher || isMember)) {
-      const forbiddenFinancialPaths = ['/client/invoices', '/client/quotes', '/client/billing']
+      const forbiddenFinancialPaths = ['/client/invoices', '/client/quotes', '/client/billing', '/client/analytics']
       const isForbidden = forbiddenFinancialPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
       if (isForbidden) {
         router.replace('/client/dashboard')
