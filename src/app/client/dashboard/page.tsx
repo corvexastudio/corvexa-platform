@@ -440,49 +440,14 @@ export default function DashboardPage() {
           </Badge>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCopyBookingUrl}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs cursor-pointer"
-              title="Copy public booking link"
-            >
-              {bookingCopied ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                  <span className="hidden sm:inline">Booking Link</span>
-                </>
-              )}
-            </button>
-            <a
-              href={bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center h-9 w-9 rounded-lg text-xs font-semibold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
-              title="Preview public booking page"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-            <Link
-              href="/client/calendar"
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-2xs cursor-pointer"
-              title="Schedule a new appointment"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Schedule Job</span>
-            </Link>
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="icon-touch"
               onClick={() => refetch()}
               disabled={loading}
-              title="Refresh dashboard"
-              aria-label="Refresh dashboard"
+              title="Refresh today's overview"
+              aria-label="Refresh today's overview"
               className="sm:size-9 min-h-[44px] min-w-[44px] sm:min-h-9 sm:min-w-9 cursor-pointer"
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -610,12 +575,12 @@ export default function DashboardPage() {
       {/* ── Section 2: Today's Schedule & Key Pipeline ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Column (7 cols): Today's Field Schedule */}
-        <div className="lg:col-span-7 space-y-3.5">
+        {/* Left Column (7 cols): Field Schedule & Upcoming Horizon */}
+        <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Today&apos;s Field Schedule
+                Field Schedule
               </h2>
               {nonPracticeJobs.length > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
@@ -626,18 +591,11 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <Link 
-                href="/client/field" 
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-                title="Launch Glove-Friendly Truck Route Portal"
-              >
-                <Truck className="h-3.5 w-3.5" />
-                <span>Launch Truck Mode</span>
-              </Link>
-              <Link 
                 href="/client/calendar" 
-                className="text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 transition-colors hidden sm:inline"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                Calendar &rarr;
+                <span>Full Calendar</span>
+                <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
           </div>
@@ -765,21 +723,13 @@ export default function DashboardPage() {
               )}
 
               {/* Fill-the-Day Callout */}
-              <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3.5 flex items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                   <span className="text-slate-600 dark:text-zinc-300 font-medium">
-                    Have open availability today? Share your booking link to fill same-day slots.
+                    Have open availability today? Direct customers to your booking link on the right to fill same-day slots.
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCopyBookingUrl}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0 cursor-pointer"
-                >
-                  <Link2 className="w-3.5 h-3.5" />
-                  <span>{bookingCopied ? 'Link Copied!' : 'Copy Booking Link'}</span>
-                </button>
               </div>
             </div>
           ) : (
@@ -1090,87 +1040,97 @@ export default function DashboardPage() {
           )}
 
           {/* ── Upcoming Jobs Queue (Next 48 Hours to 7 Days) ── */}
-          <div className="space-y-3 pt-3">
-            <div className="flex items-center justify-between px-0.5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                  Coming Up This Week
-                </h3>
-                {upcomingJobs.length > 0 && (
-                  <Badge variant="neutral" size="sm" className="font-semibold tabular-nums">
-                    {upcomingJobs.length} {upcomingJobs.length === 1 ? 'Booking' : 'Bookings'}
-                  </Badge>
+          {(() => {
+            // Deduplicate: If today is empty and nextUpJob is already prominently featured in the Hero Card,
+            // only show the subsequent upcoming jobs in the queue below.
+            const queueJobs = (nonPracticeJobs.length === 0 && nextUpJob)
+              ? upcomingJobs.filter(j => j.id !== nextUpJob.id)
+              : upcomingJobs
+
+            return (
+              <div className="space-y-3 pt-3">
+                <div className="flex items-center justify-between px-0.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                      Coming Up This Week
+                    </h3>
+                    {queueJobs.length > 0 && (
+                      <Badge variant="neutral" size="sm" className="font-semibold tabular-nums">
+                        {queueJobs.length} {queueJobs.length === 1 ? 'Booking' : 'Bookings'}
+                      </Badge>
+                    )}
+                  </div>
+                  <Link
+                    href="/client/calendar"
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>Full Schedule</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+
+                {queueJobs.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400 dark:text-zinc-500">
+                    {nextUpJob ? 'No additional appointments scheduled after your next booking.' : 'No future appointments scheduled in the next 14 days. Bookings from your link will appear here.'}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {queueJobs.slice(0, 4).map((job) => {
+                      const cleanTitle = job.cleanTitle || job.title
+                      return (
+                        <div
+                          key={job.id}
+                          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                {cleanTitle}
+                              </span>
+                              <Badge variant="neutral" size="sm" className="font-semibold text-[10px] capitalize">
+                                {job.status ? job.status.replace('_', ' ') : 'Confirmed'}
+                              </Badge>
+                              {(job.servicePrice || job.quoteAmount) && (
+                                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                                  ${job.quoteAmount || job.servicePrice}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.customerName}</span>
+                              {job.address && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span className="truncate">{job.address}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                            <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
+                              <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                              <span>
+                                {formatDateInTz(job.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </span>
+                              <span className="text-slate-400">&bull;</span>
+                              <span>{formatTimeInTz(job.scheduledStart, orgTimezone)}</span>
+                            </div>
+                            <Link
+                              href="/client/calendar"
+                              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              Details &rarr;
+                            </Link>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
-              <Link
-                href="/client/calendar"
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                <span>Full Schedule</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-
-            {upcomingJobs.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400 dark:text-zinc-500">
-                No future appointments scheduled in the next 14 days. Bookings from your link will appear here.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {upcomingJobs.slice(0, 4).map((job) => {
-                  const cleanTitle = job.cleanTitle || job.title
-                  return (
-                    <div
-                      key={job.id}
-                      className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {cleanTitle}
-                          </span>
-                          <Badge variant="neutral" size="sm" className="font-semibold text-[10px] capitalize">
-                            {job.status ? job.status.replace('_', ' ') : 'Confirmed'}
-                          </Badge>
-                          {(job.servicePrice || job.quoteAmount) && (
-                            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                              ${job.quoteAmount || job.servicePrice}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.customerName}</span>
-                          {job.address && (
-                            <>
-                              <span>&bull;</span>
-                              <span className="truncate">{job.address}</span>
-                            </>
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-                        <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
-                          <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                          <span>
-                            {formatDateInTz(job.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </span>
-                          <span className="text-slate-400">&bull;</span>
-                          <span>{formatTimeInTz(job.scheduledStart, orgTimezone)}</span>
-                        </div>
-                        <Link
-                          href="/client/calendar"
-                          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          Details &rarr;
-                        </Link>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+            )
+          })()}
         </div>
 
         {/* Right Column (5 cols): Front Desk & Real-Time Operational Pulse */}

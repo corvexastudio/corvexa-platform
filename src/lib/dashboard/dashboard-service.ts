@@ -933,6 +933,7 @@ export async function getUpcomingJobs(
     .gt('scheduled_start', todayEnd.toISOString())
     .lte('scheduled_start', maxFuture.toISOString())
     .not('status', 'eq', 'cancelled')
+    .not('status', 'eq', 'completed')
     .order('scheduled_start', { ascending: true })
     .limit(limit)
 
