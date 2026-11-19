@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
+import { parseBookingSettings } from '../../../../lib/booking/booking-settings.ts'
 
 export interface ServiceRouteDependencies {
   customSupabase?: any
@@ -33,8 +34,13 @@ export async function GET(
     .eq('org_id', orgId)
     .order('sort_order', { ascending: true })
 
+  const bookingSettings = parseBookingSettings(org)
+
   return NextResponse.json({
-    config: org,
+    config: {
+      ...org,
+      booking_settings: bookingSettings
+    },
     services: services || []
   })
 }

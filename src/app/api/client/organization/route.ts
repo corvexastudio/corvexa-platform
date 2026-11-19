@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server.js'
 import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
 import { logAuditEvent } from '../../../../lib/security/audit-logger.ts'
 import { normalizePhoneToE164 } from '../../../../lib/telephony/phone-normalizer.ts'
+import { parseBookingSettings, buildBookingSettingsUpdates } from '../../../../lib/booking/booking-settings.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -171,6 +172,7 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
   if (finalOrg) {
     finalOrg.operation_mode = finalOrg.operation_mode || 'solo'
     finalOrg.industry = finalOrg.industry || 'general'
+    finalOrg.booking_settings = parseBookingSettings(finalOrg)
   }
 
   return NextResponse.json({ organization: finalOrg })
@@ -351,6 +353,33 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
 
     if (Array.isArray(body.blocked_dates)) {
       allowedUpdates.blocked_dates = body.blocked_dates.filter((d: any) => typeof d === 'string')
+    }
+
+    // Booking Customizer & Priority Dispatch Engine Settings
+    if (body.booking_settings && typeof body.booking_settings === 'object') {
+      const { data: currentOrg } = await supabase.from('organizations').select('business_hours').eq('id', orgId).single()
+      const bUpdates = buildBookingSettingsUpdates(currentOrg?.business_hours, body.booking_settings)
+      Object.assign(allowedUpdates, bUpdates)
+    } else if (
+      typeof body.slot_interval_minutes !== 'undefined' ||
+      typeof body.booking_notice !== 'undefined' ||
+      typeof body.booking_notice_enabled !== 'undefined' ||
+      typeof body.priority_dispatch_enabled !== 'undefined' ||
+      typeof body.priority_dispatch_fee !== 'undefined' ||
+      typeof body.priority_dispatch_label !== 'undefined' ||
+      typeof body.how_heard_options !== 'undefined'
+    ) {
+      const { data: currentOrg } = await supabase.from('organizations').select('business_hours').eq('id', orgId).single()
+      const bUpdates = buildBookingSettingsUpdates(currentOrg?.business_hours, {
+        slot_interval_minutes: body.slot_interval_minutes,
+        booking_notice: body.booking_notice,
+        booking_notice_enabled: body.booking_notice_enabled,
+        priority_dispatch_enabled: body.priority_dispatch_enabled,
+        priority_dispatch_fee: body.priority_dispatch_fee,
+        priority_dispatch_label: body.priority_dispatch_label,
+        how_heard_options: body.how_heard_options
+      })
+      Object.assign(allowedUpdates, bUpdates)
     }
 
     // 10DLC Carrier & Brand Registration Updates

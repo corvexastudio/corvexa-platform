@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateAvailableSlots, calculateDetailedSlots } from '@/lib/booking/availability'
+import { parseBookingSettings } from '@/lib/booking/booking-settings'
 
 export async function GET(
   request: Request,
@@ -119,7 +120,10 @@ export async function GET(
       }
     }
 
-    const isInternal = searchParams.get('internal') === 'true' || searchParams.get('isOwner') === 'true'
+    const isPriority = searchParams.get('isPriority') === 'true'
+    const isInternal = searchParams.get('internal') === 'true' || searchParams.get('isOwner') === 'true' || isPriority
+    const bookingSettings = parseBookingSettings(org)
+    const slotStepMinutes = bookingSettings.slot_interval_minutes || 30
 
     // 4. Calculate available & booked slots using availability engine
     const detailed = calculateDetailedSlots({
@@ -127,7 +131,7 @@ export async function GET(
         timezone: org.timezone || 'America/Chicago',
         business_hours: org.business_hours || {},
         buffer_minutes: org.buffer_minutes ?? 15,
-        minimum_notice_hours: org.minimum_notice_hours ?? 2,
+        minimum_notice_hours: isPriority ? 1 : (org.minimum_notice_hours ?? 2),
         max_booking_days_ahead: org.max_booking_days_ahead ?? 30,
         blocked_dates: org.blocked_dates || []
       },
@@ -139,6 +143,7 @@ export async function GET(
       dateStr,
       existingAppointments: allBusySlots,
       referenceTime: new Date(),
+      stepMinutes: slotStepMinutes,
       isInternal
     })
 

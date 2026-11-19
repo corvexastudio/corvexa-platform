@@ -38,8 +38,26 @@ export async function POST(
       bookingToken,
       referralCode,
       source,
-      smsConsent
+      smsConsent,
+      isPriority,
+      priorityFee,
+      selectedAddOns,
+      howHeard
     } = body
+
+    const extraMetadataLines: string[] = []
+    if (isPriority) {
+      extraMetadataLines.push(`[PRIORITY DISPATCH: YES${priorityFee ? ` (+$${priorityFee})` : ''}]`)
+    }
+    if (Array.isArray(selectedAddOns) && selectedAddOns.length > 0) {
+      const addOnSummary = selectedAddOns.map((a: any) => `${a.name}${a.price ? ` (+$${a.price})` : ''}`).join(', ')
+      extraMetadataLines.push(`[ADD-ONS: ${addOnSummary}]`)
+    }
+    if (howHeard) {
+      extraMetadataLines.push(`[SOURCE ATTRIBUTION: ${howHeard}]`)
+    }
+
+    const mergedCustomerNotes = [notes?.trim(), ...extraMetadataLines].filter(Boolean).join('\n')
 
     const cookieRef = (request as any).cookies?.get?.('capto_ref')?.value
     const effectiveReferralCode = (referralCode || cookieRef || '').trim() || undefined
@@ -103,7 +121,7 @@ export async function POST(
       customerEmail: customerEmail?.trim() || undefined,
       customerAddress: customerAddress ? formatStandardUsAddress(customerAddress) : undefined,
       startTime,
-      notes: notes?.trim() || undefined,
+      notes: mergedCustomerNotes || undefined,
       photos: Array.isArray(photos) ? photos.filter((p: any) => typeof p === 'string' && p.trim()) : undefined,
       source: source || 'booking_page',
       smsConsent: typeof smsConsent === 'boolean' ? smsConsent : true,

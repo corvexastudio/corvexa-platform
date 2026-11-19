@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateBookingToken } from '@/lib/booking/origin-validator'
 import { recordBookingPageView } from '@/lib/booking/attribution'
+import { parseBookingSettings } from '@/lib/booking/booking-settings'
+import { parseServicePricing } from '@/lib/services/service-pricing'
 
 export async function GET(
   request: Request,
@@ -164,6 +166,19 @@ export async function GET(
       }
     }
 
+    const enrichedServices = activeServices.map((s: any) => {
+      const parsed = parseServicePricing(s.price, s.description)
+      return {
+        ...s,
+        add_ons: parsed.addOns,
+        pricing_model: parsed.model,
+        formatted_price: parsed.formattedPrice,
+        clean_description: parsed.cleanDescription
+      }
+    })
+
+    const bookingSettings = parseBookingSettings(org)
+
     return NextResponse.json({
       organization: {
         id: org.id,
@@ -177,9 +192,10 @@ export async function GET(
         minimum_notice_hours: org.minimum_notice_hours ?? 2,
         max_booking_days_ahead: org.max_booking_days_ahead ?? 30,
         industry: org.industry || 'general',
-        logo_url: org.logo_url || null
+        logo_url: org.logo_url || null,
+        booking_settings: bookingSettings
       },
-      services: activeServices,
+      services: enrichedServices,
       prefill,
       bookingToken: generateBookingToken(org.slug, org.id)
     })

@@ -24,12 +24,15 @@ import {
   Navigation,
   Search,
   Sparkles,
-  Filter
+  Filter,
+  Info,
+  Zap
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
 import { getFriendlyTimezoneLabel, isDifferentFromDeviceTimezone, getDeviceTimezone } from '@/lib/temporal/timezone'
-import { parseServicePricing, cleanServiceDescription } from '@/lib/services/service-pricing'
+import { parseServicePricing, cleanServiceDescription, type ServiceAddOn } from '@/lib/services/service-pricing'
+import { type BookingSettings } from '@/lib/booking/booking-settings'
 import { buildServiceCatalog, filterCatalogItems } from '@/lib/booking/service-catalog'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
@@ -48,6 +51,10 @@ interface ServiceItem {
   duration_minutes: number
   price?: number | null
   requires_address?: boolean
+  add_ons?: ServiceAddOn[]
+  formatted_price?: string
+  clean_description?: string
+  pricing_model?: string
 }
 
 interface OrgInfo {
@@ -62,6 +69,7 @@ interface OrgInfo {
   max_booking_days_ahead: number
   industry?: string | null
   logo_url?: string | null
+  booking_settings?: BookingSettings
 }
 
 interface AvailableSlot {
@@ -91,8 +99,41 @@ function PublicBookingPageContent() {
 
   // Selections
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null)
+  const [selectedAddOns, setSelectedAddOns] = useState<ServiceAddOn[]>([])
+  const [isPriority, setIsPriority] = useState<boolean>(false)
+  const [howHeard, setHowHeard] = useState<string>('')
   const [serviceSearch, setServiceSearch] = useState('')
   const [activeServiceCategory, setActiveServiceCategory] = useState('all')
+
+  // Calculate dynamic live total price accounting for base price, selected add-ons, and priority fee
+  const dynamicPricing = useMemo(() => {
+    if (!selectedService) return null
+    const basePrice = selectedService.price !== null && selectedService.price !== undefined ? Number(selectedService.price) : null
+    const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + (Number(a.price) || 0), 0)
+    const priorityFee = isPriority ? (Number(org?.booking_settings?.priority_dispatch_fee) || 0) : 0
+    const extrasTotal = addOnsTotal + priorityFee
+
+    if (basePrice !== null && basePrice > 0) {
+      const finalAmount = basePrice + extrasTotal
+      return {
+        hasNumericBase: true,
+        basePrice,
+        addOnsTotal,
+        priorityFee,
+        total: finalAmount,
+        formattedTotal: `$${finalAmount.toFixed(2)}`
+      }
+    }
+
+    return {
+      hasNumericBase: false,
+      basePrice: null,
+      addOnsTotal,
+      priorityFee,
+      total: extrasTotal,
+      formattedTotal: extrasTotal > 0 ? `Quote on Site (+$${extrasTotal.toFixed(2)} extras)` : 'Quote on Site'
+    }
+  }, [selectedService, selectedAddOns, isPriority, org?.booking_settings?.priority_dispatch_fee])
 
   const serviceCatalog = useMemo(() => {
     return buildServiceCatalog(services, org?.industry)
@@ -325,7 +366,8 @@ function PublicBookingPageContent() {
       setLoadingSlots(true)
       setSelectedSlot(null)
       try {
-        const res = await fetch(`/api/book/${slug}/slots?date=${selectedDate}&serviceId=${selectedService?.id || ''}`)
+        const priorityQuery = isPriority ? '&isPriority=true' : ''
+        const res = await fetch(`/api/book/${slug}/slots?date=${selectedDate}&serviceId=${selectedService?.id || ''}${priorityQuery}`)
         if (res.ok) {
           const data = await res.json()
           const slots = data.slots || []
@@ -362,7 +404,7 @@ function PublicBookingPageContent() {
     }
 
     fetchSlots()
-  }, [slug, selectedDate, selectedService])
+  }, [slug, selectedDate, selectedService, isPriority])
 
   // 3. Handle Submit
   const handleBookingSubmit = async (e: React.FormEvent) => {
@@ -401,7 +443,11 @@ function PublicBookingPageContent() {
           bookingToken: bookingToken || undefined,
           referralCode: referralCode || undefined,
           source: bookingSource || 'booking_page',
-          smsConsent
+          smsConsent,
+          isPriority,
+          priorityFee: isPriority ? org?.booking_settings?.priority_dispatch_fee : undefined,
+          selectedAddOns,
+          howHeard: howHeard.trim() || undefined
         })
       })
 
@@ -482,6 +528,21 @@ function PublicBookingPageContent() {
               <span className="text-emerald-800 dark:text-emerald-300 text-[11px] leading-tight block">
                 You have $25 off your service with promo code <strong className="font-mono uppercase">{referralCode}</strong>.
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Important Condition / Policy Notice Banner */}
+        {org.booking_settings?.booking_notice_enabled && org.booking_settings?.booking_notice && (
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200 shadow-2xs animate-in fade-in duration-200">
+            <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-0.5">
+              <span className="font-bold block text-amber-950 dark:text-amber-100 text-[11px] tracking-wide uppercase">
+                Important Policy Notice
+              </span>
+              <p className="text-amber-900/90 dark:text-amber-200/90 text-xs leading-relaxed">
+                {org.booking_settings.booking_notice}
+              </p>
             </div>
           </div>
         )}
@@ -769,6 +830,65 @@ function PublicBookingPageContent() {
                   </div>
                 )}
 
+                {/* Optional Add-Ons & Upgrades Checklist */}
+                {selectedService?.add_ons && selectedService.add_ons.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-zinc-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-zinc-200">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" />
+                        <span>Optional Add-Ons &amp; Upgrades</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                        Select any to include
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedService.add_ons.map((addon) => {
+                        const isChecked = selectedAddOns.some(a => a.id === addon.id)
+                        return (
+                          <button
+                            key={addon.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAddOns(prev =>
+                                isChecked ? prev.filter(a => a.id !== addon.id) : [...prev, addon]
+                              )
+                            }}
+                            className={cn(
+                              "flex items-start justify-between p-3 rounded-xl border text-left transition-all cursor-pointer",
+                              isChecked
+                                ? "bg-blue-50/90 dark:bg-blue-950/50 border-blue-500 dark:border-blue-400 ring-1 ring-blue-500/20"
+                                : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                            )}
+                          >
+                            <div className="space-y-0.5 pr-2 min-w-0">
+                              <span className={cn(
+                                "text-xs font-bold block truncate",
+                                isChecked ? "text-blue-950 dark:text-white" : "text-slate-800 dark:text-zinc-200"
+                              )}>
+                                {addon.name}
+                              </span>
+                              {addon.duration_minutes && addon.duration_minutes > 0 ? (
+                                <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">
+                                  +{addon.duration_minutes} mins
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <span className={cn(
+                              "text-xs font-mono font-bold shrink-0",
+                              addon.price && addon.price > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-zinc-400"
+                            )}>
+                              {addon.price && addon.price > 0 ? `+$${addon.price}` : 'Free'}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Standard In-Flow Continue Button */}
                 <button
                   type="button"
@@ -794,11 +914,16 @@ function PublicBookingPageContent() {
                       {selectedService.name}
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5">
-                      <span>⏱ {selectedService.duration_minutes} mins</span>
+                      <span>⏱ {selectedService.duration_minutes + selectedAddOns.reduce((sum, a) => sum + (a.duration_minutes || 0), 0)} mins</span>
                       <span>•</span>
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {parseServicePricing(selectedService.price, selectedService.description).formattedPrice}
+                        {dynamicPricing?.formattedTotal}
                       </span>
+                      {selectedAddOns.length > 0 && (
+                        <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-1.5 py-0.2 rounded-md font-medium">
+                          +{selectedAddOns.length} extra{selectedAddOns.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -836,24 +961,73 @@ function PublicBookingPageContent() {
 
             {/* Selected Service Badge */}
             <div className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs shadow-xs">
-              <span className="text-slate-500 dark:text-zinc-400">Service: <strong className="text-slate-900 dark:text-white">{selectedService?.name}</strong></span>
+              <span className="text-slate-500 dark:text-zinc-400">
+                Service: <strong className="text-slate-900 dark:text-white">{selectedService?.name}</strong>
+                {selectedAddOns.length > 0 && (
+                  <span className="text-[10px] ml-1.5 text-blue-600 dark:text-blue-400 font-semibold">
+                    (+{selectedAddOns.length} add-on{selectedAddOns.length > 1 ? 's' : ''})
+                  </span>
+                )}
+              </span>
               <div className="flex items-center gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedService?.duration_minutes} mins</span>
-                {selectedService && (() => {
-                  const pricing = parseServicePricing(selectedService.price, selectedService.description)
-                  return (
-                    <span className={cn(
-                      'font-semibold',
-                      pricing.model === 'quote_on_site'
-                        ? 'text-slate-700 dark:text-zinc-300'
-                        : 'text-emerald-600 dark:text-emerald-400'
-                    )}>
-                      {pricing.formattedPrice}
-                    </span>
-                  )
-                })()}
+                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                  {(selectedService?.duration_minutes || 60) + selectedAddOns.reduce((sum, a) => sum + (a.duration_minutes || 0), 0)} mins
+                </span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  {dynamicPricing?.formattedTotal}
+                </span>
               </div>
             </div>
+
+            {/* Fast-Track Priority Service Card */}
+            {org.booking_settings?.priority_dispatch_enabled && (
+              <div className={cn(
+                "p-3.5 rounded-2xl border transition-all",
+                isPriority
+                  ? "bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/20 shadow-xs"
+                  : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
+              )}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="h-8 w-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <Zap className="h-4 w-4 fill-amber-500/20" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {org.booking_settings.priority_dispatch_label || 'Fast-Track Priority Service'}
+                        </span>
+                        {org.booking_settings.priority_dispatch_fee !== null && org.booking_settings.priority_dispatch_fee > 0 ? (
+                          <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
+                            +${org.booking_settings.priority_dispatch_fee}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200">
+                            Free Priority
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                        Priority arrival window &amp; top-slot placement on technician's route.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPriority(!isPriority)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0",
+                      isPriority
+                        ? "bg-amber-500 text-white shadow-xs hover:bg-amber-600"
+                        : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700"
+                    )}
+                  >
+                    {isPriority ? 'Added ✓' : 'Add Priority'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Date Pill Scroller */}
             <div className="space-y-2">
@@ -1336,6 +1510,35 @@ function PublicBookingPageContent() {
                   )}
                 </div>
               </div>
+
+              {/* How Did You Hear About Us? (Attribution Pills) */}
+              {org.booking_settings?.how_heard_options && org.booking_settings.how_heard_options.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block">
+                    How did you hear about us? <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {org.booking_settings.how_heard_options.map((option) => {
+                      const isSelected = howHeard === option
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setHowHeard(isSelected ? '' : option)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border",
+                            isSelected
+                              ? "bg-blue-600 border-blue-600 text-white font-bold shadow-xs"
+                              : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
+                          )}
+                        >
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Carrier-Compliant SMS Opt-In & Privacy Disclosure Card */}
@@ -1417,7 +1620,11 @@ function PublicBookingPageContent() {
                 ) : (
                   <>
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>{org.booking_mode === 'instant' ? 'Confirm Appointment' : 'Submit Booking Request'}</span>
+                    <span>
+                      {org.booking_mode === 'instant'
+                        ? `Confirm Appointment ${dynamicPricing?.formattedTotal ? `• ${dynamicPricing.formattedTotal}` : ''}`
+                        : `Submit Request ${dynamicPricing?.formattedTotal ? `• ${dynamicPricing.formattedTotal}` : ''}`}
+                    </span>
                   </>
                 )}
               </button>

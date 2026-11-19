@@ -29,7 +29,8 @@ import {
   ChevronRight,
   LayoutGrid,
   List,
-  X
+  X,
+  Zap
 } from 'lucide-react'
 import {
   Table,
@@ -45,8 +46,16 @@ import {
   parseServicePricing,
   cleanServiceDescription,
   encodeServiceDescription,
-  type PricingModel
+  encodeServiceDescriptionWithAddOns,
+  type PricingModel,
+  type ServiceAddOn
 } from '@/lib/services/service-pricing'
+import {
+  type BookingSettings,
+  parseBookingSettings,
+  DEFAULT_BOOKING_SETTINGS,
+  ALLOWED_SLOT_INTERVALS
+} from '@/lib/booking/booking-settings'
 import { INDUSTRY_LIST, getIndustryPreset, type IndustryPreset } from '@/lib/constants/industries'
 
 export interface ServiceItem {
@@ -80,6 +89,12 @@ export default function ServicesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
+  // Booking Customizer & Priority Dispatch Settings
+  const [bookingSettings, setBookingSettings] = useState<BookingSettings>(DEFAULT_BOOKING_SETTINGS)
+  const [editBookingSettings, setEditBookingSettings] = useState<BookingSettings>(DEFAULT_BOOKING_SETTINGS)
+  const [isBookingConfigModalOpen, setIsBookingConfigModalOpen] = useState(false)
+  const [savingBookingSettings, setSavingBookingSettings] = useState(false)
+
   // 60-Second Instant Catalog Modal
   const { orgIndustry } = useWorkspace()
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false)
@@ -101,6 +116,7 @@ export default function ServicesPage() {
   const [formPricingModel, setFormPricingModel] = useState<PricingModel>('fixed')
   const [formDuration, setFormDuration] = useState<number>(60)
   const [formDescription, setFormDescription] = useState('')
+  const [formAddOns, setFormAddOns] = useState<ServiceAddOn[]>([])
   const [formRequiresAddress, setFormRequiresAddress] = useState(true)
   const [formIsActive, setFormIsActive] = useState(true)
   const [formError, setFormError] = useState<string | null>(null)
@@ -129,6 +145,10 @@ export default function ServicesPage() {
       if (data.config?.industry) {
         setSelectedTradeId(data.config.industry)
       }
+      if (data.config?.booking_settings) {
+        setBookingSettings(data.config.booking_settings)
+        setEditBookingSettings(data.config.booking_settings)
+      }
     } catch (err: any) {
       console.error('[SERVICES_LOAD_ERROR]', err)
       setError(err.message || 'An unexpected error occurred while loading services.')
@@ -149,6 +169,7 @@ export default function ServicesPage() {
     setFormPricingModel('quote_on_site')
     setFormDuration(60)
     setFormDescription('')
+    setFormAddOns([])
     setFormRequiresAddress(true)
     setFormIsActive(true)
     setFormError(null)
@@ -164,10 +185,65 @@ export default function ServicesPage() {
     setFormPricingModel(parsed.model)
     setFormDuration(svc.duration_minutes || 60)
     setFormDescription(parsed.cleanDescription)
+    setFormAddOns(parsed.addOns || [])
     setFormRequiresAddress(svc.requires_address !== false)
     setFormIsActive(svc.is_active !== false)
     setFormError(null)
     setIsModalOpen(true)
+  }
+
+  // Add-On Field Handlers
+  const handleAddAddOn = () => {
+    setFormAddOns(prev => [
+      ...prev,
+      {
+        id: `addon_${Math.random().toString(36).slice(2, 8)}`,
+        name: '',
+        price: 0,
+        duration_minutes: 15,
+        description: ''
+      }
+    ])
+  }
+
+  const handleUpdateAddOn = (index: number, field: keyof ServiceAddOn, value: any) => {
+    setFormAddOns(prev => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const handleRemoveAddOn = (index: number) => {
+    setFormAddOns(prev => prev.filter((_, idx) => idx !== index))
+  }
+
+  // Save Booking & Priority Dispatch Organization Settings
+  const handleSaveBookingSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingBookingSettings(true)
+    try {
+      const res = await fetch('/api/client/organization', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booking_settings: editBookingSettings
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update booking settings')
+      }
+
+      setBookingSettings(editBookingSettings)
+      setIsBookingConfigModalOpen(false)
+      toast.success('Saved booking page & priority dispatch settings!')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save booking settings')
+    } finally {
+      setSavingBookingSettings(false)
+    }
   }
 
   // Save Service (Create or Update)
@@ -200,7 +276,21 @@ export default function ServicesPage() {
       parsedPrice = Math.round(p * 100) / 100
     }
 
-    const encodedDescription = encodeServiceDescription(formDescription.trim() || null, formPricingModel) || null
+    const validAddOns = formAddOns
+      .filter(a => a.name && a.name.trim().length > 0)
+      .map(a => ({
+        id: a.id || `addon_${Math.random().toString(36).slice(2, 8)}`,
+        name: a.name.trim(),
+        price: Number(a.price) >= 0 ? Math.round(Number(a.price) * 100) / 100 : 0,
+        duration_minutes: Number(a.duration_minutes) >= 0 ? Number(a.duration_minutes) : 0,
+        description: a.description?.trim() || undefined
+      }))
+
+    const encodedDescription = encodeServiceDescriptionWithAddOns(
+      formDescription.trim() || null,
+      formPricingModel,
+      validAddOns
+    ) || null
 
     setSubmitting(true)
     try {
@@ -470,6 +560,20 @@ export default function ServicesPage() {
             type="button"
             variant="outline"
             size="sm"
+            onClick={() => {
+              setEditBookingSettings(bookingSettings)
+              setIsBookingConfigModalOpen(true)
+            }}
+            className="h-9 px-3 text-xs font-semibold border-slate-200 dark:border-zinc-800 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white transition-colors shadow-xs"
+          >
+            <Zap className="w-3.5 h-3.5 mr-1.5 text-blue-600 dark:text-blue-400" />
+            <span>Booking &amp; Priority Settings</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setIsCatalogModalOpen(true)}
             className="h-9 px-3 text-xs font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 shadow-xs"
           >
@@ -671,8 +775,14 @@ export default function ServicesPage() {
                   return (
                     <TableRow key={svc.id} className="border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-colors">
                       <TableCell className="py-3 px-4">
-                        <div className="font-bold text-xs text-slate-900 dark:text-zinc-100">
-                          {svc.name}
+                        <div className="font-bold text-xs text-slate-900 dark:text-zinc-100 flex items-center gap-1.5 flex-wrap">
+                          <span>{svc.name}</span>
+                          {pricing.addOns && pricing.addOns.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 font-mono">
+                              <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                              <span>+{pricing.addOns.length} upgrade{pricing.addOns.length > 1 ? 's' : ''}</span>
+                            </span>
+                          )}
                         </div>
                         {pricing.cleanDescription && (
                           <div className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1 max-w-sm mt-0.5">
@@ -808,6 +918,13 @@ export default function ServicesPage() {
                   {/* Badges: Pricing Model, Duration, Location */}
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800/80">
                     {renderPricingBadge(pricing)}
+
+                    {pricing.addOns && pricing.addOns.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                        <span>+{pricing.addOns.length} upgrade{pricing.addOns.length > 1 ? 's' : ''}</span>
+                      </span>
+                    )}
 
                     <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-mono">
                       <Clock className="w-3 h-3 text-slate-400" />
@@ -1147,6 +1264,92 @@ export default function ServicesPage() {
             />
           </div>
 
+          {/* Add-On Services & Upsells Checklist Builder */}
+          <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Optional Add-Ons &amp; Upgrades</span>
+                </Label>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Offer high-margin extras that customers can check off when booking this service (e.g. Pet Hair Removal, Engine Bay Degrease, Filter Replacement).
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddAddOn}
+                className="h-7 px-2.5 text-[11px] font-semibold border-slate-300 dark:border-zinc-700 hover:border-blue-500 text-slate-700 dark:text-zinc-300"
+              >
+                <Plus className="w-3 h-3 mr-1 text-blue-500" />
+                <span>Add Upgrade</span>
+              </Button>
+            </div>
+
+            {formAddOns.length > 0 && (
+              <div className="space-y-2 pt-1 max-h-56 overflow-y-auto pr-1">
+                {formAddOns.map((addon, idx) => (
+                  <div
+                    key={addon.id || idx}
+                    className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/70 space-y-2 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Upgrade name (e.g. Pet Hair Removal)"
+                          value={addon.name}
+                          onChange={e => handleUpdateAddOn(idx, 'name', e.target.value)}
+                          className="h-8 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                        />
+                      </div>
+                      <div className="w-24 relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={addon.price !== undefined && addon.price !== null ? addon.price : ''}
+                          onChange={e => handleUpdateAddOn(idx, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                          className="h-8 pl-6 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                        />
+                      </div>
+                      <div className="w-20">
+                        <select
+                          value={addon.duration_minutes || 0}
+                          onChange={e => handleUpdateAddOn(idx, 'duration_minutes', parseInt(e.target.value, 10) || 0)}
+                          className="h-8 w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg px-1.5 font-mono"
+                        >
+                          <option value={0}>+0m</option>
+                          <option value={15}>+15m</option>
+                          <option value={30}>+30m</option>
+                          <option value={45}>+45m</option>
+                          <option value={60}>+60m</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAddOn(idx)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                        title="Remove upgrade"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Short customer note (e.g. Deep rotary vacuum & pet enzyme treatment)"
+                      value={addon.description || ''}
+                      onChange={e => handleUpdateAddOn(idx, 'description', e.target.value)}
+                      className="h-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-300 rounded-lg placeholder:text-slate-400"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Toggles */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
             <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1255,6 +1458,235 @@ export default function ServicesPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* ── BOOKING PAGE & PRIORITY SETTINGS MODAL ── */}
+      <Modal
+        open={isBookingConfigModalOpen}
+        onOpenChange={setIsBookingConfigModalOpen}
+        title="Booking Page & Priority Dispatch Settings"
+        description="Configure calendar slot granularity, priority rush dispatch surcharge, disclaimer notices, and attribution."
+        size="lg"
+      >
+        <form onSubmit={handleSaveBookingSettings} className="space-y-4 pt-1">
+          {/* Section 1: Time Slot Granularity */}
+          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Time Slot Interval (Calendar Stepping)</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Control how frequently appointment slots appear on your customer-facing booking calendar.
+                </p>
+              </div>
+              <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60">
+                Every {editBookingSettings.slot_interval_minutes}m
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1">
+              {ALLOWED_SLOT_INTERVALS.map(mins => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => setEditBookingSettings(prev => ({ ...prev, slot_interval_minutes: mins }))}
+                  className={cn(
+                    "px-2.5 py-2 rounded-lg border text-xs font-bold font-mono text-center transition-all cursor-pointer",
+                    editBookingSettings.slot_interval_minutes === mins
+                      ? "bg-blue-600 border-blue-600 text-white shadow-xs"
+                      : "bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
+                  )}
+                >
+                  <span>{mins}m</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+              30m is standard for mobile detailing &amp; trade diagnostics; 60m–120m is recommended for large installations.
+            </p>
+          </div>
+
+          {/* Section 2: Fast-Track Priority Dispatch Engine */}
+          <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/20 dark:bg-blue-950/20 space-y-3 shadow-2xs">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Fast-Track Priority Dispatch Engine</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Allow customers with emergencies or urgent deadlines to book priority slots with an extra surcharge.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={editBookingSettings.priority_dispatch_enabled}
+                  onChange={e => setEditBookingSettings(prev => ({ ...prev, priority_dispatch_enabled: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {editBookingSettings.priority_dispatch_enabled && (
+              <div className="space-y-3 pt-2 border-t border-blue-200/60 dark:border-blue-900/40">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                      Priority Dispatch Surcharge ($)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editBookingSettings.priority_dispatch_fee !== undefined && editBookingSettings.priority_dispatch_fee !== null ? editBookingSettings.priority_dispatch_fee : ''}
+                        onChange={e => setEditBookingSettings(prev => ({
+                          ...prev,
+                          priority_dispatch_fee: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0
+                        }))}
+                        placeholder="49.00"
+                        className="h-9 pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400">Set to $0 if priority dispatch is offered free of charge.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                      Priority Dispatch Badge Label
+                    </Label>
+                    <Input
+                      value={editBookingSettings.priority_dispatch_label}
+                      onChange={e => setEditBookingSettings(prev => ({
+                        ...prev,
+                        priority_dispatch_label: e.target.value
+                      }))}
+                      placeholder="Priority Dispatch / Same-Day Service"
+                      className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                    />
+                    <p className="text-[10px] text-slate-400">Customer-facing title shown during step 2.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                    Priority Dispatch Customer Note
+                  </Label>
+                  <Input
+                    value={editBookingSettings.priority_dispatch_description || ''}
+                    onChange={e => setEditBookingSettings(prev => ({
+                      ...prev,
+                      priority_dispatch_description: e.target.value
+                    }))}
+                    placeholder="Dedicated technician prioritized for immediate response in the earliest available window"
+                    className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Important Policy & Disclaimer Notice Banner */}
+          <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/20 space-y-3 shadow-2xs">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Important Condition / Policy Notice Banner</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Display a highlighted banner at the top of your booking link (e.g. Safari &amp; DFW stain/pet hair notices, travel radius fee, deposit terms).
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={editBookingSettings.booking_notice_enabled}
+                  onChange={e => setEditBookingSettings(prev => ({ ...prev, booking_notice_enabled: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-amber-600"></div>
+              </label>
+            </div>
+
+            {editBookingSettings.booking_notice_enabled && (
+              <div className="space-y-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-900/40">
+                <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                  Notice Text
+                </Label>
+                <textarea
+                  rows={2}
+                  value={editBookingSettings.booking_notice || ''}
+                  onChange={e => setEditBookingSettings(prev => ({ ...prev, booking_notice: e.target.value }))}
+                  placeholder="e.g. Note: Heavy pet hair, sand, or biohazard stains require on-site assessment before starting. Travel fee applies outside 25-mile radius."
+                  className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 leading-relaxed"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Section 4: Attribution Tracking ("How did you hear about us?") */}
+          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Lead Source Attribution Tracking</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Prompt customers to pick how they discovered your business (Jobber-style lead attribution with 1-click pills).
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
+                Active
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {editBookingSettings.how_heard_options.map((opt, i) => (
+                <span
+                  key={i}
+                  className="text-[11px] px-2.5 py-1 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700"
+                >
+                  {opt}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsBookingConfigModalOpen(false)}
+              className="h-9 text-xs border-slate-300 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
+              disabled={savingBookingSettings}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-9 px-4 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-xs"
+              disabled={savingBookingSettings}
+            >
+              {savingBookingSettings ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  <span>Saving Settings...</span>
+                </>
+              ) : (
+                <span>Save Booking Settings</span>
+              )}
+            </Button>
+          </div>
+        </form>
       </Modal>
 
     </div>
