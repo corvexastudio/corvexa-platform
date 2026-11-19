@@ -30,6 +30,10 @@ export interface CreateBookingInput {
   startTime: string // ISO string
   notes?: string
   photos?: string[] // Customer diagnostic intake photos
+  items?: Array<{ description: string; quantity: number; unit_price: number }>
+  selectedAddOns?: Array<{ name: string; price?: number }>
+  isPriority?: boolean
+  priorityFee?: number
   source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call' | 'referral'
   smsConsent?: boolean
   referralCode?: string
@@ -419,6 +423,37 @@ export async function createBooking(
       // Non-blocking fallback
     }
 
+    // DATA-02: Populate structured line items (base service, add-ons, priority fee) for invoicing
+    let jobItems = input.items || []
+    if (jobItems.length === 0) {
+      const itemsList: Array<{ description: string; quantity: number; unit_price: number }> = []
+      const servicePrice = Number(activeService.price) || 0
+      if (servicePrice > 0 || !activeService.id.startsWith('default')) {
+        itemsList.push({
+          description: activeService.name,
+          quantity: 1,
+          unit_price: servicePrice
+        })
+      }
+      if (Array.isArray(input.selectedAddOns)) {
+        for (const addon of input.selectedAddOns) {
+          itemsList.push({
+            description: addon.name,
+            quantity: 1,
+            unit_price: Number(addon.price) || 0
+          })
+        }
+      }
+      if (input.isPriority && (input.priorityFee || 0) > 0) {
+        itemsList.push({
+          description: 'Priority Rush Dispatch',
+          quantity: 1,
+          unit_price: Number(input.priorityFee)
+        })
+      }
+      jobItems = itemsList
+    }
+
     const jobRes = await createJob(supabase, {
       orgId,
       contactId: contactId || undefined,
@@ -431,6 +466,7 @@ export async function createBooking(
       description: notes || (effectiveSource === 'missed_call' ? '⚡ Recovered via Missed Call Text-Back' : `Booked via ${effectiveSource || 'booking link'}`),
       scheduledStart: startTime,
       scheduledEnd: endTime,
+      items: jobItems,
       notes: notes || undefined
     })
 
@@ -1174,6 +1210,21 @@ export async function customerRescheduleBooking(
   const newEndMs = newStartMs + durationMs
   const newEndTime = new Date(newEndMs).toISOString()
 
+  // CONC-04: Prevent rescheduling if the field technician is already en route or actively working on site
+  const { data: linkedJobCheck } = await supabase
+    .from('jobs')
+    .select('id, status')
+    .eq('appointment_id', apt.id)
+    .eq('org_id', apt.org_id)
+    .maybeSingle()
+
+  if (linkedJobCheck && ['en_route', 'in_progress', 'completed'].includes(linkedJobCheck.status)) {
+    return {
+      success: false,
+      error: `Your technician is currently ${linkedJobCheck.status === 'en_route' ? 'en route' : linkedJobCheck.status === 'in_progress' ? 'working on site' : 'finished'}. Please call the office directly to adjust this appointment.`
+    }
+  }
+
   // 1. Overlap Check against OTHER active appointments and standalone jobs
   const { data: otherAppts } = await supabase
     .from('appointments')
@@ -1273,6 +1324,7 @@ export async function customerRescheduleBooking(
       })
       .eq('appointment_id', apt.id)
       .eq('org_id', apt.org_id)
+      .in('status', ['requested', 'scheduled', 'confirmed'])
   } catch (jobErr) {
     console.warn('[RESCHEDULE_BOOKING_LINKED_JOB_WARNING]', jobErr)
   }

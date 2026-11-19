@@ -45,6 +45,34 @@ export async function POST(request: Request) {
 
     const cleanPhone = toE164(phone)
 
+    // SEC-05: Non-super-admins can only test demo simulations to their own registered account phone
+    if (!isSuperAdmin) {
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('owner_phone')
+        .eq('id', orgId)
+        .maybeSingle()
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const allowedPhones = [
+        orgData?.owner_phone ? toE164(orgData.owner_phone) : null,
+        profileData?.phone ? toE164(profileData.phone) : null,
+        user.phone ? toE164(user.phone) : null
+      ].filter(Boolean)
+
+      if (!allowedPhones.includes(cleanPhone)) {
+        return NextResponse.json(
+          { error: 'For security and carrier protection, demo simulations can only be sent to your registered account phone number.' },
+          { status: 403, headers: rateHeaders }
+        )
+      }
+    }
+
     // Composite Destination Rate Limiting (HIGH-05)
     const destRateLimit = await checkRateLimitAsync(`sms:dest:${cleanPhone}`, { max: 5, windowMs: 60000 })
     if (!destRateLimit.allowed) {

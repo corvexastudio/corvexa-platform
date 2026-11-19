@@ -71,8 +71,9 @@ export function calculateInvoiceFinancials(
   const safeDiscount = Math.min(subtotal, Math.max(0, Math.round(Number(discountAmount || 0) * 100) / 100))
   const taxableSubtotal = Math.max(0, subtotal - safeDiscount)
   const safeTaxRate = Math.max(0, Number(taxRate) || 0)
-  // Safely normalize taxRate whether passed as percentage (e.g. 8.25) or decimal fraction (0.0825)
-  const taxFraction = safeTaxRate > 1 ? safeTaxRate / 100 : safeTaxRate
+  // FIN-01: Standardize taxRate as percentage (e.g. 8.25 for 8.25%, 1.0 for 1%)
+  // Prevents catastrophic 100% tax overcharge on 1% tax rates
+  const taxFraction = safeTaxRate / 100
   const tax = Math.round(taxableSubtotal * taxFraction * 100) / 100
   const total = Math.max(0, Math.round((taxableSubtotal + tax) * 100) / 100)
 
@@ -806,11 +807,18 @@ export async function recordPayment(
     return { success: false, error: paymentError.message }
   }
 
-  // 2. If succeeded, update invoice amount_paid, amount_due, and status
+  // 2. If succeeded, atomically recalculate invoice amount_paid, amount_due, and status from the payments ledger
   let updatedInvoice = invoice
   if (paymentStatus === 'succeeded') {
-    const currentPaid = Number(invoice.amount_paid) || 0
-    const newAmountPaid = Math.round((currentPaid + amount) * 100) / 100
+    // CONC-01: Sum all succeeded payments directly from the payments table to eliminate lost updates
+    const { data: allPayments } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('invoice_id', invoice.id)
+      .eq('status', 'succeeded')
+
+    const totalPaid = (allPayments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    const newAmountPaid = Math.round(totalPaid * 100) / 100
     const newAmountDue = Math.max(0, Math.round((Number(invoice.total) - newAmountPaid) * 100) / 100)
     const isPaidInFull = newAmountDue <= 0
     const newStatus: InvoiceStatus = isPaidInFull ? 'paid' : 'partially_paid'

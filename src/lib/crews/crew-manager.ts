@@ -347,6 +347,20 @@ export async function reassignJobCrew(
     return { success: false, error: 'Job not found' }
   }
 
+  // SEC-04: Validate crew belongs to caller's organization before reassigning
+  if (crewId) {
+    const { data: validCrew } = await supabase
+      .from('crews')
+      .select('id, name')
+      .eq('id', crewId)
+      .eq('org_id', orgId)
+      .maybeSingle()
+
+    if (!validCrew) {
+      return { success: false, error: 'Crew not found in your organization' }
+    }
+  }
+
   // 2. Conflict check if reassigning to a real crew
   let conflictWarning: string | undefined
   if (crewId) {
@@ -401,7 +415,8 @@ export async function reassignJobCrew(
       .from('crews')
       .select('name, phone_number, crew_lead_id')
       .eq('id', crewId)
-      .single()
+      .eq('org_id', orgId)
+      .maybeSingle()
 
     let crewRecipientPhone = targetCrew?.phone_number
 
@@ -508,6 +523,20 @@ export async function reassignAppointmentCrew(
 
   if (aptError || !apt) {
     return { success: false, error: 'Appointment not found' }
+  }
+
+  // SEC-04: Validate crew belongs to caller's organization before reassigning
+  if (crewId) {
+    const { data: validCrew } = await supabase
+      .from('crews')
+      .select('id, name')
+      .eq('id', crewId)
+      .eq('org_id', orgId)
+      .maybeSingle()
+
+    if (!validCrew) {
+      return { success: false, error: 'Crew not found in your organization' }
+    }
   }
 
   let conflictWarning: string | undefined

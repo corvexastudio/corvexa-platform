@@ -87,10 +87,21 @@ export async function GET(
     } | null = null
 
     if (phoneParam || cidParam) {
+      // SEC-02: Rate limit public prefill queries per IP to prevent phone number enumeration
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+      const { checkRateLimitAsync } = await import('@/lib/security/rate-limiter')
+      const rateLimit = await checkRateLimitAsync(`booking:prefill:${ip}`, { max: 30, windowMs: 60 * 1000 })
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          { error: 'Rate limit exceeded. Please try again shortly.' },
+          { status: 429 }
+        )
+      }
+
       const { normalizePhoneToE164 } = await import('@/lib/telephony/phone-normalizer')
       let contactQuery = supabase
         .from('contacts')
-        .select('id, name, phone, email, address, notes')
+        .select('id, name, phone')
         .eq('org_id', org.id)
 
       if (cidParam) {
@@ -107,52 +118,16 @@ export async function GET(
       const { data: matchedContact } = await contactQuery.maybeSingle()
 
       if (matchedContact) {
-        // Fetch most recent lead for service or notes
-        const { data: lead } = await supabase
-          .from('leads')
-          .select('id, service_needed, notes, source')
-          .eq('org_id', org.id)
-          .eq('contact_id', matchedContact.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        // Fetch latest inbound customer SMS text if notes is empty
-        let latestText = lead?.notes || matchedContact.notes || ''
-        if (!latestText) {
-          const { data: conv } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('org_id', org.id)
-            .eq('contact_id', matchedContact.id)
-            .maybeSingle()
-
-          if (conv?.id) {
-            const { data: latestMsg } = await supabase
-              .from('messages')
-              .select('body')
-              .eq('conversation_id', conv.id)
-              .eq('direction', 'inbound')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-
-            if (latestMsg?.body) {
-              latestText = latestMsg.body
-            }
-          }
-        }
-
         const isGenericName = !matchedContact.name || matchedContact.name === 'Caller' || matchedContact.name === 'New Caller'
 
         prefill = {
           name: (!isGenericName ? matchedContact.name : (nameParam || '')) || '',
           phone: matchedContact.phone || phoneParam || '',
-          email: matchedContact.email || '',
-          address: matchedContact.address || '',
-          notes: latestText || '',
-          serviceNeeded: lead?.service_needed || '',
-          source: sourceParam || lead?.source || 'missed_call'
+          email: '',
+          address: '',
+          notes: '',
+          serviceNeeded: '',
+          source: sourceParam || 'missed_call'
         }
       } else if (phoneParam) {
         prefill = {

@@ -70,8 +70,9 @@ export function calculateQuoteFinancials(
   const discount = Math.max(0, Number(options.discount) || 0)
   const taxableAmount = Math.max(0, subtotal - discount)
   const safeTaxRate = Math.max(0, Number(options.taxRate) || 0)
-  // Safely normalize taxRate whether passed as percentage (e.g. 8.25) or decimal fraction (0.0825)
-  const taxFraction = safeTaxRate > 1 ? safeTaxRate / 100 : safeTaxRate
+  // FIN-01: Standardize taxRate as percentage (e.g. 8.25 for 8.25%, 1.0 for 1%)
+  // Prevents catastrophic 100% tax overcharge on 1% tax rates
+  const taxFraction = safeTaxRate / 100
   const tax = Math.round(taxableAmount * taxFraction * 100) / 100
   const grandTotal = Math.max(0, Math.round((subtotal - discount + tax) * 100) / 100)
 

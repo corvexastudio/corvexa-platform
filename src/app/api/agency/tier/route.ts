@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateAgencySubscriptionTier } from '@/lib/agency/agency-service'
 import { AgencyTier } from '@/lib/agency/agency-types'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { getAgencyContext } from '@/lib/agency/agency-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    let { agencyId, tier } = body
+    const { agencyId, tier } = body
 
     if (!tier) {
       return NextResponse.json(
@@ -18,27 +17,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!agencyId || agencyId === 'lokal-media-house' || agencyId === 'agency-partner') {
-      try {
-        const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const adminSupabase = createAdminClient()
-          const { data: agency } = await adminSupabase
-            .from('partner_agencies')
-            .select('id, slug')
-            .or(`primary_owner_id.eq.${user.id},contact_email.eq.${user.email}`)
-            .maybeSingle()
-          if (agency) {
-            agencyId = agency.id
-          }
-        }
-      } catch (authErr) {
-        console.warn('[AGENCY TIER API] Auth error:', authErr)
-      }
+    const authResult = await getAgencyContext(agencyId)
+    if (!authResult.ok) {
+      return authResult.response!
     }
 
-    const updatedOverview = await updateAgencySubscriptionTier(agencyId || 'agency-partner', tier as AgencyTier)
+    const { agency } = authResult
+    const updatedOverview = await updateAgencySubscriptionTier(agency.id, tier as AgencyTier)
 
     return NextResponse.json({
       success: true,

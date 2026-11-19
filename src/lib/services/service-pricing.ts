@@ -43,9 +43,13 @@ export function encodeAddOns(addOns: ServiceAddOn[]): string {
   if (!addOns || addOns.length === 0) return ''
   try {
     const jsonStr = JSON.stringify(addOns)
-    const encoded = typeof Buffer !== 'undefined'
-      ? Buffer.from(jsonStr).toString('base64')
-      : btoa(encodeURIComponent(jsonStr))
+    let encoded = ''
+    if (typeof Buffer !== 'undefined') {
+      encoded = Buffer.from(jsonStr, 'utf8').toString('base64')
+    } else {
+      // Browser-safe UTF-8 Base64
+      encoded = btoa(unescape(encodeURIComponent(jsonStr)))
+    }
     return `[addons:${encoded}]`
   } catch {
     return ''
@@ -61,9 +65,26 @@ export function parseAddOns(description?: string | null): ServiceAddOn[] {
   if (!match) return []
   try {
     const raw = match[1]
-    const decoded = typeof Buffer !== 'undefined'
-      ? Buffer.from(raw, 'base64').toString('utf8')
-      : decodeURIComponent(atob(raw))
+    let decoded = ''
+    if (typeof Buffer !== 'undefined') {
+      decoded = Buffer.from(raw, 'base64').toString('utf8')
+    } else {
+      try {
+        decoded = decodeURIComponent(escape(atob(raw)))
+      } catch {
+        decoded = atob(raw)
+      }
+    }
+
+    // DATA-01: Gracefully handle legacy URI-encoded Base64 tokens
+    if (decoded.includes('%5B') || decoded.includes('%7B') || decoded.startsWith('%')) {
+      try {
+        decoded = decodeURIComponent(decoded)
+      } catch {
+        // Keep decoded as-is
+      }
+    }
+
     const parsed = JSON.parse(decoded)
     return Array.isArray(parsed) ? parsed : []
   } catch {

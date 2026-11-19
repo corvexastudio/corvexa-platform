@@ -121,7 +121,30 @@ export async function GET(
     }
 
     const isPriority = searchParams.get('isPriority') === 'true'
-    const isInternal = searchParams.get('internal') === 'true' || searchParams.get('isOwner') === 'true' || isPriority
+    const requestedInternal = searchParams.get('internal') === 'true' || searchParams.get('isOwner') === 'true'
+
+    // SEC-06 & DATA-03: Decouple isPriority from isInternal to prevent past slot exposure.
+    // Strictly require authenticated staff session before enabling internal owner override.
+    let isInternal = false
+    if (requestedInternal) {
+      try {
+        const { createClient } = await import('@/lib/supabase/server')
+        const userClient = await createClient()
+        const { data: authData } = await userClient.auth.getUser()
+        if (authData?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('org_id, role')
+            .eq('id', authData.user.id)
+            .maybeSingle()
+          if (profile && profile.org_id === org.id && ['owner', 'admin', 'dispatcher', 'super_admin'].includes(profile.role)) {
+            isInternal = true
+          }
+        }
+      } catch {
+        isInternal = false
+      }
+    }
     const bookingSettings = parseBookingSettings(org)
     const slotStepMinutes = bookingSettings.slot_interval_minutes || 30
 

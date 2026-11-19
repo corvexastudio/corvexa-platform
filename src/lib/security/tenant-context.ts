@@ -195,10 +195,10 @@ export async function getTenantContext(
       org_id: profileData.org_id,
       full_name: profileData.full_name,
       email: profileData.email,
-      role
+      role: effectiveRole
     },
     orgId: profileData.org_id,
-    role,
+    role: effectiveRole,
     isSuperAdmin,
     supabase
   }

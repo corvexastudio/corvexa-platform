@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { deployClientToAgencySlot } from '@/lib/agency/agency-service'
+import { getAgencyContext } from '@/lib/agency/agency-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { 
-      agencyId = 'lokal-media-house',
+      agencyId,
       businessName,
       industry = 'plumbing',
       ownerName,
@@ -24,7 +25,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await deployClientToAgencySlot(agencyId, {
+    const authResult = await getAgencyContext(agencyId)
+    if (!authResult.ok) {
+      return authResult.response!
+    }
+
+    const { agency } = authResult
+
+    const result = await deployClientToAgencySlot(agency.id, {
       businessName,
       industry,
       ownerName,

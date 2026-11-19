@@ -131,9 +131,9 @@ export async function evaluateCustomerReactivation(
     return { success: true, evaluatedCount: 0, reactivatedCount: 0, contactsReactivated: [], message: 'Reactivation disabled in settings.' }
   }
 
-  // 2. Check Quiet Hours in Organization Canonical Timezone
+  // 2. Check Quiet Hours in Organization Canonical Timezone (TCPA compliance)
   const orgTimezone = org.timezone || 'America/Chicago'
-  const enforceQuietHours = org.reactivation_quiet_hours === true && !ignoreQuietHours
+  const enforceQuietHours = !ignoreQuietHours
   if (enforceQuietHours && isTcpaQuietHours(orgTimezone, overrideDate)) {
     return {
       success: true,
@@ -217,6 +217,10 @@ export async function evaluateCustomerReactivation(
 
       // Dispatch SMS
       if (contact.phone) {
+        if ((contact as any).opt_out || (contact as any).is_opted_out || (contact as any).opted_out) {
+          continue
+        }
+
         const suppression = await isPhoneSuppressed(supabase, orgId, contact.phone)
         if (suppression.suppressed) {
           continue

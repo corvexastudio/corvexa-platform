@@ -18,6 +18,19 @@ export async function GET(
   // Attempt to establish authoritative authenticated Supabase session
   try {
     const adminClient = getAdminClient()
+
+    // SEC-03: Single-Use Claim Milestone Gate
+    // If the organization was already claimed, reject magic link replay and redirect to secure login
+    const { data: org } = await adminClient
+      .from('organizations')
+      .select('id, claimed_at')
+      .eq('id', payload.orgId)
+      .maybeSingle()
+
+    if (org?.claimed_at) {
+      return NextResponse.redirect(new URL('/client/login?notice=already_claimed', origin))
+    }
+
     let linkRes = await adminClient.auth.admin.generateLink({
       type: 'magiclink',
       email: payload.email,

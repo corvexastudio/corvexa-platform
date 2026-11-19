@@ -8,15 +8,24 @@ export interface ClaimTokenPayload {
 }
 
 /**
- * Derives a secure HMAC key for signing 1-tap claim tokens
+ * Derives a secure HMAC key for signing 1-tap claim tokens.
+ * SEC-03: Fails closed in production if server secret is not injected.
+ * Never falls back to public anon keys or hardcoded production secrets.
  */
 function getSigningKey(): string {
-  return (
+  const secret =
+    process.env.CLAIM_LINK_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.CRON_SECRET ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    'captodesk-claim-link-signing-secret-key-32-chars'
-  )
+    process.env.CRON_SECRET
+
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL SECURITY CONFIGURATION: CLAIM_LINK_SECRET or SUPABASE_SERVICE_ROLE_KEY is required to sign claim tokens.')
+    }
+    return 'dev-local-claim-link-signing-secret-key-32-chars-minimum'
+  }
+
+  return secret
 }
 
 /**
@@ -42,7 +51,7 @@ function base64UrlDecode(str: string): string {
 }
 
 /**
- * Generates a signed, URL-safe 1-tap claim token valid for 30 days
+ * Generates a signed, URL-safe 1-tap claim token valid for 7 days by default
  */
 export function createClaimToken(payload: {
   userId: string
@@ -50,7 +59,7 @@ export function createClaimToken(payload: {
   orgId: string
   validityDays?: number
 }): string {
-  const validityDays = payload.validityDays ?? 30
+  const validityDays = payload.validityDays ?? 7
   const exp = Date.now() + validityDays * 24 * 60 * 60 * 1000
 
   const data: ClaimTokenPayload = {
@@ -80,24 +89,26 @@ export function verifyClaimToken(token: string | null | undefined): ClaimTokenPa
 
   const [encodedData, signature] = parts
 
-  // Constant-time signature verification
-  const expectedSig = crypto
-    .createHmac('sha256', getSigningKey())
-    .update(encodedData)
-    .digest('base64url')
-
-  const sigBuffer = Buffer.from(signature)
-  const expectedBuffer = Buffer.from(expectedSig)
-
-  if (sigBuffer.length !== expectedBuffer.length) {
-    return null
-  }
-
-  if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-    return null
-  }
-
   try {
+    const key = getSigningKey()
+
+    // Constant-time signature verification
+    const expectedSig = crypto
+      .createHmac('sha256', key)
+      .update(encodedData)
+      .digest('base64url')
+
+    const sigBuffer = Buffer.from(signature)
+    const expectedBuffer = Buffer.from(expectedSig)
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return null
+    }
+
+    if (!crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      return null
+    }
+
     const rawJson = base64UrlDecode(encodedData)
     const payload = JSON.parse(rawJson) as ClaimTokenPayload
 

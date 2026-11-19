@@ -945,8 +945,8 @@ function PublicBookingPageContent() {
         {step === 2 && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-blue-400" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 2. Select Date & Time
               </h2>
               <button 
@@ -1750,7 +1750,8 @@ function PublicBookingPageContent() {
                   <button
                     type="button"
                     onClick={() => {
-                      const manageBookingUrl = typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${confirmedBooking.manageToken}` : `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`) : ''
+                      const tokenVal = confirmedBooking.manageToken || ''
+                      const manageBookingUrl = typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${tokenVal}` : `${window.location.origin}/book/manage/${tokenVal}`) : ''
                       downloadIcsFile({
                         title: `${selectedService?.name || 'Service'} with ${org.name}`,
                         description: `Scheduled appointment with ${org.name}.\nManage booking: ${manageBookingUrl}`,
@@ -1758,7 +1759,7 @@ function PublicBookingPageContent() {
                         startTime: selectedSlot.startTime,
                         endTime: selectedSlot.endTime,
                         url: manageBookingUrl,
-                      }, `appointment-${confirmedBooking.manageToken.substring(0, 8)}.ics`)
+                      }, `appointment-${(confirmedBooking.manageToken || 'confirmed').substring(0, 8)}.ics`)
                     }}
                     className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
                   >
@@ -1772,7 +1773,7 @@ function PublicBookingPageContent() {
             {/* Manage Link Button */}
             <div className="space-y-3 pt-2">
               <a
-                href={typeof window !== 'undefined' && window.location.hostname.startsWith('book.') ? `/manage/${confirmedBooking.manageToken}` : `/book/manage/${confirmedBooking.manageToken}`}
+                href={typeof window !== 'undefined' && window.location.hostname.startsWith('book.') ? `/manage/${confirmedBooking.manageToken || ''}` : `/book/manage/${confirmedBooking.manageToken || ''}`}
                 className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20"
               >
                 <span>View / Manage Appointment</span>
