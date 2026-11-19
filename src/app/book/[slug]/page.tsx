@@ -505,13 +505,13 @@ function PublicBookingPageContent() {
           />
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold">
             <CalendarDays className="h-3.5 w-3.5" />
-            <span>Instant Online Booking</span>
+            <span>Online Booking</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             {org.name}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
-            {org.booking_mode === 'instant' ? 'Select a time for instant confirmation' : 'Submit a booking request for quick owner review'}
+            {org.booking_mode === 'instant' ? 'Select a service and time to book online.' : 'Submit a booking request to schedule your appointment.'}
           </p>
         </div>
 
@@ -538,7 +538,7 @@ function PublicBookingPageContent() {
             <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1 space-y-0.5">
               <span className="font-bold block text-amber-950 dark:text-amber-100 text-[11px] tracking-wide uppercase">
-                Important Policy Notice
+                Notice
               </span>
               <p className="text-amber-900/90 dark:text-amber-200/90 text-xs leading-relaxed">
                 {org.booking_settings.booking_notice}
@@ -716,7 +716,7 @@ function PublicBookingPageContent() {
                         No services matching &ldquo;{serviceSearch}&rdquo;
                       </p>
                       <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
-                        Can&rsquo;t find your exact service? Clear your search to view all offerings or choose a general inspection.
+                        Try a different search term or clear filters to view all services.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
@@ -728,7 +728,7 @@ function PublicBookingPageContent() {
                         }}
                         className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors cursor-pointer"
                       >
-                        Clear Search &amp; Filters
+                        Clear Filters
                       </button>
                       {services[0] && (
                         <button
@@ -836,10 +836,10 @@ function PublicBookingPageContent() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-zinc-200">
                         <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" />
-                        <span>Optional Add-Ons &amp; Upgrades</span>
+                        <span>Add-ons</span>
                       </div>
                       <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                        Select any to include
+                        Optional
                       </span>
                     </div>
 
@@ -979,7 +979,7 @@ function PublicBookingPageContent() {
               </div>
             </div>
 
-            {/* Fast-Track Priority Service Card */}
+            {/* Priority Service Card */}
             {org.booking_settings?.priority_dispatch_enabled && (
               <div className={cn(
                 "p-3.5 rounded-2xl border transition-all",
@@ -995,7 +995,7 @@ function PublicBookingPageContent() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-slate-900 dark:text-white">
-                          {org.booking_settings.priority_dispatch_label || 'Fast-Track Priority Service'}
+                          {org.booking_settings.priority_dispatch_label || 'Priority Service'}
                         </span>
                         {org.booking_settings.priority_dispatch_fee !== null && org.booking_settings.priority_dispatch_fee > 0 ? (
                           <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
@@ -1003,12 +1003,12 @@ function PublicBookingPageContent() {
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200">
-                            Free Priority
+                            Included
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                        Priority arrival window &amp; top-slot placement on technician's route.
+                        {org.booking_settings.priority_dispatch_description || 'Expedited arrival in the earliest available window.'}
                       </p>
                     </div>
                   </div>
@@ -1023,7 +1023,7 @@ function PublicBookingPageContent() {
                         : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700"
                     )}
                   >
-                    {isPriority ? 'Added ✓' : 'Add Priority'}
+                    {isPriority ? 'Selected' : 'Select'}
                   </button>
                 </div>
               </div>
@@ -1545,7 +1545,7 @@ function PublicBookingPageContent() {
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 space-y-2.5">
               <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-200 font-semibold text-xs">
                 <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>Instant Confirmation & Flexible Management</span>
+                <span>Booking Confirmation</span>
               </div>
               <p className="leading-relaxed text-[11px] text-slate-500 dark:text-zinc-400">
                 No account required. You will receive a direct link to reschedule or cancel anytime.
@@ -1615,7 +1615,7 @@ function PublicBookingPageContent() {
                 {submitting ? (
                   <>
                     <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Booking Appointment...</span>
+                    <span>Confirming...</span>
                   </>
                 ) : (
                   <>
@@ -1645,7 +1645,7 @@ function PublicBookingPageContent() {
               </h2>
               <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
                 {confirmedBooking.status === 'confirmed' 
-                  ? `You're all set! We've dispatched a confirmation SMS with appointment management links.`
+                  ? `You're all set! We've sent a confirmation text with details to manage or reschedule anytime.`
                   : `We have received your request and will notify you as soon as it's confirmed.`
                 }
               </p>

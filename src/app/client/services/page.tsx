@@ -567,7 +567,7 @@ export default function ServicesPage() {
             className="h-9 px-3 text-xs font-semibold border-slate-200 dark:border-zinc-800 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white transition-colors shadow-xs"
           >
             <Zap className="w-3.5 h-3.5 mr-1.5 text-blue-600 dark:text-blue-400" />
-            <span>Booking &amp; Priority Settings</span>
+            <span>Booking Settings</span>
           </Button>
 
           <Button
@@ -592,32 +592,32 @@ export default function ServicesPage() {
         </div>
       </div>
 
-      {/* 4 Catalog Operational Metric Tokens */}
+      {/* Catalog Overview Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Services</p>
           <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '—' : counts.total}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Configured price book items</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">In catalog</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Active for Online Booking</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Live Online</p>
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '—' : counts.active}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Live on customer booking portal</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Bookable by customers</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Average Flat Rate</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Average Rate</p>
           <p className="text-xl font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums mt-1">
             {loading ? '—' : counts.avgPrice > 0 ? `$${counts.avgPrice}` : 'Quote on Site'}
           </p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Priced service average</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Priced services</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Draft / Inactive</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Inactive</p>
           <p className="text-xl font-bold text-slate-700 dark:text-zinc-300 tabular-nums mt-1">{loading ? '—' : counts.inactive}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Hidden from homeowners</p>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Hidden from booking</p>
         </div>
       </div>
 
@@ -734,7 +734,7 @@ export default function ServicesPage() {
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
             {searchQuery.trim() || statusFilter !== 'all'
               ? 'Try adjusting your search query or status filter to see other catalog entries.'
-              : 'Populate your catalog in 60 seconds with pre-curated trade presets (HVAC, Plumbing, Electrical, Roofing, Painting, Landscaping, and more) or create a custom service.'}
+              : 'Get started by loading standard services for your trade, or create your own custom services.'}
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Button
@@ -742,7 +742,7 @@ export default function ServicesPage() {
               className="bg-blue-600 hover:bg-blue-500 text-xs text-white font-bold h-10 px-4 shadow-xs"
             >
               <Sparkles className="w-4 h-4 mr-1.5 text-amber-300" />
-              <span>Load Trade Starter Catalog (21 Trades)</span>
+              <span>Load Trade Presets</span>
             </Button>
             <Button
               onClick={handleOpenCreate}
@@ -750,7 +750,7 @@ export default function ServicesPage() {
               className="text-xs font-semibold border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 h-10 px-4 shadow-xs"
             >
               <Plus className="w-4 h-4 mr-1.5" />
-              <span>Create Custom Service</span>
+              <span>Add Custom Service</span>
             </Button>
           </div>
         </div>
@@ -762,7 +762,7 @@ export default function ServicesPage() {
               <TableHeader className="bg-slate-50/80 dark:bg-zinc-900/90 border-b border-slate-200 dark:border-zinc-800">
                 <TableRow className="border-b border-slate-200 dark:border-zinc-800 hover:bg-transparent">
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Service Details</TableHead>
-                  <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Pricing Model &amp; Rate</TableHead>
+                  <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Pricing</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Duration</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Location</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Public Booking</TableHead>
@@ -780,7 +780,7 @@ export default function ServicesPage() {
                           {pricing.addOns && pricing.addOns.length > 0 && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 font-mono">
                               <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                              <span>+{pricing.addOns.length} upgrade{pricing.addOns.length > 1 ? 's' : ''}</span>
+                              <span>+{pricing.addOns.length} add-on{pricing.addOns.length > 1 ? 's' : ''}</span>
                             </span>
                           )}
                         </div>
@@ -922,7 +922,7 @@ export default function ServicesPage() {
                     {pricing.addOns && pricing.addOns.length > 0 && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
                         <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                        <span>+{pricing.addOns.length} upgrade{pricing.addOns.length > 1 ? 's' : ''}</span>
+                        <span>+{pricing.addOns.length} add-on{pricing.addOns.length > 1 ? 's' : ''}</span>
                       </span>
                     )}
 
@@ -970,8 +970,8 @@ export default function ServicesPage() {
       <Modal
         open={isCatalogModalOpen}
         onOpenChange={setIsCatalogModalOpen}
-        title="Load Trade Starter Catalog"
-        description="Select your trade to load standard services. You can adjust prices and durations anytime."
+        title="Trade Presets"
+        description="Load standard services for your trade. You can adjust prices and durations anytime."
         size="lg"
       >
         <div className="space-y-4 pt-1">
@@ -997,7 +997,7 @@ export default function ServicesPage() {
                 <Input
                   value={tradeSearch}
                   onChange={e => setTradeSearch(e.target.value)}
-                  placeholder="Search 21 trade presets (e.g. HVAC, Plumbing, Roofing, Electrical, Painting)..."
+                  placeholder="Search trade presets (e.g. HVAC, Plumbing, Electrical)..."
                   className="pl-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs h-9 text-slate-900 dark:text-zinc-100"
                 />
               </div>
@@ -1035,7 +1035,7 @@ export default function ServicesPage() {
                 </h4>
               </div>
               <Badge variant="outline" className="text-[10px] bg-white dark:bg-zinc-900 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300">
-                3 Curated Services
+                3 Services
               </Badge>
             </div>
             <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
@@ -1096,7 +1096,7 @@ export default function ServicesPage() {
               {submittingImport ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  <span>Importing Catalog...</span>
+                  <span>Importing...</span>
                 </>
               ) : (
                 <>
@@ -1113,11 +1113,11 @@ export default function ServicesPage() {
       <Modal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        title={editingService ? 'Edit Price Book Service' : 'Add Price Book Service'}
+        title={editingService ? 'Edit Service' : 'New Service'}
         description={
           editingService
-            ? 'Update service pricing model, standard durations, or customer address requirements.'
-            : 'Define a service available for instant customer booking or field quote dispatch.'
+            ? 'Update pricing, duration, and address requirements.'
+            : 'Add a service for online booking and field dispatch.'
         }
         size="md"
       >
@@ -1138,17 +1138,17 @@ export default function ServicesPage() {
               id="svc-name"
               value={formName}
               onChange={e => setFormName(e.target.value)}
-              placeholder="e.g., Seasonal AC Precision Tune-Up, Water Heater Replacement"
+              placeholder="e.g. AC Tune-Up, Water Heater Replacement"
               className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
               required
               maxLength={100}
             />
           </div>
 
-          {/* Pricing Structure Models */}
+          {/* Pricing Type */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-              Pricing Structure Model
+              Pricing Type
             </Label>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
               {(['fixed', 'starting_at', 'diagnostic_fee', 'quote_on_site', 'free_estimate'] as const).map(m => (
@@ -1240,11 +1240,11 @@ export default function ServicesPage() {
                 />
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                {formPricingModel === 'fixed' && 'Exact price shown to customer and billed on booking'}
-                {formPricingModel === 'starting_at' && 'Minimum price displayed as Starting at $X+'}
-                {formPricingModel === 'diagnostic_fee' && 'Applied as a diagnostic call fee'}
-                {formPricingModel === 'quote_on_site' && 'Shown as Quote on Site'}
-                {formPricingModel === 'free_estimate' && 'Shown as Free Estimate / Consultation'}
+                {formPricingModel === 'fixed' && 'Flat rate shown and charged'}
+                {formPricingModel === 'starting_at' && 'Minimum price (e.g. Starting at $X)'}
+                {formPricingModel === 'diagnostic_fee' && 'Diagnostic service fee'}
+                {formPricingModel === 'quote_on_site' && 'Price quoted on-site'}
+                {formPricingModel === 'free_estimate' && 'No charge for estimate'}
               </p>
             </div>
           </div>
@@ -1259,21 +1259,21 @@ export default function ServicesPage() {
               rows={2}
               value={formDescription}
               onChange={e => setFormDescription(e.target.value)}
-              placeholder="Describe what is included in this service (equipment check, filter verification)..."
+              placeholder="What's included in this service..."
               className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed"
             />
           </div>
 
-          {/* Add-On Services & Upsells Checklist Builder */}
+          {/* Add-on Services Builder */}
           <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Optional Add-Ons &amp; Upgrades</span>
+                  <span>Add-ons</span>
                 </Label>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Offer high-margin extras that customers can check off when booking this service (e.g. Pet Hair Removal, Engine Bay Degrease, Filter Replacement).
+                  Optional extras customers can select when booking this service.
                 </p>
               </div>
               <Button
@@ -1284,7 +1284,7 @@ export default function ServicesPage() {
                 className="h-7 px-2.5 text-[11px] font-semibold border-slate-300 dark:border-zinc-700 hover:border-blue-500 text-slate-700 dark:text-zinc-300"
               >
                 <Plus className="w-3 h-3 mr-1 text-blue-500" />
-                <span>Add Upgrade</span>
+                <span>Add Add-on</span>
               </Button>
             </div>
 
@@ -1298,7 +1298,7 @@ export default function ServicesPage() {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Input
-                          placeholder="Upgrade name (e.g. Pet Hair Removal)"
+                          placeholder="Add-on name (e.g. Filter Replacement)"
                           value={addon.name}
                           onChange={e => handleUpdateAddOn(idx, 'name', e.target.value)}
                           className="h-8 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
@@ -1333,13 +1333,13 @@ export default function ServicesPage() {
                         type="button"
                         onClick={() => handleRemoveAddOn(idx)}
                         className="p-1.5 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-                        title="Remove upgrade"
+                        title="Remove add-on"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                     <Input
-                      placeholder="Short customer note (e.g. Deep rotary vacuum & pet enzyme treatment)"
+                      placeholder="Short description (optional)"
                       value={addon.description || ''}
                       onChange={e => handleUpdateAddOn(idx, 'description', e.target.value)}
                       className="h-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-300 rounded-lg placeholder:text-slate-400"
@@ -1360,7 +1360,7 @@ export default function ServicesPage() {
                 className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
               />
               <span className="text-xs text-slate-700 dark:text-zinc-300">
-                Requires customer property address during booking (on-site service)
+                Requires service address (on-site job)
               </span>
             </label>
 
@@ -1372,7 +1372,7 @@ export default function ServicesPage() {
                 className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
               />
               <span className="text-xs text-slate-700 dark:text-zinc-300">
-                Active and live on customer booking link
+                Visible on booking page
               </span>
             </label>
           </div>
@@ -1460,25 +1460,25 @@ export default function ServicesPage() {
         </div>
       </Modal>
 
-      {/* ── BOOKING PAGE & PRIORITY SETTINGS MODAL ── */}
+      {/* ── BOOKING SETTINGS MODAL ── */}
       <Modal
         open={isBookingConfigModalOpen}
         onOpenChange={setIsBookingConfigModalOpen}
-        title="Booking Page & Priority Dispatch Settings"
-        description="Configure calendar slot granularity, priority rush dispatch surcharge, disclaimer notices, and attribution."
+        title="Booking Settings"
+        description="Customize slot intervals, priority rush service, policy notices, and referral sources."
         size="lg"
       >
         <form onSubmit={handleSaveBookingSettings} className="space-y-4 pt-1">
-          {/* Section 1: Time Slot Granularity */}
+          {/* Section 1: Slot Interval */}
           <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Time Slot Interval (Calendar Stepping)</span>
+                  <span>Slot Interval</span>
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Control how frequently appointment slots appear on your customer-facing booking calendar.
+                  Spacing between available start times on your calendar.
                 </p>
               </div>
               <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60">
@@ -1504,20 +1504,20 @@ export default function ServicesPage() {
               ))}
             </div>
             <p className="text-[10px] text-slate-400 dark:text-zinc-500">
-              30m is standard for mobile detailing &amp; trade diagnostics; 60m–120m is recommended for large installations.
+              30m is standard for most trades; 60m–120m for longer jobs.
             </p>
           </div>
 
-          {/* Section 2: Fast-Track Priority Dispatch Engine */}
+          {/* Section 2: Priority Rush Service */}
           <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/20 dark:bg-blue-950/20 space-y-3 shadow-2xs">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Fast-Track Priority Dispatch Engine</span>
+                  <span>Priority Rush Service</span>
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Allow customers with emergencies or urgent deadlines to book priority slots with an extra surcharge.
+                  Offer urgent or same-day appointments for an optional fee.
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -1536,7 +1536,7 @@ export default function ServicesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                      Priority Dispatch Surcharge ($)
+                      Priority Fee ($)
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
@@ -1553,12 +1553,12 @@ export default function ServicesPage() {
                         className="h-9 pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400">Set to $0 if priority dispatch is offered free of charge.</p>
+                    <p className="text-[10px] text-slate-400">Leave at $0 for free priority.</p>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                      Priority Dispatch Badge Label
+                      Customer Label
                     </Label>
                     <Input
                       value={editBookingSettings.priority_dispatch_label}
@@ -1566,16 +1566,16 @@ export default function ServicesPage() {
                         ...prev,
                         priority_dispatch_label: e.target.value
                       }))}
-                      placeholder="Priority Dispatch / Same-Day Service"
+                      placeholder="Priority Service"
                       className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
                     />
-                    <p className="text-[10px] text-slate-400">Customer-facing title shown during step 2.</p>
+                    <p className="text-[10px] text-slate-400">Shown to customers on the booking page.</p>
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                    Priority Dispatch Customer Note
+                    Customer Note (Optional)
                   </Label>
                   <Input
                     value={editBookingSettings.priority_dispatch_description || ''}
@@ -1583,7 +1583,7 @@ export default function ServicesPage() {
                       ...prev,
                       priority_dispatch_description: e.target.value
                     }))}
-                    placeholder="Dedicated technician prioritized for immediate response in the earliest available window"
+                    placeholder="Expedited technician arrival in the earliest available window."
                     className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
                   />
                 </div>
@@ -1591,16 +1591,16 @@ export default function ServicesPage() {
             )}
           </div>
 
-          {/* Section 3: Important Policy & Disclaimer Notice Banner */}
+          {/* Section 3: Policy Notice Banner */}
           <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/20 space-y-3 shadow-2xs">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>Important Condition / Policy Notice Banner</span>
+                  <span>Policy Notice Banner</span>
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Display a highlighted banner at the top of your booking link (e.g. Safari &amp; DFW stain/pet hair notices, travel radius fee, deposit terms).
+                  Display an alert banner at the top of your booking page for disclaimers or policies.
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -1623,23 +1623,23 @@ export default function ServicesPage() {
                   rows={2}
                   value={editBookingSettings.booking_notice || ''}
                   onChange={e => setEditBookingSettings(prev => ({ ...prev, booking_notice: e.target.value }))}
-                  placeholder="e.g. Note: Heavy pet hair, sand, or biohazard stains require on-site assessment before starting. Travel fee applies outside 25-mile radius."
+                  placeholder="e.g. Note: Heavy stains or pre-existing conditions may require an on-site estimate. Travel fees may apply outside our primary service area."
                   className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 leading-relaxed"
                 />
               </div>
             )}
           </div>
 
-          {/* Section 4: Attribution Tracking ("How did you hear about us?") */}
+          {/* Section 4: Referral Sources */}
           <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Lead Source Attribution Tracking</span>
+                  <span>Referral Sources</span>
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Prompt customers to pick how they discovered your business (Jobber-style lead attribution with 1-click pills).
+                  Ask customers where they heard about your business during checkout.
                 </p>
               </div>
               <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
@@ -1679,10 +1679,10 @@ export default function ServicesPage() {
               {savingBookingSettings ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  <span>Saving Settings...</span>
+                  <span>Saving...</span>
                 </>
               ) : (
-                <span>Save Booking Settings</span>
+                <span>Save Settings</span>
               )}
             </Button>
           </div>

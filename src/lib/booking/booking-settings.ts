@@ -4,7 +4,7 @@
  * Supports:
  * - Dynamic slot interval granularity (15, 30, 45, 60, 90, 120 minutes)
  * - Important Policy / Condition Disclaimer notice banner
- * - Fast-Track Priority Dispatch toggle, custom label, and contractor-defined fee
+ * - Priority service toggle, custom label, and fee
  * - Lead attribution ("How did you hear about us?")
  */
 
@@ -21,12 +21,12 @@ export interface BookingSettings {
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   slot_interval_minutes: 30,
-  booking_notice: 'NOTE: Quoted prices are initial estimates. Final price confirmed on-site before work begins.',
+  booking_notice: 'Note: Quoted prices are estimates. Final price is confirmed on-site before work begins.',
   booking_notice_enabled: false,
   priority_dispatch_enabled: false,
   priority_dispatch_fee: null,
-  priority_dispatch_label: 'Fast-Track Priority Service',
-  priority_dispatch_description: 'Dedicated technician prioritized for immediate response in the earliest available window',
+  priority_dispatch_label: 'Priority Service',
+  priority_dispatch_description: 'Expedited technician arrival in the earliest available window.',
   how_heard_options: [
     'Google Maps / Search',
     'Instagram / Facebook',
