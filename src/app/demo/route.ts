@@ -17,11 +17,15 @@ export async function GET(request: NextRequest) {
   const view = searchParams.get('view')
   const tradeParam = searchParams.get('trade') || searchParams.get('industry')
   
-  let destination = '/client/dashboard'
-  if (view === 'field') destination = '/client/field'
-  if (view === 'inbox') destination = '/client/inbox'
-  if (view === 'calendar') destination = '/client/calendar'
-  if (view === 'jobs') destination = '/client/jobs'
+  const targetOrigin = (origin.includes('captodesk.com') && !origin.includes('localhost'))
+    ? 'https://app.captodesk.com'
+    : origin
+
+  let destination = targetOrigin.includes('app.') ? '/dashboard' : '/client/dashboard'
+  if (view === 'field') destination = targetOrigin.includes('app.') ? '/field' : '/client/field'
+  if (view === 'inbox') destination = targetOrigin.includes('app.') ? '/inbox' : '/client/inbox'
+  if (view === 'calendar') destination = targetOrigin.includes('app.') ? '/calendar' : '/client/calendar'
+  if (view === 'jobs') destination = targetOrigin.includes('app.') ? '/jobs' : '/client/jobs'
 
   try {
     const supabase = createAdminClient()
@@ -56,11 +60,12 @@ export async function GET(request: NextRequest) {
 
     if (error || !data?.properties?.hashed_token) {
       console.error('[DEMO_AUTH_ERROR] Failed to generate demo magic link:', error)
-      return NextResponse.redirect(new URL('/client/login?error=demo_unavailable', origin))
+      const errorLoginPath = targetOrigin.includes('app.') ? '/login?error=demo_unavailable' : '/client/login?error=demo_unavailable'
+      return NextResponse.redirect(new URL(errorLoginPath, targetOrigin))
     }
 
     const tokenHash = data.properties.hashed_token
-    const callbackUrl = new URL('/client/auth/callback', origin)
+    const callbackUrl = new URL('/client/auth/callback', targetOrigin)
     callbackUrl.searchParams.set('token_hash', tokenHash)
     callbackUrl.searchParams.set('type', 'magiclink')
     callbackUrl.searchParams.set('next', destination)
@@ -68,6 +73,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(callbackUrl)
   } catch (err) {
     console.error('[DEMO_AUTH_FATAL]', err)
-    return NextResponse.redirect(new URL('/client/login?error=demo_unavailable', origin))
+    const errorLoginPath = targetOrigin.includes('app.') ? '/login?error=demo_unavailable' : '/client/login?error=demo_unavailable'
+    return NextResponse.redirect(new URL(errorLoginPath, targetOrigin))
   }
 }

@@ -71,18 +71,36 @@ export async function GET(request: NextRequest) {
           .maybeSingle()
 
         // If super_admin, direct them to /admin without forcing tenant onboarding
+        const isDefaultDashboard = safeDestination === '/client/dashboard' || safeDestination === '/dashboard'
         if (profile?.role === 'super_admin') {
-          destination = safeDestination !== '/client/dashboard' ? safeDestination : '/admin'
+          destination = !isDefaultDashboard ? safeDestination : '/admin'
         } else if (profile?.role === 'technician') {
-          destination = safeDestination !== '/client/dashboard' ? safeDestination : '/client/field'
+          destination = !isDefaultDashboard ? safeDestination : (origin.includes('app.') ? '/field' : '/client/field')
         } else if (!profile || !profile.org_id) {
           // If brand new signup with Gmail, direct to 1-step onboarding
-          destination = '/client/onboarding'
+          destination = origin.includes('app.') ? '/onboarding' : '/client/onboarding'
         }
       }
     }
 
-    const redirectResponse = NextResponse.redirect(new URL(destination, origin))
+    // In production on captodesk.com (non-agency, non-admin, non-book), redirect contractor destinations to app.captodesk.com
+    let targetOrigin = origin
+    if (
+      !origin.includes('agency.') && 
+      !origin.includes('admin.') && 
+      !origin.includes('book.') && 
+      origin.includes('captodesk.com') && 
+      !origin.includes('app.')
+    ) {
+      targetOrigin = 'https://app.captodesk.com'
+    }
+
+    // On app.captodesk.com, strip redundant /client prefix for clean URLs
+    if (targetOrigin.includes('app.')) {
+      destination = destination.replace(/^\/client/, '') || '/dashboard'
+    }
+
+    const redirectResponse = NextResponse.redirect(new URL(destination, targetOrigin))
     cookiesToSetOnRedirect.forEach(({ name, value, options }) =>
       redirectResponse.cookies.set(name, value, options)
     )

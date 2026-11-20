@@ -18,7 +18,9 @@ const CLIENT_ROUTES = [
   '/team',
   '/field',
   '/billing',
-  '/onboarding'
+  '/onboarding',
+  '/analytics',
+  '/services'
 ]
 
 export async function proxy(request: NextRequest) {
@@ -256,20 +258,113 @@ export async function proxy(request: NextRequest) {
   // 4.5. App Subdomain Routing: app.<domain> for contractor SaaS client portal
   const isAppSubdomain = hostname.startsWith('app.')
   if (isAppSubdomain) {
-    // Bare root on app subdomain redirects straight to client dashboard or login
-    if (pathname === '/' || pathname === '') {
-      return finalizeResponse(
-        NextResponse.redirect(new URL(user ? '/client/dashboard' : '/client/login', request.url))
-      )
+    // Pass API requests, static assets, and brand assets through directly
+    if (
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/_next') ||
+      pathname.startsWith('/brand') ||
+      pathname.includes('.')
+    ) {
+      return finalizeResponse(supabaseResponse)
     }
-    if (pathname === '/login') {
-      return finalizeResponse(
-        NextResponse.redirect(new URL(user ? '/client/dashboard' : '/client/login', request.url))
-      )
+
+    // 1. Strip redundant /client prefix on app subdomain (e.g. /client/dashboard -> /dashboard, /client/login -> /login)
+    if (pathname.startsWith('/client')) {
+      if (pathname.includes('/auth/callback')) {
+        return finalizeResponse(supabaseResponse)
+      }
+      const cleanPath = pathname.replace(/^\/client/, '') || '/'
+      const cleanUrl = new URL(cleanPath, request.url)
+      url.searchParams.forEach((v, k) => cleanUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(cleanUrl))
+    }
+
+    // 1.5. If request on app subdomain is targeting agency portal (/agency/*), route to agency.captodesk.com
+    if (pathname.startsWith('/agency')) {
+      const targetHost = hostname.includes('localhost') ? request.headers.get('host') || 'localhost:3000' : 'agency.captodesk.com'
+      const protocol = request.nextUrl.protocol || 'https:'
+      const cleanPath = pathname.replace(/^\/agency/, '') || '/dashboard'
+      const agencyUrl = new URL(`${protocol}//${targetHost}${cleanPath}`)
+      url.searchParams.forEach((v, k) => agencyUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(agencyUrl))
+    }
+
+    // 2. Bare root on app subdomain: / -> /dashboard (if authenticated) or /login (if unauthenticated)
+    if (pathname === '/' || pathname === '') {
+      const target = user ? '/dashboard' : '/login'
+      const targetUrl = new URL(target, request.url)
+      url.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(targetUrl))
+    }
+
+    // 3. Login route on app subdomain: /login
+    if (pathname === '/login' || pathname === '/login/') {
+      if (user) {
+        return finalizeResponse(NextResponse.redirect(new URL('/dashboard', request.url)))
+      }
+      return finalizeResponse(NextResponse.rewrite(new URL('/client/login', request.url)))
+    }
+
+    // 4. Onboarding route on app subdomain: /onboarding
+    if (pathname === '/onboarding' || pathname.startsWith('/onboarding/')) {
+      if (!user) {
+        const loginUrl = new URL('/login', request.url)
+        loginUrl.searchParams.set('redirect', pathname)
+        return finalizeResponse(NextResponse.redirect(loginUrl))
+      }
+      return finalizeResponse(NextResponse.rewrite(new URL(`/client${pathname}`, request.url)))
+    }
+
+    // 5. Allow demo endpoint (/demo) to run directly
+    if (pathname === '/demo' || pathname.startsWith('/demo/')) {
+      return finalizeResponse(supabaseResponse)
+    }
+
+    // 6. SEC: Enforce authentication on all protected contractor console routes
+    const isAppClientRoute = CLIENT_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
+    if (isAppClientRoute) {
+      if (!user) {
+        const loginUrl = new URL('/login', request.url)
+        if (pathname !== '/dashboard') {
+          loginUrl.searchParams.set('redirect', pathname)
+        }
+        return finalizeResponse(NextResponse.redirect(loginUrl))
+      }
+      return finalizeResponse(NextResponse.rewrite(new URL(`/client${pathname}`, request.url)))
     }
   }
 
-  // 5. Route normalization: rewrite bare paths (/dashboard -> /client/dashboard)
+  // 5. Contractor Client Portal Routing on Main Brand Domain: captodesk.com
+  // In production on captodesk.com, redirect contractor routes to clean app.captodesk.com
+  if (hostname.includes('captodesk.com') && !isAppSubdomain && !isAgencySubdomain && !isBookSubdomain && !isAdminPath) {
+    // 5.1 /demo on captodesk.com redirects to app.captodesk.com/demo
+    if (pathname === '/demo' || pathname.startsWith('/demo/')) {
+      const appDemoUrl = new URL(`https://app.captodesk.com${pathname}`, request.url)
+      url.searchParams.forEach((v, k) => appDemoUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(appDemoUrl))
+    }
+
+    // 5.2 /client/* redirects to app.captodesk.com/*
+    if (pathname.startsWith('/client')) {
+      if (pathname.includes('/auth/callback')) {
+        return finalizeResponse(supabaseResponse)
+      }
+      const cleanPath = pathname.replace(/^\/client/, '') || '/dashboard'
+      const appUrl = new URL(`https://app.captodesk.com${cleanPath}`, request.url)
+      url.searchParams.forEach((v, k) => appUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(appUrl))
+    }
+
+    // 5.3 Bare client routes on captodesk.com (e.g. captodesk.com/dashboard) redirect to app.captodesk.com/dashboard
+    const isBareClientRoute = CLIENT_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
+    if (isBareClientRoute) {
+      const appUrl = new URL(`https://app.captodesk.com${pathname}`, request.url)
+      url.searchParams.forEach((v, k) => appUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(appUrl))
+    }
+  }
+
+  // 5.4 Localhost fallback: route normalization for bare paths (/dashboard -> /client/dashboard)
   const isBareClientRoute = CLIENT_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
   if (isBareClientRoute) {
     const destination = new URL(`/client${pathname}`, request.url)
@@ -281,7 +376,7 @@ export async function proxy(request: NextRequest) {
 
   // 6. Root path (/) serves the public marketing landing page to all visitors
 
-  // 7. Auth protection for /client/*
+  // 7. Auth protection for /client/* (localhost / non-app fallback)
   const isClientPath = pathname.startsWith('/client')
   const isLoginPage = pathname === '/client/login' || pathname.startsWith('/client/login')
   const isOnboardingPage = pathname === '/client/onboarding' || pathname.startsWith('/client/onboarding')

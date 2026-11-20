@@ -115,10 +115,12 @@ export function UniversalQuickCreate() {
           <div className="py-1 space-y-0.5">
             {filteredQuickActions.map((action) => {
               const Icon = action.icon
+              const isAppSubdomain = typeof window !== 'undefined' ? window.location.hostname.startsWith('app.') : false
+              const targetHref = isAppSubdomain ? action.href.replace(/^\/client/, '') : action.href
               return (
                 <Link
                   key={action.title}
-                  href={action.href}
+                  href={targetHref}
                   onClick={() => setIsOpen(false)}
                   className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors group"
                 >

@@ -135,13 +135,20 @@ function NavLinkItem({
 }) {
   const rawPathname = usePathname()
   const pathname = rawPathname || ''
-  const isActive = pathname === href || 
-    (href !== '/client/dashboard' && pathname.startsWith(href + '/')) ||
-    (href === '/client/calendar' && (pathname === '/client/jobs' || pathname.startsWith('/client/jobs/')))
+  const isAppSubdomain = typeof window !== 'undefined' ? window.location.hostname.startsWith('app.') : false
+  const cleanPath = pathname.replace(/^\/client/, '') || '/'
+  const cleanHref = href.replace(/^\/client/, '') || '/'
+
+  const isActive = (pathname === href || cleanPath === cleanHref) || 
+    (cleanHref !== '/dashboard' && (pathname.startsWith(href + '/') || cleanPath.startsWith(cleanHref + '/'))) ||
+    ((href === '/client/calendar' || cleanHref === '/calendar') && 
+      (pathname === '/client/jobs' || cleanPath === '/jobs' || pathname.startsWith('/client/jobs/') || cleanPath.startsWith('/jobs/')))
+
+  const targetHref = isAppSubdomain ? cleanHref : href
 
   return (
     <Link
-      href={href}
+      href={targetHref}
       onClick={onClick}
       className={cn(
         'group flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition-all cursor-pointer',
@@ -172,6 +179,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter()
   const rawPathname = usePathname()
   const pathname = rawPathname || ''
+  const isAppSubdomain = typeof window !== 'undefined' ? window.location.hostname.startsWith('app.') : false
+  const cleanPath = pathname.replace(/^\/client/, '') || '/'
   const [unreadTotal, setUnreadTotal] = useState(0)
   const [orgName, setOrgName] = useState<string>('')
   const [orgSlug, setOrgSlug] = useState<string>('')
@@ -319,7 +328,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
         if (!activeUser) {
           setAuthState('redirecting')
-          router.replace('/client/login')
+          router.replace(isAppSubdomain ? '/login' : '/client/login')
           return
         }
 
@@ -541,15 +550,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/client/login')
+    router.push(isAppSubdomain ? '/login' : '/client/login')
   }
 
   // All hooks must run unconditionally before any early returns (Rules of Hooks)
   const currentItem = useMemo(() => {
-    return effectiveNavSections.flatMap(s => s.items).find(item => 
-      pathname === item.href || (item.href !== '/client/dashboard' && pathname.startsWith(item.href + '/'))
-    )
-  }, [effectiveNavSections, pathname])
+    return effectiveNavSections.flatMap(s => s.items).find(item => {
+      const cleanHref = item.href.replace(/^\/client/, '') || '/'
+      return (
+        pathname === item.href ||
+        cleanPath === cleanHref ||
+        (cleanHref !== '/dashboard' && (pathname.startsWith(item.href + '/') || cleanPath.startsWith(cleanHref + '/')))
+      )
+    })
+  }, [effectiveNavSections, pathname, cleanPath])
 
   const pageTitle = currentItem ? currentItem.label : 'CaptoDesk'
 
