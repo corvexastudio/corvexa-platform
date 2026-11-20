@@ -369,6 +369,7 @@ export default function InboxPage() {
   useEffect(() => {
     if (!activeConvId) return
 
+    // Fallback sync for active thread (only when tab is visible; Supabase Realtime handles instant push)
     const syncTimer = setInterval(async () => {
       if (typeof document !== 'undefined' && document.hidden) return
 
@@ -397,7 +398,7 @@ export default function InboxPage() {
       } catch {
         // Silent background sync
       }
-    }, 3500)
+    }, 45000)
 
     return () => clearInterval(syncTimer)
   }, [activeConvId, supabase])

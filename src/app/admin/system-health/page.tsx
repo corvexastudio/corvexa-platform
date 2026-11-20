@@ -109,8 +109,9 @@ export default function AdminSystemHealthPage() {
     if (!autoRefresh) return
 
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
       fetchTelemetry(false)
-    }, 10000)
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [autoRefresh, fetchTelemetry])

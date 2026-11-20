@@ -194,10 +194,11 @@ export function NotificationCenter({ className, orgId: initialOrgId }: Notificat
 
     init()
 
-    // Polling interval every 25 seconds
+    // Background safety fallback (only when tab is visible; Supabase Realtime pushes instant alerts)
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
       fetchNotificationsRef.current(true)
-    }, 25000)
+    }, 60000)
 
     // Window focus refresh
     const onFocus = () => fetchNotificationsRef.current(true)
