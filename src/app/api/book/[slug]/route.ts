@@ -27,12 +27,13 @@ export async function GET(
       )
     }
 
-    // 1. Fetch Organization by Slug
+    // 1. Fetch Organization by Slug (with alias mapping for legacy demo slug)
+    const resolvedSlug = slug === 'captodesk-demo-services-rdhr6' ? 'auto-detailing' : slug
     let org: any = null
     const { data: orgData, error: orgError } = await supabase
       .from('organizations')
       .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry, logo_url')
-      .eq('slug', slug)
+      .eq('slug', resolvedSlug)
       .single()
 
     if (orgError) {
@@ -40,7 +41,7 @@ export async function GET(
       const fallback = await supabase
         .from('organizations')
         .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry')
-        .eq('slug', slug)
+        .eq('slug', resolvedSlug)
         .single()
       org = fallback.data
     } else {
