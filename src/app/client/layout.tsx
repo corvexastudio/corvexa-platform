@@ -1071,65 +1071,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
               )}
             >
-              <Navigation className="h-4 w-4" />
-              <span>Route</span>
-            </Link>
-
-            <Link
-              href="/client/calendar"
-              className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                (pathname.startsWith('/client/calendar') || pathname.startsWith('/client/jobs')) ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-              )}
-            >
-              <Calendar className="h-4 w-4" />
-              <span>Schedule</span>
-            </Link>
-
-            <Link
-              href="/client/inbox"
-              className={cn(
-                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-              )}
-            >
-              <div className="relative">
-                <MessageSquare className="h-4 w-4" />
-                {unreadTotal > 0 && (
-                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
-                )}
-              </div>
-              <span>Messages</span>
-            </Link>
-
-            <button
-              onClick={() => setMobileDrawerOpen(true)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[48px] cursor-pointer"
-            >
-              <Menu className="h-4 w-4" />
-              <span>More</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <Link
-              href="/client/dashboard"
-              className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname === '/client/dashboard' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-              )}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              <span>Today</span>
-            </Link>
-
-            <Link
-              href="/client/field"
-              className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
-                pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-              )}
-            >
               <Truck className="h-4 w-4" />
               <span>Route</span>
             </Link>
@@ -1158,7 +1099,66 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
                 )}
               </div>
-              <span>Messages</span>
+              <span>Inbox</span>
+            </Link>
+
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 min-h-[48px] cursor-pointer"
+            >
+              <Menu className="h-4 w-4" />
+              <span>More</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/client/dashboard"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname === '/client/dashboard' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Today</span>
+            </Link>
+
+            <Link
+              href="/client/calendar"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                (pathname.startsWith('/client/calendar') || pathname.startsWith('/client/jobs')) ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <Calendar className="h-4 w-4" />
+              <span>Schedule</span>
+            </Link>
+
+            <Link
+              href="/client/field"
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/field') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <Truck className="h-4 w-4" />
+              <span>Route</span>
+            </Link>
+
+            <Link
+              href="/client/inbox"
+              className={cn(
+                'relative flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors min-h-[48px]',
+                pathname.startsWith('/client/inbox') ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              )}
+            >
+              <div className="relative">
+                <MessageSquare className="h-4 w-4" />
+                {unreadTotal > 0 && (
+                  <span className="absolute -top-1 -right-2 h-2 w-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-zinc-950" />
+                )}
+              </div>
+              <span>Inbox</span>
             </Link>
 
             <button

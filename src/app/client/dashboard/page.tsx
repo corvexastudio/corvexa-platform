@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
@@ -35,14 +35,19 @@ import {
   Check,
   ExternalLink,
   X,
-  BarChart3
+  Share2,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
+  Users,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
 import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
-import { PageHeader } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { 
@@ -56,10 +61,9 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
 import { formatTimeInTz, formatDateInTz } from '@/lib/temporal/timezone'
-import { BookingShareBar } from '@/components/booking/booking-share-bar'
 import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
-import { JobWonBadge, JobPricingBadge } from '@/components/jobs/job-won-badge'
+import { JobWonBadge } from '@/components/jobs/job-won-badge'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
 import { PushNotificationBanner } from '@/components/notifications/push-notification-banner'
 import { cn } from '@/lib/utils'
@@ -67,42 +71,24 @@ import { cn } from '@/lib/utils'
 export default function DashboardPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { orgId, orgName, orgSlug, orgTimezone, subscriptionStatus, planId, role, userFullName, operationMode } = useWorkspace()
-  const [period, setPeriod] = useState<TimeRange>('30d')
+  const { orgId, orgName, orgSlug, orgTimezone: wsOrgTimezone, subscriptionStatus, planId, role, userFullName } = useWorkspace()
+  const orgTimezone = wsOrgTimezone || 'America/Chicago'
+  
   const [enRouteModalOpen, setEnRouteModalOpen] = useState(false)
   const [foundMoneyModalOpen, setFoundMoneyModalOpen] = useState(false)
   const [gatedJobData, setGatedJobData] = useState<{ amount?: number; customerName?: string } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [showCompletedJobs, setShowCompletedJobs] = useState(false)
+  const [bookingCopied, setBookingCopied] = useState(false)
+  const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[]>([])
+  
   const [celebrationModal, setCelebrationModal] = useState<{
     open: boolean
     type: 'booking' | 'missed_call'
     isInteractiveTest?: boolean
   }>({ open: false, type: 'booking', isInteractiveTest: false })
 
-  const isPayingCustomer = Boolean(
-    (planId && !['free', 'trial'].includes(planId.toLowerCase())) ||
-    (subscriptionStatus && ['active', 'paid', 'solo', 'crew'].includes(subscriptionStatus.toLowerCase()) && (planId || '').toLowerCase() !== 'free')
-  )
-
-  const [bookingShareDismissed, setBookingShareDismissed] = useState<boolean>(true)
-  const [bookingCopied, setBookingCopied] = useState<boolean>(false)
-  const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[]>([])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && orgId) {
-      const dismissed = localStorage.getItem(`captodesk_booking_share_dismissed_${orgId}`) === 'true'
-      setBookingShareDismissed(dismissed)
-    }
-  }, [orgId])
-
-  const handleDismissBookingBar = () => {
-    if (typeof window !== 'undefined' && orgId) {
-      localStorage.setItem(`captodesk_booking_share_dismissed_${orgId}`, 'true')
-    }
-    setBookingShareDismissed(true)
-    toast.success('Booking share banner dismissed from Today.')
-  }
-
+  // Public Booking Link construction
   const isCaptoDesk = typeof window !== 'undefined'
     ? window.location.hostname.includes('captodesk.com')
     : (process.env.NEXT_PUBLIC_APP_URL || '').includes('captodesk.com')
@@ -122,16 +108,28 @@ export default function DashboardPage() {
     }
   }
 
-  const handleDismissAttentionItem = (id: string) => {
-    setDismissedAttentionIds(prev => [...prev, id])
+  const handleNativeShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `${orgName || 'CaptoDesk'} Online Booking`,
+          text: `Book an appointment online with ${orgName || 'us'}:`,
+          url: bookingUrl
+        })
+        toast.success('Booking link shared!')
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          handleCopyBookingUrl()
+        }
+      }
+    } else {
+      handleCopyBookingUrl()
+    }
   }
 
-  const handleAttentionActionClick = (id: string) => {
-    setDismissedAttentionIds(prev => [...prev, id])
-  }
-
+  // Fetch Dashboard Data
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
-    queryKey: ['dashboard', period],
+    queryKey: ['dashboard', '30d'],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const reqHeaders: Record<string, string> = {}
@@ -139,7 +137,7 @@ export default function DashboardPage() {
         reqHeaders['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const res = await fetch(`/api/client/dashboard?period=${period}`, { 
+      const res = await fetch('/api/client/dashboard?period=30d', { 
         headers: reqHeaders,
         credentials: 'include'
       })
@@ -160,94 +158,72 @@ export default function DashboardPage() {
       }
       return res.json()
     },
-    staleTime: 60 * 1000
+    staleTime: 45 * 1000
   })
 
   const attentionQueue: AttentionItem[] = data?.attentionQueue || []
-
-  // Urgent attention items (missed calls, unread customer messages, new leads, urgent bookings)
   const visibleAttentionItems = attentionQueue.filter(item => {
     if (dismissedAttentionIds.includes(item.id)) return false
     return ['message', 'missed_call', 'lead', 'appointment'].includes(item.category)
   })
+
   const operations: OperationalMetrics | null = data?.operations || null
   const outcomes: OutcomeMetrics | null = data?.outcomes || null
   const jobsToday: JobTodayItem[] = data?.jobsToday || []
   const upcomingJobs: JobTodayItem[] = data?.upcomingJobs || []
   const nextUpJob: JobTodayItem | null = data?.nextUpJob || null
   const recentCalls: RecentCallItem[] = data?.recentCalls || []
-  const loading = isLoading
-  const error = isError ? (queryError?.message || 'Failed to load dashboard metrics.') : null
+  const error = isError ? (queryError?.message || 'Failed to load dashboard data.') : null
 
-  const canViewFinancials = data?.permissions?.canViewFinancials ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
-  const canViewInvoices = data?.permissions?.canViewInvoices ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
-  const canViewQuotes = data?.permissions?.canViewQuotes ?? (role === 'owner' || role === 'admin' || role === 'super_admin')
-
-  // Trigger Milestones on Free Tier — ONLY after an achievement is reached (First Booking or Missed Call Recovery)
-  useEffect(() => {
-    if (isLoading || !data) return
-    const isFree = (planId || '').toLowerCase() === 'free' || (subscriptionStatus || '').toLowerCase() === 'free'
-    if (!isFree || !orgId) return
-
-    // Achievement 1: First customer booking milestone
-    const totalBookings = outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0
-    const bookedCount = data?.trialStatus?.bookedCount ?? 0
-    const effectiveBookings = Math.max(totalBookings, bookedCount)
-
-    if (effectiveBookings >= 1) {
-      const bookingSeenKey = `captodesk_milestone_booking_seen_${orgId}`
-      const legacyKey = `captodesk_first_booking_milestone_seen_${orgId}`
-      const hasSeen = typeof window !== 'undefined' ? (localStorage.getItem(bookingSeenKey) || localStorage.getItem(legacyKey)) : 'true'
-      if (!hasSeen) {
-        const timer = setTimeout(() => {
-          setCelebrationModal({ open: true, type: 'booking', isInteractiveTest: false })
-        }, 750)
-        return () => clearTimeout(timer)
-      }
+  // Greeting determination based on user's local hour in workspace timezone
+  const greeting = useMemo(() => {
+    try {
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: orgTimezone, hour: 'numeric', hour12: false })
+      const hour = parseInt(nowStr, 10)
+      if (hour < 12) return 'Good morning'
+      if (hour < 17) return 'Good afternoon'
+      return 'Good evening'
+    } catch {
+      return 'Welcome back'
     }
+  }, [orgTimezone])
 
-    // Achievement 2: Missed call text back milestone (real calls received/handled)
-    const missedCalls = outcomes?.recoveredConversations?.totalMissedCalls ?? 0
-    const missedCallsRecovered = operations?.missedCallsRecovered ?? 0
-    const recentCallsCount = recentCalls?.length ?? 0
-    const effectiveCalls = Math.max(missedCalls, missedCallsRecovered, recentCallsCount)
+  const firstName = useMemo(() => {
+    if (!userFullName) return ''
+    return userFullName.split(' ')[0]
+  }, [userFullName])
 
-    if (effectiveCalls >= 1) {
-      const missedCallSeenKey = `captodesk_milestone_missed_call_seen_${orgId}`
-      const hasSeen = typeof window !== 'undefined' ? localStorage.getItem(missedCallSeenKey) : 'true'
-      if (!hasSeen) {
-        const timer = setTimeout(() => {
-          setCelebrationModal({ open: true, type: 'missed_call', isInteractiveTest: false })
-        }, 750)
-        return () => clearTimeout(timer)
-      }
+  // Current formatted date in workspace timezone
+  const todayFormatted = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: orgTimezone,
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      }).format(new Date())
+    } catch {
+      return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
     }
-  }, [isLoading, data, planId, subscriptionStatus, outcomes, operations, recentCalls, orgId])
-
-  const handleCloseCelebrationModal = () => {
-    if (orgId && typeof window !== 'undefined') {
-      if (celebrationModal.type === 'booking') {
-        localStorage.setItem(`captodesk_milestone_booking_seen_${orgId}`, 'true')
-        localStorage.setItem(`captodesk_first_booking_milestone_seen_${orgId}`, 'true')
-      } else {
-        localStorage.setItem(`captodesk_milestone_missed_call_seen_${orgId}`, 'true')
-      }
-    }
-    setCelebrationModal(prev => ({ ...prev, open: false }))
-  }
+  }, [orgTimezone])
 
   // Solo Owner & Field Operations: Determine active/upcoming job for today's route
-  const nonPracticeJobs = jobsToday.filter(j => !isPracticeJob(j))
-  const activeJob =
-    nonPracticeJobs.find(j => j.status === 'in_progress') ||
-    nonPracticeJobs.find(j => j.status === 'arrived') ||
-    nonPracticeJobs.find(j => j.status === 'en_route') ||
-    nonPracticeJobs.find(j => j.status === 'scheduled' || j.status === 'confirmed') ||
-    null
+  const nonPracticeJobs = useMemo(() => jobsToday.filter(j => !isPracticeJob(j)), [jobsToday])
 
-  const allCompletedToday =
-    nonPracticeJobs.length > 0 &&
-    nonPracticeJobs.every(j => j.status === 'completed' || j.status === 'cancelled')
+  const completedJobs = useMemo(() => nonPracticeJobs.filter(j => j.status === 'completed'), [nonPracticeJobs])
+  const remainingJobs = useMemo(() => nonPracticeJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled'), [nonPracticeJobs])
+
+  const activeJob = useMemo(() => {
+    return (
+      nonPracticeJobs.find(j => j.status === 'in_progress') ||
+      nonPracticeJobs.find(j => j.status === 'arrived') ||
+      nonPracticeJobs.find(j => j.status === 'en_route') ||
+      nonPracticeJobs.find(j => j.status === 'scheduled' || j.status === 'confirmed') ||
+      null
+    )
+  }, [nonPracticeJobs])
+
+  const allCompletedToday = nonPracticeJobs.length > 0 && remainingJobs.length === 0
 
   const enRouteJobPayload = activeJob ? {
     id: activeJob.id,
@@ -269,14 +245,6 @@ export default function DashboardPage() {
     tracking_token: activeJob.trackingToken || null
   } : null
 
-  const resolveGatedJobAmount = (payload?: { amountDue?: unknown; amount?: unknown }) => {
-    if (typeof payload?.amountDue === 'number' && payload.amountDue > 0) return payload.amountDue
-    if (typeof payload?.amount === 'number' && payload.amount > 0) return payload.amount
-    if (typeof activeJob?.servicePrice === 'number' && activeJob.servicePrice > 0) return activeJob.servicePrice
-    if (typeof activeJob?.quoteAmount === 'number' && activeJob.quoteAmount > 0) return activeJob.quoteAmount
-    return undefined
-  }
-
   const handleConfirmEnRoute = async ({
     technicianName,
     etaMinutes,
@@ -287,9 +255,8 @@ export default function DashboardPage() {
     notifyCustomer: boolean
   }) => {
     if (!activeJob) return
-    let res: Response
     try {
-      res = await fetch(`/api/client/jobs/${activeJob.id}/status`, {
+      const res = await fetch(`/api/client/jobs/${activeJob.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -299,33 +266,29 @@ export default function DashboardPage() {
           notifyCustomer
         })
       })
+      const result = await res.json().catch(() => ({}))
+      if (res.ok && result.success) {
+        toast.success(
+          notifyCustomer
+            ? `On my way! Customer texted live GPS tracking with ~${etaMinutes}m ETA.`
+            : 'Marked En Route.'
+        )
+        await refetch()
+        return
+      }
+      if (res.status === 402 || result.upgradeRequired) {
+        setGatedJobData({
+          amount: activeJob.servicePrice || 195,
+          customerName: activeJob.customerName
+        })
+        setEnRouteModalOpen(false)
+        setFoundMoneyModalOpen(true)
+        return
+      }
+      toast.error(result.error || 'Failed to update status to en route.')
     } catch {
-      const netMsg = 'Network error updating status. Please check your connection and try again.'
-      toast.error(netMsg)
-      throw new Error(netMsg)
+      toast.error('Network error updating status. Please try again.')
     }
-    const result = await res.json().catch(() => ({}))
-    if (res.ok && result.success) {
-      toast.success(
-        notifyCustomer
-          ? `On my way! Customer notified with ~${etaMinutes}m ETA & tracking link.`
-          : 'Marked En Route (status updated without SMS).'
-      )
-      await refetch()
-      return
-    }
-    if (res.status === 402 || result.upgradeRequired) {
-      setGatedJobData({
-        amount: resolveGatedJobAmount(result),
-        customerName: activeJob.customerName
-      })
-      setEnRouteModalOpen(false)
-      setFoundMoneyModalOpen(true)
-      return
-    }
-    const errMsg = result.error || 'Failed to update status to en route.'
-    toast.error(errMsg)
-    throw new Error(errMsg)
   }
 
   const handleTimestampAction = async (action: 'arrived' | 'started' | 'completed') => {
@@ -340,121 +303,80 @@ export default function DashboardPage() {
       const result = await res.json()
       if (res.ok && result.success) {
         if (action === 'arrived') {
-          toast.success('📍 Marked arrived on-site! Customer notified.')
+          toast.success('Marked arrived on-site! Customer notified.')
         } else if (action === 'started') {
-          toast.success('▶️ Started work on-site! Job is now in progress.')
+          toast.success('Work started on-site. Job is now in progress.')
         } else if (action === 'completed') {
-          toast.success('✅ Job completed! Draft invoice generated automatically.', {
+          toast.success('Job completed! Invoice ready for payment.', {
             action: {
               label: 'Collect Payment',
               onClick: () => router.push('/client/invoices')
-            },
-            duration: 8000
+            }
           })
         }
         await refetch()
-      } else if (res.status === 402 || result.upgradeRequired) {
-        setGatedJobData({
-          amount: resolveGatedJobAmount(result),
-          customerName: activeJob.customerName
-        })
-        setFoundMoneyModalOpen(true)
       } else {
-        toast.error(result.error || 'Failed to update job status.')
+        toast.error(result.error || 'Failed to update timestamp')
       }
     } catch {
-      toast.error('Network error updating job.')
+      toast.error('Network error updating job')
     } finally {
       setActionLoading(false)
     }
   }
 
-  const todayFormatted = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric'
-  }).format(new Date())
-
-  const getAttentionMeta = (category: AttentionItem['category']) => {
+  const getAttentionMeta = (category: string) => {
     switch (category) {
-      case 'missed_call':
-        return {
-          label: 'Missed Call',
-          variant: 'danger' as const,
-          icon: PhoneMissed
-        }
       case 'lead':
-        return {
-          label: 'New Lead',
-          variant: 'info' as const,
-          icon: Target
-        }
+        return { label: 'New Lead', variant: 'info' as const, icon: Target }
       case 'message':
-        return {
-          label: 'Unread Inquiry',
-          variant: 'info' as const,
-          icon: MessageSquare
-        }
+        return { label: 'Unread Chat', variant: 'info' as const, icon: MessageSquare }
+      case 'missed_call':
+        return { label: 'Missed Call', variant: 'danger' as const, icon: PhoneMissed }
       case 'quote':
-        return {
-          label: 'Expiring Estimate',
-          variant: 'warning' as const,
-          icon: FileText
-        }
+        return { label: 'Estimate Pending', variant: 'warning' as const, icon: FileText }
       case 'appointment':
-        return {
-          label: 'Confirmed Booking',
-          variant: 'success' as const,
-          icon: CalendarCheck
-        }
-      case 'invoice':
-        return {
-          label: 'Overdue Balance',
-          variant: 'danger' as const,
-          icon: CreditCard
-        }
-      case 'retention':
-        return {
-          label: 'Carrier Verification',
-          variant: 'warning' as const,
-          icon: AlertCircle
-        }
+        return { label: 'Booking Request', variant: 'success' as const, icon: CalendarCheck }
       default:
-        return {
-          label: 'Action Required',
-          variant: 'neutral' as const,
-          icon: AlertCircle
-        }
+        return { label: 'Action Required', variant: 'neutral' as const, icon: AlertCircle }
     }
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
       
-      {/* ── Page Header: Today's Briefing ── */}
-      <PageHeader
-        title="Today's Overview"
-        badge={
-          <Badge variant="neutral" size="default" suppressHydrationWarning>
-            {todayFormatted}
-          </Badge>
-        }
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon-touch"
-              onClick={() => refetch()}
-              disabled={loading}
-              title="Refresh today's overview"
-              aria-label="Refresh today's overview"
-              className="sm:size-9 min-h-[44px] min-w-[44px] sm:min-h-9 sm:min-w-9 cursor-pointer"
-            >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            </Button>
-          </div>
-        }
-      />
+      {/* ── Top Header: Personal Greeting & Date ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {greeting}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5 font-medium">
+            {todayFormatted} &bull; {orgName || 'Workspace'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="min-h-[44px] sm:min-h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+            <span>Refresh</span>
+          </Button>
+
+          <Link
+            href="/client/calendar"
+            className="min-h-[44px] sm:min-h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Schedule Job</span>
+          </Link>
+        </div>
+      </div>
 
       {error && (
         <ErrorState
@@ -464,50 +386,65 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ── Trial Limit Notification Banner (BILL-001) ── */}
-      {data?.trialStatus?.isTrial && data?.trialStatus?.isExceeded && (
-        <div className="rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-800 dark:text-amber-200 shrink-0">
-              <AlertCircle className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100">
-                Trial Limit Reached — Automated SMS Recovery Paused
-              </h3>
-              <p className="text-xs text-amber-800/90 dark:text-amber-300/90 mt-0.5">
-                {data.trialStatus.reason || `You have reached the trial quota (${data.trialStatus.bookedCount}/${data.trialStatus.maxBookings} bookings).`} Public bookings continue to succeed safely, but outbound SMS auto-replies and reminders are paused.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/client/billing"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
-          >
-            <span>Upgrade Plan</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      )}
-
-      {/* 1-Tap Web & Mobile Push Soft-Prompt Banner (Never interrupts if already subscribed or dismissed) */}
+      {/* Push Notification Banner */}
       <PushNotificationBanner />
 
-      {/* ── Section 1: Needs Attention (Only surfaces when there is an active unread message or missed call) ── */}
-      {!loading && visibleAttentionItems.length > 0 && (
-        <section className="space-y-3.5">
-          <div className="flex items-center justify-between">
+      {/* ── Operational Day Progress Strip (1 Row, 4 Key Operational Metrics) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+        {/* Metric 1: Jobs Today */}
+        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
+            Jobs Today
+          </span>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1 tabular-nums">
+            {isLoading ? '-' : nonPracticeJobs.length}
+          </div>
+        </div>
+
+        {/* Metric 2: Completed */}
+        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+            Completed
+          </span>
+          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">
+            {isLoading ? '-' : completedJobs.length}
+          </div>
+        </div>
+
+        {/* Metric 3: Remaining */}
+        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
+            Remaining
+          </span>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1 tabular-nums">
+            {isLoading ? '-' : remainingJobs.length}
+          </div>
+        </div>
+
+        {/* Metric 4: Needs Attention */}
+        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs">
+          <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+            Attention Needed
+          </span>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1 tabular-nums">
+            {isLoading ? '-' : visibleAttentionItems.length}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Needs Attention Priority Queue (Only surfaces when action is genuinely needed) ── */}
+      {!isLoading && visibleAttentionItems.length > 0 && (
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Action Required
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">
+                Action Required ({visibleAttentionItems.length})
               </h2>
-              <Badge variant="warning" size="sm" className="font-bold tabular-nums">
-                {visibleAttentionItems.length}
-              </Badge>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {visibleAttentionItems.map((item) => {
               const meta = getAttentionMeta(item.category)
               const Icon = meta.icon
@@ -515,52 +452,36 @@ export default function DashboardPage() {
               return (
                 <div
                   key={item.id}
-                  className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs hover:shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all group"
+                  className="rounded-2xl border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/20 p-4 shadow-2xs flex flex-col justify-between space-y-3"
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant={meta.variant} size="sm" className="font-semibold uppercase tracking-wider">
+                      <Badge variant={meta.variant} size="sm" className="font-bold text-[10px] uppercase">
                         <Icon className="h-3 w-3" />
                         <span>{meta.label}</span>
                       </Badge>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
-                          {item.timestamp ? formatDateInTz(item.timestamp, orgTimezone, { month: 'short', day: 'numeric' }) : 'Today'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleDismissAttentionItem(item.id)
-                          }}
-                          className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                          title="Dismiss alert"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedAttentionIds(prev => [...prev, item.id])}
+                        className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+                        title="Dismiss alert"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
                     </div>
 
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
                       {item.title}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-zinc-300 line-clamp-2 leading-relaxed">
                       {item.subtitle}
                     </p>
-                    {item.category === 'appointment' && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5">
-                        <CheckCircle2 className="h-3 w-3 shrink-0" />
-                        <span>Auto-confirmed via SMS • Ready for route</span>
-                      </span>
-                    )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end">
+                  <div className="pt-2 border-t border-amber-200/60 dark:border-amber-800/40 flex items-center justify-end">
                     <Link
                       href={item.actionHref}
-                      onClick={() => handleAttentionActionClick(item.id)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       <span>{item.actionLabel}</span>
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -572,577 +493,382 @@ export default function DashboardPage() {
           </div>
         </section>
       )}
-      {/* ── Section 2: Today's Schedule & Key Pipeline ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Left Column (7 cols): Field Schedule & Upcoming Horizon */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Field Schedule
-              </h2>
-              {nonPracticeJobs.length > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'Stop' : 'Stops'}</span>
-                </span>
-              )}
+      {/* ── 2-Column Responsive Workspace Grid (Left: Active Job & Schedule, Right: Quick Actions & Front Desk) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Column (7 cols): Next Job Command & Today's Schedule */}
+        <div className="lg:col-span-7 space-y-5">
+          
+          {/* A. Driver's Seat Next Job Command Card */}
+          {activeJob ? (
+            <div className="rounded-3xl border-2 border-blue-600/30 bg-white dark:bg-zinc-900 p-5 sm:p-6 shadow-sm space-y-4 relative overflow-hidden">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    Next Stop &bull; #{activeJob.jobNumber}
+                  </span>
+                </div>
+                <Badge
+                  variant={
+                    activeJob.status === 'in_progress' ? 'success' :
+                    activeJob.status === 'en_route' ? 'info' :
+                    activeJob.status === 'arrived' ? 'warning' : 'neutral'
+                  }
+                  size="sm"
+                  className="font-bold uppercase text-[10px]"
+                >
+                  {activeJob.status ? activeJob.status.replace('_', ' ') : 'Scheduled'}
+                </Badge>
+              </div>
+
+              {/* Customer & Service Info */}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                    {activeJob.customerName}
+                  </h3>
+                  <div className="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1 font-mono bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">
+                    <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>{activeJob.scheduledStart ? formatTimeInTz(activeJob.scheduledStart, orgTimezone) : 'Today'}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-300">
+                  {activeJob.cleanTitle || activeJob.title}
+                </p>
+
+                {activeJob.address ? (
+                  <p className="text-xs text-slate-600 dark:text-zinc-400 flex items-center gap-1.5 pt-0.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{activeJob.address}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 italic pt-0.5">
+                    No physical address specified
+                  </p>
+                )}
+              </div>
+
+              {/* 44px+ Touch-Target Action Controls */}
+              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center gap-2">
+                {activeJob.status === 'en_route' ? (
+                  <Button
+                    type="button"
+                    onClick={() => handleTimestampAction('arrived')}
+                    disabled={actionLoading}
+                    className="min-h-[44px] px-4 font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                    <span>Mark Arrived</span>
+                  </Button>
+                ) : activeJob.status === 'arrived' ? (
+                  <Button
+                    type="button"
+                    onClick={() => handleTimestampAction('started')}
+                    disabled={actionLoading}
+                    className="min-h-[44px] px-4 font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                    <span>Start Work</span>
+                  </Button>
+                ) : activeJob.status === 'in_progress' ? (
+                  <Button
+                    type="button"
+                    onClick={() => handleTimestampAction('completed')}
+                    disabled={actionLoading}
+                    className="min-h-[44px] px-4 font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span>Complete Job</span>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => setEnRouteModalOpen(true)}
+                    disabled={actionLoading}
+                    className="min-h-[44px] px-4 font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer gap-2"
+                  >
+                    <Truck className="h-4 w-4" />
+                    <span>On My Way (Send ETA SMS)</span>
+                  </Button>
+                )}
+
+                {activeJob.address && (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeJob.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                    title="Directions in Google Maps"
+                  >
+                    <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Navigate</span>
+                  </a>
+                )}
+
+                {activeJob.customerPhone && (
+                  <>
+                    <a
+                      href={`tel:${activeJob.customerPhone}`}
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <Phone className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Call</span>
+                    </a>
+                    <Link
+                      href={`/client/inbox`}
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Text</span>
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Link 
-                href="/client/calendar" 
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          ) : allCompletedToday ? (
+            /* All Stops Completed Celebration Card */
+            <div className="rounded-3xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/20 p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-emerald-950 dark:text-emerald-100">
+                    All stops completed for today
+                  </h3>
+                  <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5">
+                    {completedJobs.length} {completedJobs.length === 1 ? 'appointment' : 'appointments'} marked complete. Ready to collect payment?
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href="/client/invoices"
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-colors shrink-0"
               >
-                <span>Full Calendar</span>
-                <ArrowRight className="h-3 w-3" />
+                <span>View Invoices &rarr;</span>
+              </Link>
+            </div>
+          ) : (
+            /* Clear Schedule Empty State */
+            <div className="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 text-center space-y-4 shadow-2xs">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Your schedule is clear today
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
+                  Share your public booking link with homeowners or manually schedule a service call to fill your route.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                <Link
+                  href="/client/calendar"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Schedule a Job</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleNativeShare}
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share Booking Link</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* B. Today's Full Stops Queue (Chronological) */}
+          {nonPracticeJobs.length > 0 && (
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Today&apos;s Jobs ({nonPracticeJobs.length})
+                </h2>
+                <Link
+                  href="/client/field"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  <span>Truck Route</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              <div className="space-y-2">
+                {nonPracticeJobs.map((job, idx) => {
+                  const isDone = job.status === 'completed'
+                  return (
+                    <div
+                      key={job.id}
+                      className={cn(
+                        'p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs',
+                        isDone
+                          ? 'bg-slate-50/70 dark:bg-zinc-900/40 border-slate-200/60 dark:border-zinc-800/60 opacity-80'
+                          : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                      )}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className="font-mono text-xs font-bold text-slate-400 shrink-0 mt-0.5">
+                          #{idx + 1}
+                        </span>
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                              {job.customerName}
+                            </span>
+                            <Badge
+                              variant={isDone ? 'success' : 'neutral'}
+                              size="sm"
+                              className="text-[10px] capitalize font-semibold"
+                            >
+                              {job.status ? job.status.replace('_', ' ') : 'Scheduled'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium truncate">
+                            {job.cleanTitle || job.title}
+                          </p>
+                          {job.address && (
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-500 flex items-center gap-1 truncate">
+                              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className="truncate">{job.address}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                        <div className="text-xs font-mono font-semibold text-slate-600 dark:text-zinc-400 flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
+                          <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>{job.scheduledStart ? formatTimeInTz(job.scheduledStart, orgTimezone) : 'Today'}</span>
+                        </div>
+                        <Link
+                          href="/client/field"
+                          className="min-h-[36px] px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center"
+                        >
+                          Details &rarr;
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* C. Coming Up This Week */}
+          {upcomingJobs.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Coming Up This Week ({upcomingJobs.length})
+                </h3>
+                <Link
+                  href="/client/calendar"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  <span>Full Schedule</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+
+              <div className="space-y-2">
+                {upcomingJobs.slice(0, 3).map((job) => (
+                  <div
+                    key={job.id}
+                    className="p-3.5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                        {job.customerName} &bull; {job.cleanTitle || job.title}
+                      </p>
+                      {job.address && (
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
+                          {job.address}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-xs font-mono font-semibold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded-md shrink-0 self-end sm:self-auto">
+                      {formatDateInTz(job.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })} at {formatTimeInTz(job.scheduledStart, orgTimezone)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Right Column (5 cols): Quick Actions, Booking Link Front Desk & Calls */}
+        <div className="lg:col-span-5 space-y-5">
+          
+          {/* 1. Quick Actions Bar */}
+          <div className="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/client/calendar"
+                className="min-h-[44px] p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:border-blue-300 dark:hover:border-blue-800 text-left transition-all flex flex-col justify-between"
+              >
+                <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block mt-1">Schedule Job</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400">New appointment</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/client/quotes"
+                className="min-h-[44px] p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-300 dark:hover:border-emerald-800 text-left transition-all flex flex-col justify-between"
+              >
+                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block mt-1">Create Quote</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400">Send estimate</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/client/inbox"
+                className="min-h-[44px] p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:border-purple-300 dark:hover:border-purple-800 text-left transition-all flex flex-col justify-between"
+              >
+                <MessageSquare className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block mt-1">Open Inbox</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400">Client messages</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/client/customers"
+                className="min-h-[44px] p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/60 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-300 dark:hover:border-amber-800 text-left transition-all flex flex-col justify-between"
+              >
+                <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block mt-1">Customers</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400">Client profiles</span>
+                </div>
               </Link>
             </div>
           </div>
 
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2].map(i => (
-                <div key={i} className="h-20 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 animate-pulse" />
-              ))}
-            </div>
-          ) : nonPracticeJobs.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 shadow-2xs space-y-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                    Today&apos;s Route
-                  </span>
-                </div>
-                <Badge variant="success" size="sm" className="font-semibold">
-                  All Clear Today
-                </Badge>
-              </div>
-
-              {nextUpJob ? (
-                <div className="space-y-3.5">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
-                      No remaining stops today • Next booking is scheduled
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                      Your immediate next confirmed service call is coming up:
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/20 p-4 sm:p-5 shadow-2xs space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-600 text-white shadow-xs">
-                          <Clock className="w-3 h-3" />
-                          {formatDateInTz(nextUpJob.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })} at {formatTimeInTz(nextUpJob.scheduledStart, orgTimezone)}
-                        </span>
-                        <span className="text-xs font-mono font-semibold text-slate-500 dark:text-zinc-400">
-                          #{nextUpJob.jobNumber}
-                        </span>
-                      </div>
-                      {(nextUpJob.servicePrice || nextUpJob.quoteAmount) && (
-                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-800">
-                          ${nextUpJob.quoteAmount || nextUpJob.servicePrice}
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <h4 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                        {nextUpJob.cleanTitle || nextUpJob.title}
-                      </h4>
-                      <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mt-0.5">
-                        Customer: {nextUpJob.customerName}
-                      </p>
-                      {nextUpJob.address && (
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{nextUpJob.address}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-blue-200/60 dark:border-blue-900/40">
-                      <Link
-                        href="/client/calendar"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-                      >
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>View on Calendar</span>
-                      </Link>
-                      {nextUpJob.address && (
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nextUpJob.address)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Navigation className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                          <span>Preview Route</span>
-                        </a>
-                      )}
-                      {nextUpJob.customerPhone && (
-                        <a
-                          href={`tel:${nextUpJob.customerPhone}`}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Call Customer</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100">
-                    No appointments scheduled for today
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Your route is clear today. You can schedule a walk-in, send an estimate, or share your booking link with customers.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <Link
-                      href="/client/calendar"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Schedule a Job</span>
-                    </Link>
-                    <Link
-                      href="/client/quotes"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-slate-500" />
-                      <span>New Quote</span>
-                    </Link>
-                  </div>
-                </div>
-              )}
-
-              {/* Fill-the-Day Callout */}
-              <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3.5 flex items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span className="text-slate-600 dark:text-zinc-300 font-medium">
-                    Have open availability today? Direct customers to your booking link on the right to fill same-day slots.
-                  </span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3.5">
-              {/* Driver's Seat Hero Card (Solo Owner Command) */}
-              {activeJob && (
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 shadow-xs relative overflow-hidden space-y-4">
-                  {/* Subtle vertical priority indicator bar */}
-                  <div
-                    className={cn(
-                      "absolute left-0 top-0 bottom-0 w-1",
-                      activeJob.status === 'in_progress' ? "bg-emerald-500" :
-                      activeJob.status === 'arrived' ? "bg-amber-500" :
-                      activeJob.status === 'en_route' ? "bg-blue-600" : "bg-slate-400 dark:bg-zinc-600"
-                    )}
-                  />
-
-                  <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      {activeJob.status === 'in_progress' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-900/40">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          <span>Active On-Site</span>
-                        </span>
-                      ) : activeJob.status === 'arrived' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/40">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                          <span>Arrived On-Site</span>
-                        </span>
-                      ) : activeJob.status === 'en_route' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/70 dark:border-blue-900/40">
-                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                          <span>En Route</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
-                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                          <span>Next Job Today</span>
-                        </span>
-                      )}
-                      <span className="text-xs font-mono text-slate-500 dark:text-zinc-400 font-medium">
-                        #{activeJob.jobNumber}
-                      </span>
-                      <JobPricingBadge
-                        servicePrice={activeJob.servicePrice}
-                        pricingModel={activeJob.pricingModel}
-                        quoteAmount={activeJob.quoteAmount}
-                        quoteStatus={activeJob.quoteStatus}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 px-2.5 py-1 rounded-md">
-                      <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                      <span className="tabular-nums">
-                        {activeJob.scheduledStart
-                          ? formatTimeInTz(activeJob.scheduledStart, orgTimezone)
-                          : 'Today'}
-                        {activeJob.scheduledEnd && (
-                          <> – {formatTimeInTz(activeJob.scheduledEnd, orgTimezone)}</>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                      <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
-                        {activeJob.customerName}
-                      </h3>
-                      <span className="text-xs font-medium text-slate-600 dark:text-zinc-300">
-                        {activeJob.cleanTitle || activeJob.title}
-                      </span>
-                    </div>
-
-                    {activeJob.address ? (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
-                        <MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500 shrink-0" />
-                        <span className="truncate">{activeJob.address}</span>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-400 dark:text-zinc-500">
-                        No physical address specified
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Tactile 48px Action Buttons for Field Ergonomics */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center gap-2">
-                    {activeJob.status === 'en_route' ? (
-                      <Button
-                        type="button"
-                        onClick={() => handleTimestampAction('arrived')}
-                        disabled={actionLoading}
-                        className="min-h-[44px] px-4 font-semibold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer gap-2"
-                      >
-                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                        <span>Mark Arrived</span>
-                      </Button>
-                    ) : activeJob.status === 'arrived' ? (
-                      <Button
-                        type="button"
-                        onClick={() => handleTimestampAction('started')}
-                        disabled={actionLoading}
-                        className="min-h-[44px] px-4 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer gap-2"
-                      >
-                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                        <span>Start Work</span>
-                      </Button>
-                    ) : activeJob.status === 'in_progress' ? (
-                      <Button
-                        type="button"
-                        onClick={() => handleTimestampAction('completed')}
-                        disabled={actionLoading}
-                        className="min-h-[44px] px-4 font-semibold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs cursor-pointer gap-2"
-                      >
-                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        <span>Complete Job</span>
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        onClick={() => setEnRouteModalOpen(true)}
-                        disabled={actionLoading}
-                        className="min-h-[44px] px-4 font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer gap-2"
-                      >
-                        <Truck className="h-4 w-4" />
-                        <span>On My Way (Send ETA SMS)</span>
-                      </Button>
-                    )}
-
-                    {activeJob.address && (
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeJob.address)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-lg border border-slate-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
-                        title="Open in Google Maps"
-                      >
-                        <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                        <span>Directions</span>
-                      </a>
-                    )}
-
-                    {activeJob.customerPhone && (
-                      <>
-                        <a
-                          href={`tel:${activeJob.customerPhone}`}
-                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-slate-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
-                          title="Call Customer"
-                        >
-                          <Phone className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                          <span>Call</span>
-                        </a>
-                        <a
-                          href={`sms:${activeJob.customerPhone}`}
-                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg border border-slate-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
-                          title="Text Customer"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
-                          <span>Text</span>
-                        </a>
-                      </>
-                    )}
-
-                    <div className="ml-auto">
-                      <Link
-                        href="/client/field"
-                        className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors cursor-pointer"
-                        title="Open in Truck Route Companion"
-                      >
-                        <Truck className="h-3.5 w-3.5" />
-                        <span>Truck Mode &rarr;</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Celebratory Banner when all field appointments finished */}
-              {allCompletedToday && !activeJob && (
-                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                      <CheckCircle2 className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
-                        All stops completed for today
-                      </p>
-                      <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                        {nonPracticeJobs.length} {nonPracticeJobs.length === 1 ? 'appointment' : 'appointments'} completed. Draft invoices are ready to send.
-                      </p>
-                    </div>
-                  </div>
-                  <Link
-                    href="/client/invoices"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
-                  >
-                    <span>Collect Payments &rarr;</span>
-                  </Link>
-                </div>
-              )}
-
-              {/* Day's Agenda Timeline (Remaining Stops) */}
-              {(() => {
-                const remainingJobs = nonPracticeJobs.filter((j) => j.id !== activeJob?.id)
-
-                if (remainingJobs.length === 0) {
-                  return (
-                    <div className="rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/40 p-3 sm:px-4 flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
-                      <div className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        <span>All scheduled stops for today are in the driver command above.</span>
-                      </div>
-                      <Link
-                        href="/client/schedule"
-                        className="font-medium text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 shrink-0"
-                      >
-                        <span>View Schedule</span>
-                        <span>&rarr;</span>
-                      </Link>
-                    </div>
-                  )
-                }
-
-                return (
-                  <div className="space-y-2.5 pt-1">
-                    <div className="flex items-center justify-between px-0.5">
-                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                        Upcoming Stops Today ({remainingJobs.length})
-                      </h4>
-                    </div>
-
-                    {remainingJobs.map((job) => {
-                      const cleanTitle = job.cleanTitle || job.title
-                      return (
-                        <div
-                          key={job.id}
-                          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                        >
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate">
-                                {cleanTitle}
-                              </span>
-                              <Badge
-                                variant={
-                                  job.status === 'completed'
-                                    ? 'success'
-                                    : job.status === 'in_progress'
-                                    ? 'info'
-                                    : job.status === 'en_route'
-                                    ? 'info'
-                                    : job.status === 'arrived'
-                                    ? 'warning'
-                                    : 'neutral'
-                                }
-                                size="sm"
-                                className="capitalize font-semibold text-[10px]"
-                              >
-                                {job.status ? job.status.replace('_', ' ') : 'Scheduled'}
-                              </Badge>
-
-                              {(job.status === 'scheduled' || job.status === 'confirmed') && (
-                                <JobWonBadge
-                                  compact
-                                  amount={job.quoteAmount}
-                                  servicePrice={job.servicePrice}
-                                  pricingModel={job.pricingModel}
-                                  label={job.quoteAmount ? 'Quote Approved' : (job.pricingModel === 'quote_on_site' ? 'Quote on Site' : job.pricingModel === 'free_estimate' ? 'Free Estimate' : 'Online Booking')}
-                                />
-                              )}
-                            </div>
-
-                            <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
-                              <span className="font-semibold text-slate-800 dark:text-zinc-200">{job.customerName}</span>
-                              {job.address && (
-                                <>
-                                  <span>&bull;</span>
-                                  <span className="flex items-center gap-1 truncate text-slate-500 dark:text-zinc-400">
-                                    <MapPin className="h-3 w-3 shrink-0" />
-                                    {job.address}
-                                  </span>
-                                </>
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
-                            <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
-                              <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                              {job.scheduledStart ? formatTimeInTz(job.scheduledStart, orgTimezone) : 'Today'}
-                            </div>
-                            <Link
-                              href="/client/jobs"
-                              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline transition-colors"
-                            >
-                              View &rarr;
-                            </Link>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-          )}
-
-          {/* ── Upcoming Jobs Queue (Next 48 Hours to 7 Days) ── */}
-          {(() => {
-            // Deduplicate: If today is empty and nextUpJob is already prominently featured in the Hero Card,
-            // only show the subsequent upcoming jobs in the queue below.
-            const queueJobs = (nonPracticeJobs.length === 0 && nextUpJob)
-              ? upcomingJobs.filter(j => j.id !== nextUpJob.id)
-              : upcomingJobs
-
-            return (
-              <div className="space-y-3 pt-3">
-                <div className="flex items-center justify-between px-0.5">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                      Coming Up This Week
-                    </h3>
-                    {queueJobs.length > 0 && (
-                      <Badge variant="neutral" size="sm" className="font-semibold tabular-nums">
-                        {queueJobs.length} {queueJobs.length === 1 ? 'Booking' : 'Bookings'}
-                      </Badge>
-                    )}
-                  </div>
-                  <Link
-                    href="/client/calendar"
-                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                  >
-                    <span>Full Schedule</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </div>
-
-                {queueJobs.length === 0 ? (
-                  <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400 dark:text-zinc-500">
-                    {nextUpJob ? 'No additional appointments scheduled after your next booking.' : 'No future appointments scheduled in the next 14 days. Bookings from your link will appear here.'}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {queueJobs.slice(0, 4).map((job) => {
-                      const cleanTitle = job.cleanTitle || job.title
-                      return (
-                        <div
-                          key={job.id}
-                          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-                        >
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-xs text-slate-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                {cleanTitle}
-                              </span>
-                              <Badge variant="neutral" size="sm" className="font-semibold text-[10px] capitalize">
-                                {job.status ? job.status.replace('_', ' ') : 'Confirmed'}
-                              </Badge>
-                              {(job.servicePrice || job.quoteAmount) && (
-                                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                                  ${job.quoteAmount || job.servicePrice}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
-                              <span className="font-semibold text-slate-700 dark:text-zinc-300">{job.customerName}</span>
-                              {job.address && (
-                                <>
-                                  <span>&bull;</span>
-                                  <span className="truncate">{job.address}</span>
-                                </>
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-                            <div className="text-xs text-slate-700 dark:text-zinc-300 font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-zinc-700">
-                              <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                              <span>
-                                {formatDateInTz(job.scheduledStart, orgTimezone, { weekday: 'short', month: 'short', day: 'numeric' })}
-                              </span>
-                              <span className="text-slate-400">&bull;</span>
-                              <span>{formatTimeInTz(job.scheduledStart, orgTimezone)}</span>
-                            </div>
-                            <Link
-                              href="/client/calendar"
-                              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                            >
-                              Details &rarr;
-                            </Link>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-        </div>
-
-        {/* Right Column (5 cols): Front Desk & Real-Time Operational Pulse */}
-        <div className="lg:col-span-5 space-y-4">
-          
-          {/* 1. Public Booking Link Front Desk Card */}
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-3">
+          {/* 2. Public Booking Link Card */}
+          <div className="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                  Public Booking Front Desk
+                  Online Booking Link
                 </span>
               </div>
               <a
@@ -1151,19 +877,19 @@ export default function DashboardPage() {
                 rel="noopener noreferrer"
                 className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <span>Live Site</span>
+                <span>Preview</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-slate-600 dark:text-zinc-300 truncate select-all">
+              <div className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-xs font-mono text-slate-700 dark:text-zinc-300 truncate select-all">
                 {bookingUrl}
               </div>
               <button
                 type="button"
                 onClick={handleCopyBookingUrl}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+                className="min-h-[40px] px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer shrink-0"
               >
                 {bookingCopied ? (
                   <>
@@ -1178,110 +904,24 @@ export default function DashboardPage() {
                 )}
               </button>
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-zinc-500">
-              Clients can book 24/7 without phone tag. Share on Google, truck signage, or customer text messages.
-            </p>
-          </div>
 
-          {/* 2. Operational Pipeline Pulse */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between px-0.5">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                Operations Pulse
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {/* Open Leads */}
-              <Link
-                href="/client/leads"
-                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-800 transition-all group block"
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-normal">
+                Paste into your Google Business Profile and Instagram bio.
+              </p>
+              <button
+                type="button"
+                onClick={handleNativeShare}
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer shrink-0 ml-2"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Open Leads</span>
-                  <Target className="h-3.5 w-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  {operations?.newLeads ?? 0}
-                </div>
-              </Link>
-
-              {/* Pending Estimates / Active Bookings */}
-              {canViewQuotes ? (
-                <Link
-                  href="/client/quotes"
-                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Pending Quotes</span>
-                    <FileText className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {operations?.quotesAwaitingResponse ?? 0}
-                  </div>
-                </Link>
-              ) : (
-                <Link
-                  href="/client/calendar"
-                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all group block"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Active Bookings</span>
-                    <CalendarCheck className="h-3.5 w-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {operations?.activeBookings ?? 0}
-                  </div>
-                </Link>
-              )}
-
-              {/* Unpaid Invoices / Today's Jobs */}
-              {canViewInvoices && canViewFinancials ? (
-                <Link
-                  href="/client/invoices"
-                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Unpaid Invoices</span>
-                    <CreditCard className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                    ${((outcomes?.paymentCollection?.invoicedAmount ?? 0) - (outcomes?.paymentCollection?.collectedAmount ?? 0)).toLocaleString()}
-                  </div>
-                </Link>
-              ) : (
-                <Link
-                  href="/client/calendar"
-                  className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-amber-300 dark:hover:border-amber-800 transition-all group block"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Today&apos;s Stops</span>
-                    <Briefcase className="h-3.5 w-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                    {nonPracticeJobs.length}
-                  </div>
-                </Link>
-              )}
-
-              {/* Inbound Call Recovery / Activity */}
-              <Link
-                href="/client/inbox"
-                className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 shadow-2xs hover:shadow-xs hover:border-purple-300 dark:hover:border-purple-800 transition-all group block"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">Calls Handled</span>
-                  <PhoneCall className="h-3.5 w-3.5 text-purple-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <div className="text-xl font-bold text-slate-900 dark:text-zinc-100 mt-1 tabular-nums group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  {outcomes?.recoveredConversations?.totalMissedCalls ?? 0}
-                </div>
-              </Link>
+                <Share2 className="w-3 h-3" />
+                <span>Share</span>
+              </button>
             </div>
           </div>
 
-          {/* 3. Recent Customer Activity */}
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xs space-y-3">
+          {/* 3. Recent Inbound Inquiries & Calls */}
+          <div className="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                 Recent Inquiries &amp; Calls
@@ -1298,21 +938,21 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {recentCalls.slice(0, 3).map((call) => (
-                  <div key={call.id} className="flex items-center justify-between gap-2 text-xs py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-0">
-                    <div className="min-w-0">
-                      <span className="font-semibold text-slate-800 dark:text-zinc-200 truncate block">
+                  <div
+                    key={call.id}
+                    className="p-3 rounded-xl border border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-800/30 flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <p className="font-bold text-slate-800 dark:text-zinc-200">
                         {call.customerName || call.callerNumber}
-                      </span>
-                      <span className="text-[11px] text-slate-400 capitalize">
-                        {call.status} • {call.autoReplySent ? 'Instant SMS auto-reply' : 'Direct call'}
-                      </span>
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+                        {call.status === 'completed' || call.status === 'answered' ? 'Answered call' : 'Missed call with auto text-back'}
+                      </p>
                     </div>
-                    <Link
-                      href="/client/inbox"
-                      className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
-                    >
-                      Reply
-                    </Link>
+                    <span className="font-mono text-[10px] text-slate-400">
+                      {formatTimeInTz(call.createdAt, orgTimezone)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1323,59 +963,31 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* ── Section 3: Strategic Reports & Analytics Teaser ── */}
-      <section className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-900 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t-2 border-t-blue-500">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <BarChart3 className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200">
-              Business Reports &amp; Analytics
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Review 30-day cash collections (${(outcomes?.paymentCollection?.collectedAmount ?? 0).toLocaleString()}), quote conversion funnels, and customer retention.
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/client/analytics"
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs shrink-0 group"
-        >
-          <span>View Full Analytics</span>
-          <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-        </Link>
-      </section>
-
-      {/* Achievement & Milestone Celebration Modal (Pop-up after Booking or Missed Call) */}
-      <FirstBookingCelebrationModal
-        isOpen={celebrationModal.open}
-        onClose={handleCloseCelebrationModal}
-        milestoneType={celebrationModal.type}
-        isInteractiveTest={celebrationModal.isInteractiveTest}
-        bookingCount={Math.max(outcomes?.bookingsFromCaptoDesk?.totalBookings ?? 0, data?.trialStatus?.bookedCount ?? 0, 1)}
-      />
-
-      {/* Solo Owner Live ETA Dispatch Modal */}
+      {/* En Route Modal */}
       {enRouteJobPayload && (
         <EnRouteModal
           isOpen={enRouteModalOpen}
           onClose={() => setEnRouteModalOpen(false)}
           job={enRouteJobPayload}
-          organizationName={orgName}
           onConfirm={handleConfirmEnRoute}
         />
       )}
 
-      {/* Found Money Finish-Line Paywall Modal */}
+      {/* Found Money Paywall Modal */}
       <FoundMoneyUnlockModal
         isOpen={foundMoneyModalOpen}
         onClose={() => setFoundMoneyModalOpen(false)}
-        amountDue={gatedJobData?.amount}
-        customerName={gatedJobData?.customerName}
-        operationMode={operationMode}
-        onSuccess={refetch}
+        amountDue={gatedJobData?.amount || 195}
+        customerName={gatedJobData?.customerName || 'Customer'}
       />
+
+      {/* Celebration Modal */}
+      <FirstBookingCelebrationModal
+        isOpen={celebrationModal.open}
+        onClose={() => setCelebrationModal(prev => ({ ...prev, open: false }))}
+        milestoneType={celebrationModal.type}
+      />
+
     </div>
   )
 }

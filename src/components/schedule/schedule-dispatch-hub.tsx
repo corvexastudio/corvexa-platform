@@ -1518,7 +1518,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                               {formatCustomerName(job.contact?.name) || 'Customer'}
                             </span>
                             <span className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
-                              {job.contact?.phone ? formatNationalUs(job.contact.phone) : '—'}
+                              {job.contact?.phone ? formatNationalUs(job.contact.phone) : 'No phone'}
                             </span>
                           </td>
 
@@ -2724,7 +2724,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
             setSignOnGlassMode(false)
           }
         }}
-        title={signOnGlassMode ? `Sign on Glass — #${quoteDrawerJob?.job_number || ''}` : `On-Site Estimate — #${quoteDrawerJob?.job_number || ''}`}
+        title={signOnGlassMode ? `Sign on Glass: #${quoteDrawerJob?.job_number || ''}` : `On-Site Estimate: #${quoteDrawerJob?.job_number || ''}`}
         description={signOnGlassMode ? "Have homeowner verify and sign on the screen." : "Tap items to build quick estimate. Get signed on site or text to customer."}
         size="lg"
       >

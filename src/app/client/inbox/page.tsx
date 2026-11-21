@@ -158,6 +158,7 @@ export default function InboxPage() {
   const [mobileDossierOpen, setMobileDossierOpen] = useState(false)
 
   const [sending, setSending] = useState(false)
+  const [retryingMessageId, setRetryingMessageId] = useState<string | null>(null)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
@@ -447,6 +448,36 @@ export default function InboxPage() {
       setReplyText(textToSend)
     } finally {
       setSending(false)
+    }
+  }
+
+  // 1-Tap retry handler for failed SMS messages
+  const handleRetryMessage = async (msgId: string, textToSend: string) => {
+    if (!activeConv || !activeConv.contact?.phone || retryingMessageId) return
+    setRetryingMessageId(msgId)
+
+    try {
+      const res = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: activeConv.id, to: activeConv.contact.phone, message: textToSend })
+      })
+
+      if (res.ok) {
+        toast.success('SMS sent successfully.')
+        const { message } = await res.json()
+        if (message) {
+          setMessages(prev => prev.map(m => (m.id === msgId ? message : m)))
+          setTimeout(() => scrollToBottom('smooth'), 100)
+        }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Failed to retry message.')
+      }
+    } catch {
+      toast.error('Network error retrying message.')
+    } finally {
+      setRetryingMessageId(null)
     }
   }
 
@@ -1018,9 +1049,11 @@ export default function InboxPage() {
                   <button
                     type="button"
                     onClick={() => setMobileDossierOpen(true)}
-                    className="lg:hidden h-8 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-600 text-xs font-semibold bg-white dark:bg-zinc-900"
+                    aria-label="View customer profile details"
+                    className="lg:hidden inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold bg-white dark:bg-zinc-900 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
                   >
-                    Details
+                    <User className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Details</span>
                   </button>
                 </div>
               </div>
@@ -1114,7 +1147,12 @@ export default function InboxPage() {
                 </div>
               ) : (
                 messages.map(msg => (
-                  <MessageBubble key={msg.id} message={msg} />
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    onRetry={handleRetryMessage}
+                    isRetrying={retryingMessageId === msg.id}
+                  />
                 ))
               )}
               <div ref={messagesEndRef} />
