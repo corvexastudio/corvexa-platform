@@ -22,6 +22,11 @@ export function PricingSection({ onOpenClaim }: { onOpenClaim: () => void }) {
           Start with 3 completed jobs completely free. Upgrade anytime when you want a dedicated business phone line with 24/7 missed-call text-back and multi-crew dispatch.
         </p>
 
+        {/* Quick ROI Benchmark Callout */}
+        <div className="max-w-2xl mx-auto rounded-2xl bg-blue-50/80 border border-blue-200/80 p-3 text-center text-xs text-blue-950 font-medium mt-3">
+          <span className="font-bold text-blue-700">Contractor ROI Benchmark:</span> Just 1 booked service call covers months of software. Test your first 3 completed jobs free before deciding.
+        </div>
+
         {/* Billing Toggle */}
         <div className="inline-flex items-center p-1.5 bg-slate-100 border border-slate-200 rounded-2xl gap-2 mt-4 shadow-2xs">
           <button
@@ -291,9 +296,21 @@ export function PricingSection({ onOpenClaim }: { onOpenClaim: () => void }) {
             </p>
           </div>
           <div>
+            <p className="font-bold text-slate-800">Does CaptoDesk risk my Google Business Profile?</p>
+            <p className="mt-1">
+              No. CaptoDesk uses Google&apos;s standard &quot;Online Booking&quot; URL field. You never share Google passwords or API access, and your profile verification remains 100% protected.
+            </p>
+          </div>
+          <div>
             <p className="font-bold text-slate-800">What is the carrier registration fee on paid plans?</p>
             <p className="mt-1">
               US mobile carriers require 10DLC business registration to ensure your automated texts are delivered reliably without being filtered as spam.
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-slate-800">How do customer payments reach my bank?</p>
+            <p className="mt-1">
+              Homeowners pay directly via Apple Pay, Google Pay, or card. Funds deposit straight into your connected Stripe or PayPal account according to your standard payout schedule.
             </p>
           </div>
         </div>

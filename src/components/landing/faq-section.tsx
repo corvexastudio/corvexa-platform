@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ChevronDown, HelpCircle } from 'lucide-react'
+import { ChevronDown, HelpCircle, ShieldCheck } from 'lucide-react'
 
 interface FaqItem {
   question: string
@@ -15,14 +15,19 @@ const FAQS: FaqItem[] = [
       'CaptoDesk is a dedicated booking and dispatch system for home-service contractors. It provides a clean public booking link for your Google Business Profile and Instagram bio, gives customers a real-time technician arrival tracking map, enables on-site driveway payments via Apple Pay or card, and automatically sends Google review requests once the job is finished.'
   },
   {
+    question: 'Will adding this booking link risk or affect my Google Business Profile ranking?',
+    answer:
+      'No. You never grant CaptoDesk access, passwords, or API permissions to your Google account. Google officially provides an Online Booking URL field for all local service businesses. You simply copy and paste your custom CaptoDesk link into that field in your Google dashboard. It is 100% compliant with Google policies and keeps your account verification and local rankings completely safe.'
+  },
+  {
     question: 'How do I add my booking link to my Google Business Profile?',
     answer:
-      'After creating your CaptoDesk account, copy your custom link (book.captodesk.com/[your-business]). Open your Google Business Profile dashboard, select Edit profile, click Booking link, and paste your CaptoDesk URL. Google will then display the Book online button on your Google Search knowledge panel and Google Maps listing.'
+      'After creating your CaptoDesk account, copy your custom link (book.captodesk.com/[your-business]). Open your Google Business Profile dashboard, select Edit profile, click Booking link, and paste your CaptoDesk URL. Google will then display the Book online button on your Google Search knowledge panel and Google Maps listing in about 60 seconds.'
   },
   {
     question: 'Do my customers need to install an application or make an account?',
     answer:
-      'No. Homeowners do not want to download separate mobile applications for local home repairs. CaptoDesk operates entirely through secure, lightweight mobile web links delivered via SMS. Customers can book an appointment, view live technician arrival tracking, and pay their invoice from any iPhone or Android web browser.'
+      'No. Homeowners do not want to download separate mobile applications for local home repairs. CaptoDesk operates entirely through secure, lightweight mobile web links delivered via SMS. Customers can book an appointment, view live technician arrival tracking, and pay their invoice from any iPhone or Android web browser without passwords.'
   },
   {
     question: 'Do I have to switch phone carriers or change my business number?',
@@ -32,12 +37,12 @@ const FAQS: FaqItem[] = [
   {
     question: 'How does live technician arrival tracking work in practice?',
     answer:
-      'When your technician departs for a job, they open their CaptoDesk mobile portal and tap On My Way. CaptoDesk immediately texts the customer a secure link displaying the technician name, photo, vehicle description, and a real-time moving arrival map with an accurate ETA, stopping arrival check-in calls.'
+      'When your technician departs for a job, they open their CaptoDesk mobile portal and tap On My Way. CaptoDesk immediately texts the customer a secure link displaying the technician name, photo, vehicle description, and a real-time moving arrival map with an accurate ETA, stopping arrival check-in calls while driving.'
   },
   {
     question: 'How do driveway payments and checkout work on site?',
     answer:
-      'When the work is done, your technician taps Complete Job on their smartphone. An itemized invoice immediately updates on the customer live link. Homeowners can tap Apple Pay, Google Pay, or enter a credit/debit card right from their driveway. Funds deposit directly into your connected Stripe or PayPal account.'
+      'When the work is done, your technician taps Complete Job on their smartphone. An itemized invoice immediately updates on the customer live link. Homeowners can tap Apple Pay, Google Pay, or enter a credit/debit card right from their driveway. Funds deposit directly into your connected Stripe or PayPal account with zero platform percentage fee.'
   },
   {
     question: 'Can I manage multiple technicians and service trucks?',

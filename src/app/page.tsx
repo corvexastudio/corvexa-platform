@@ -15,6 +15,7 @@ import { FaqSection } from '@/components/landing/faq-section'
 import { FinalCtaSection } from '@/components/landing/final-cta-section'
 import { SiteFooter } from '@/components/landing/site-footer'
 import { ClaimBookingModal } from '@/components/landing/claim-booking-modal'
+import { StickyMobileCta } from '@/components/landing/sticky-mobile-cta'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LandingPage() {
@@ -103,6 +104,9 @@ export default function LandingPage() {
         open={showClaimModal}
         onClose={() => setShowClaimModal(false)}
       />
+
+      {/* 14. High-Converting Sticky Bottom CTA on Mobile */}
+      <StickyMobileCta onOpenClaim={() => setShowClaimModal(true)} />
 
     </div>
   )

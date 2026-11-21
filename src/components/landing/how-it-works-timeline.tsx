@@ -1,33 +1,33 @@
 import React from 'react'
 import Image from 'next/image'
-import { Link2, Calendar, LayoutDashboard, Navigation, CheckCircle2 } from 'lucide-react'
+import { Link2, Calendar, LayoutDashboard, Navigation, CheckCircle2, ShieldCheck, PhoneCall } from 'lucide-react'
 
 export function HowItWorksTimeline() {
   const steps = [
     {
       number: '01',
-      title: 'Add Your Booking Link',
-      subtitle: 'Paste link on Google Maps and Instagram',
+      title: 'Connect Your Booking Link',
+      subtitle: 'Google Profile, Instagram & Missed-Call SMS',
       description:
-        'Copy your custom book.captodesk.com/[your-name] link. Add it directly to your Google Business Profile under booking options and in your social bios. No phone forwarding or carrier changes are needed.',
+        'Copy your custom book.captodesk.com/[your-name] link. Add it directly to your Google Business Profile and social bios. Plus, enable instant SMS text-back so missed callers get your booking link automatically.',
       icon: Link2,
       viewLabel: 'Where It Lives',
-      detailSnippet: 'Google Business Profile > Online Bookings > Paste Link'
+      detailSnippet: 'Google Profile > Online Bookings > Paste Link'
     },
     {
       number: '02',
-      title: 'Customers Request a Service',
+      title: 'Customers Select an Open Window',
       subtitle: 'Self-service scheduling in 45 seconds',
       description:
-        'Homeowners view your service catalog, see clear pricing, and choose an available arrival window directly from their mobile phone or desktop without downloading an application.',
+        'Homeowners view your service catalog, see clear package pricing, and choose an available arrival window directly from their mobile phone or desktop without downloading an application.',
       icon: Calendar,
       viewLabel: 'Customer Experience',
       detailSnippet: 'Service selection, address collection, arrival window'
     },
     {
       number: '03',
-      title: 'Manage the Appointment',
-      subtitle: 'Field dashboard on any phone or tablet',
+      title: 'Dispatch from Any Phone or Tablet',
+      subtitle: 'Field dashboard built for service trucks',
       description:
         'Review incoming service requests on your dispatch board. Confirm arrival times, assign technicians, and view customer notes before heading out to the job site.',
       icon: LayoutDashboard,
@@ -36,8 +36,8 @@ export function HowItWorksTimeline() {
     },
     {
       number: '04',
-      title: 'Keep Customers Updated',
-      subtitle: 'Live technician arrival and on-site checkout',
+      title: 'Live GPS Arrival & Driveway Payout',
+      subtitle: 'Real-time ETA and Apple Pay checkout',
       description:
         'Tap On My Way to send the customer a live GPS arrival tracking link with an accurate ETA. When the job is done, collect payment via Apple Pay or card right from the driveway.',
       icon: Navigation,
@@ -53,10 +53,10 @@ export function HowItWorksTimeline() {
           SIMPLE 4-STEP WORKFLOW
         </span>
         <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          How CaptoDesk Works From Discovery to Completion
+          How CaptoDesk Works From Discovery to Driveway Payment
         </h2>
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          A connected workflow designed for truck operations, giving homeowners clarity while eliminating phone tag and scheduling back-and-forth.
+          A connected workflow designed for truck operations, giving homeowners clarity while eliminating phone tag, missed jobs, and manual billing.
         </p>
       </div>
 
@@ -108,30 +108,35 @@ export function HowItWorksTimeline() {
         </div>
       </div>
 
-      {/* Supporting Editorial Photograph and Placement Demonstration */}
+      {/* Supporting Editorial Photograph and Arrival Demonstration */}
       <div className="mt-12 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center shadow-xs">
         <div className="lg:col-span-6 space-y-4">
-          <span className="text-xs font-mono font-bold text-blue-600 uppercase tracking-wider block">
-            REAL RESIDENTIAL ARRIVAL EXPERIENCE
-          </span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
+            <ShieldCheck className="w-4 h-4 text-blue-600" />
+            <span>RESIDENTIAL ARRIVAL EXPERIENCE</span>
+          </div>
           <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
             Arrival Notifications Homeowners Actually Appreciate
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
             When you depart for the job, tap On My Way on your smartphone. CaptoDesk texts the customer a private tracking link showing your technician photo, vehicle details, and a live map with an estimated arrival time.
           </p>
-          <ul className="space-y-2 text-xs text-slate-700 font-medium">
+          <ul className="space-y-2.5 text-xs text-slate-700 font-medium">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>No separate customer mobile app required. Opens directly in browser.</span>
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Stops repetitive &quot;When will someone arrive?&quot; phone calls.</span>
+              <span>Stops repetitive &quot;When will someone arrive?&quot; phone calls while you drive.</span>
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Gives customers peace of mind knowing exactly who is coming to their home.</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>100% Google Business Profile safe with zero risk to your local map ranking.</span>
             </li>
           </ul>
         </div>

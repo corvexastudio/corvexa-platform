@@ -1,5 +1,5 @@
 import React from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, X, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react'
 
 export function ComparisonSection({ onOpenClaim }: { onOpenClaim: () => void }) {
   return (
@@ -12,7 +12,7 @@ export function ComparisonSection({ onOpenClaim }: { onOpenClaim: () => void }) 
           How CaptoDesk Compares to the Alternatives
         </h2>
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          See how an integrated booking and arrival system compares to traditional voicemail or complicated enterprise field platforms.
+          See how an integrated direct booking and live arrival system compares to traditional voicemail or bloated enterprise platforms.
         </p>
       </div>
 
@@ -28,7 +28,7 @@ export function ComparisonSection({ onOpenClaim }: { onOpenClaim: () => void }) 
               Voicemail and Call Centers
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Traditional call centers take messages or transfer calls during business hours, leaving customers waiting for callbacks.
+              Traditional call centers take handwritten messages or transfer calls during business hours, leaving customers waiting for callbacks.
             </p>
             <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
               <li className="flex items-start gap-2 text-rose-600">
@@ -50,7 +50,7 @@ export function ComparisonSection({ onOpenClaim }: { onOpenClaim: () => void }) 
             </ul>
           </div>
           <div className="pt-4 border-t border-slate-100 text-[11px] font-mono text-slate-400">
-            High monthly retainers for basic message taking
+            $300+ monthly retainers for basic message taking
           </div>
         </div>
 
@@ -64,12 +64,12 @@ export function ComparisonSection({ onOpenClaim }: { onOpenClaim: () => void }) 
               Complex Enterprise CRMs
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Large platforms designed for 50-truck corporate fleets with dedicated dispatchers and complex configurations.
+              Large platforms designed for 50-truck corporate fleets with dedicated office dispatchers and complex custom configurations.
             </p>
             <ul className="space-y-2.5 text-xs text-slate-600 pt-2 border-t border-slate-100">
               <li className="flex items-start gap-2 text-amber-600">
                 <X className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>Expensive monthly subscriptions with long setup timelines</span>
+                <span>$250 to $500 monthly fees with 2 to 4 weeks of setup</span>
               </li>
               <li className="flex items-start gap-2 text-amber-600">
                 <X className="w-4 h-4 shrink-0 mt-0.5" />
@@ -130,13 +130,18 @@ export function ComparisonSection({ onOpenClaim }: { onOpenClaim: () => void }) 
             </ul>
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenClaim}
-            className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/20 transition-all cursor-pointer"
-          >
-            Get Your Free Booking Link &rarr;
-          </button>
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={onOpenClaim}
+              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs text-center shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+            >
+              Get Your Free Booking Link &rarr;
+            </button>
+            <p className="text-[11px] text-slate-400 text-center font-mono">
+              Just 1 booked job covers months of service
+            </p>
+          </div>
         </div>
 
       </div>
