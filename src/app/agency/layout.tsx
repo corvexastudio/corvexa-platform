@@ -31,6 +31,8 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const cleanPathname = pathname.replace(/^\/agency/, '') || '/'
   const isLoginPage = cleanPathname === '/login' || cleanPathname.startsWith('/login')
+  const isDemoPage = cleanPathname === '/demo' || cleanPathname.startsWith('/demo')
+  const isPublicPage = isLoginPage || isDemoPage
   const isSubdomain = typeof window !== 'undefined' ? window.location.hostname.startsWith('agency.') : !pathname.startsWith('/agency')
   const prefix = isSubdomain ? '' : '/agency'
 
@@ -54,8 +56,8 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
   }
 
   useEffect(() => {
-    // Skip overview fetch entirely when on the login screen
-    if (isLoginPage) {
+    // Skip overview fetch entirely when on the login screen or public demo page
+    if (isPublicPage) {
       setLoading(false)
       return
     }
@@ -75,10 +77,10 @@ export default function AgencyLayout({ children }: { children: React.ReactNode }
     }
 
     loadAgencyOverview()
-  }, [isLoginPage])
+  }, [isPublicPage])
 
-  // If on login route, render standalone without authenticated dashboard chrome
-  if (isLoginPage) {
+  // If on login or public demo route, render standalone without authenticated dashboard chrome
+  if (isPublicPage) {
     return <>{children}</>
   }
 

@@ -215,6 +215,11 @@ export async function proxy(request: NextRequest) {
         return finalizeResponse(NextResponse.rewrite(new URL('/agency/login', request.url)))
       }
 
+      // 3.5. Public Agency Demo Route: /demo on agency subdomain (frictionless 360 overview)
+      if (pathname === '/demo' || pathname.startsWith('/demo/')) {
+        return finalizeResponse(NextResponse.rewrite(new URL(`/agency${pathname}`, request.url)))
+      }
+
       // 4. SEC: Enforce authentication on all protected agency console routes
       if (!user) {
         const loginUrl = new URL('/login', request.url)
@@ -243,6 +248,11 @@ export async function proxy(request: NextRequest) {
     const isLegacyLogin = pathname === '/agency/login' || pathname.startsWith('/agency/login')
     if (isLegacyLogin) {
       if (user) return finalizeResponse(NextResponse.redirect(new URL('/agency/dashboard', request.url)))
+      return finalizeResponse(supabaseResponse)
+    }
+
+    const isAgencyDemo = pathname === '/agency/demo' || pathname.startsWith('/agency/demo')
+    if (isAgencyDemo) {
       return finalizeResponse(supabaseResponse)
     }
 
