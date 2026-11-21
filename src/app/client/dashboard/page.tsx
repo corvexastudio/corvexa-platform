@@ -45,6 +45,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
+import { Modal } from '@/components/ui/modal'
+import { JobStatusBadge } from '@/components/operations/job-status-badge'
+import { TouchActionRow } from '@/components/operations/touch-action-row'
 import { createClient } from '@/lib/supabase/client'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
@@ -60,7 +63,7 @@ import {
 } from '@/lib/dashboard/dashboard-service'
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
-import { formatTimeInTz, formatDateInTz } from '@/lib/temporal/timezone'
+import { formatTimeInTz, formatDateInTz, formatDateToIsoYmdInTz, parseZonedDateAndTimeToUtc } from '@/lib/temporal/timezone'
 import { FirstBookingCelebrationModal } from '@/components/billing/first-booking-celebration-modal'
 import { isPracticeJob } from '@/lib/jobs/practice-job'
 import { JobWonBadge } from '@/components/jobs/job-won-badge'
@@ -81,6 +84,10 @@ export default function DashboardPage() {
   const [showCompletedJobs, setShowCompletedJobs] = useState(false)
   const [bookingCopied, setBookingCopied] = useState(false)
   const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[]>([])
+  const [rescheduleJob, setRescheduleJob] = useState<JobTodayItem | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduleTime, setRescheduleTime] = useState('09:00')
+  const [rescheduling, setRescheduling] = useState(false)
   
   const [celebrationModal, setCelebrationModal] = useState<{
     open: boolean
@@ -129,7 +136,7 @@ export default function DashboardPage() {
 
   // Fetch Dashboard Data
   const { data, isLoading, isError, error: queryError, refetch } = useQuery({
-    queryKey: ['dashboard', '30d'],
+    queryKey: ['dashboard', '30d', orgTimezone],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const reqHeaders: Record<string, string> = {}
@@ -137,7 +144,7 @@ export default function DashboardPage() {
         reqHeaders['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const res = await fetch('/api/client/dashboard?period=30d', { 
+      const res = await fetch(`/api/client/dashboard?period=30d&timezone=${encodeURIComponent(orgTimezone)}`, { 
         headers: reqHeaders,
         credentials: 'include'
       })
@@ -288,6 +295,46 @@ export default function DashboardPage() {
       toast.error(result.error || 'Failed to update status to en route.')
     } catch {
       toast.error('Network error updating status. Please try again.')
+    }
+  }
+
+  const handleOpenReschedule = (job: JobTodayItem) => {
+    setRescheduleJob(job)
+    if (job.scheduledStart) {
+      setRescheduleDate(formatDateToIsoYmdInTz(job.scheduledStart, orgTimezone))
+      setRescheduleTime(formatTimeInTz(job.scheduledStart, orgTimezone, { hour12: false }))
+    } else {
+      setRescheduleDate(formatDateToIsoYmdInTz(new Date(), orgTimezone))
+      setRescheduleTime('09:00')
+    }
+  }
+
+  const handleConfirmReschedule = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!rescheduleJob || !rescheduleDate || !rescheduleTime) return
+    setRescheduling(true)
+    try {
+      const utcStart = parseZonedDateAndTimeToUtc(rescheduleDate, rescheduleTime, orgTimezone)
+      const res = await fetch('/api/client/jobs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: rescheduleJob.id,
+          scheduledStart: utcStart.toISOString(),
+          status: 'scheduled'
+        })
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to reschedule job')
+      }
+      toast.success('Job rescheduled successfully.')
+      setRescheduleJob(null)
+      await refetch()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reschedule')
+    } finally {
+      setRescheduling(false)
     }
   }
 
@@ -510,17 +557,7 @@ export default function DashboardPage() {
                     Next Stop &bull; #{activeJob.jobNumber}
                   </span>
                 </div>
-                <Badge
-                  variant={
-                    activeJob.status === 'in_progress' ? 'success' :
-                    activeJob.status === 'en_route' ? 'info' :
-                    activeJob.status === 'arrived' ? 'warning' : 'neutral'
-                  }
-                  size="sm"
-                  className="font-bold uppercase text-[10px]"
-                >
-                  {activeJob.status ? activeJob.status.replace('_', ' ') : 'Scheduled'}
-                </Badge>
+                <JobStatusBadge status={activeJob.status} />
               </div>
 
               {/* Customer & Service Info */}
@@ -595,37 +632,23 @@ export default function DashboardPage() {
                   </Button>
                 )}
 
-                {activeJob.address && (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(activeJob.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
-                    title="Directions in Google Maps"
-                  >
-                    <Navigation className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>Navigate</span>
-                  </a>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleOpenReschedule(activeJob)}
+                  className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Clock className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Reschedule</span>
+                </Button>
 
-                {activeJob.customerPhone && (
-                  <>
-                    <a
-                      href={`tel:${activeJob.customerPhone}`}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      <Phone className="h-3.5 w-3.5 text-slate-500" />
-                      <span>Call</span>
-                    </a>
-                    <Link
-                      href={`/client/inbox`}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-750 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      <MessageSquare className="h-3.5 w-3.5 text-slate-500" />
-                      <span>Text</span>
-                    </Link>
-                  </>
-                )}
+                <TouchActionRow
+                  phone={activeJob.customerPhone}
+                  address={activeJob.address}
+                  contactId={activeJob.customerPhone}
+                  jobId={activeJob.id}
+                  onDetailsClick={() => router.push('/client/field')}
+                />
               </div>
             </div>
           ) : allCompletedToday ? (
@@ -725,13 +748,7 @@ export default function DashboardPage() {
                             <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                               {job.customerName}
                             </span>
-                            <Badge
-                              variant={isDone ? 'success' : 'neutral'}
-                              size="sm"
-                              className="text-[10px] capitalize font-semibold"
-                            >
-                              {job.status ? job.status.replace('_', ' ') : 'Scheduled'}
-                            </Badge>
+                            <JobStatusBadge status={job.status} />
                           </div>
                           <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium truncate">
                             {job.cleanTitle || job.title}
@@ -750,6 +767,15 @@ export default function DashboardPage() {
                           <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                           <span>{job.scheduledStart ? formatTimeInTz(job.scheduledStart, orgTimezone) : 'Today'}</span>
                         </div>
+                        {!isDone && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReschedule(job)}
+                            className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                          >
+                            Reschedule
+                          </button>
+                        )}
                         <Link
                           href="/client/field"
                           className="min-h-[36px] px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center"
@@ -987,6 +1013,67 @@ export default function DashboardPage() {
         onClose={() => setCelebrationModal(prev => ({ ...prev, open: false }))}
         milestoneType={celebrationModal.type}
       />
+
+      {/* Quick Reschedule Modal */}
+      {rescheduleJob && (
+        <Modal
+          open={Boolean(rescheduleJob)}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setRescheduleJob(null)
+          }}
+          title={`Reschedule Job #${rescheduleJob.jobNumber}`}
+          description={`Update scheduled start for ${rescheduleJob.customerName} (${orgTimezone}).`}
+          size="sm"
+        >
+          <form onSubmit={handleConfirmReschedule} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
+                New Date
+              </label>
+              <input
+                type="date"
+                required
+                value={rescheduleDate}
+                onChange={(e) => setRescheduleDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-1.5">
+                New Time
+              </label>
+              <input
+                type="time"
+                required
+                value={rescheduleTime}
+                onChange={(e) => setRescheduleTime(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRescheduleJob(null)}
+                disabled={rescheduling}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={rescheduling}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold"
+              >
+                {rescheduling ? 'Saving...' : 'Confirm Reschedule'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
     </div>
   )

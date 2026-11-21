@@ -328,6 +328,118 @@ export function inferTimezoneFromAreaCode(phoneOrAreaCode?: string | null): stri
 /**
  * Infers an initial US IANA timezone from a 2-letter US state code.
  */
+/**
+ * Calculates the exact instantaneous offset (in milliseconds) between local time in a target timezone and UTC.
+ */
+function getTimezoneOffsetMs(date: Date, timeZone: string): number {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      fractionalSecondDigits: 3,
+      hour12: false
+    })
+    const parts = formatter.formatToParts(date)
+    const map: Record<string, string> = {}
+    for (const p of parts) map[p.type] = p.value
+    const hour = parseInt(map.hour, 10) % 24
+    const asInTz = Date.UTC(
+      parseInt(map.year, 10),
+      parseInt(map.month, 10) - 1,
+      parseInt(map.day, 10),
+      hour,
+      parseInt(map.minute, 10),
+      parseInt(map.second, 10),
+      parseInt(map.fractionalSecond || '0', 10)
+    )
+    return asInTz - date.getTime()
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Converts a specific local date and time in a target IANA timezone into an exact UTC Date.
+ */
+export function zonedDateTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  millisecond: number,
+  timeZone: string = DEFAULT_US_TIMEZONE
+): Date {
+  const tz = normalizeTimezone(timeZone)
+  const targetLocalTime = Date.UTC(year, month - 1, day, hour, minute, second, millisecond)
+  const guess = new Date(targetLocalTime)
+  const offset = getTimezoneOffsetMs(guess, tz)
+  let resolved = new Date(targetLocalTime - offset)
+  const offset2 = getTimezoneOffsetMs(resolved, tz)
+  if (offset2 !== offset) {
+    resolved = new Date(targetLocalTime - offset2)
+  }
+  return resolved
+}
+
+/**
+ * Parses a local date string (YYYY-MM-DD) and time string (HH:mm) in a target timezone into an exact UTC Date.
+ */
+export function parseZonedDateAndTimeToUtc(
+  dateStr: string,
+  timeStr: string = '00:00',
+  timeZone: string = DEFAULT_US_TIMEZONE
+): Date {
+  const [yearStr, monthStr, dayStr] = dateStr.split('-')
+  const [hourStr = '0', minuteStr = '0', secondStr = '0'] = timeStr.split(':')
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10)
+  const day = parseInt(dayStr, 10)
+  const hour = parseInt(hourStr, 10)
+  const minute = parseInt(minuteStr, 10)
+  const second = parseInt(secondStr, 10)
+  return zonedDateTimeToUtc(year, month, day, hour, minute, second, 0, timeZone)
+}
+
+/**
+ * Resolves the exact UTC Date boundaries [startUtc, endUtc] for a local calendar day
+ * in a specified IANA timezone.
+ *
+ * For example:
+ * In America/Chicago (CST UTC-6), local day 2026-11-21 starts at 2026-11-21T06:00:00.000Z
+ * and ends at 2026-11-22T05:59:59.999Z.
+ *
+ * Handles Daylight Saving Time transitions (23h or 25h days) and non-DST regions flawlessly.
+ */
+export function getLocalDayUtcBoundaries(
+  dateInput: string | Date | number = new Date(),
+  timezone: string = DEFAULT_US_TIMEZONE
+): { startUtc: Date; endUtc: Date; ymd: string } {
+  const tz = normalizeTimezone(timezone)
+  let ymd = ''
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())) {
+    ymd = dateInput.trim()
+  } else {
+    ymd = formatDateToIsoYmdInTz(dateInput, tz)
+  }
+
+  const [yearStr, monthStr, dayStr] = ymd.split('-')
+  const year = parseInt(yearStr, 10)
+  const month = parseInt(monthStr, 10)
+  const day = parseInt(dayStr, 10)
+
+  const startUtc = zonedDateTimeToUtc(year, month, day, 0, 0, 0, 0, tz)
+  const endUtc = zonedDateTimeToUtc(year, month, day, 23, 59, 59, 999, tz)
+
+  return { startUtc, endUtc, ymd }
+}
+
 export function inferTimezoneFromState(stateCode?: string | null): string {
   if (!stateCode || typeof stateCode !== 'string') return DEFAULT_US_TIMEZONE
   const code = stateCode.trim().toUpperCase()

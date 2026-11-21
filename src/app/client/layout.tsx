@@ -40,7 +40,9 @@ import { NotificationCenter } from '@/components/notifications/notification-cent
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { UniversalQuickCreate } from '@/components/universal-quick-create'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { StarterPassMeter } from '@/components/billing/starter-pass-meter'
+import { PlanLimitBadge } from '@/components/billing/plan-limit-badge'
+import { Modal } from '@/components/ui/modal'
+import { Button } from '@/components/ui/button'
 import { WorkspaceContext, WorkspaceContextValue } from '@/lib/context/workspace-context'
 import { PostSubscribe10DlcModal } from '@/components/compliance/post-subscribe-10dlc-modal'
 
@@ -204,6 +206,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [claimEmailInput, setClaimEmailInput] = useState('')
   const [claimPasswordInput, setClaimPasswordInput] = useState('')
   const [savingClaimAccount, setSavingClaimAccount] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
 
   // 10DLC Carrier Registration Prompt for Paying Users
   const [needs10DlcPrompt, setNeeds10DlcPrompt] = useState(false)
@@ -243,10 +246,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success('✨ Your login has been saved! You can now sign in with this email and password anytime.')
+        toast.success('Your login has been saved! You can now sign in with this email and password anytime.')
         setUserEmail(data.email)
         setClaimEmailInput('')
         setClaimPasswordInput('')
+        setShowClaimModal(false)
       } else {
         toast.error(data.error || 'Failed to save login credentials.')
       }
@@ -813,107 +817,37 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             ? "p-0 pb-16 md:p-6 md:pb-6 max-w-7xl"
             : "p-4 sm:p-6 pb-20 md:pb-6 max-w-6xl"
         )}>
-          {/* Starter Pass Progress Meter (Mobile-First Top Banner) */}
+          {/* Plan Limit Badge (Compact Pill Banner) */}
           {!isTechnician && !pathname.startsWith('/client/inbox') && !pathname.startsWith('/client/settings') && (
-            <div className="mb-4">
-              <StarterPassMeter />
+            <div className="mb-3">
+              <PlanLimitBadge />
             </div>
           )}
-          {/* White-Glove Phone-First Claim Welcome Banner -> Prominent Hero Account Protection Card */}
+
+          {/* White-Glove Phone-First Claim Welcome Banner (Compact Alert) */}
           {userEmail?.endsWith('@claim.captodesk.com') && (
-            <div className="mb-6 rounded-2xl border-2 border-amber-400/80 dark:border-amber-500/60 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-orange-500/10 dark:from-amber-950/40 dark:via-zinc-900/90 dark:to-orange-950/30 p-5 sm:p-6 shadow-md backdrop-blur-sm relative overflow-hidden">
-              {/* Subtle ambient corner glow */}
-              <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
-
-              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="space-y-2 max-w-xl">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-500 text-black shadow-xs">
-                      <Lock className="w-3 h-3" />
-                      Critical Account Step
-                    </span>
-                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                      Temporary Guest Session Active
-                    </span>
-                  </div>
-
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-amber-100 tracking-tight">
-                    Lock In Your Free Starter Pass &amp; Workspace
-                  </h2>
-
-                  <p className="text-xs sm:text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">
-                    You&apos;re currently signed in via a temporary quick-access session. If you close this tab or switch devices, your public booking link and customer requests will be lost. Save your real email and password below to secure permanent access to your 3-Job Starter Pass ($0 fees):
+            <div className="mb-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/40 p-3 sm:px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-black">
+                  <Lock className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-amber-100 truncate">
+                    Temporary Guest Session Active
                   </p>
-
-                  <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-600 dark:text-zinc-400 font-medium">
-                    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      3 Jobs Free ($0 Fees)
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
-                      No Credit Card Required
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />
-                      Sign In From Truck or Phone
-                    </span>
-                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-zinc-400 truncate">
+                    Save your real email and password to secure permanent access to your free Starter Pass.
+                  </p>
                 </div>
-
-                <form
-                  onSubmit={handleSaveRealAccount}
-                  className="w-full lg:w-auto shrink-0 bg-white/90 dark:bg-zinc-900/90 border border-amber-300 dark:border-amber-700/80 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"
-                >
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      Your Real Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      autoComplete="email"
-                      required
-                      placeholder="e.g. mike@mikesplumbing.com"
-                      value={claimEmailInput}
-                      onChange={e => setClaimEmailInput(e.target.value)}
-                      className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500 min-w-[260px] sm:min-w-[300px]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                      <KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      Create a Password
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      autoComplete="new-password"
-                      required
-                      minLength={6}
-                      placeholder="Choose 6+ characters"
-                      value={claimPasswordInput}
-                      onChange={e => setClaimPasswordInput(e.target.value)}
-                      className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500 min-w-[260px] sm:min-w-[300px]"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={savingClaimAccount}
-                    className="w-full mt-2 text-xs sm:text-sm font-extrabold px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-[0.99] text-black shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 tracking-wide"
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span>{savingClaimAccount ? 'Saving Account...' : 'Save & Secure Free Starter Pass'}</span>
-                  </button>
-
-                  <p className="text-[11px] text-center text-slate-500 dark:text-zinc-400 pt-0.5">
-                    We&apos;ll email your permanent direct login link immediately.
-                  </p>
-                </form>
               </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowClaimModal(true)}
+                className="h-8 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-black shrink-0 shadow-2xs cursor-pointer"
+              >
+                Save Login Credentials
+              </Button>
             </div>
           )}
 
@@ -1172,6 +1106,72 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         )}
       </nav>
       </div>
+
+      {/* Save Real Account Modal */}
+      <Modal
+        open={showClaimModal}
+        onOpenChange={setShowClaimModal}
+        title="Lock In Your Free Starter Pass & Workspace"
+        description="Save your real email and password to secure permanent access from your phone or truck."
+      >
+        <form onSubmit={handleSaveRealAccount} className="space-y-3.5 py-1">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              Your Real Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              required
+              placeholder="e.g. mike@mikesplumbing.com"
+              value={claimEmailInput}
+              onChange={e => setClaimEmailInput(e.target.value)}
+              className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              Create a Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              required
+              minLength={6}
+              placeholder="Choose 6+ characters"
+              value={claimPasswordInput}
+              onChange={e => setClaimPasswordInput(e.target.value)}
+              className="w-full text-xs sm:text-sm px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowClaimModal(false)}
+              className="h-9 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={savingClaimAccount || !claimEmailInput.trim() || !claimPasswordInput.trim()}
+              className="h-9 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-black"
+            >
+              <Lock className="w-3.5 h-3.5 mr-1" />
+              <span>{savingClaimAccount ? 'Saving Account...' : 'Save & Secure Starter Pass'}</span>
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Post-Subscribe 10DLC Carrier Registration Modal */}
       <PostSubscribe10DlcModal

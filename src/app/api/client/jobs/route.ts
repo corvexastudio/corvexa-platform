@@ -259,6 +259,58 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  const tenantResult = await getTenantContext('appointments:manage')
+  if (!tenantResult.ok) {
+    return tenantResult.response
+  }
+
+  const { orgId, supabase } = tenantResult
+  try {
+    const body = await request.json()
+    const { id, scheduledStart, scheduledEnd, status, notes, assignedTo, crewId } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Job ID is required' }, { status: 400 })
+    }
+
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
+    if (scheduledStart) updates.scheduled_start = scheduledStart
+    if (scheduledEnd) updates.scheduled_end = scheduledEnd
+    if (status) updates.status = status
+    if (notes !== undefined) updates.notes = notes
+    if (assignedTo !== undefined) updates.assigned_to = assignedTo
+    if (crewId !== undefined) updates.crew_id = crewId
+
+    const { data: updatedJob, error } = await supabase
+      .from('jobs')
+      .update(updates)
+      .eq('id', id)
+      .eq('org_id', orgId)
+      .select('*, contact:contacts(name, phone, address)')
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    // Also sync linked appointment start_time if present
+    if (updatedJob?.appointment_id && scheduledStart) {
+      await supabase
+        .from('appointments')
+        .update({ start_time: scheduledStart, end_time: scheduledEnd || null, updated_at: new Date().toISOString() })
+        .eq('id', updatedJob.appointment_id)
+        .eq('org_id', orgId)
+    }
+
+    return NextResponse.json({ success: true, job: updatedJob })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Failed to update job' }, { status: 500 })
+  }
+}
+
 export async function DELETE(request: Request) {
   const tenantResult = await getTenantContext('appointments:manage')
   if (!tenantResult.ok) {

@@ -17,10 +17,11 @@ export async function GET(
   const url = new URL(request.url)
   const periodParam = url.searchParams.get('period') as TimeRange || '30d'
   const validPeriod: TimeRange = ['7d', '30d', '90d', 'all'].includes(periodParam) ? periodParam : '30d'
+  const timezoneParam = url.searchParams.get('timezone') || undefined
 
   try {
     const [overview, trialStatus, starterUsage] = await Promise.all([
-      getDashboardOverview(supabase, orgId, validPeriod),
+      getDashboardOverview(supabase, orgId, validPeriod, timezoneParam),
       SubscriptionService.evaluateTrialQuota(supabase, orgId).catch(() => null),
       SubscriptionService.getFreeTierJobUsage(supabase, orgId).catch(() => null)
     ])

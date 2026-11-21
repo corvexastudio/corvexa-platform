@@ -17,6 +17,8 @@ import { RecurringPlanModal } from '@/components/jobs/recurring-plan-modal'
 import { ReassignCrewModal } from '@/components/crews/reassign-crew-modal'
 import { CrewModal } from '@/components/crews/crew-modal'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
+import { JobStatusBadge } from '@/components/operations/job-status-badge'
+import { DateStripSelector } from '@/components/operations/date-strip-selector'
 import { exportToCsv } from '@/lib/export/csv-export'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { getTodayInTimezone, getSelectableDatesInTimezone } from '@/lib/booking/availability'
@@ -264,6 +266,21 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
   const quickDatePills = useMemo(() => {
     return getSelectableDatesInTimezone(orgTimezone || 'America/Chicago', 7)
   }, [orgTimezone])
+
+  const jobCountsByDate = useMemo(() => {
+    const counts: Record<string, number> = {}
+    jobs.forEach(j => {
+      if (!j.scheduled_start) return
+      let jDate = ''
+      try {
+        jDate = new Intl.DateTimeFormat('en-CA', { timeZone: orgTimezone }).format(new Date(j.scheduled_start))
+      } catch {
+        jDate = j.scheduled_start.slice(0, 10)
+      }
+      counts[jDate] = (counts[jDate] || 0) + 1
+    })
+    return counts
+  }, [jobs, orgTimezone])
 
   // Update URL view parameter cleanly
   const handleViewChange = (newView: ViewMode) => {
@@ -927,44 +944,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
 
   // Status Badge Helper
   const renderStatusBadge = (status: JobItem['status'], etaMinutes?: number | null) => {
-    switch (status) {
-      case 'en_route':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-            En Route {etaMinutes ? `(~${etaMinutes}m)` : ''}
-          </span>
-        )
-      case 'in_progress':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-            In Progress
-          </span>
-        )
-      case 'completed':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-            <CheckCircle2 className="h-3 w-3" />
-            Completed
-          </span>
-        )
-      case 'cancelled':
-      case 'no_show':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
-            {status === 'no_show' ? 'No Show' : 'Cancelled'}
-          </span>
-        )
-      case 'scheduled':
-      case 'confirmed':
-      default:
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
-            Scheduled
-          </span>
-        )
-    }
+    return <JobStatusBadge status={status} size="sm" />
   }
 
   // Summary Metrics strictly in business timezone
@@ -1153,48 +1133,14 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
       {/* VIEW 1: AGENDA (DAY-BY-DAY ROUTE) */}
       {!loading && !error && activeView === 'agenda' && (
         <div className="space-y-4">
-          {/* 7-Day Quick Date Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {quickDatePills.map(p => {
-              const isSelected = p.dateStr === selectedDate
-              const isToday = p.dateStr === todayDateStr
-              return (
-                <button
-                  key={p.dateStr}
-                  type="button"
-                  onClick={() => setSelectedDate(p.dateStr)}
-                  className={cn(
-                    'flex flex-col items-center justify-center min-w-[70px] sm:min-w-[80px] py-2 px-3 rounded-xl border text-center transition-all cursor-pointer',
-                    isSelected
-                      ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-transparent shadow-xs'
-                      : 'bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
-                  )}
-                >
-                  <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">
-                    {p.dayOfWeek}
-                  </span>
-                  <span className="text-sm font-bold tabular-nums">
-                    {p.dayNum}
-                  </span>
-                  {isToday && (
-                    <span className={cn('text-[9px] font-semibold mt-0.5', isSelected ? 'text-blue-300 dark:text-blue-600' : 'text-blue-600 dark:text-blue-400')}>
-                      Today
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-
-            {/* Custom Date Input */}
-            <div className="ml-auto shrink-0 flex items-center gap-2">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={e => e.target.value && setSelectedDate(e.target.value)}
-                className="h-8.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 text-slate-700 dark:text-zinc-300 cursor-pointer"
-              />
-            </div>
-          </div>
+          {/* 7-Day Date Strip Selector */}
+          <DateStripSelector
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            timezone={orgTimezone}
+            jobCountsByDate={jobCountsByDate}
+            className="mb-2"
+          />
 
           {/* Agenda Chronological Appointments Feed */}
           {agendaDateJobs.length === 0 ? (

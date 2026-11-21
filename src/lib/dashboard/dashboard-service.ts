@@ -1,5 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { parseServicePricing } from '../services/service-pricing.ts'
+import {
+  getLocalDayUtcBoundaries,
+  normalizeTimezone,
+  DEFAULT_US_TIMEZONE
+} from '../temporal/timezone.ts'
 
 export function cleanJobServiceTitle(
   title: string,
@@ -662,13 +667,12 @@ export async function getOutcomeMetrics(
 export async function getOperationalMetrics(
   supabase: SupabaseClient,
   orgId: string,
-  timeRange: TimeRange = '30d'
+  timeRange: TimeRange = '30d',
+  timeZone: string = DEFAULT_US_TIMEZONE
 ): Promise<OperationalMetrics> {
   const rangeStart = getTimeRangeStart(timeRange)
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-  const todayEnd = new Date()
-  todayEnd.setHours(23, 59, 59, 999)
+  const tz = normalizeTimezone(timeZone)
+  const { startUtc, endUtc } = getLocalDayUtcBoundaries(new Date(), tz)
 
   const [
     leadsRes,
@@ -729,8 +733,8 @@ export async function getOperationalMetrics(
         .from('jobs')
         .select('id, job_number, title, scheduled_start, deleted_at')
         .eq('org_id', orgId)
-        .gte('scheduled_start', todayStart.toISOString())
-        .lte('scheduled_start', todayEnd.toISOString())
+        .gte('scheduled_start', startUtc.toISOString())
+        .lte('scheduled_start', endUtc.toISOString())
 
       if (typeof (q as any).is === 'function') {
         q = (q as any).is('deleted_at', null)
@@ -822,12 +826,11 @@ export async function getOperationalMetrics(
  */
 export async function getJobsToday(
   supabase: SupabaseClient,
-  orgId: string
+  orgId: string,
+  timeZone: string = DEFAULT_US_TIMEZONE
 ): Promise<JobTodayItem[]> {
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-  const todayEnd = new Date()
-  todayEnd.setHours(23, 59, 59, 999)
+  const tz = normalizeTimezone(timeZone)
+  const { startUtc, endUtc } = getLocalDayUtcBoundaries(new Date(), tz)
 
   const { data: jobs } = await supabase
     .from('jobs')
@@ -839,8 +842,8 @@ export async function getJobsToday(
       profiles(full_name)
     `)
     .eq('org_id', orgId)
-    .gte('scheduled_start', todayStart.toISOString())
-    .lte('scheduled_start', todayEnd.toISOString())
+    .gte('scheduled_start', startUtc.toISOString())
+    .lte('scheduled_start', endUtc.toISOString())
     .order('scheduled_start', { ascending: true })
 
   const realJobs = (jobs || []).filter((j: any) => 
@@ -912,13 +915,13 @@ export async function getRecentCalls(
 export async function getUpcomingJobs(
   supabase: SupabaseClient,
   orgId: string,
-  limit: number = 5
+  limit: number = 5,
+  timeZone: string = DEFAULT_US_TIMEZONE
 ): Promise<JobTodayItem[]> {
-  const todayEnd = new Date()
-  todayEnd.setHours(23, 59, 59, 999)
+  const tz = normalizeTimezone(timeZone)
+  const { endUtc } = getLocalDayUtcBoundaries(new Date(), tz)
 
-  const maxFuture = new Date()
-  maxFuture.setDate(maxFuture.getDate() + 14)
+  const maxFuture = new Date(endUtc.getTime() + 14 * 24 * 60 * 60 * 1000)
 
   const { data: jobs } = await supabase
     .from('jobs')
@@ -930,7 +933,7 @@ export async function getUpcomingJobs(
       profiles(full_name)
     `)
     .eq('org_id', orgId)
-    .gt('scheduled_start', todayEnd.toISOString())
+    .gt('scheduled_start', endUtc.toISOString())
     .lte('scheduled_start', maxFuture.toISOString())
     .not('status', 'eq', 'cancelled')
     .not('status', 'eq', 'completed')
@@ -980,14 +983,25 @@ export async function getUpcomingJobs(
 export async function getDashboardOverview(
   supabase: SupabaseClient,
   orgId: string,
-  timeRange: TimeRange = '30d'
+  timeRange: TimeRange = '30d',
+  timeZone?: string
 ): Promise<DashboardOverview> {
+  let resolvedTz = timeZone ? normalizeTimezone(timeZone) : ''
+  if (!resolvedTz) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('timezone')
+      .eq('id', orgId)
+      .maybeSingle()
+    resolvedTz = normalizeTimezone(org?.timezone)
+  }
+
   const [attentionQueue, operations, outcomes, jobsToday, upcomingJobs, recentCalls] = await Promise.all([
     getAttentionQueue(supabase, orgId),
-    getOperationalMetrics(supabase, orgId, timeRange),
+    getOperationalMetrics(supabase, orgId, timeRange, resolvedTz),
     getOutcomeMetrics(supabase, orgId, timeRange),
-    getJobsToday(supabase, orgId),
-    getUpcomingJobs(supabase, orgId, 5),
+    getJobsToday(supabase, orgId, resolvedTz),
+    getUpcomingJobs(supabase, orgId, 5, resolvedTz),
     getRecentCalls(supabase, orgId, 5)
   ])
 

@@ -41,6 +41,9 @@ import { toast } from 'sonner'
 import { EnRouteModal } from '@/components/jobs/en-route-modal'
 import { JobPhotosModal } from '@/components/jobs/job-photos-modal'
 import { FoundMoneyUnlockModal } from '@/components/billing/found-money-unlock-modal'
+import { JobStatusBadge } from '@/components/operations/job-status-badge'
+import { DateStripSelector } from '@/components/operations/date-strip-selector'
+import { CustomerDossierSheet, CustomerDossierData } from '@/components/operations/customer-dossier-sheet'
 import { getTodayInTimezone } from '@/lib/booking/availability'
 import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
 import { formatNationalUs } from '@/lib/telephony/phone-normalizer'
@@ -163,6 +166,10 @@ export default function FieldPage() {
   const [photoJob, setPhotoJob] = useState<FieldJob | null>(null)
   const [showPhotoModal, setShowPhotoModal] = useState(false)
 
+  // Customer Dossier Modal
+  const [dossierCustomer, setDossierCustomer] = useState<CustomerDossierData | null>(null)
+  const [showDossierModal, setShowDossierModal] = useState(false)
+
   // Field Note Inline Composer
   const [activeNoteJobId, setActiveNoteJobId] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
@@ -222,6 +229,21 @@ export default function FieldPage() {
       return jDate === selectedDate
     })
   }, [jobs, selectedDate, orgTimezone])
+
+  const jobCountsByDate = useMemo(() => {
+    const counts: Record<string, number> = {}
+    jobs.forEach(j => {
+      if (!j.scheduled_start) return
+      let jDate = ''
+      try {
+        jDate = new Intl.DateTimeFormat('en-CA', { timeZone: orgTimezone }).format(new Date(j.scheduled_start))
+      } catch {
+        jDate = j.scheduled_start.slice(0, 10)
+      }
+      counts[jDate] = (counts[jDate] || 0) + 1
+    })
+    return counts
+  }, [jobs, orgTimezone])
 
   // Filter jobs for selected date AND selected crew/van
   const filteredJobs = useMemo(() => {
@@ -448,50 +470,32 @@ export default function FieldPage() {
             {isOwnerOrAdmin && (
               <Link
                 href="/client/dashboard"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs transition-colors cursor-pointer min-h-[44px]"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs transition-colors cursor-pointer min-h-[44px]"
                 title="Return to Office Dashboard"
               >
                 <LayoutDashboard className="h-3.5 w-3.5 text-slate-500" />
                 <span>Office</span>
               </Link>
             )}
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-slate-200 dark:border-zinc-700/60 shadow-2xs">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDateChange(-1)}
-                className="h-10 w-10 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200 cursor-pointer"
-                aria-label="Previous day"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <div className="px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 min-w-32 text-center tabular-nums">
-                {new Intl.DateTimeFormat('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric'
-                }).format(new Date(`${selectedDate}T12:00:00.000Z`))}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDateChange(1)}
-                className="h-10 w-10 min-h-[44px] min-w-[44px] text-slate-700 dark:text-zinc-200 cursor-pointer"
-                aria-label="Next day"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDateChange(0)}
-                className="min-h-[44px] text-xs font-bold text-blue-600 dark:text-blue-400 px-3.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 cursor-pointer"
-              >
-                Today
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDateChange(0)}
+              className="min-h-[44px] text-xs font-bold text-blue-600 dark:text-blue-400 px-3.5 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 cursor-pointer"
+            >
+              Today
+            </Button>
           </div>
         }
+      />
+
+      {/* 7-DAY HORIZONTAL CALENDAR STRIP */}
+      <DateStripSelector
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        timezone={orgTimezone}
+        jobCountsByDate={jobCountsByDate}
+        className="my-1"
       />
 
       {/* MULTI-VAN / FLEET CREW SELECTOR PILL BAR */}
@@ -678,21 +682,7 @@ export default function FieldPage() {
                   </div>
 
                   {/* Status Badge */}
-                  <Badge
-                    variant={
-                      job.status === 'completed'
-                        ? 'success'
-                        : job.status === 'in_progress'
-                        ? 'info'
-                        : job.status === 'en_route'
-                        ? 'warning'
-                        : 'neutral'
-                    }
-                    size="default"
-                    className="font-bold uppercase tracking-wider text-[11px] px-2.5 py-1"
-                  >
-                    {job.status === 'in_progress' ? 'Working On Site' : job.status.replace('_', ' ')}
-                  </Badge>
+                  <JobStatusBadge status={job.status} size="md" />
                 </div>
 
                 {/* Job Title & Service Description */}
@@ -737,9 +727,24 @@ export default function FieldPage() {
                 {/* CUSTOMER CONTACT & 48PX TRUCK NAVIGATION RAIL */}
                 <div className="p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800 bg-slate-50/90 dark:bg-zinc-950/60 space-y-3">
                   <div className="space-y-1">
-                    <div className="font-bold text-sm text-slate-900 dark:text-zinc-100">
-                      {formatCustomerName(job.contact?.name) || 'Homeowner'}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDossierCustomer({
+                          id: job.contact?.id,
+                          name: job.contact?.name,
+                          phone: job.contact?.phone,
+                          email: job.contact?.email,
+                          address: job.contact?.address,
+                          notes: job.contact?.notes || job.notes
+                        })
+                        setShowDossierModal(true)
+                      }}
+                      className="text-left font-bold text-sm text-slate-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>{formatCustomerName(job.contact?.name) || 'Homeowner'}</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                    </button>
                     {job.contact?.address && (
                       <div className="text-xs text-slate-600 dark:text-zinc-400 flex items-start gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
@@ -1098,6 +1103,13 @@ export default function FieldPage() {
         invoiceNumber={gatedJobData?.invoiceNumber}
         operationMode={operationMode === 'multi_crew' ? 'multi_crew' : 'solo'}
         onSuccess={loadFieldSchedule}
+      />
+
+      {/* Customer Profile Dossier Sheet */}
+      <CustomerDossierSheet
+        isOpen={showDossierModal}
+        onClose={() => setShowDossierModal(false)}
+        customer={dossierCustomer}
       />
 
     </div>
