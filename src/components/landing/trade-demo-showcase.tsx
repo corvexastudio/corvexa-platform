@@ -66,7 +66,7 @@ export const TRADE_DEMOS: TradeDemo[] = [
       { title: 'Mobile Foam Wash & Spray Wax', price: '$95', duration: '1.0 hr' },
       { title: 'Paint Correction & Ceramic Coat', price: '$650', duration: '4.0 hrs' }
     ],
-    availableSlot: 'Today: 2:00 PM – 4:30 PM'
+    availableSlot: 'Today: 2:00 PM to 4:30 PM'
   },
   {
     id: 'plumbing',
@@ -89,7 +89,7 @@ export const TRADE_DEMOS: TradeDemo[] = [
       { title: 'Water Heater Diagnostic & Flush', price: '$149', duration: '1.0 hr' },
       { title: 'Tankless Water Heater Installation', price: '$2,200', duration: '4.5 hrs' }
     ],
-    availableSlot: 'Today: 3:30 PM – 5:30 PM'
+    availableSlot: 'Today: 3:30 PM to 5:30 PM'
   },
   {
     id: 'hvac',
@@ -112,7 +112,7 @@ export const TRADE_DEMOS: TradeDemo[] = [
       { title: 'Furnace Diagnostics & Safety Check', price: '$129', duration: '1.0 hr' },
       { title: 'Heat Pump System Precision Service', price: '$285', duration: '2.0 hrs' }
     ],
-    availableSlot: 'Tomorrow: 8:30 AM – 10:30 AM'
+    availableSlot: 'Tomorrow: 8:30 AM to 10:30 AM'
   },
   {
     id: 'roofing',
@@ -133,9 +133,9 @@ export const TRADE_DEMOS: TradeDemo[] = [
     services: [
       { title: '18-Point Storm & Hail Damage Inspection', price: '$0 Free', duration: '1.0 hr', popular: true },
       { title: 'Emergency Roof Tarping & Patch', price: '$385', duration: '2.0 hrs' },
-      { title: 'Seamless Gutter Clean & Guard Flush', price: '$225', duration: '1.5 hrs' }
+      { title: 'Gutter Cleaning and Guard Flush', price: '$225', duration: '1.5 hrs' }
     ],
-    availableSlot: 'Tomorrow: 1:00 PM – 3:00 PM'
+    availableSlot: 'Tomorrow: 1:00 PM to 3:00 PM'
   },
   {
     id: 'electrical',
@@ -158,7 +158,7 @@ export const TRADE_DEMOS: TradeDemo[] = [
       { title: 'Whole-Home Safety & Circuit Check', price: '$149', duration: '1.0 hr' },
       { title: '200A Main Breaker Panel Modernization', price: '$2,400', duration: '5.0 hrs' }
     ],
-    availableSlot: 'Today: 4:00 PM – 6:00 PM'
+    availableSlot: 'Today: 4:00 PM to 6:00 PM'
   }
 ]
 
@@ -400,7 +400,7 @@ export function TradeDemoShowcase({ onOpenClaim }: { onOpenClaim?: () => void })
               <div className="space-y-2 text-xs text-slate-600">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span><strong>Zero app downloads</strong> for customers—opens directly in mobile Safari/Chrome</span>
+                  <span><strong>Zero app downloads</strong> for customers. Opens directly in mobile Safari or Chrome</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />

@@ -233,7 +233,7 @@ export function ClaimBookingModal({ open, onClose }: ClaimBookingModalProps) {
 
           {/* 1-Line Justification */}
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-normal pt-1">
-            Used to generate your live booking link and send your customer arrival updates—no credit card or phone forwarding required.
+            Used to generate your live booking link and send your customer arrival updates. No credit card or phone forwarding required.
           </p>
 
           {/* Submit CTA */}

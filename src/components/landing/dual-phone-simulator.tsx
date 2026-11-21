@@ -383,7 +383,7 @@ export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }
                     </div>
                     <h4 className="text-sm font-bold text-white">Your Visit is Confirmed!</h4>
                     <p className="text-[11px] text-slate-300">
-                      Apex Plumbing will arrive today between <span className="text-white font-bold">2:30 PM – 3:30 PM</span>.
+                      Apex Plumbing will arrive today between <span className="text-white font-bold">2:30 PM to 3:30 PM</span>.
                     </p>
                   </div>
 
@@ -552,7 +552,7 @@ export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }
                           Routes to Google Maps
                         </div>
                         <p className="text-[10px] text-slate-400 leading-tight">
-                          4–5 stars automatically routes Sarah to your Google listing to boost your local SEO.
+                          4 or 5 stars automatically routes Sarah to your Google listing to boost your local SEO.
                         </p>
                       </div>
                     ) : (
@@ -562,7 +562,7 @@ export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }
                           Intercepted Privately
                         </div>
                         <p className="text-[10px] text-slate-400 leading-tight">
-                          1–3 stars sends private feedback to your dashboard so you can fix it before it hurts your rating!
+                          1 to 3 stars sends private feedback to your dashboard so you can fix it before it hurts your rating!
                         </p>
                       </div>
                     )}

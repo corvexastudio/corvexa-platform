@@ -14,8 +14,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://captodesk.com'),
-  title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
-  description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
+  title: "CaptoDesk | Online Booking and Live Arrival Tracking for Local Crews",
+  description: "Turn Google Searches into booked service calls in 2 minutes. Dedicated online booking link for Google Maps and Instagram, live technician arrival tracking, and driveway Apple Pay.",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -28,16 +28,16 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
-    description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
+    title: "CaptoDesk | Online Booking and Live Arrival Tracking for Local Crews",
+    description: "Turn Google Searches into booked service calls in 2 minutes. Dedicated online booking link for Google Maps and Instagram, live technician arrival tracking, and driveway Apple Pay.",
     url: "https://captodesk.com",
     siteName: "CaptoDesk",
     images: [
       {
-        url: "/hero-banner.jpg",
-        width: 1920,
-        height: 1080,
-        alt: "CaptoDesk - Free Online Booking Link & Live Arrival Tracker for Local Crews",
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CaptoDesk Online Booking and Live Arrival Tracking for Home-Service Crews",
       },
     ],
     locale: "en_US",
@@ -45,9 +45,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "CaptoDesk | Free Online Booking Link & Live Arrival Tracker for Local Crews",
-    description: "Turn Google Maps and Instagram visitors into booked jobs in 2 minutes. Get a free booking link, Uber-style live truck arrival texts, driveway Apple Pay, and auto Google reviews. First 3 jobs free.",
-    images: ["/hero-banner.jpg"],
+    title: "CaptoDesk | Online Booking and Live Arrival Tracking for Local Crews",
+    description: "Turn Google Searches into booked service calls in 2 minutes. Dedicated online booking link for Google Maps and Instagram, live technician arrival tracking, and driveway Apple Pay.",
+    images: ["/opengraph-image.png"],
   },
 }
 
