@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { DollarSign, AlertTriangle, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react'
 
-export function RevenueCalculator() {
+export function RevenueCalculator({ onOpenClaim }: { onOpenClaim?: () => void } = {}) {
   const [callsPerWeek, setCallsPerWeek] = useState<number>(6)
   const [avgTicket, setAvgTicket] = useState<number>(650)
   const [closeRate, setCloseRate] = useState<number>(45)
@@ -158,13 +158,24 @@ export function RevenueCalculator() {
             </div>
           </div>
 
-          <Link
-            href="/client/login?mode=signup"
-            className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-extrabold text-sm shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <span>Claim Free 3-Job Pass</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          {onOpenClaim ? (
+            <button
+              type="button"
+              onClick={onOpenClaim}
+              className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-extrabold text-sm shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <span>Claim Free 3-Job Pass</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <Link
+              href="/client/login?mode=signup"
+              className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-extrabold text-sm shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <span>Claim Free 3-Job Pass</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
 
           <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
