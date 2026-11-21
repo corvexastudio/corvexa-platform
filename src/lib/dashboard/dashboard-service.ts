@@ -29,7 +29,7 @@ export function cleanJobServiceTitle(
 
 export interface AttentionItem {
   id: string
-  category: 'lead' | 'message' | 'missed_call' | 'quote' | 'appointment' | 'invoice' | 'retention'
+  category: 'lead' | 'message' | 'missed_call' | 'quote' | 'appointment' | 'invoice' | 'retention' | 'failed_sms'
   urgency: 'critical' | 'warning' | 'info'
   title: string
   subtitle: string
@@ -233,6 +233,17 @@ export async function getAttentionQueue(
     custQuery = (custQuery as any).is('deleted_at', null)
   }
 
+  // 6b. Failed Outbound SMS Messages (Past 48 Hours)
+  const failedSmsQuery = supabase
+    .from('messages')
+    .select('id, body, failure_reason, created_at, conversation_id, conversations(id, contacts(id, name, phone))')
+    .eq('org_id', orgId)
+    .eq('direction', 'outbound')
+    .eq('delivery_status', 'failed')
+    .gte('created_at', new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(5)
+
   // 7. Organization 10DLC & Subscription Status
   let orgQuery: any = supabase
     .from('organizations')
@@ -252,6 +263,7 @@ export async function getAttentionQueue(
     { data: requestedAppts },
     { data: rawOverdueInvoices },
     { data: rawDueCustomers },
+    { data: rawFailedSms },
     rawOrgResult
   ] = await Promise.all([
     leadsQuery,
@@ -261,6 +273,7 @@ export async function getAttentionQueue(
     apptsQuery,
     invQuery,
     custQuery,
+    failedSmsQuery,
     Promise.resolve(orgQuery).catch(() => ({ data: null }))
   ])
 
@@ -421,6 +434,26 @@ export async function getAttentionQueue(
         actionLabel: 'Reactivate',
         actionHref: `/client/customers/${cust.id}`,
         metadata: { contactId: cust.id }
+      })
+    }
+  }
+
+  // Process 6b: Failed Outbound SMS Messages
+  const failedMessages = rawFailedSms || []
+  if (failedMessages.length > 0) {
+    for (const msg of failedMessages) {
+      const contact = (msg.conversations as any)?.contacts
+      const contactName = contact?.name || contact?.phone || 'Customer'
+      items.push({
+        id: `failed-sms-${msg.id}`,
+        category: 'failed_sms',
+        urgency: 'critical',
+        title: `SMS Failed to ${contactName}`,
+        subtitle: msg.failure_reason || 'Carrier delivery failed. Tap to retry resending.',
+        timestamp: msg.created_at,
+        actionLabel: 'Retry in Inbox',
+        actionHref: `/client/inbox?conversation_id=${msg.conversation_id}`,
+        metadata: { messageId: msg.id, conversationId: msg.conversation_id }
       })
     }
   }

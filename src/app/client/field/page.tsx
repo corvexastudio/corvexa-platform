@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -170,6 +170,88 @@ export default function FieldPage() {
   const [dossierCustomer, setDossierCustomer] = useState<CustomerDossierData | null>(null)
   const [showDossierModal, setShowDossierModal] = useState(false)
 
+  // Direct 1-Tap Camera Capture
+  const directCameraInputRef = useRef<HTMLInputElement>(null)
+  const [directPhotoTargetJob, setDirectPhotoTargetJob] = useState<FieldJob | null>(null)
+  const [directUploading, setDirectUploading] = useState(false)
+  const [directUploadCategory, setDirectUploadCategory] = useState<'before' | 'after'>('before')
+
+  const handleTriggerDirectCamera = (job: FieldJob, defaultType?: 'before' | 'after') => {
+    setDirectPhotoTargetJob(job)
+    const category = defaultType || (job.status === 'in_progress' ? 'after' : 'before')
+    setDirectUploadCategory(category)
+    if (directCameraInputRef.current) {
+      directCameraInputRef.current.value = ''
+      directCameraInputRef.current.click()
+    }
+  }
+
+  const handleDirectPhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !directPhotoTargetJob) return
+    const targetJob = directPhotoTargetJob
+    const photoType = directUploadCategory
+    setDirectUploading(true)
+    const toastId = toast.loading(`Uploading ${photoType} photo for #${targetJob.job_number}...`)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('photoType', photoType)
+
+    try {
+      const res = await fetch(`/api/client/jobs/${targetJob.id}/photos`, {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (res.ok && data.photo) {
+        toast.success(`${photoType === 'before' ? 'Before' : 'After'} photo uploaded successfully!`, { id: toastId })
+        loadFieldSchedule()
+      } else {
+        toast.error(data.error || 'Failed to upload photo', {
+          id: toastId,
+          action: {
+            label: 'Retry',
+            onClick: () => handleRetryDirectUpload(targetJob, file, photoType)
+          }
+        })
+      }
+    } catch {
+      toast.error('Network error uploading photo', {
+        id: toastId,
+        action: {
+          label: 'Retry',
+          onClick: () => handleRetryDirectUpload(targetJob, file, photoType)
+        }
+      })
+    } finally {
+      setDirectUploading(false)
+    }
+  }
+
+  const handleRetryDirectUpload = async (job: FieldJob, file: File, photoType: 'before' | 'after') => {
+    const toastId = toast.loading(`Retrying upload for #${job.job_number}...`)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('photoType', photoType)
+
+    try {
+      const res = await fetch(`/api/client/jobs/${job.id}/photos`, {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (res.ok && data.photo) {
+        toast.success('Photo uploaded successfully!', { id: toastId })
+        loadFieldSchedule()
+      } else {
+        toast.error(data.error || 'Retry upload failed', { id: toastId })
+      }
+    } catch {
+      toast.error('Network error during retry', { id: toastId })
+    }
+  }
+
   // Field Note Inline Composer
   const [activeNoteJobId, setActiveNoteJobId] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
@@ -177,9 +259,9 @@ export default function FieldPage() {
 
   // Fetch Jobs Route Data for Selected Day
   const { data, isLoading: loading, isError, refetch } = useQuery({
-    queryKey: ['field-jobs', selectedDate],
+    queryKey: ['field-jobs', selectedDate, orgTimezone],
     queryFn: async () => {
-      const res = await fetch(`/api/client/jobs?date=${encodeURIComponent(selectedDate)}&limit=100`)
+      const res = await fetch(`/api/client/jobs?date=${encodeURIComponent(selectedDate)}&timezone=${encodeURIComponent(orgTimezone)}&limit=100`)
       if (!res.ok) throw new Error('Failed to load field jobs')
       return res.json()
     },
@@ -899,6 +981,19 @@ export default function FieldPage() {
                   {job.status === 'in_progress' && (
                     <>
                       <Button
+                        type="button"
+                        variant="outline"
+                        size="touch"
+                        disabled={directUploading}
+                        onClick={() => handleTriggerDirectCamera(job, 'after')}
+                        className="min-h-[48px] border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold shadow-2xs cursor-pointer gap-2"
+                        title="Snap after photo directly from camera"
+                      >
+                        {directUploading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Camera className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />}
+                        <span>Snap Photo</span>
+                      </Button>
+
+                      <Button
                         variant="outline"
                         size="touch"
                         onClick={() => {
@@ -907,8 +1002,7 @@ export default function FieldPage() {
                         }}
                         className="min-h-[48px] border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold shadow-2xs cursor-pointer gap-2"
                       >
-                        <Camera className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                        <span>Add Photo Proof</span>
+                        <span>All Photos</span>
                       </Button>
 
                       <Button
@@ -1014,15 +1108,26 @@ export default function FieldPage() {
                   {job.status !== 'completed' && (
                     <div className="flex items-center gap-1.5 ml-auto">
                       <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={directUploading}
+                        onClick={() => handleTriggerDirectCamera(job)}
+                        className="min-h-[40px] px-2.5 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer flex items-center gap-1"
+                        title="Snap photo directly from camera"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>Camera</span>
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
                           setPhotoJob(job)
                           setShowPhotoModal(true)
                         }}
-                        className="min-h-[40px] px-2.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 cursor-pointer"
+                        className="min-h-[40px] px-2 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 cursor-pointer"
                       >
-                        <Camera className="w-3.5 h-3.5 mr-1 text-slate-400" />
                         Photos
                       </Button>
                       <Button
@@ -1075,6 +1180,16 @@ export default function FieldPage() {
           })}
         </div>
       )}
+
+      {/* Direct Native Camera Input */}
+      <input
+        ref={directCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleDirectPhotoSelected}
+        className="hidden"
+      />
 
       {/* En Route ETA Modal */}
       <EnRouteModal

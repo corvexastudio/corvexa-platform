@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantContext } from '@/lib/security/tenant-context'
 import { createJob, convertQuoteToJob, hydrateJobsWithQuotes } from '@/lib/jobs/job-manager'
+import { getLocalDayUtcBoundaries } from '@/lib/temporal/timezone'
 
 import { encodeCursor, decodeCursor } from '@/lib/pagination/cursor'
 
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     return tenantResult.response
   }
 
-  const { orgId, supabase } = tenantResult
+  const { orgId, supabase, role, isSuperAdmin, user } = tenantResult
   const { searchParams } = new URL(request.url)
   const isTodayOnly = searchParams.get('today') === 'true'
   const dateParam = searchParams.get('date')
@@ -18,10 +19,21 @@ export async function GET(request: Request) {
   const endDateParam = searchParams.get('end_date')
   const statusParam = searchParams.get('status')
   const crewIdParam = searchParams.get('crew_id')
+  const timezoneParam = searchParams.get('timezone')
   const limitParam = searchParams.get('limit')
   const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 50
   const cursorStr = searchParams.get('cursor')
   const cursor = decodeCursor(cursorStr)
+
+  let orgTz = timezoneParam
+  if (!orgTz && (dateParam || isTodayOnly)) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('timezone')
+      .eq('id', orgId)
+      .maybeSingle()
+    orgTz = orgData?.timezone || 'America/Chicago'
+  }
 
   let query = supabase
     .from('jobs')
@@ -38,6 +50,22 @@ export async function GET(request: Request) {
     .eq('org_id', orgId)
     .order('scheduled_start', { ascending: true })
     .limit(limit + 1)
+
+  // Technician-level role isolation: Restricted technicians can only view jobs assigned to them or their van/crew
+  if (role === 'technician' && !isSuperAdmin && user?.id) {
+    const { data: userCrews } = await supabase
+      .from('crews')
+      .select('id')
+      .eq('org_id', orgId)
+      .or(`crew_lead_id.eq.${user.id},member_ids.cs.{"${user.id}"}`)
+
+    const crewIds = (userCrews || []).map((c: any) => c.id).filter(Boolean)
+    if (crewIds.length > 0) {
+      query = query.or(`assigned_to.eq.${user.id},crew_id.in.(${crewIds.join(',')})`)
+    } else {
+      query = query.eq('assigned_to', user.id)
+    }
+  }
 
   if (crewIdParam) {
     if (crewIdParam === 'unassigned') {
@@ -61,18 +89,14 @@ export async function GET(request: Request) {
   }
 
   if (dateParam) {
-    const dayStart = `${dateParam}T00:00:00.000Z`
-    const dayEnd = `${dateParam}T23:59:59.999Z`
-    query = query.gte('scheduled_start', dayStart).lte('scheduled_start', dayEnd)
+    const { startUtc, endUtc } = getLocalDayUtcBoundaries(dateParam, orgTz || 'America/Chicago')
+    query = query.gte('scheduled_start', startUtc.toISOString()).lte('scheduled_start', endUtc.toISOString())
   } else if (startDateParam || endDateParam) {
     if (startDateParam) query = query.gte('scheduled_start', startDateParam)
     if (endDateParam) query = query.lte('scheduled_start', endDateParam)
   } else if (isTodayOnly) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tonight = new Date()
-    tonight.setHours(23, 59, 59, 999)
-    query = query.gte('scheduled_start', today.toISOString()).lte('scheduled_start', tonight.toISOString())
+    const { startUtc, endUtc } = getLocalDayUtcBoundaries(new Date(), orgTz || 'America/Chicago')
+    query = query.gte('scheduled_start', startUtc.toISOString()).lte('scheduled_start', endUtc.toISOString())
   }
 
   let { data: rawJobs, error } = await query

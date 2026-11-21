@@ -1626,7 +1626,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                 // Empty leading cells
                 for (let i = 0; i < firstDayIndex; i++) {
                   cells.push(
-                    <div key={`empty-${i}`} className="min-h-[90px] sm:min-h-[110px] p-2 bg-slate-50/30 dark:bg-zinc-950/20" />
+                    <div key={`empty-${i}`} className="min-h-[64px] sm:min-h-[110px] p-1 sm:p-2 bg-slate-50/30 dark:bg-zinc-950/20" />
                   )
                 }
 
@@ -1644,7 +1644,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                         handleViewChange('agenda')
                       }}
                       className={cn(
-                        'min-h-[90px] sm:min-h-[110px] p-2 transition-colors cursor-pointer hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 relative flex flex-col justify-between',
+                        'min-h-[64px] sm:min-h-[110px] p-1 sm:p-2 transition-colors cursor-pointer hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 relative flex flex-col justify-between',
                         isToday && 'bg-blue-50/40 dark:bg-blue-950/20'
                       )}
                     >
@@ -1659,14 +1659,14 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                         </span>
 
                         {dayJobs.length > 0 && (
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 tabular-nums">
+                          <span className="hidden sm:inline-block text-[10px] font-bold text-slate-500 dark:text-zinc-400 tabular-nums">
                             {dayJobs.length} {dayJobs.length === 1 ? 'job' : 'jobs'}
                           </span>
                         )}
                       </div>
 
-                      {/* Mini Job Pills */}
-                      <div className="space-y-1 mt-1 overflow-hidden">
+                      {/* Desktop Mini Job Pills */}
+                      <div className="hidden sm:block space-y-1 mt-1 overflow-hidden">
                         {dayJobs.slice(0, 2).map(j => (
                           <div
                             key={j.id}
@@ -1681,6 +1681,18 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                           </div>
                         )}
                       </div>
+
+                      {/* Mobile Compact Activity Dots */}
+                      {dayJobs.length > 0 && (
+                        <div className="flex sm:hidden items-center justify-center gap-0.5 mt-1">
+                          {dayJobs.slice(0, 3).map((_, dotIdx) => (
+                            <span key={dotIdx} className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400" />
+                          ))}
+                          {dayJobs.length > 3 && (
+                            <span className="text-[8px] font-bold text-blue-600">+{dayJobs.length - 3}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 }

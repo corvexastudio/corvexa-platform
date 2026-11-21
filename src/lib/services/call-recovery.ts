@@ -307,7 +307,7 @@ export async function processMissedCall(
     try {
       await supabase.from('notifications').insert({
         org_id: org.id,
-        title: 'Trial Quota Reached — Auto-Replies Paused',
+        title: 'Trial Quota Reached: Auto-Replies Paused',
         message: `Your organization has reached the trial limit (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Automated outbound SMS recovery is paused. Upgrade now to keep customer recovery active.`,
         link: '/client/billing'
       })
@@ -319,7 +319,7 @@ export async function processMissedCall(
       event: 'system_action_required',
       organizationId: org.id,
       data: {
-        title: 'Trial Quota Reached — Auto-Replies Paused',
+        title: 'Trial Quota Reached: Auto-Replies Paused',
         body: `Your organization has reached the trial limit (${trialQuota.bookedCount}/${trialQuota.maxBookings} bookings). Automated outbound SMS recovery is paused. Upgrade now to keep customer recovery active.`,
         targetUrl: '/client/billing',
         callerPhone: formattedCaller,

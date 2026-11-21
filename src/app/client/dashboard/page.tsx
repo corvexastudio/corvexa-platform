@@ -170,8 +170,7 @@ export default function DashboardPage() {
 
   const attentionQueue: AttentionItem[] = data?.attentionQueue || []
   const visibleAttentionItems = attentionQueue.filter(item => {
-    if (dismissedAttentionIds.includes(item.id)) return false
-    return ['message', 'missed_call', 'lead', 'appointment'].includes(item.category)
+    return !dismissedAttentionIds.includes(item.id)
   })
 
   const operations: OperationalMetrics | null = data?.operations || null
@@ -378,12 +377,18 @@ export default function DashboardPage() {
         return { label: 'New Lead', variant: 'info' as const, icon: Target }
       case 'message':
         return { label: 'Unread Chat', variant: 'info' as const, icon: MessageSquare }
+      case 'failed_sms':
+        return { label: 'Failed SMS', variant: 'danger' as const, icon: AlertCircle }
       case 'missed_call':
         return { label: 'Missed Call', variant: 'danger' as const, icon: PhoneMissed }
       case 'quote':
         return { label: 'Estimate Pending', variant: 'warning' as const, icon: FileText }
       case 'appointment':
         return { label: 'Booking Request', variant: 'success' as const, icon: CalendarCheck }
+      case 'invoice':
+        return { label: 'Overdue Invoice', variant: 'danger' as const, icon: DollarSign }
+      case 'retention':
+        return { label: 'Service Alert', variant: 'warning' as const, icon: Clock }
       default:
         return { label: 'Action Required', variant: 'neutral' as const, icon: AlertCircle }
     }
