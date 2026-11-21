@@ -5,6 +5,92 @@ import { invalidateProfileCache } from '@/lib/security/tenant-context'
 export const dynamic = 'force-dynamic'
 
 const DEMO_EMAIL = 'demo@captodesk.com'
+const DEMO_USER_ID = '7280f4fd-3368-4a14-9694-d7e40206754e'
+
+/**
+ * Deterministic mapping of supported trade parameters to their verified synthetic demo organizations.
+ * Prevents PostgREST PGRST116 multiple-row query failures and guarantees accurate trade routing.
+ */
+const DEMO_TRADE_ORGS: Record<string, { id: string; slug: string; name: string }> = {
+  // Auto Detailing
+  'detailing': {
+    id: '57e198ff-935e-4408-b7fb-6a85a4f8d20c',
+    slug: 'auto-detailing',
+    name: 'CaptoDesk Auto Detailing Demo'
+  },
+  'auto-detailing': {
+    id: '57e198ff-935e-4408-b7fb-6a85a4f8d20c',
+    slug: 'auto-detailing',
+    name: 'CaptoDesk Auto Detailing Demo'
+  },
+  'auto_detailing': {
+    id: '57e198ff-935e-4408-b7fb-6a85a4f8d20c',
+    slug: 'auto-detailing',
+    name: 'CaptoDesk Auto Detailing Demo'
+  },
+  // Plumbing
+  'plumbing': {
+    id: '3776e1c0-0271-4ebf-a465-3e1097fce1d4',
+    slug: 'plumbing',
+    name: 'CaptoDesk Plumbing & Drain Demo'
+  },
+  'plumbing-and-drain': {
+    id: '3776e1c0-0271-4ebf-a465-3e1097fce1d4',
+    slug: 'plumbing',
+    name: 'CaptoDesk Plumbing & Drain Demo'
+  },
+  // HVAC
+  'hvac': {
+    id: '890ef758-fb2c-4438-9841-d0b5642861cd',
+    slug: 'hvac',
+    name: 'CaptoDesk HVAC & Heating Demo'
+  },
+  'hvac-and-heating': {
+    id: '890ef758-fb2c-4438-9841-d0b5642861cd',
+    slug: 'hvac',
+    name: 'CaptoDesk HVAC & Heating Demo'
+  },
+  // Roofing
+  'roofing': {
+    id: 'c01902e5-ef7c-40ef-9d11-982c74121650',
+    slug: 'roofing',
+    name: 'CaptoDesk Roofing & Gutters Demo'
+  },
+  'roofing-and-gutters': {
+    id: 'c01902e5-ef7c-40ef-9d11-982c74121650',
+    slug: 'roofing',
+    name: 'CaptoDesk Roofing & Gutters Demo'
+  },
+  // Electrical
+  'electrical': {
+    id: '3e21cf6a-9821-4419-948f-db62cf976503',
+    slug: 'electrical',
+    name: 'CaptoDesk Electrical Services Demo'
+  },
+  'electrical-services': {
+    id: '3e21cf6a-9821-4419-948f-db62cf976503',
+    slug: 'electrical',
+    name: 'CaptoDesk Electrical Services Demo'
+  },
+  // Landscaping
+  'landscaping': {
+    id: '65b29a4a-446d-4dca-aa40-fe68310c1bd4',
+    slug: 'landscaping',
+    name: 'CaptoDesk Landscaping & Lawn Demo'
+  },
+  // Cleaning
+  'cleaning': {
+    id: 'cb9372fc-48ed-4846-8e77-96a4e784addc',
+    slug: 'cleaning',
+    name: 'CaptoDesk House Cleaning Demo'
+  },
+  // Pressure Washing
+  'pressure-washing': {
+    id: '40308b5d-43b3-47bf-b647-32b11f107198',
+    slug: 'pressure-washing',
+    name: 'CaptoDesk Pressure Washing Demo'
+  },
+}
 
 /**
  * Public Frictionless Demo Entrypoint
@@ -32,23 +118,35 @@ export async function GET(request: NextRequest) {
 
     // 1. Dynamic Trade Switching: Switch demo owner profile to target trade org if specified
     if (tradeParam) {
-      const normalizedSlug = tradeParam.toLowerCase().replace(/_/g, '-')
-      const { data: tradeOrg } = await supabase
-        .from('organizations')
-        .select('id, slug, name')
-        .or(`slug.eq.${normalizedSlug},industry.eq.${tradeParam.toLowerCase()}`)
-        .maybeSingle()
+      const cleanKey = tradeParam.toLowerCase().trim()
+      const normalizedSlug = cleanKey.replace(/_/g, '-')
 
-      if (tradeOrg) {
-        const { data: usersData } = await supabase.auth.admin.listUsers()
-        const demoUser = usersData?.users?.find((u) => u.email === DEMO_EMAIL)
-        if (demoUser) {
-          await supabase
-            .from('profiles')
-            .update({ org_id: tradeOrg.id })
-            .eq('id', demoUser.id)
-          invalidateProfileCache(demoUser.id)
+      let targetOrgId: string | null = null
+
+      if (DEMO_TRADE_ORGS[cleanKey]) {
+        targetOrgId = DEMO_TRADE_ORGS[cleanKey].id
+      } else if (DEMO_TRADE_ORGS[normalizedSlug]) {
+        targetOrgId = DEMO_TRADE_ORGS[normalizedSlug].id
+      } else {
+        // Fallback: search organizations with .limit(1) to prevent PostgREST PGRST116 errors
+        const { data: matchedOrgs } = await supabase
+          .from('organizations')
+          .select('id, slug, name')
+          .or(`slug.eq.${normalizedSlug},industry.eq.${cleanKey}`)
+          .limit(1)
+
+        if (matchedOrgs && matchedOrgs.length > 0) {
+          targetOrgId = matchedOrgs[0].id
         }
+      }
+
+      if (targetOrgId) {
+        await supabase
+          .from('profiles')
+          .update({ org_id: targetOrgId })
+          .eq('email', DEMO_EMAIL)
+
+        invalidateProfileCache(DEMO_USER_ID)
       }
     }
 
@@ -68,7 +166,11 @@ export async function GET(request: NextRequest) {
     const callbackUrl = new URL('/client/auth/callback', targetOrigin)
     callbackUrl.searchParams.set('token_hash', tokenHash)
     callbackUrl.searchParams.set('type', 'magiclink')
-    callbackUrl.searchParams.set('next', destination)
+    
+    // Add cache-busting timestamp and trade context to destination
+    const separator = destination.includes('?') ? '&' : '?'
+    const freshDestination = `${destination}${separator}t=${Date.now()}${tradeParam ? `&trade=${encodeURIComponent(tradeParam)}` : ''}`
+    callbackUrl.searchParams.set('next', freshDestination)
 
     return NextResponse.redirect(callbackUrl)
   } catch (err) {

@@ -610,10 +610,10 @@ export default function AgencyDemoDashboard() {
                       {/* Workspace Preview */}
                       <td className="py-3.5 px-4 text-right">
                         <a
-                          href={`https://app.captodesk.com/demo?trade=${slot.industry}`}
+                          href={`https://app.captodesk.com/demo?trade=${slot.slug}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-slate-900 transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-slate-900 transition-colors shadow-2xs cursor-pointer"
                         >
                           <span>Workspace</span>
                           <ArrowUpRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
