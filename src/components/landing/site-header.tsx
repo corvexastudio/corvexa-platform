@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, ArrowRight, ExternalLink } from 'lucide-react'
+import { Menu, X, ArrowRight } from 'lucide-react'
 import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
 
 interface SiteHeaderProps {
@@ -17,28 +17,13 @@ export function SiteHeader({ isAuthenticated = false, onOpenClaim }: SiteHeaderP
     <>
       {/* Top Notification Strip */}
       <div className="bg-slate-900 text-slate-200 text-xs py-2 px-4 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-left">
-          <div className="flex items-center gap-2 justify-center">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="font-semibold text-white">First 3 Completed Jobs Free</span>
-            <span className="text-slate-500 hidden md:inline">•</span>
-            <span className="text-slate-300 hidden md:inline">No credit card required</span>
-            <span className="text-slate-500 hidden md:inline">•</span>
-            <span className="text-slate-300 hidden md:inline">Keep your existing phone number</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400">Web Agencies:</span>
-            <a
-              href="https://agency.captodesk.com/demo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 font-semibold underline decoration-blue-500/50 flex items-center gap-1 transition-colors"
-            >
-              <span>Wholesale Partner Portal</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
+        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-center">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="font-semibold text-white">First 3 Completed Jobs Free</span>
+          <span className="text-slate-500 hidden sm:inline">•</span>
+          <span className="text-slate-300 hidden sm:inline">No credit card required</span>
+          <span className="text-slate-500 hidden sm:inline">•</span>
+          <span className="text-slate-300 hidden sm:inline">Keep your existing phone number</span>
         </div>
       </div>
 
@@ -159,15 +144,6 @@ export function SiteHeader({ isAuthenticated = false, onOpenClaim }: SiteHeaderP
                 className="px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 FAQ
-              </a>
-              <a
-                href="https://agency.captodesk.com/demo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 rounded-lg text-blue-600 hover:bg-blue-50 flex items-center justify-between"
-              >
-                <span>Agency Wholesale Console</span>
-                <ExternalLink className="w-4 h-4" />
               </a>
             </nav>
             <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">

@@ -1,14 +1,13 @@
 import React from 'react'
 import Link from 'next/link'
 import { BrandIcon, BrandWordmark } from '@/components/brand/brand-logo'
-import { ExternalLink } from 'lucide-react'
 
 export function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white py-12 px-4 sm:px-6 lg:px-8 text-xs text-slate-500">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
         
-        {/* Brand Col (4 cols) */}
+        {/* Brand Col (5 cols) */}
         <div className="md:col-span-5 space-y-3">
           <Link href="/" className="flex items-center gap-2.5">
             <BrandIcon className="w-7 h-7 rounded-md" size={28} />
@@ -61,27 +60,16 @@ export function SiteFooter() {
           </ul>
         </div>
 
-        {/* Portals & Legal (4 cols) */}
+        {/* Account & Legal (4 cols) */}
         <div className="md:col-span-4 space-y-2.5">
           <span className="text-[11px] font-mono font-bold uppercase text-slate-900 tracking-wider block">
-            Portals &amp; Compliance
+            Account &amp; Legal
           </span>
           <ul className="space-y-2">
             <li>
               <Link href="/client/login" className="hover:text-slate-900 font-semibold transition-colors">
                 Contractor Login
               </Link>
-            </li>
-            <li>
-              <a
-                href="https://agency.captodesk.com/demo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 font-semibold inline-flex items-center gap-1 transition-colors"
-              >
-                <span>Agency Wholesale Console</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
             </li>
             <li>
               <Link href="/contact" className="hover:text-slate-900 transition-colors">
