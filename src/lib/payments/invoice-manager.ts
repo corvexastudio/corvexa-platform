@@ -949,7 +949,7 @@ export async function customerViewInvoice(
       *,
       invoice_items(*),
       contacts(id, name, phone, email, address),
-      organizations(id, name, owner_phone, timezone, external_payment_url, payment_instructions, industry, logo_url, address_street, address_city, address_state, address_postal_code)
+      organizations(id, name, owner_phone, telnyx_phone_number, timezone, external_payment_url, payment_instructions, industry, logo_url, license_number, address_street, address_city, address_state, address_postal_code)
     `)
     .eq('manage_token', manageToken.trim())
     .maybeSingle()
@@ -974,20 +974,24 @@ export async function customerViewInvoice(
   if (!org && invoice.org_id) {
     const { data: o, error: oErr } = await supabase
       .from('organizations')
-      .select('id, name, owner_phone, timezone, external_payment_url, payment_instructions, industry, logo_url, address_street, address_city, address_state, address_postal_code')
+      .select('id, name, owner_phone, telnyx_phone_number, timezone, external_payment_url, payment_instructions, industry, logo_url, license_number, address_street, address_city, address_state, address_postal_code')
       .eq('id', invoice.org_id)
       .maybeSingle()
 
     if (oErr || !o) {
       const { data: fallbackOrg } = await supabase
         .from('organizations')
-        .select('id, name, owner_phone, timezone')
+        .select('id, name, owner_phone, telnyx_phone_number, timezone')
         .eq('id', invoice.org_id)
         .maybeSingle()
       org = fallbackOrg || null
     } else {
       org = o
     }
+  }
+
+  if (org) {
+    org.phone = org.telnyx_phone_number || org.owner_phone || null
   }
 
   // 4. Contact resolution with fallback & address compatibility

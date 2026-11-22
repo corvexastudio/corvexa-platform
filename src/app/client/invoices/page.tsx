@@ -32,7 +32,12 @@ import {
   Smartphone,
   ShieldCheck,
   ArrowRight,
-  Edit2
+  Edit2,
+  MoreVertical,
+  Eye,
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -66,6 +71,16 @@ interface InvoiceItem {
   total?: number
 }
 
+interface PaymentRecord {
+  id: string
+  amount: number
+  payment_method: string
+  status: string
+  reference_note?: string | null
+  created_at: string
+  stripe_receipt_url?: string | null
+}
+
 interface Invoice {
   id: string
   invoice_number: string
@@ -79,20 +94,33 @@ interface Invoice {
   amount_due: number
   status: 'draft' | 'sent' | 'viewed' | 'partially_paid' | 'paid' | 'overdue' | 'void'
   due_date: string
-  manage_token: string
-  payment_method?: string
-  sent_at?: string
-  paid_at?: string
+  payment_method?: string | null
+  notes?: string | null
   created_at: string
+  paid_at?: string | null
+  sent_at?: string | null
+  manage_token: string
+  job_id?: string | null
+  quote_id?: string | null
   contact?: {
     id: string
     name: string
     phone: string
     email?: string
+    address?: string
+  }
+  job?: {
+    id: string
+    job_number: string
+    status: string
+  }
+  quote?: {
+    id: string
+    quote_number: string
+    title: string
   }
   items?: InvoiceItem[]
-  job?: { id: string; job_number: string; status: string }
-  quote?: { id: string; quote_number: string; title: string }
+  payments?: PaymentRecord[]
 }
 
 function getInvoiceStatusBadge(inv: Invoice) {
@@ -107,7 +135,7 @@ function getInvoiceStatusBadge(inv: Invoice) {
   if (isPaid) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
-        Paid
+        Paid in Full
       </span>
     )
   }
@@ -153,12 +181,78 @@ function getInvoiceStatusBadge(inv: Invoice) {
   )
 }
 
+function getDescriptiveStatusBadge(inv: Invoice) {
+  const isPaid = inv.status === 'paid'
+  const isVoid = inv.status === 'void'
+  const isDraft = inv.status === 'draft'
+  const remainingDue = Number(inv.amount_due ?? (Number(inv.total || 0) - Number(inv.amount_paid || 0)))
+  const isOverdue =
+    inv.status === 'overdue' ||
+    (!isDraft && !isPaid && !isVoid && remainingDue > 0 && new Date(inv.due_date).getTime() < Date.now())
+
+  if (isPaid) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+        <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+        Paid in full
+      </span>
+    )
+  }
+  if (inv.status === 'partially_paid') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+        <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+        ${remainingDue.toFixed(2)} remaining
+      </span>
+    )
+  }
+  if (isOverdue) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+        <AlertCircle className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+        Payment was due on {new Date(inv.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+      </span>
+    )
+  }
+  if (inv.status === 'sent') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+        <Send className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+        Waiting for customer payment
+      </span>
+    )
+  }
+  if (inv.status === 'viewed') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
+        <Eye className="h-3 w-3 text-sky-600 dark:text-sky-400" />
+        Viewed by customer
+      </span>
+    )
+  }
+  if (isVoid) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
+        <Ban className="h-3 w-3" />
+        Voided
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">
+      <Clock className="h-3 w-3" />
+      Not sent to the customer
+    </span>
+  )
+}
+
 function ClientInvoicesContent() {
   const searchParams = useSearchParams()
-  const contactIdParam = searchParams.get('contact_id') || searchParams.get('contactId')
+  const contactIdParam = searchParams.get('contact_id')
   const titleParam = searchParams.get('title')
-  const jobIdParam = searchParams.get('job_id') || searchParams.get('jobId')
-  const quoteIdParam = searchParams.get('quote_id') || searchParams.get('quoteId')
+  const jobIdParam = searchParams.get('job_id')
+  const quoteIdParam = searchParams.get('quote_id')
+
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
   const [matchingQuotes, setMatchingQuotes] = useState<any[]>([])
@@ -167,13 +261,19 @@ function ClientInvoicesContent() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid' | 'draft' | 'void'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid' | 'overdue' | 'draft' | 'void'>('all')
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || searchParams.get('q') || '')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [voidInvoiceId, setVoidInvoiceId] = useState<string | null>(null)
 
-  // New Invoice Modal
+  // Focused Invoice Detail Modal State
+  const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<Invoice | null>(null)
+
+  // Mobile Bottom-Sheet Action Menu State
+  const [selectedInvoiceForActions, setSelectedInvoiceForActions] = useState<Invoice | null>(null)
+
+  // New Invoice Wizard State
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [contacts, setContacts] = useState<any[]>([])
   const [selectedContactId, setSelectedContactId] = useState('')
@@ -192,6 +292,7 @@ function ClientInvoicesContent() {
   useEffect(() => {
     selectedQuoteIdRef.current = selectedQuoteId
   }, [selectedQuoteId])
+
   const { orgIndustry, operationMode } = useWorkspace()
   const [savingInvoice, setSavingInvoice] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all')
@@ -255,14 +356,14 @@ function ClientInvoicesContent() {
     }
   }, [contactIdParam, titleParam, jobIdParam, quoteIdParam, searchParams])
 
-  // Truck-Ready Offline Payment Modal
+  // Truck-Ready Payment Collection Modal State
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'check' | 'card_offline' | 'other'>('cash')
   const [referenceNote, setReferenceNote] = useState('Cash handed on site')
   const [recordingPayment, setRecordingPayment] = useState(false)
 
-  // Edit Draft Invoice Modal State (P0: Truck-Ready Editing)
+  // Edit Draft Invoice Modal State
   const [editingDraftInvoice, setEditingDraftInvoice] = useState<Invoice | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
@@ -389,6 +490,16 @@ function ClientInvoicesContent() {
     loadInvoices()
     loadContacts()
   }, [loadInvoices, loadContacts])
+
+  // Keep selectedInvoiceForDetail synchronized when invoices list refreshes
+  useEffect(() => {
+    if (selectedInvoiceForDetail) {
+      const fresh = invoices.find(i => i.id === selectedInvoiceForDetail.id)
+      if (fresh) {
+        setSelectedInvoiceForDetail(fresh)
+      }
+    }
+  }, [invoices, selectedInvoiceForDetail])
 
   // Calculations for new invoice form
   const subtotal = useMemo(() => {
@@ -636,7 +747,7 @@ function ClientInvoicesContent() {
       })
 
       if (res.ok) {
-        toast.success('Offline payment recorded successfully')
+        toast.success('Payment recorded successfully')
         setPaymentModalInvoice(null)
         setPaymentAmount('')
         setReferenceNote('')
@@ -668,6 +779,9 @@ function ClientInvoicesContent() {
       const res = await fetch(`/api/client/invoices/${invoiceId}/void`, { method: 'POST' })
       if (res.ok) {
         toast.success('Invoice voided.')
+        if (selectedInvoiceForDetail?.id === invoiceId) {
+          setSelectedInvoiceForDetail(null)
+        }
         await loadInvoices()
       } else {
         const data = await res.json().catch(() => ({}))
@@ -690,10 +804,11 @@ function ClientInvoicesContent() {
   }
 
   // Financial aggregates (Authoritative Accounting Engine)
-  const totalInvoiced = useMemo(() => invoices.reduce((acc, inv) => acc + (Number(inv.total) || 0), 0), [invoices])
+  const totalInvoiced = useMemo(() => invoices.filter(i => i.status !== 'void').reduce((acc, inv) => acc + (Number(inv.total) || 0), 0), [invoices])
   const paidInvoices = useMemo(() => invoices.filter((i) => i.status === 'paid'), [invoices])
-  const totalPaid = useMemo(() => invoices.reduce((acc, inv) => acc + (Number(inv.amount_paid) || 0), 0), [invoices])
+  const totalPaid = useMemo(() => invoices.filter(i => i.status !== 'void').reduce((acc, inv) => acc + (Number(inv.amount_paid) || 0), 0), [invoices])
   const draftInvoices = useMemo(() => invoices.filter((i) => i.status === 'draft'), [invoices])
+  const voidInvoices = useMemo(() => invoices.filter((i) => i.status === 'void'), [invoices])
 
   // Collectible issued receivables (strictly issued invoices with positive amount due; excludes unissued drafts, paid, and void)
   const receivablesInvoices = useMemo(() => invoices.filter(
@@ -716,6 +831,8 @@ function ClientInvoicesContent() {
         if (!['sent', 'viewed', 'partially_paid', 'overdue'].includes(inv.status) || Number(inv.amount_due) <= 0) return false
       } else if (statusFilter === 'paid') {
         if (inv.status !== 'paid') return false
+      } else if (statusFilter === 'overdue') {
+        if (!['sent', 'viewed', 'partially_paid', 'overdue'].includes(inv.status) || Number(inv.amount_due) <= 0 || (inv.status !== 'overdue' && new Date(inv.due_date).getTime() >= Date.now())) return false
       } else if (statusFilter === 'draft') {
         if (inv.status !== 'draft') return false
       } else if (statusFilter === 'void') {
@@ -795,7 +912,7 @@ function ClientInvoicesContent() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Send text payment links, take card payments on-site, and track paid invoices.
+            Send text payment links, collect payments on-site, and manage customer receivables.
           </p>
         </div>
 
@@ -833,12 +950,12 @@ function ClientInvoicesContent() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Receivables Due</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Outstanding Receivables</p>
             <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500/80" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums font-mono mt-1">${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 sm:mt-1 truncate">
-            {receivablesInvoices.length} open receivable{receivablesInvoices.length === 1 ? '' : 's'}{draftInvoices.length > 0 ? ` (${draftInvoices.length} draft)` : ''}
+            {receivablesInvoices.length} open receivable{receivablesInvoices.length === 1 ? '' : 's'}{draftInvoices.length > 0 ? ` (${draftInvoices.length} draft unissued)` : ''}
           </p>
         </div>
 
@@ -855,7 +972,7 @@ function ClientInvoicesContent() {
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Overdue</p>
+            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Past Due</p>
             <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500/80" />
           </div>
           <p className="text-lg sm:text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums font-mono mt-1">{overdueInvoices.length}</p>
@@ -876,21 +993,22 @@ function ClientInvoicesContent() {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Filter and Search Bar (Horizontal Thumb-Friendly Tabs) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1 overflow-x-auto max-w-full scrollbar-none">
           {[
             { key: 'all', label: 'All Invoices', count: invoices.length },
-            { key: 'unpaid', label: 'Unpaid (Due & Overdue)', count: receivablesInvoices.length },
+            { key: 'unpaid', label: 'Unpaid', count: receivablesInvoices.length },
             { key: 'paid', label: 'Paid', count: paidInvoices.length },
+            { key: 'overdue', label: 'Overdue', count: overdueInvoices.length },
             { key: 'draft', label: 'Drafts', count: draftInvoices.length },
-            { key: 'void', label: 'Void', count: invoices.filter(i => i.status === 'void').length }
+            { key: 'void', label: 'Void', count: voidInvoices.length }
           ].map(t => (
             <button
               key={t.key}
               onClick={() => setStatusFilter(t.key as any)}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer",
+                "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer min-h-[36px]",
                 statusFilter === t.key
                   ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs font-semibold"
                   : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-zinc-800/50"
@@ -915,7 +1033,7 @@ function ClientInvoicesContent() {
             placeholder="Search invoice #, customer, or title..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="h-8.5 pl-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-400 rounded-lg shadow-2xs focus:border-blue-500"
+            className="h-9 pl-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-400 rounded-lg shadow-2xs focus:border-blue-500"
           />
         </div>
       </div>
@@ -931,41 +1049,47 @@ function ClientInvoicesContent() {
       ) : loading ? (
         <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
           <div className="p-4 space-y-3">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-zinc-800/60 last:border-0">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-zinc-800/80 last:border-0">
                 <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-36 bg-slate-100 dark:bg-zinc-800" />
-                  <Skeleton className="h-3 w-48 bg-slate-100/70 dark:bg-zinc-800/60" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
                 </div>
-                <Skeleton className="h-5 w-20 bg-slate-100 dark:bg-zinc-800" />
-                <Skeleton className="h-4 w-16 bg-slate-100 dark:bg-zinc-800" />
-                <Skeleton className="h-8 w-28 bg-slate-100 dark:bg-zinc-800" />
+                <Skeleton className="h-8 w-24" />
               </div>
             ))}
           </div>
         </div>
       ) : filteredInvoices.length === 0 ? (
         <EmptyState
-          icon={CreditCard}
-          title={searchQuery ? 'No Matching Invoices' : 'No Invoices Created Yet'}
+          icon={Receipt}
+          title={searchQuery ? 'No invoices match your search' : 'No invoices in this view'}
           description={
             searchQuery
-              ? `No invoices match "${searchQuery}". Try searching by customer name, phone number, or invoice number.`
-              : 'Dispatched jobs can be invoiced immediately. Customers receive a secure mobile checkout link for instant payment via Card or Apple Pay.'
+              ? `No invoices matching "${searchQuery}". Try searching by customer name, phone number, or invoice number.`
+              : statusFilter === 'unpaid'
+              ? 'No unpaid invoices! All customer accounts are up to date.'
+              : statusFilter === 'overdue'
+              ? 'Zero overdue accounts! Great job maintaining customer collections.'
+              : statusFilter === 'draft'
+              ? 'No unissued draft invoices. Click "New Invoice" to create one.'
+              : statusFilter === 'paid'
+              ? 'No paid invoices found yet.'
+              : 'Create service invoices, text secure payment links to customers, or collect payments in the field.'
           }
-          actionLabel={searchQuery ? 'Clear Search' : 'Create First Invoice'}
-          onAction={searchQuery ? () => setSearchQuery('') : () => setShowCreateModal(true)}
+          actionLabel={!searchQuery && statusFilter === 'all' ? 'Create First Invoice' : undefined}
+          onAction={!searchQuery && statusFilter === 'all' ? () => setShowCreateModal(true) : undefined}
         />
       ) : (
-        <div className="border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
+        <div className="space-y-4">
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
             <Table>
-              <TableHeader className="bg-slate-50/80 dark:bg-zinc-900/90 border-b border-slate-200/80 dark:border-zinc-800">
-                <TableRow className="border-b border-slate-200/80 dark:border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4">Invoice #</TableHead>
+              <TableHeader className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200/80 dark:border-zinc-800">
+                <TableRow>
+                  <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4 w-28">Invoice #</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4">Customer</TableHead>
-                  <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4">Scope & Title</TableHead>
+                  <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4">Service Scope</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4">Status</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4">Due Date</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-semibold text-xs py-3.5 px-4 text-right">Balance Due</TableHead>
@@ -981,8 +1105,15 @@ function ClientInvoicesContent() {
 
                   return (
                     <TableRow key={inv.id} className="border-b border-slate-100 dark:border-zinc-800/80 hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
-                      <TableCell className="py-3.5 px-4 font-mono font-semibold text-xs text-slate-700 dark:text-zinc-300">
-                        {inv.invoice_number}
+                      <TableCell className="py-3.5 px-4">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedInvoiceForDetail(inv)}
+                          className="font-mono font-bold text-xs text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
+                          title="View invoice details"
+                        >
+                          {inv.invoice_number}
+                        </button>
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4">
@@ -1035,8 +1166,14 @@ function ClientInvoicesContent() {
                         )}
                       </TableCell>
 
-                      <TableCell className="py-3.5 px-4 text-right font-semibold text-xs text-blue-600 dark:text-blue-400 font-mono tabular-nums">
-                        ${Number(inv.amount_due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <TableCell className="py-3.5 px-4 text-right font-semibold text-xs font-mono tabular-nums">
+                        {isPaid ? (
+                          <span className="text-emerald-600 dark:text-emerald-400">$0.00</span>
+                        ) : (
+                          <span className={cn(isOverdue ? "text-rose-600 dark:text-rose-400 font-bold" : "text-blue-600 dark:text-blue-400")}>
+                            ${Number(inv.amount_due).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </TableCell>
 
                       <TableCell className="py-3.5 px-4 text-right font-bold text-xs text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
@@ -1045,19 +1182,17 @@ function ClientInvoicesContent() {
 
                       <TableCell className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
-                          {/* 1-Tap Inline Edit Draft Button */}
-                          {inv.status === 'draft' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEditDraftModal(inv)}
-                              className="h-7.5 px-2.5 text-xs text-slate-700 hover:text-slate-900 border-slate-200 dark:text-zinc-300 dark:border-zinc-800 font-semibold rounded-md shadow-2xs cursor-pointer"
-                              title="Edit draft invoice amounts and items"
-                            >
-                              <Edit2 className="h-3 w-3 mr-1 text-slate-500" />
-                              <span>Edit</span>
-                            </Button>
-                          )}
+                          {/* Details Button */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedInvoiceForDetail(inv)}
+                            className="h-7.5 px-2 text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-zinc-800 font-semibold rounded-md cursor-pointer"
+                            title="View full invoice details"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            <span>Details</span>
+                          </Button>
 
                           {/* 1-Tap Offline Payment Button */}
                           {!isPaid && !isVoid && (
@@ -1088,6 +1223,20 @@ function ClientInvoicesContent() {
                                 <Send className="h-3 w-3 mr-1" />
                               )}
                               <span>{inv.status === 'draft' ? 'Send SMS' : 'Remind'}</span>
+                            </Button>
+                          )}
+
+                          {/* Edit Draft Button */}
+                          {inv.status === 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditDraftModal(inv)}
+                              className="h-7.5 px-2.5 text-xs text-slate-700 hover:text-slate-900 border-slate-200 dark:text-zinc-300 dark:border-zinc-800 font-semibold rounded-md shadow-2xs cursor-pointer"
+                              title="Edit draft invoice amounts and items"
+                            >
+                              <Edit2 className="h-3 w-3 mr-1 text-slate-500" />
+                              <span>Edit</span>
                             </Button>
                           )}
 
@@ -1124,13 +1273,13 @@ function ClientInvoicesContent() {
                             href={`/invoice/${inv.manage_token}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Preview customer invoice"
                             className="p-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors shadow-2xs"
+                            title="Preview customer invoice page"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
 
-                          {/* Void Invoice */}
+                          {/* Void Invoice (P0 Security & Safety) */}
                           {!isPaid && !isVoid && (
                             <button
                               type="button"
@@ -1150,9 +1299,9 @@ function ClientInvoicesContent() {
             </Table>
           </div>
 
-          {/* Mobile Card List View (Truck-Ready 44px+ Ergonomics) */}
-          <div className="md:hidden divide-y divide-slate-100 dark:divide-zinc-800">
-            {filteredInvoices.map(inv => {
+          {/* Mobile High-Touch Cards (< 768px) */}
+          <div className="md:hidden space-y-3">
+            {filteredInvoices.map((inv) => {
               const isPaid = inv.status === 'paid'
               const isVoid = inv.status === 'void'
               const isDraft = inv.status === 'draft'
@@ -1162,181 +1311,159 @@ function ClientInvoicesContent() {
                 (!isDraft && !isPaid && !isVoid && remainingDue > 0 && new Date(inv.due_date).getTime() < Date.now())
 
               return (
-                <div key={inv.id} className="p-3.5 sm:p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                  {/* Top Bar: Invoice # + Badges + Due Date */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono text-xs text-slate-700 dark:text-zinc-300 font-bold">{inv.invoice_number}</span>
-                        {getInvoiceStatusBadge(inv)}
-                        {isOverdue && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
-                            Past Due
+                <div
+                  key={inv.id}
+                  className="rounded-xl border border-slate-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xs space-y-3 transition-colors hover:border-slate-300 dark:hover:border-zinc-700"
+                >
+                  {/* Top Bar: Clickable to view details */}
+                  <div
+                    onClick={() => setSelectedInvoiceForDetail(inv)}
+                    className="cursor-pointer space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs text-slate-900 dark:text-zinc-100 font-bold">
+                            #{inv.invoice_number}
                           </span>
-                        )}
-                        {isDraft && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400">
-                            Unissued
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-semibold text-xs text-slate-900 dark:text-zinc-100 line-clamp-1">{inv.title}</h3>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-sm font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
-                        ${Number(inv.total).toFixed(2)}
-                      </div>
-                      {!isPaid && !isVoid ? (
-                        <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums">
-                          Due ${remainingDue.toFixed(2)}
+                          {getDescriptiveStatusBadge(inv)}
                         </div>
-                      ) : isPaid ? (
-                        <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          Paid in Full
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Customer Information & Links */}
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="space-y-0.5 min-w-0">
-                      <div className="font-medium text-slate-900 dark:text-zinc-100 truncate">
-                        {formatCustomerName(inv.contact?.name) || 'Customer'}
+                        <h3 className="font-semibold text-xs text-slate-900 dark:text-zinc-100 line-clamp-1">
+                          {inv.title}
+                        </h3>
                       </div>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
-                        {inv.contact?.phone ? (
-                          <a
-                            href={`tel:${inv.contact.phone}`}
-                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
-                            title="Call customer directly"
-                          >
-                            <Smartphone className="h-3 w-3" />
-                            <span>{formatNationalUs(inv.contact.phone)}</span>
-                          </a>
+
+                      {/* Remaining Balance Receives Strongest Visual Emphasis */}
+                      <div className="text-right shrink-0">
+                        {!isPaid && !isVoid ? (
+                          <>
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                              Balance Due
+                            </div>
+                            <div className={cn(
+                              "text-lg font-black font-mono tabular-nums leading-tight",
+                              isOverdue ? "text-rose-600 dark:text-rose-400" : "text-blue-600 dark:text-blue-400"
+                            )}>
+                              ${remainingDue.toFixed(2)}
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
+                              Total ${Number(inv.total).toFixed(2)}
+                            </div>
+                          </>
+                        ) : isPaid ? (
+                          <>
+                            <div className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                              $0.00 Due
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
+                              Total ${Number(inv.total).toFixed(2)}
+                            </div>
+                          </>
                         ) : (
-                          <span>No phone</span>
+                          <div className="text-xs text-slate-400 font-mono">
+                            Voided
+                          </div>
                         )}
-                        <span>•</span>
-                        <span>{new Date(inv.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {inv.job && (
-                        <Link
-                          href={`/client/calendar?tab=dispatch&search=${inv.job.job_number}`}
-                          className="text-[10px] font-mono text-blue-600 hover:underline inline-flex items-center gap-0.5 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-900/60"
-                        >
-                          <Briefcase className="h-2.5 w-2.5" />
-                          <span>Job #{inv.job.job_number}</span>
-                        </Link>
-                      )}
-                      {inv.quote && (
-                        <Link
-                          href={`/client/quotes?search=${inv.quote.quote_number}`}
-                          className="text-[10px] font-mono text-emerald-600 hover:underline inline-flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-900/60"
-                        >
-                          <FileText className="h-2.5 w-2.5" />
-                          <span>Quote #{inv.quote.quote_number}</span>
-                        </Link>
-                      )}
+                    {/* Customer Info & Due Date */}
+                    <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-slate-100 dark:border-zinc-800/60">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="font-semibold text-slate-900 dark:text-zinc-100 truncate">
+                          {formatCustomerName(inv.contact?.name) || 'Customer'}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                          {inv.contact?.phone ? (
+                            <a
+                              href={`tel:${inv.contact.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+                              title="Call customer directly"
+                            >
+                              <Smartphone className="h-3 w-3" />
+                              <span>{formatNationalUs(inv.contact.phone)}</span>
+                            </a>
+                          ) : (
+                            <span>No phone</span>
+                          )}
+                          <span>•</span>
+                          <span>Due {new Date(inv.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {inv.job && (
+                          <Link
+                            href={`/client/calendar?tab=dispatch&search=${inv.job.job_number}`}
+                            className="text-[10px] font-mono text-blue-600 hover:underline inline-flex items-center gap-0.5 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-900/60"
+                          >
+                            <Briefcase className="h-2.5 w-2.5" />
+                            <span>Job #{inv.job.job_number}</span>
+                          </Link>
+                        )}
+                        {inv.quote && (
+                          <Link
+                            href={`/client/quotes?search=${inv.quote.quote_number}`}
+                            className="text-[10px] font-mono text-emerald-600 hover:underline inline-flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-900/60"
+                          >
+                            <FileText className="h-2.5 w-2.5" />
+                            <span>Quote #{inv.quote.quote_number}</span>
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions Bar (44px+ touch targets) */}
-                  <div className="flex items-center justify-between gap-1.5 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80">
-                    <div className="flex items-center gap-1">
+                  {/* Mobile Actions Bar (44px+ touch targets) */}
+                  <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80">
+                    <div className="flex items-center gap-1.5">
+                      {/* Secondary Quick Action */}
                       <button
                         type="button"
-                        onClick={() => handleCopyLink(inv.manage_token, inv.id)}
-                        className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 shadow-2xs flex items-center justify-center cursor-pointer transition-colors"
-                        title="Copy payment link"
-                        aria-label="Copy payment link"
+                        onClick={() => setSelectedInvoiceForDetail(inv)}
+                        className="min-h-[44px] px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 shadow-2xs flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer"
+                        title="View invoice details"
                       >
-                        {copiedId === inv.id ? (
-                          <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
+                        <Eye className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Details</span>
                       </button>
 
-                      <a
-                        href={`/invoice/${inv.manage_token}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      {/* 3-Dots Action Sheet Trigger */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInvoiceForActions(inv)}
                         className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 shadow-2xs flex items-center justify-center cursor-pointer transition-colors"
-                        title="View invoice"
-                        aria-label="View invoice"
+                        title="More invoice actions"
+                        aria-label="More invoice actions"
                       >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-
-                      {!isPaid && !isVoid && (
-                        <button
-                          type="button"
-                          onClick={() => setVoidInvoiceId(inv.id)}
-                          className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:text-rose-400 shadow-2xs flex items-center justify-center cursor-pointer transition-colors"
-                          title="Void invoice"
-                          aria-label="Void invoice"
-                        >
-                          <Ban className="h-4 w-4" />
-                        </button>
-                      )}
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {inv.status === 'draft' && (
+                      {/* Primary Action Button */}
+                      {!isPaid && !isVoid ? (
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => openEditDraftModal(inv)}
-                          className="min-h-[44px] px-3 text-xs border-slate-200 dark:border-zinc-800 font-semibold shadow-2xs cursor-pointer"
+                          onClick={() => openOfflinePaymentModal(inv)}
+                          className="min-h-[44px] px-4 text-xs text-white bg-emerald-600 hover:bg-emerald-500 font-bold rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5"
                         >
-                          <Edit2 className="h-3.5 w-3.5 mr-1 text-slate-500" />
-                          <span>Edit</span>
+                          <Banknote className="h-4 w-4" />
+                          <span>Collect Payment</span>
                         </Button>
-                      )}
-
-                      {!isPaid && !isVoid && (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => openOfflinePaymentModal(inv)}
-                            className="min-h-[44px] px-3.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs cursor-pointer"
-                          >
-                            <Banknote className="h-4 w-4 mr-1" />
-                            <span>Collect</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleSendInvoice(inv.id)}
-                            disabled={actionLoadingId === inv.id}
-                            className="min-h-[44px] px-3 text-xs border-slate-200 dark:border-zinc-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-zinc-800 font-semibold shadow-2xs cursor-pointer"
-                          >
-                            {actionLoadingId === inv.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                            ) : (
-                              <Send className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            <span>{inv.status === 'draft' ? 'Send' : 'Remind'}</span>
-                          </Button>
-                        </>
-                      )}
-
-                      {isPaid && (
+                      ) : isPaid ? (
                         <a
                           href={`/invoice/${inv.manage_token}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-h-[44px] inline-flex items-center px-3.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 font-semibold rounded-lg shadow-2xs transition-colors"
+                          className="min-h-[44px] px-3.5 text-xs text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 font-semibold rounded-lg shadow-2xs inline-flex items-center gap-1.5"
                         >
-                          <Receipt className="h-4 w-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+                          <Receipt className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                           <span>Receipt</span>
                         </a>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Voided</span>
                       )}
                     </div>
                   </div>
@@ -1347,7 +1474,594 @@ function ClientInvoicesContent() {
         </div>
       )}
 
-      {/* EDIT DRAFT INVOICE MODAL (P0: Truck-Ready Editing) */}
+      {/* Focused Invoice Detail Modal */}
+      {selectedInvoiceForDetail && (
+        <Modal
+          open={!!selectedInvoiceForDetail}
+          onOpenChange={(open) => !open && setSelectedInvoiceForDetail(null)}
+          title={`Invoice #${selectedInvoiceForDetail.invoice_number}`}
+          description={`Issued ${new Date(selectedInvoiceForDetail.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`}
+          size="xl"
+        >
+          <div className="space-y-4">
+            
+            {/* Status & Operational Guidance Banner */}
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider text-[10px]">
+                  Payment Status
+                </span>
+                {getInvoiceStatusBadge(selectedInvoiceForDetail)}
+              </div>
+              <div className="text-slate-800 dark:text-zinc-200 font-medium leading-relaxed">
+                {selectedInvoiceForDetail.status === 'draft' && 'Draft invoice. Not yet sent to customer. Review line items and dispatch payment link via SMS.'}
+                {selectedInvoiceForDetail.status === 'sent' && 'Dispatched to customer. Waiting for online credit card checkout or record on-site collection.'}
+                {selectedInvoiceForDetail.status === 'viewed' && 'Customer opened and viewed invoice. Ready for digital card payment or on-site settlement.'}
+                {selectedInvoiceForDetail.status === 'partially_paid' && `Partial payment received. Outstanding balance remaining: $${Number(selectedInvoiceForDetail.amount_due).toFixed(2)}.`}
+                {selectedInvoiceForDetail.status === 'paid' && 'Paid in full! Payment has been settled and customer verified receipt is available.'}
+                {selectedInvoiceForDetail.status === 'overdue' && `Payment is overdue. Due date was ${new Date(selectedInvoiceForDetail.due_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}. Follow up with a payment reminder SMS.`}
+                {selectedInvoiceForDetail.status === 'void' && 'Invoice has been voided. Balances cancelled and automated reminders stopped.'}
+              </div>
+            </div>
+
+            {/* Customer Information Card */}
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2 text-xs shadow-2xs">
+              <span className="font-bold text-slate-900 dark:text-white block text-sm">
+                {formatCustomerName(selectedInvoiceForDetail.contact?.name) || 'Homeowner / Customer'}
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600 dark:text-zinc-400 text-xs">
+                {selectedInvoiceForDetail.contact?.phone && (
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-blue-600" />
+                    <a href={`tel:${selectedInvoiceForDetail.contact.phone}`} className="font-mono hover:underline font-semibold">
+                      {formatNationalUs(selectedInvoiceForDetail.contact.phone)}
+                    </a>
+                  </div>
+                )}
+                {selectedInvoiceForDetail.contact?.email && (
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                    <span>{selectedInvoiceForDetail.contact.email}</span>
+                  </div>
+                )}
+                {selectedInvoiceForDetail.contact?.address && (
+                  <div className="flex items-center gap-1.5 sm:col-span-2">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>{selectedInvoiceForDetail.contact.address}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Linked Job and Quote Records */}
+            {(selectedInvoiceForDetail.job || selectedInvoiceForDetail.quote) && (
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/60 flex items-center gap-3 text-xs">
+                <span className="text-slate-500 dark:text-zinc-400 font-semibold uppercase text-[10px] tracking-wider">
+                  Linked Records:
+                </span>
+                {selectedInvoiceForDetail.job && (
+                  <Link
+                    href={`/client/calendar?tab=dispatch&search=${selectedInvoiceForDetail.job.job_number}`}
+                    className="font-mono text-blue-600 hover:underline inline-flex items-center gap-1 font-semibold"
+                  >
+                    <Briefcase className="h-3 w-3" />
+                    <span>Job #{selectedInvoiceForDetail.job.job_number}</span>
+                  </Link>
+                )}
+                {selectedInvoiceForDetail.quote && (
+                  <Link
+                    href={`/client/quotes?search=${selectedInvoiceForDetail.quote.quote_number}`}
+                    className="font-mono text-emerald-600 hover:underline inline-flex items-center gap-1 font-semibold"
+                  >
+                    <FileText className="h-3 w-3" />
+                    <span>Quote #{selectedInvoiceForDetail.quote.quote_number}</span>
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* Itemized Line Items Table */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider text-[11px]">
+                  Scope: {selectedInvoiceForDetail.title}
+                </span>
+                <span className="text-slate-400">{selectedInvoiceForDetail.items?.length || 0} line items</span>
+              </div>
+
+              <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400">
+                        <th className="py-2.5 px-3 font-semibold">Description</th>
+                        <th className="py-2.5 px-3 text-center font-semibold w-16">Qty</th>
+                        <th className="py-2.5 px-3 text-right font-semibold w-24">Unit Rate</th>
+                        <th className="py-2.5 px-3 text-right font-semibold w-24">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                      {selectedInvoiceForDetail.items && selectedInvoiceForDetail.items.length > 0 ? (
+                        selectedInvoiceForDetail.items.map((item, idx) => (
+                          <tr key={item.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-850/30">
+                            <td className="py-2.5 px-3 text-slate-900 dark:text-zinc-100 font-medium">{item.description}</td>
+                            <td className="py-2.5 px-3 text-center text-slate-600 dark:text-zinc-400 font-mono">{item.quantity}</td>
+                            <td className="py-2.5 px-3 text-right text-slate-600 dark:text-zinc-400 font-mono tabular-nums">
+                              ${Number(item.unit_price).toFixed(2)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
+                              ${((Number(item.quantity) || 1) * (Number(item.unit_price) || 0)).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="py-3 px-3 text-center text-slate-400 italic">
+                            {selectedInvoiceForDetail.title}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Financial Summary */}
+                <div className="p-3.5 bg-slate-50/60 dark:bg-zinc-950/60 border-t border-slate-200 dark:border-zinc-800 flex justify-end">
+                  <div className="w-64 space-y-1.5 text-xs">
+                    <div className="flex justify-between text-slate-600 dark:text-zinc-400">
+                      <span>Subtotal</span>
+                      <span className="font-mono tabular-nums">${Number(selectedInvoiceForDetail.subtotal).toFixed(2)}</span>
+                    </div>
+                    {Number(selectedInvoiceForDetail.discount) > 0 && (
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                        <span>Discount</span>
+                        <span className="font-mono tabular-nums">-${Number(selectedInvoiceForDetail.discount).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {Number(selectedInvoiceForDetail.tax) > 0 && (
+                      <div className="flex justify-between text-slate-600 dark:text-zinc-400">
+                        <span>Tax</span>
+                        <span className="font-mono tabular-nums">+${Number(selectedInvoiceForDetail.tax).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-slate-900 dark:text-white pt-1 border-t border-slate-200 dark:border-zinc-800">
+                      <span>Total Invoice</span>
+                      <span className="font-mono tabular-nums">${Number(selectedInvoiceForDetail.total).toFixed(2)}</span>
+                    </div>
+                    {Number(selectedInvoiceForDetail.amount_paid) > 0 && (
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span>Amount Paid</span>
+                        <span className="font-mono tabular-nums">-${Number(selectedInvoiceForDetail.amount_paid).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-black text-slate-900 dark:text-zinc-100 text-sm pt-1.5 border-t-2 border-slate-900 dark:border-zinc-100">
+                      <span>Balance Due</span>
+                      <span className="font-mono tabular-nums text-blue-600 dark:text-blue-400">
+                        ${Number(selectedInvoiceForDetail.amount_due).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment History Ledger */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Banknote className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Payment History Ledger</span>
+                </span>
+                <span className="text-slate-400">
+                  {selectedInvoiceForDetail.payments?.length || 0} transaction{selectedInvoiceForDetail.payments?.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              {selectedInvoiceForDetail.payments && selectedInvoiceForDetail.payments.length > 0 ? (
+                <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800/80 shadow-2xs">
+                  {selectedInvoiceForDetail.payments.map((pmt) => (
+                    <div key={pmt.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50/50 dark:hover:bg-zinc-850/40">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 dark:text-zinc-100 capitalize">
+                            {pmt.payment_method === 'card_offline'
+                              ? 'External POS Card'
+                              : pmt.payment_method === 'other'
+                              ? 'Zelle / Venmo'
+                              : pmt.payment_method}
+                          </span>
+                          <span className={cn(
+                            "px-1.5 py-0.2 rounded text-[10px] font-bold uppercase",
+                            pmt.status === 'succeeded'
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                              : "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400"
+                          )}>
+                            {pmt.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                          {pmt.reference_note || 'Payment recorded'} • {new Date(pmt.created_at).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
+                          +${Number(pmt.amount).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-500 dark:text-zinc-400">
+                  No payments recorded yet for this invoice.
+                </div>
+              )}
+            </div>
+
+            {/* Contextual Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleCopyLink(selectedInvoiceForDetail.manage_token, selectedInvoiceForDetail.id)}
+                  className="min-h-[44px] px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 shadow-2xs flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                  title="Copy customer payment link"
+                >
+                  {copiedId === selectedInvoiceForDetail.id ? (
+                    <Check className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  <span>Copy Link</span>
+                </button>
+
+                <a
+                  href={`/invoice/${selectedInvoiceForDetail.manage_token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] px-3 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 shadow-2xs inline-flex items-center gap-1 text-xs font-semibold"
+                  title="Preview customer invoice page"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Preview Page</span>
+                </a>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {selectedInvoiceForDetail.status === 'draft' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const inv = selectedInvoiceForDetail
+                      setSelectedInvoiceForDetail(null)
+                      openEditDraftModal(inv)
+                    }}
+                    className="min-h-[44px] px-3.5 text-xs font-semibold cursor-pointer"
+                  >
+                    <Edit2 className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                    <span>Edit Draft</span>
+                  </Button>
+                )}
+
+                {selectedInvoiceForDetail.status !== 'paid' && selectedInvoiceForDetail.status !== 'void' && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleSendInvoice(selectedInvoiceForDetail.id)}
+                      disabled={actionLoadingId === selectedInvoiceForDetail.id}
+                      className="min-h-[44px] px-3.5 text-xs font-semibold text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 cursor-pointer"
+                    >
+                      {actionLoadingId === selectedInvoiceForDetail.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      <span>{selectedInvoiceForDetail.status === 'draft' ? 'Send SMS' : 'Remind SMS'}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const inv = selectedInvoiceForDetail
+                        setSelectedInvoiceForDetail(null)
+                        openOfflinePaymentModal(inv)
+                      }}
+                      className="min-h-[44px] px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Banknote className="h-4 w-4" />
+                      <span>Collect Payment</span>
+                    </Button>
+                  </>
+                )}
+
+                {selectedInvoiceForDetail.status === 'paid' && (
+                  <a
+                    href={`/invoice/${selectedInvoiceForDetail.manage_token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[44px] px-4 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs inline-flex items-center gap-1.5"
+                  >
+                    <Receipt className="h-4 w-4" />
+                    <span>View Customer Receipt</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Mobile Action Sheet (Part 3) */}
+      {selectedInvoiceForActions && (
+        <Modal
+          open={!!selectedInvoiceForActions}
+          onOpenChange={(open) => !open && setSelectedInvoiceForActions(null)}
+          title={`Invoice #${selectedInvoiceForActions.invoice_number}`}
+          description={formatCustomerName(selectedInvoiceForActions.contact?.name) || 'Customer Actions'}
+          size="sm"
+        >
+          <div className="space-y-2 py-1">
+            <button
+              type="button"
+              onClick={() => {
+                const inv = selectedInvoiceForActions
+                setSelectedInvoiceForActions(null)
+                setSelectedInvoiceForDetail(inv)
+              }}
+              className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5 min-h-[48px] cursor-pointer"
+            >
+              <Eye className="h-4 w-4 text-blue-600" />
+              <span>View Full Invoice Details</span>
+            </button>
+
+            {selectedInvoiceForActions.status !== 'paid' && selectedInvoiceForActions.status !== 'void' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const inv = selectedInvoiceForActions
+                  setSelectedInvoiceForActions(null)
+                  openOfflinePaymentModal(inv)
+                }}
+                className="w-full h-12 px-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 text-left text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/50 transition-colors flex items-center gap-2.5 min-h-[48px] cursor-pointer"
+              >
+                <Banknote className="h-4 w-4 text-emerald-600" />
+                <span>Record On-Site Payment</span>
+              </button>
+            )}
+
+            {selectedInvoiceForActions.status !== 'paid' && selectedInvoiceForActions.status !== 'void' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = selectedInvoiceForActions.id
+                  setSelectedInvoiceForActions(null)
+                  handleSendInvoice(id)
+                }}
+                className="w-full h-12 px-4 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-950/20 text-left text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100/50 transition-colors flex items-center gap-2.5 min-h-[48px] cursor-pointer"
+              >
+                <Send className="h-4 w-4 text-blue-600" />
+                <span>{selectedInvoiceForActions.status === 'draft' ? 'Send Invoice via SMS' : 'Resend Payment Reminder SMS'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                handleCopyLink(selectedInvoiceForActions.manage_token, selectedInvoiceForActions.id)
+                setSelectedInvoiceForActions(null)
+              }}
+              className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5 min-h-[48px] cursor-pointer"
+            >
+              <Copy className="h-4 w-4 text-slate-500" />
+              <span>Copy Customer Payment Link</span>
+            </button>
+
+            <a
+              href={`/invoice/${selectedInvoiceForActions.manage_token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setSelectedInvoiceForActions(null)}
+              className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5 min-h-[48px]"
+            >
+              <ExternalLink className="h-4 w-4 text-slate-500" />
+              <span>Preview Customer View</span>
+            </a>
+
+            {selectedInvoiceForActions.status === 'draft' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const inv = selectedInvoiceForActions
+                  setSelectedInvoiceForActions(null)
+                  openEditDraftModal(inv)
+                }}
+                className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5 min-h-[48px] cursor-pointer"
+              >
+                <Edit2 className="h-4 w-4 text-slate-500" />
+                <span>Edit Draft Line Items</span>
+              </button>
+            )}
+
+            {selectedInvoiceForActions.status !== 'paid' && selectedInvoiceForActions.status !== 'void' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const id = selectedInvoiceForActions.id
+                  setSelectedInvoiceForActions(null)
+                  setVoidInvoiceId(id)
+                }}
+                className="w-full h-12 px-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 text-left text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-100/50 transition-colors flex items-center gap-2.5 min-h-[48px] cursor-pointer"
+              >
+                <Ban className="h-4 w-4 text-rose-600" />
+                <span>Void Invoice</span>
+              </button>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Redesigned Payment Collection Modal (Truck Ergonomics) */}
+      <Modal
+        open={!!paymentModalInvoice}
+        onOpenChange={(open) => !open && setPaymentModalInvoice(null)}
+        title="Record Customer Payment"
+        description={`Record immediate cash, check, Zelle, or card terminal settlement for #${paymentModalInvoice?.invoice_number || ''}.`}
+        size="md"
+      >
+        <div className="space-y-4">
+          {/* Invoice Summary Pill */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+            <div>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">Customer</p>
+              <p className="font-bold text-slate-900 dark:text-white">
+                {formatCustomerName(paymentModalInvoice?.contact?.name) || 'Customer'}
+              </p>
+              {paymentModalInvoice?.contact?.phone && (
+                <p className="text-[11px] text-slate-500 font-mono">
+                  {formatNationalUs(paymentModalInvoice.contact.phone)}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">Current Balance Due</p>
+              <p className="text-base font-black text-blue-600 dark:text-blue-400 font-mono tabular-nums">
+                ${Number(paymentModalInvoice?.amount_due || 0).toFixed(2)}
+              </p>
+              <p className="text-[10px] text-slate-400 font-mono">
+                Total ${Number(paymentModalInvoice?.total || 0).toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          {/* 4 Large 48px Payment Method Touch Targets */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-2">
+              Payment Method
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'cash', label: 'Cash on Site', note: 'Cash handed in person' },
+                { id: 'check', label: 'Paper Check', note: 'Check #' },
+                { id: 'other', label: 'Zelle / Venmo', note: 'Zelle transfer verified' },
+                { id: 'card_offline', label: 'External POS Card', note: 'Square or Clover swipe' }
+              ].map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod(m.id as any)
+                    setReferenceNote(m.note)
+                  }}
+                  className={cn(
+                    "min-h-12 p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-center",
+                    paymentMethod === m.id
+                      ? "bg-blue-50/70 border-blue-600 dark:bg-blue-950/40 dark:border-blue-500 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500/20"
+                      : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-850"
+                  )}
+                >
+                  <span className="text-xs font-bold">{m.label}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">{m.note}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Amount Paid with 1-Tap Full Balance Button */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Amount Being Collected ($)
+              </label>
+              <button
+                type="button"
+                onClick={() => setPaymentAmount(String(paymentModalInvoice?.amount_due || ''))}
+                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Pay Full Balance (${Number(paymentModalInvoice?.amount_due || 0).toFixed(2)})
+              </button>
+            </div>
+            <Input
+              type="number"
+              step="0.01"
+              value={paymentAmount}
+              onChange={e => setPaymentAmount(e.target.value)}
+              placeholder="0.00"
+              className="h-10 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-sm font-bold text-slate-900 dark:text-zinc-100 rounded-lg focus:border-blue-500 font-mono tabular-nums"
+            />
+          </div>
+
+          {/* Dynamic Resulting Balance & Status Preview Box */}
+          {Number(paymentAmount) > 0 && paymentModalInvoice && (
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-zinc-400">Resulting Remaining Balance:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  ${Math.max(0, Number(paymentModalInvoice.amount_due) - Number(paymentAmount)).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-500 dark:text-zinc-400">Resulting Status:</span>
+                {Number(paymentAmount) >= Number(paymentModalInvoice.amount_due) ? (
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Will mark invoice Paid in Full
+                  </span>
+                ) : (
+                  <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Will mark invoice Partially Paid
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Reference Note */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+              Reference Note or Check Number
+            </label>
+            <Input
+              value={referenceNote}
+              onChange={e => setReferenceNote(e.target.value)}
+              placeholder="e.g. Check #1042 or Zelle verification confirmation"
+              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg focus:border-blue-500"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-3 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPaymentModalInvoice(null)}
+              className="h-10 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-transparent dark:text-zinc-400 dark:hover:text-white shadow-2xs cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={recordingPayment || !paymentAmount || Number(paymentAmount) <= 0}
+              onClick={handleRecordOfflinePayment}
+              className="h-10 px-5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs cursor-pointer"
+            >
+              {recordingPayment ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Recording...
+                </>
+              ) : (
+                `Confirm & Record Payment ($${Number(paymentAmount || 0).toFixed(2)})`
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit Draft Invoice Modal */}
       <Modal
         open={!!editingDraftInvoice}
         onOpenChange={(open) => !open && setEditingDraftInvoice(null)}
@@ -1512,131 +2226,6 @@ function ClientInvoicesContent() {
         </div>
       </Modal>
 
-      {/* Redesigned "Record Offline Payment" Modal (48px Truck Ergonomics) */}
-      <Modal
-        open={!!paymentModalInvoice}
-        onOpenChange={(open) => !open && setPaymentModalInvoice(null)}
-        title="Record On-Site Payment"
-        description={`Record immediate cash, check, Zelle, or card terminal payment for #${paymentModalInvoice?.invoice_number || ''}.`}
-        size="md"
-      >
-        <div className="space-y-4">
-          {/* Invoice Summary Pill */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">Customer</p>
-              <p className="text-xs font-semibold text-slate-900 dark:text-white">
-                {paymentModalInvoice?.contact?.name || 'Customer'}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">Balance Due</p>
-              <p className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums">
-                ${Number(paymentModalInvoice?.amount_due || 0).toFixed(2)}
-              </p>
-            </div>
-          </div>
-
-          {/* 4 Large 48px Payment Method Touch Targets */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-2">
-              Payment Method
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: 'cash', label: 'Cash on Site', note: 'Cash in hand' },
-                { id: 'check', label: 'Paper Check', note: 'Check #' },
-                { id: 'other', label: 'Zelle / Venmo', note: 'Zelle transfer verified' },
-                { id: 'card_offline', label: 'External POS Card', note: 'Square/Clover card swipe' }
-              ].map(m => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod(m.id as any)
-                    setReferenceNote(m.note)
-                  }}
-                  className={cn(
-                    "min-h-12 p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-center",
-                    paymentMethod === m.id
-                      ? "bg-blue-50/70 border-blue-600 dark:bg-blue-950/40 dark:border-blue-500 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500/20"
-                      : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-850"
-                  )}
-                >
-                  <span className="text-xs font-bold">{m.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Amount Paid with 1-Tap Full Balance Button */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                Amount Received ($)
-              </label>
-              <button
-                type="button"
-                onClick={() => setPaymentAmount(String(paymentModalInvoice?.amount_due || ''))}
-                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-              >
-                Pay Full Balance (${Number(paymentModalInvoice?.amount_due || 0).toFixed(2)})
-              </button>
-            </div>
-            <Input
-              type="number"
-              step="0.01"
-              value={paymentAmount}
-              onChange={e => setPaymentAmount(e.target.value)}
-              placeholder="0.00"
-              className="h-10 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-sm font-bold text-slate-900 dark:text-zinc-100 rounded-lg focus:border-blue-500 font-mono tabular-nums"
-            />
-          </div>
-
-          {/* Reference Note */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
-              Reference Note / Check Number
-            </label>
-            <Input
-              value={referenceNote}
-              onChange={e => setReferenceNote(e.target.value)}
-              placeholder="e.g. Check #1042 or Zelle confirmation ID"
-              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg focus:border-blue-500"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="pt-3 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPaymentModalInvoice(null)}
-              className="h-10 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-zinc-800 dark:bg-transparent dark:text-zinc-400 dark:hover:text-white shadow-2xs cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={recordingPayment}
-              onClick={handleRecordOfflinePayment}
-              className="h-10 px-5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs cursor-pointer"
-            >
-              {recordingPayment ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  Recording...
-                </>
-              ) : (
-                `Confirm & Mark Paid ($${Number(paymentAmount || 0).toFixed(2)})`
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       {/* Create New Invoice Modal (with 21-Trade Presets) */}
       <Modal
         open={showCreateModal}
@@ -1654,18 +2243,48 @@ function ClientInvoicesContent() {
               aria-label="Select Customer"
               value={selectedContactId}
               onChange={e => setSelectedContactId(e.target.value)}
-              className="w-full p-2.5 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+              className="w-full p-2.5 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
             >
-              <option value="">-- Choose Customer --</option>
+              <option value="">Choose a customer...</option>
               {contacts.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.name || 'Valued Customer'} ({c.phone || 'No phone'}) {c.address ? `• ${c.address}` : ''}
+                  {c.name} {c.phone ? `(${c.phone})` : ''}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Approved Estimate 1-Tap Autofill Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                Invoice Title <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                value={invoiceTitle}
+                onChange={e => setInvoiceTitle(e.target.value)}
+                placeholder="e.g. Electrical Panel Upgrade"
+                className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                Payment Terms (Due Date)
+              </label>
+              <select
+                aria-label="Payment Terms"
+                value={dueDateDays}
+                onChange={e => setDueDateDays(e.target.value)}
+                className="w-full p-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs h-9"
+              >
+                <option value="0">Due on receipt</option>
+                <option value="7">Net 7 Days</option>
+                <option value="14">Net 14 Days</option>
+                <option value="30">Net 30 Days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 1-Tap Approved Estimate Matcher */}
           {matchingQuotes.length > 0 && (
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-2 shadow-2xs">
               <div className="flex items-center justify-between">
@@ -1732,7 +2351,7 @@ function ClientInvoicesContent() {
                   className="w-full p-1 px-2 text-xs bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-slate-800 dark:text-zinc-200 focus:outline-none cursor-pointer shadow-2xs"
                 >
                   {orgIndustry && orgIndustry !== 'general' && (
-                    <option value={orgIndustry}>★ {getIndustryPreset(orgIndustry).name} (My Primary Trade)</option>
+                    <option value={orgIndustry}>* {getIndustryPreset(orgIndustry).name} (My Primary Trade)</option>
                   )}
                   <option value="all">All 21 Home Service Trades</option>
                   {INDUSTRY_LIST.filter(ind => ind.id !== orgIndustry).map(ind => (
@@ -1751,23 +2370,17 @@ function ClientInvoicesContent() {
                     key={`${trade.id}-${idx}`}
                     type="button"
                     onClick={() => handleApplyTradeService(svc)}
-                    className="p-2 text-left rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 hover:bg-blue-50/60 dark:hover:bg-zinc-800 transition-all shadow-2xs cursor-pointer group flex flex-col justify-between"
+                    className="text-left p-2 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-blue-500 dark:hover:border-blue-500 transition-colors cursor-pointer group shadow-2xs flex flex-col justify-between"
                   >
-                    <div>
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 uppercase">{trade.badge}</span>
-                        <span className={cn(
-                          "text-[11px] font-mono",
-                          typeof svc.price === 'number' && svc.price > 0
-                            ? "font-bold text-emerald-600 dark:text-emerald-400"
-                            : "text-slate-500 dark:text-zinc-400 font-medium"
-                        )}>
-                          {typeof svc.price === 'number' && svc.price > 0 ? `$${svc.price}` : 'Custom Price'}
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 line-clamp-1 mt-0.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-medium text-slate-800 dark:text-zinc-200 group-hover:text-blue-600 line-clamp-1">
                         {svc.name}
-                      </p>
+                      </span>
+                      {typeof svc.price === 'number' && svc.price > 0 && (
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 font-mono">
+                          ${svc.price}
+                        </span>
+                      )}
                     </div>
                   </button>
                 ))
@@ -1775,29 +2388,33 @@ function ClientInvoicesContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Discount & Tax Configuration */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
-                Invoice Title <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                value={invoiceTitle}
-                onChange={e => setInvoiceTitle(e.target.value)}
-                placeholder="e.g. Service & Labor Completion"
-                className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
-                Payment Terms (Days)
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                Discount Amount ($)
               </label>
               <Input
                 type="number"
-                value={dueDateDays}
-                onChange={e => setDueDateDays(e.target.value)}
                 min="0"
-                max="60"
+                step="0.01"
+                placeholder="0.00"
+                value={discountAmount}
+                onChange={e => setDiscountAmount(e.target.value)}
+                className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500 font-mono tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                Tax Rate (%)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="0.0"
+                value={taxRate}
+                onChange={e => setTaxRate(e.target.value)}
                 className="h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500 font-mono tabular-nums"
               />
             </div>
@@ -1879,19 +2496,11 @@ function ClientInvoicesContent() {
             <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800/80 space-y-1.5 text-xs">
               <div className="flex justify-between text-slate-500 dark:text-zinc-400">
                 <span>Subtotal:</span>
-                <span className="font-semibold text-slate-800 dark:text-zinc-200 tabular-nums font-mono">${subtotal.toFixed(2)}</span>
+                <span className="tabular-nums font-mono">${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center text-slate-500 dark:text-zinc-400">
+              <div className="flex justify-between text-slate-500 dark:text-zinc-400">
                 <span className="flex items-center gap-1 font-medium">
                   Discount ($):
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={discountAmount}
-                    onChange={e => setDiscountAmount(e.target.value)}
-                    className="w-16 h-6 px-1.5 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded text-right text-xs text-slate-900 dark:text-zinc-200 focus:outline-none font-mono"
-                  />
                 </span>
                 <span className="tabular-nums font-mono font-medium text-emerald-600 dark:text-emerald-400">-${discount.toFixed(2)}</span>
               </div>

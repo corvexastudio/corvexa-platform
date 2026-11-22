@@ -207,6 +207,7 @@ export default function CustomerInvoicePage() {
   const isOverdue = invoice.status === 'overdue' || (!isPaid && new Date(invoice.due_date).getTime() < Date.now())
   const isVoid = invoice.status === 'void'
   const customer = invoice.contacts
+  const orgPhone = org?.phone || org?.telnyx_phone_number || org?.owner_phone
 
   const orgAddress = [
     org?.address_street,
@@ -282,11 +283,11 @@ export default function CustomerInvoicePage() {
                     <span>{orgAddress}</span>
                   </div>
                 )}
-                {org?.owner_phone && (
+                {orgPhone && (
                   <div className="flex items-center gap-1.5">
                     <Phone className="w-3 h-3 text-slate-400" />
-                    <a href={`tel:${org.owner_phone}`} className="hover:underline text-slate-700 dark:text-zinc-300">
-                      {org.owner_phone}
+                    <a href={`tel:${orgPhone}`} className="hover:underline text-slate-700 dark:text-zinc-300">
+                      {orgPhone}
                     </a>
                   </div>
                 )}
@@ -643,8 +644,8 @@ export default function CustomerInvoicePage() {
                   </p>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
                     To settle this invoice, please contact {org?.name || 'the service provider'} at{' '}
-                    <a href={`tel:${org?.owner_phone}`} className="underline font-semibold text-blue-600 dark:text-blue-400">
-                      {org?.owner_phone || 'their phone number'}
+                    <a href={`tel:${orgPhone}`} className="underline font-semibold text-blue-600 dark:text-blue-400">
+                      {orgPhone || 'their phone number'}
                     </a>{' '}
                     for payment options (Cash, Check, or Direct Settlement).
                   </p>
@@ -658,11 +659,11 @@ export default function CustomerInvoicePage() {
             <p>
               Official Document #{invoice.invoice_number} • Issued by {org?.name || 'Service Provider'}
             </p>
-            {org?.owner_phone && (
+            {orgPhone && (
               <p>
                 Questions or support? Call{' '}
-                <a href={`tel:${org.owner_phone}`} className="underline text-slate-600 dark:text-zinc-400">
-                  {org.owner_phone}
+                <a href={`tel:${orgPhone}`} className="underline text-slate-600 dark:text-zinc-400">
+                  {orgPhone}
                 </a>
               </p>
             )}
