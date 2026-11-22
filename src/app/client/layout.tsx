@@ -177,7 +177,7 @@ function NavLinkItem({
 }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const rawPathname = usePathname()
   const pathname = rawPathname || ''

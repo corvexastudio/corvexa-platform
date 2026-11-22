@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateAvailableSlots, calculateDetailedSlots } from '@/lib/booking/availability'
 import { parseBookingSettings } from '@/lib/booking/booking-settings'
+import { parseAddOns } from '@/lib/services/service-pricing'
 
 export async function GET(
   request: Request,
@@ -12,6 +13,8 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date') // YYYY-MM-DD
     const serviceId = searchParams.get('serviceId')
+    const addonIdsParam = searchParams.get('addonIds')
+    const manageToken = searchParams.get('manageToken')
 
     if (!slug || !dateStr) {
       return NextResponse.json({ error: 'Missing required parameters: slug and date' }, { status: 400 })
@@ -37,7 +40,7 @@ export async function GET(
     // 1. Fetch organization
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name, slug, timezone, business_hours, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, default_duration_minutes')
+      .select('id, name, slug, timezone, business_hours, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, default_duration_minutes, subscription_status')
       .eq('slug', slug)
       .single()
 
@@ -46,15 +49,49 @@ export async function GET(
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
-    // 2. Fetch service
+    // Canonical suspension check: suspended, canceled, or churned accounts cannot accept bookings
+    const subStatus = (org.subscription_status || '').trim().toLowerCase()
+    if (['suspended', 'canceled', 'cancelled', 'churned'].includes(subStatus)) {
+      return NextResponse.json(
+        { error: 'This business is currently unavailable for online booking.' },
+        { status: 403 }
+      )
+    }
+
+    // 2. Fetch service & resolve authoritative duration
     let serviceDuration = org.default_duration_minutes || 60
     let serviceName = 'Service Call'
     let serviceIdResolved = serviceId || 'default'
+    let excludeAppointmentId: string | null = null
 
-    if (serviceId && !serviceId.startsWith('default')) {
+    // Check if rescheduling via valid manageToken to preserve historical appointment duration
+    let historicalDurationResolved = false
+    if (manageToken) {
+      const { data: manageApt } = await supabase
+        .from('appointments')
+        .select('id, start_time, end_time, service_id, org_id')
+        .eq('manage_token', manageToken)
+        .eq('org_id', org.id)
+        .maybeSingle()
+
+      if (manageApt) {
+        excludeAppointmentId = manageApt.id
+        if (manageApt.start_time && manageApt.end_time) {
+          const diffMinutes = Math.round(
+            (new Date(manageApt.end_time).getTime() - new Date(manageApt.start_time).getTime()) / (60 * 1000)
+          )
+          if (diffMinutes > 0 && !isNaN(diffMinutes)) {
+            serviceDuration = diffMinutes
+            historicalDurationResolved = true
+          }
+        }
+      }
+    }
+
+    if (!historicalDurationResolved && serviceId && !serviceId.startsWith('default')) {
       const { data: svc } = await supabase
         .from('services')
-        .select('id, name, duration_minutes, is_active, org_id')
+        .select('id, name, duration_minutes, is_active, org_id, description')
         .eq('id', serviceId)
         .maybeSingle()
 
@@ -75,6 +112,17 @@ export async function GET(
       serviceDuration = svc.duration_minutes
       serviceName = svc.name
       serviceIdResolved = svc.id
+
+      // Authoritative add-on duration calculation: parse configured add-ons server-side
+      if (addonIdsParam && svc.description) {
+        const requestedAddonIds = addonIdsParam.split(',').map(s => s.trim()).filter(Boolean)
+        if (requestedAddonIds.length > 0) {
+          const configuredAddons = parseAddOns(svc.description)
+          const matchedAddons = configuredAddons.filter(a => requestedAddonIds.includes(a.id))
+          const extraDuration = matchedAddons.reduce((sum, a) => sum + (Number(a.duration_minutes) || 0), 0)
+          serviceDuration += extraDuration
+        }
+      }
     }
 
     // 3. Query existing active appointments for this org on/near that date
@@ -103,8 +151,9 @@ export async function GET(
       .gte('scheduled_start', windowStart)
       .lte('scheduled_start', windowEnd)
 
+    const activeAppts = (appts || []).filter(a => !excludeAppointmentId || a.id !== excludeAppointmentId)
     const allBusySlots: Array<{ id: string; start_time: string; end_time: string | null; status: any }> = [
-      ...(appts || [])
+      ...activeAppts
     ]
 
     if (standaloneJobs && standaloneJobs.length > 0) {

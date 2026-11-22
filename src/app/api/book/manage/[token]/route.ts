@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { parseServicePricing } from '@/lib/services/service-pricing'
 
 export async function GET(
   request: Request,
@@ -20,7 +21,7 @@ export async function GET(
         id, title, service_type, start_time, end_time, status, source, cancellation_reason, confirmed_at, notes,
         organization:organizations(id, name, slug, owner_phone, telnyx_phone_number, timezone),
         contact:contacts(id, name, phone, email, address),
-        service:services(id, name, duration_minutes, price)
+        service:services(id, name, duration_minutes, price, description)
       `)
       .eq('manage_token', token)
       .maybeSingle()
@@ -77,6 +78,16 @@ export async function GET(
       }
     }
 
+    let calculatedDurationMinutes = service?.duration_minutes || 60
+    if (apt.start_time && apt.end_time) {
+      const diffMinutes = Math.round(
+        (new Date(apt.end_time).getTime() - new Date(apt.start_time).getTime()) / (60 * 1000)
+      )
+      if (diffMinutes > 0 && !isNaN(diffMinutes)) {
+        calculatedDurationMinutes = diffMinutes
+      }
+    }
+
     return NextResponse.json({
       appointment: {
         id: apt.id,
@@ -84,6 +95,7 @@ export async function GET(
         serviceType: apt.service_type,
         startTime: apt.start_time,
         endTime: apt.end_time,
+        durationMinutes: calculatedDurationMinutes,
         status: apt.status,
         cancellationReason: apt.cancellation_reason,
         confirmedAt: apt.confirmed_at,
@@ -101,9 +113,12 @@ export async function GET(
           address: contact?.address
         },
         service: service ? {
+          id: service.id,
           name: service.name,
           durationMinutes: service.duration_minutes,
-          price: service.price
+          price: service.price,
+          pricingModel: parseServicePricing(service.price, service.description).model,
+          description: service.description || null
         } : null,
         tracking: trackingInfo
       }

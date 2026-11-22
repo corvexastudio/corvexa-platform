@@ -232,3 +232,112 @@ export function parseServicePricing(
     addOns: parseAddOns(description)
   }
 }
+
+/**
+ * Formats live dynamic pricing total and labels according to the 5 canonical pricing models:
+ * - fixed: $150.00 or $185.00
+ * - starting_at: Starting at $99.00 or Starting at $134.00
+ * - diagnostic_fee: $79.00 Diagnostic Fee or $114.00 Diagnostic Fee
+ * - quote_on_site: Quote on Site or Quote on Site (+$35.00 extras)
+ * - free_estimate: Free Estimate or Free Estimate (+$35.00 extras)
+ */
+export function formatDynamicPricingTotal(
+  model: PricingModel,
+  basePrice: number | null | undefined,
+  extrasTotal: number = 0
+): {
+  hasNumericBase: boolean
+  basePrice: number | null
+  extrasTotal: number
+  total: number
+  formattedTotal: string
+} {
+  const numericBase = basePrice !== null && basePrice !== undefined && !isNaN(Number(basePrice))
+    ? Number(basePrice)
+    : null
+
+  const extras = Math.max(0, Number(extrasTotal) || 0)
+
+  switch (model) {
+    case 'free_estimate':
+      return {
+        hasNumericBase: false,
+        basePrice: 0,
+        extrasTotal: extras,
+        total: extras,
+        formattedTotal: extras > 0 ? `Free Estimate (+$${extras.toFixed(2)} extras)` : 'Free Estimate'
+      }
+
+    case 'quote_on_site':
+      return {
+        hasNumericBase: false,
+        basePrice: null,
+        extrasTotal: extras,
+        total: extras,
+        formattedTotal: extras > 0 ? `Quote on Site (+$${extras.toFixed(2)} extras)` : 'Quote on Site'
+      }
+
+    case 'diagnostic_fee':
+      if (numericBase !== null && numericBase > 0) {
+        const finalAmount = numericBase + extras
+        return {
+          hasNumericBase: true,
+          basePrice: numericBase,
+          extrasTotal: extras,
+          total: finalAmount,
+          formattedTotal: extras > 0
+            ? `$${finalAmount.toFixed(2)} Diagnostic Fee`
+            : `$${numericBase.toFixed(2)} Diagnostic Fee`
+        }
+      }
+      return {
+        hasNumericBase: false,
+        basePrice: null,
+        extrasTotal: extras,
+        total: extras,
+        formattedTotal: extras > 0 ? `Diagnostic Fee (+$${extras.toFixed(2)} extras)` : 'Diagnostic Fee'
+      }
+
+    case 'starting_at':
+      if (numericBase !== null && numericBase > 0) {
+        const finalAmount = numericBase + extras
+        return {
+          hasNumericBase: true,
+          basePrice: numericBase,
+          extrasTotal: extras,
+          total: finalAmount,
+          formattedTotal: extras > 0
+            ? `Starting at $${finalAmount.toFixed(2)}`
+            : `Starting at $${numericBase.toFixed(2)}`
+        }
+      }
+      return {
+        hasNumericBase: false,
+        basePrice: null,
+        extrasTotal: extras,
+        total: extras,
+        formattedTotal: extras > 0 ? `Quote on Site (+$${extras.toFixed(2)} extras)` : 'Quote on Site'
+      }
+
+    case 'fixed':
+    default:
+      if (numericBase !== null && numericBase > 0) {
+        const finalAmount = numericBase + extras
+        return {
+          hasNumericBase: true,
+          basePrice: numericBase,
+          extrasTotal: extras,
+          total: finalAmount,
+          formattedTotal: `$${finalAmount.toFixed(2)}`
+        }
+      }
+      return {
+        hasNumericBase: false,
+        basePrice: null,
+        extrasTotal: extras,
+        total: extras,
+        formattedTotal: extras > 0 ? `Quote on Site (+$${extras.toFixed(2)} extras)` : 'Quote on Site'
+      }
+  }
+}
+

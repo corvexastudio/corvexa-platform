@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createBooking } from '@/lib/booking/booking-manager'
 import { checkRateLimitAsync, RATE_LIMITS, getRateLimitHeaders, extractClientIp } from '@/lib/security/rate-limiter'
 import { validateBookingOrigin } from '@/lib/booking/origin-validator'
-import { formatCustomerName, formatStandardUsAddress } from '@/lib/booking/customer-input-formatter'
+import { formatCustomerName, formatStandardUsAddress, combineStreetAndUnit } from '@/lib/booking/customer-input-formatter'
 
 export async function POST(
   request: Request,
@@ -32,6 +32,7 @@ export async function POST(
       customerPhone,
       customerEmail,
       customerAddress,
+      customerUnit,
       startTime,
       notes,
       photos,
@@ -42,6 +43,7 @@ export async function POST(
       isPriority,
       priorityFee,
       selectedAddOns,
+      addonIds,
       howHeard
     } = body
 
@@ -92,13 +94,22 @@ export async function POST(
     // 2. Resolve organization by slug
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name')
+      .select('id, name, subscription_status')
       .eq('slug', slug)
       .single()
 
     if (orgError || !org) {
       console.warn('[BOOKING_SUBMIT_ORG_NOT_FOUND]', { slug, error: orgError?.message })
       return NextResponse.json({ error: 'Business not found' }, { status: 404, headers: rateHeaders })
+    }
+
+    // Canonical suspension check: suspended, canceled, or churned accounts cannot accept bookings
+    const subStatus = (org.subscription_status || '').trim().toLowerCase()
+    if (['suspended', 'canceled', 'cancelled', 'churned'].includes(subStatus)) {
+      return NextResponse.json(
+        { error: 'This business is currently not accepting online bookings.' },
+        { status: 403, headers: rateHeaders }
+      )
     }
 
     // 3. Origin & CSRF Validation (ADD-03)
@@ -111,7 +122,17 @@ export async function POST(
       )
     }
 
-    // 3. Create booking atomically
+    // 4. Create booking atomically
+    const formattedAddress = customerAddress
+      ? combineStreetAndUnit(customerAddress, customerUnit)
+      : undefined
+
+    const rawAddonIds = Array.isArray(addonIds)
+      ? addonIds
+      : Array.isArray(selectedAddOns)
+      ? selectedAddOns.map((a: any) => (typeof a === 'string' ? a : a?.id)).filter(Boolean)
+      : []
+
     const appBaseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://captodesk.com'
     const result = await createBooking(supabase, {
       orgId: org.id,
@@ -119,11 +140,12 @@ export async function POST(
       customerName: formatCustomerName(customerName),
       customerPhone: customerPhone.trim(),
       customerEmail: customerEmail?.trim() || undefined,
-      customerAddress: customerAddress ? formatStandardUsAddress(customerAddress) : undefined,
+      customerAddress: formattedAddress,
       startTime,
       notes: mergedCustomerNotes || undefined,
       photos: Array.isArray(photos) ? photos.filter((p: any) => typeof p === 'string' && p.trim()) : undefined,
       selectedAddOns: Array.isArray(selectedAddOns) ? selectedAddOns : undefined,
+      addonIds: rawAddonIds,
       isPriority: Boolean(isPriority),
       priorityFee: priorityFee ? Number(priorityFee) : undefined,
       source: source || 'booking_page',
@@ -143,7 +165,9 @@ export async function POST(
       manageUrl: result.manageUrl,
       trackingToken: (result as any).trackingToken || null,
       trackingUrl: (result as any).trackingUrl || null,
-      status: result.status
+      status: result.status,
+      smsStatus: result.smsStatus || 'sent',
+      smsError: result.smsError || null
     }, { headers: rateHeaders })
   } catch (err: any) {
     console.error('[BOOKING_SUBMIT_ERROR]', err)

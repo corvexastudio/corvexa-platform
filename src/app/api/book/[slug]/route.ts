@@ -32,7 +32,7 @@ export async function GET(
     let org: any = null
     const { data: orgData, error: orgError } = await supabase
       .from('organizations')
-      .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry, logo_url')
+      .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry, logo_url, subscription_status')
       .eq('slug', resolvedSlug)
       .single()
 
@@ -40,7 +40,7 @@ export async function GET(
       // Fallback query if logo_url is not yet in schema cache
       const fallback = await supabase
         .from('organizations')
-        .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry')
+        .select('id, name, slug, owner_phone, telnyx_phone_number, business_hours, timezone, booking_mode, default_duration_minutes, buffer_minutes, minimum_notice_hours, max_booking_days_ahead, blocked_dates, industry, subscription_status')
         .eq('slug', resolvedSlug)
         .single()
       org = fallback.data
@@ -51,6 +51,15 @@ export async function GET(
     if (!org) {
       console.warn('[BOOKING_GET_ORG_NOT_FOUND]', { slug, error: orgError?.message })
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+    }
+
+    // Canonical suspension check: suspended, canceled, or churned accounts cannot accept bookings
+    const subStatus = (org.subscription_status || '').trim().toLowerCase()
+    if (['suspended', 'canceled', 'cancelled', 'churned'].includes(subStatus)) {
+      return NextResponse.json(
+        { error: 'This business is currently unavailable for online booking.' },
+        { status: 403 }
+      )
     }
 
     // Record page view with traffic source attribution asynchronously (non-blocking)

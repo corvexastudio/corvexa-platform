@@ -31,7 +31,8 @@ export interface CreateBookingInput {
   notes?: string
   photos?: string[] // Customer diagnostic intake photos
   items?: Array<{ description: string; quantity: number; unit_price: number }>
-  selectedAddOns?: Array<{ name: string; price?: number }>
+  selectedAddOns?: Array<{ id?: string; name: string; price?: number; duration_minutes?: number }>
+  addonIds?: string[]
   isPriority?: boolean
   priorityFee?: number
   source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call' | 'referral'
@@ -48,6 +49,8 @@ export interface BookingResult {
   trackingToken?: string | null
   trackingUrl?: string | null
   status?: string
+  smsStatus?: 'sent' | 'failed' | 'suppressed_starter' | 'suppressed_trial' | 'opt_out' | 'no_phone' | 'compliance_blocked' | 'none'
+  smsError?: string
   error?: string
 }
 
@@ -88,6 +91,12 @@ export async function createBooking(
 
   if (orgError || !org) {
     return { success: false, error: 'Organization not found' }
+  }
+
+  // Canonical suspension check: suspended, canceled, or churned accounts cannot accept bookings
+  const orgSubStatus = (org.subscription_status || '').trim().toLowerCase()
+  if (['suspended', 'canceled', 'cancelled', 'churned'].includes(orgSubStatus)) {
+    return { success: false, error: 'This business is currently not accepting online bookings.' }
   }
 
   const timezone = org.timezone || 'America/Chicago'
@@ -142,7 +151,39 @@ export async function createBooking(
     return { success: false, error: 'Service address is required for this service' }
   }
 
-  const durationMinutes = activeService.duration_minutes || 60
+  // Resolve Authoritative Add-ons and Total Duration
+  // Security requirement: Never trust browser-submitted duration or prices!
+  let authoritativeAddOns: Array<{ id: string; name: string; price: number | null; duration_minutes?: number }> = []
+  let addOnDurationMinutes = 0
+
+  if (activeService.description) {
+    const { parseAddOns } = await import('../services/service-pricing.ts')
+    const configuredAddons = parseAddOns(activeService.description)
+
+    const requestedIds = new Set<string>()
+    if (Array.isArray(input.addonIds)) {
+      for (const id of input.addonIds) {
+        if (id && typeof id === 'string') requestedIds.add(id.trim())
+      }
+    }
+    if (Array.isArray(input.selectedAddOns)) {
+      for (const item of input.selectedAddOns) {
+        const id = typeof item === 'string' ? item : item?.id
+        if (id && typeof id === 'string') requestedIds.add(id.trim())
+      }
+    }
+
+    if (requestedIds.size > 0 && configuredAddons.length > 0) {
+      authoritativeAddOns = configuredAddons.filter(a => requestedIds.has(a.id))
+      addOnDurationMinutes = authoritativeAddOns.reduce(
+        (sum, a) => sum + (Number(a.duration_minutes) || 0),
+        0
+      )
+    }
+  }
+
+  const baseDurationMinutes = activeService.duration_minutes || 60
+  const durationMinutes = baseDurationMinutes + addOnDurationMinutes
   const durationMs = durationMinutes * 60 * 1000
   const slotStartMs = new Date(startTime).getTime()
   if (isNaN(slotStartMs) || slotStartMs < Date.now() - 5 * 60 * 1000) {
@@ -435,7 +476,15 @@ export async function createBooking(
           unit_price: servicePrice
         })
       }
-      if (Array.isArray(input.selectedAddOns)) {
+      if (authoritativeAddOns.length > 0) {
+        for (const addon of authoritativeAddOns) {
+          itemsList.push({
+            description: addon.name,
+            quantity: 1,
+            unit_price: Number(addon.price) || 0
+          })
+        }
+      } else if (Array.isArray(input.selectedAddOns)) {
         for (const addon of input.selectedAddOns) {
           itemsList.push({
             description: addon.name,
@@ -581,8 +630,11 @@ export async function createBooking(
   const remaining = Math.max(0, 3 - milestone)
 
   let isTrialLimitReached = false
+  let smsStatus: BookingResult['smsStatus'] = 'none'
+  let smsError: string | undefined = undefined
 
   if (isStarterLimitReached) {
+    smsStatus = 'suppressed_starter'
     // 3 Free jobs completed. Customer SMS paused until contractor upgrades.
     await logComplianceAudit(supabase, {
       orgId,
@@ -662,6 +714,7 @@ export async function createBooking(
     isTrialLimitReached = Boolean(trialQuota?.isTrial && trialQuota?.isExceeded)
 
     if (isTrialLimitReached) {
+      smsStatus = 'suppressed_trial'
       await logComplianceAudit(supabase, {
         orgId,
         phone: normalizedPhone.e164,
@@ -674,7 +727,7 @@ export async function createBooking(
       try {
         await supabase.from('notifications').insert({
           org_id: orgId,
-          title: 'Trial Quota Reached — Outbound SMS Paused',
+          title: 'Trial Quota Reached: Outbound SMS Paused',
           message: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached. Upgrade your subscription to resume automated customer messaging.`,
           link: '/client/billing'
         })
@@ -686,7 +739,7 @@ export async function createBooking(
         event: 'system_action_required',
         organizationId: orgId,
         data: {
-          title: 'Trial Quota Reached — Outbound SMS Paused',
+          title: 'Trial Quota Reached: Outbound SMS Paused',
           body: `A new booking was received from ${customerName}, but automated SMS confirmation was paused because your trial booking quota has been reached.`,
           targetUrl: '/client/billing',
           customerName,
@@ -696,6 +749,7 @@ export async function createBooking(
       }).catch(() => {})
     } else if (senderNumber) {
       if (!isSmsConsented) {
+        smsStatus = 'opt_out'
         await logComplianceAudit(supabase, {
           orgId,
           phone: normalizedPhone.e164,
@@ -722,6 +776,13 @@ export async function createBooking(
             text: compliance.formattedText
           })
 
+          if (smsResult?.success) {
+            smsStatus = 'sent'
+          } else {
+            smsStatus = 'failed'
+            smsError = smsResult?.error || 'SMS delivery failed'
+          }
+
           await logComplianceAudit(supabase, {
             orgId,
             phone: normalizedPhone.e164,
@@ -746,8 +807,13 @@ export async function createBooking(
               console.warn('[BOOKING_CONVERSATION_SYNC_ERROR]', convErr)
             })
           }
+        } else {
+          smsStatus = 'compliance_blocked'
+          smsError = compliance.suppressionReason || 'SMS compliance check blocked delivery'
         }
       }
+    } else {
+      smsStatus = 'no_phone'
     }
   }
 
@@ -810,7 +876,9 @@ export async function createBooking(
     manageUrl,
     trackingToken: linkedJob?.tracking_token || null,
     trackingUrl: linkedJob?.tracking_token ? `${appBaseUrl || ''}/t/${linkedJob.tracking_token}` : null,
-    status: initialStatus
+    status: initialStatus,
+    smsStatus,
+    smsError
   }
 }
 
@@ -1195,7 +1263,18 @@ export async function customerRescheduleBooking(
     }
   }
 
-  const durationMs = (service.duration_minutes || 60) * 60 * 1000
+  // Authoritative Duration for Reschedule:
+  // 1. First priority: historical appointment duration from stored start_time and end_time
+  let appointmentDurationMinutes = (service?.duration_minutes || org?.default_duration_minutes || 60)
+  if (apt.start_time && apt.end_time) {
+    const historicalMs = new Date(apt.end_time).getTime() - new Date(apt.start_time).getTime()
+    const historicalMinutes = Math.round(historicalMs / (60 * 1000))
+    if (historicalMinutes > 0 && !isNaN(historicalMinutes)) {
+      appointmentDurationMinutes = historicalMinutes
+    }
+  }
+
+  const durationMs = appointmentDurationMinutes * 60 * 1000
   const bufferMs = (org?.buffer_minutes ?? 15) * 60 * 1000
   const newStartMs = new Date(newStartTime).getTime()
 

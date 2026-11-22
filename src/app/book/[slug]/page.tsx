@@ -29,18 +29,40 @@ import {
   Zap
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
-import { getSelectableDatesInTimezone } from '@/lib/booking/availability'
+import { getSelectableDatesInTimezone, getDayOfWeekName } from '@/lib/booking/availability'
 import { getFriendlyTimezoneLabel, isDifferentFromDeviceTimezone, getDeviceTimezone } from '@/lib/temporal/timezone'
-import { parseServicePricing, cleanServiceDescription, type ServiceAddOn } from '@/lib/services/service-pricing'
+import { 
+  parseServicePricing, 
+  cleanServiceDescription, 
+  formatDynamicPricingTotal,
+  type ServiceAddOn,
+  type PricingModel 
+} from '@/lib/services/service-pricing'
 import { type BookingSettings } from '@/lib/booking/booking-settings'
 import { buildServiceCatalog, filterCatalogItems } from '@/lib/booking/service-catalog'
 import { ContractorBrandAvatar } from '@/components/brand/contractor-brand-avatar'
+import { BusinessHeader } from '@/components/booking/business-header'
+import { CategoryRail } from '@/components/booking/category-rail'
+import { ServiceCard } from '@/components/booking/service-card'
+import { AddOnSelector } from '@/components/booking/addon-selector'
+import { BookingBottomBar } from '@/components/booking/booking-bottom-bar'
+import { TimezoneBanner } from '@/components/booking/timezone-banner'
+import { AppointmentSummaryCard } from '@/components/booking/appointment-summary-card'
+import { DatePickerRail } from '@/components/booking/date-picker-rail'
+import { TimeSlotGrid } from '@/components/booking/time-slot-grid'
+import { DateTimeBottomBar } from '@/components/booking/date-time-bottom-bar'
+import { BookingReviewSummary } from '@/components/booking/booking-review-summary'
+import { CustomerIntakeForm, type CustomerFormData } from '@/components/booking/customer-intake-form'
+import { BookingConfirmationView } from '@/components/booking/booking-confirmation-view'
+import { normalizePhoneToE164 } from '@/lib/telephony/phone-normalizer'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
 import { cn } from '@/lib/utils'
 import {
   formatCustomerName,
   formatAsYouTypeUsPhone,
   formatStandardUsAddress,
+  combineStreetAndUnit,
+  splitStreetAndUnit,
   getEmailDomainSuggestions
 } from '@/lib/booking/customer-input-formatter'
 
@@ -69,6 +91,7 @@ interface OrgInfo {
   max_booking_days_ahead: number
   industry?: string | null
   logo_url?: string | null
+  blocked_dates?: string[]
   booking_settings?: BookingSettings
 }
 
@@ -105,7 +128,7 @@ function PublicBookingPageContent() {
   const [serviceSearch, setServiceSearch] = useState('')
   const [activeServiceCategory, setActiveServiceCategory] = useState('all')
 
-  // Calculate dynamic live total price accounting for base price, selected add-ons, and priority fee
+  // Calculate dynamic live total price accounting for pricing model, base price, selected add-ons, and priority fee
   const dynamicPricing = useMemo(() => {
     if (!selectedService) return null
     const basePrice = selectedService.price !== null && selectedService.price !== undefined ? Number(selectedService.price) : null
@@ -113,25 +136,18 @@ function PublicBookingPageContent() {
     const priorityFee = isPriority ? (Number(org?.booking_settings?.priority_dispatch_fee) || 0) : 0
     const extrasTotal = addOnsTotal + priorityFee
 
-    if (basePrice !== null && basePrice > 0) {
-      const finalAmount = basePrice + extrasTotal
-      return {
-        hasNumericBase: true,
-        basePrice,
-        addOnsTotal,
-        priorityFee,
-        total: finalAmount,
-        formattedTotal: `$${finalAmount.toFixed(2)}`
-      }
-    }
+    const model: PricingModel = (selectedService.pricing_model as PricingModel) ||
+      parseServicePricing(selectedService.price, selectedService.description).model
+
+    const formatted = formatDynamicPricingTotal(model, basePrice, extrasTotal)
 
     return {
-      hasNumericBase: false,
-      basePrice: null,
+      hasNumericBase: formatted.hasNumericBase,
+      basePrice: formatted.basePrice,
       addOnsTotal,
       priorityFee,
-      total: extrasTotal,
-      formattedTotal: extrasTotal > 0 ? `Quote on Site (+$${extrasTotal.toFixed(2)} extras)` : 'Quote on Site'
+      total: formatted.total,
+      formattedTotal: formatted.formattedTotal
     }
   }, [selectedService, selectedAddOns, isPriority, org?.booking_settings?.priority_dispatch_fee])
 
@@ -142,6 +158,29 @@ function PublicBookingPageContent() {
   const filteredServices = useMemo(() => {
     return filterCatalogItems(serviceCatalog.items, serviceSearch, activeServiceCategory)
   }, [serviceCatalog, serviceSearch, activeServiceCategory])
+
+  // Total duration in minutes (service base duration + all selected add-ons duration)
+  const totalDurationMinutes = useMemo(() => {
+    const base = selectedService?.duration_minutes || 60
+    const addOnsDuration = selectedAddOns.reduce((sum, a) => sum + (a.duration_minutes || 0), 0)
+    return base + addOnsDuration
+  }, [selectedService, selectedAddOns])
+
+  // Handler for service selection (resets add-ons if switching to a different service)
+  const handleSelectService = (svc: ServiceItem) => {
+    setSelectedService(svc)
+    if (selectedService?.id !== svc.id) {
+      setSelectedAddOns([])
+    }
+  }
+
+  // Handler for toggling optional add-ons
+  const handleToggleAddOn = (addon: ServiceAddOn) => {
+    setSelectedAddOns(prev => {
+      const exists = prev.some(a => a.id === addon.id)
+      return exists ? prev.filter(a => a.id !== addon.id) : [...prev, addon]
+    })
+  }
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
   const [allSlots, setAllSlots] = useState<AvailableSlot[]>([])
@@ -152,17 +191,24 @@ function PublicBookingPageContent() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null)
 
   // Customer Contact Info
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CustomerFormData>({
     name: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     email: '',
     address: '',
+    streetAddress: '',
+    unit: '',
+    city: '',
+    state: '',
+    zip: '',
     notes: '',
+    accessInfo: '',
     photos: [] as string[]
   })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [smsConsent, setSmsConsent] = useState(true)
-  const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
-  const [showEmailSuggestions, setShowEmailSuggestions] = useState(false)
 
   // Diagnostic Photo Upload Handlers
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,12 +273,15 @@ function PublicBookingPageContent() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [confirmedBooking, setConfirmedBooking] = useState<{
+    success?: boolean
     appointment: any
     manageToken: string
     manageUrl: string
     trackingToken?: string | null
     trackingUrl?: string | null
     status: string
+    smsStatus?: 'sent' | 'failed' | 'suppressed_starter' | 'suppressed_trial' | 'opt_out' | 'no_phone' | 'compliance_blocked' | 'none'
+    smsError?: string | null
   } | null>(null)
 
   // Referral Attribution
@@ -275,12 +324,22 @@ function PublicBookingPageContent() {
 
         // Apply customer prefill if recognized from missed call or text link
         if (data.prefill) {
+          const prefilledName = formatCustomerName(data.prefill.name || '')
+          const nameTokens = prefilledName.trim().split(/\s+/)
+          const fName = nameTokens[0] || ''
+          const lName = nameTokens.slice(1).join(' ') || ''
+          const { street, unit } = splitStreetAndUnit(data.prefill.address || '')
+
           setFormData(prev => ({
             ...prev,
-            name: formatCustomerName(data.prefill.name || prev.name),
+            name: prefilledName || prev.name,
+            firstName: fName || prev.firstName,
+            lastName: lName || prev.lastName,
             phone: formatAsYouTypeUsPhone(data.prefill.phone || prev.phone),
             email: data.prefill.email || prev.email,
-            address: formatStandardUsAddress(data.prefill.address || prev.address),
+            address: street || formatStandardUsAddress(data.prefill.address || prev.address),
+            streetAddress: street || data.prefill.address || prev.streetAddress,
+            unit: unit || prev.unit,
             notes: data.prefill.notes || prev.notes
           }))
 
@@ -309,9 +368,13 @@ function PublicBookingPageContent() {
           const directPhone = searchParams?.get('phone')
           const directName = searchParams?.get('name')
           if (directPhone || directName) {
+            const prefilledName = formatCustomerName(directName || '')
+            const nameTokens = prefilledName.trim().split(/\s+/)
             setFormData(prev => ({
               ...prev,
-              name: formatCustomerName(directName || prev.name),
+              name: prefilledName || prev.name,
+              firstName: nameTokens[0] || prev.firstName,
+              lastName: nameTokens.slice(1).join(' ') || prev.lastName,
               phone: formatAsYouTypeUsPhone(directPhone || prev.phone)
             }))
             setIsPrefilled(true)
@@ -330,13 +393,43 @@ function PublicBookingPageContent() {
     loadOrg()
   }, [slug, searchParams])
 
-  // Generate selectable dates strictly within organization US timezone
+  // Generate selectable dates strictly within organization US timezone up to configured horizon
   const selectableDates = useMemo(() => {
     const tz = org?.timezone || 'America/Chicago'
-    const maxDays = org?.max_booking_days_ahead || 14
-    const limit = Math.min(maxDays, 14)
+    const maxDays = org?.max_booking_days_ahead || 30
+    const limit = Math.min(Math.max(maxDays, 14), 90)
     return getSelectableDatesInTimezone(tz, limit)
   }, [org?.timezone, org?.max_booking_days_ahead])
+
+  // Selected date formatted label for bottom bar and header
+  const selectedDateFormatted = useMemo(() => {
+    if (!selectedDate) return null
+    const item = selectableDates.find(d => d.dateStr === selectedDate)
+    if (item) return `${item.dayOfWeek}, ${item.label}`
+    return selectedDate
+  }, [selectedDate, selectableDates])
+
+  // Next available date recovery helper when selected date is full, closed, or past
+  const nextAvailableCandidate = useMemo(() => {
+    if (dayStatus === 'available' && availableSlots.length > 0) return null
+    const currentIndex = selectableDates.findIndex(d => d.dateStr === selectedDate)
+    if (currentIndex === -1) return null
+    for (let i = currentIndex + 1; i < selectableDates.length; i++) {
+      const candidate = selectableDates[i]
+      const dayName = getDayOfWeekName(candidate.dateStr, org?.timezone || 'America/Chicago')
+      const bh = org?.business_hours?.[dayName]
+      const isClosed = !bh || bh.closed === true
+      const isBlocked = org?.blocked_dates?.includes(candidate.dateStr)
+      const meta = datesMeta[candidate.dateStr]
+      if (meta && (meta.dayStatus === 'fully_booked' || meta.dayStatus === 'closed' || meta.dayStatus === 'past')) {
+        continue
+      }
+      if (!isClosed && !isBlocked) {
+        return candidate
+      }
+    }
+    return null
+  }, [selectableDates, selectedDate, dayStatus, availableSlots.length, org?.timezone, org?.business_hours, org?.blocked_dates, datesMeta])
 
   // Cross-timezone client device detection (smart traveler reassurance)
   const isDifferentTz = useMemo(() => {
@@ -367,7 +460,10 @@ function PublicBookingPageContent() {
       setSelectedSlot(null)
       try {
         const priorityQuery = isPriority ? '&isPriority=true' : ''
-        const res = await fetch(`/api/book/${slug}/slots?date=${selectedDate}&serviceId=${selectedService?.id || ''}${priorityQuery}`)
+        const addonQuery = selectedAddOns.length > 0
+          ? `&addonIds=${encodeURIComponent(selectedAddOns.map(a => a.id).join(','))}`
+          : ''
+        const res = await fetch(`/api/book/${slug}/slots?date=${selectedDate}&serviceId=${selectedService?.id || ''}${priorityQuery}${addonQuery}`)
         if (res.ok) {
           const data = await res.json()
           const slots = data.slots || []
@@ -404,28 +500,125 @@ function PublicBookingPageContent() {
     }
 
     fetchSlots()
-  }, [slug, selectedDate, selectedService, isPriority])
+  }, [slug, selectedDate, selectedService, selectedAddOns, isPriority])
 
-  // 3. Handle Submit
+  // 3. Handle Submit with comprehensive validation and focus recovery
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedService || !selectedSlot) return
 
-    if (!formData.name.trim() || !formData.phone.trim()) {
-      setSubmitError('Please enter your full name and phone number.')
-      return
+    const errors: Record<string, string> = {}
+
+    // First and Last Name validation
+    const trimmedFirst = (formData.firstName || '').trim()
+    const trimmedLast = (formData.lastName || '').trim()
+    if (!trimmedFirst) {
+      errors.firstName = 'First name is required'
+    }
+    if (!trimmedLast) {
+      errors.lastName = 'Last name is required'
     }
 
-    if (selectedService.requires_address && !formData.address.trim()) {
-      setSubmitError('Service address is required for on-site appointments.')
+    // Phone validation following ITU-T E.164 rules
+    const trimmedPhone = (formData.phone || '').trim()
+    const phoneNorm = normalizePhoneToE164(trimmedPhone)
+    if (!trimmedPhone) {
+      errors.phone = 'Mobile phone number is required'
+    } else if (!phoneNorm.isValid) {
+      errors.phone = 'Please enter a valid mobile phone number (e.g. (555) 000-0000)'
+    }
+
+    // Optional Email format validation
+    const trimmedEmail = (formData.email || '').trim()
+    if (trimmedEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(trimmedEmail)) {
+        errors.email = 'Please enter a valid email address'
+      }
+    }
+
+    // Address validation if service requires on-site visit
+    const streetInput = (formData.streetAddress || formData.address || '').trim()
+    if (selectedService.requires_address) {
+      if (!streetInput) {
+        errors.streetAddress = 'Street address is required'
+      }
+      // If single street line does not already contain a comma, validate city, state, zip
+      if (!streetInput.includes(',')) {
+        if (!(formData.city || '').trim()) {
+          errors.city = 'City is required'
+        }
+        if (!(formData.state || '').trim()) {
+          errors.state = 'State is required'
+        }
+        if (!(formData.zip || '').trim()) {
+          errors.zip = 'ZIP code is required'
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      // Focus or scroll to the first invalid field
+      const firstField = Object.keys(errors)[0]
+      const fieldIdMap: Record<string, string> = {
+        firstName: 'field-first-name',
+        lastName: 'field-last-name',
+        phone: 'field-phone',
+        email: 'field-email',
+        streetAddress: 'field-street-address',
+        city: 'field-city',
+        state: 'field-state',
+        zip: 'field-zip'
+      }
+      const elId = fieldIdMap[firstField] || `field-${firstField}`
+      const el = document.getElementById(elId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.focus()
+      }
       return
     }
 
     setSubmitting(true)
     setSubmitError(null)
 
-    const cleanedName = formatCustomerName(formData.name)
-    const cleanedAddress = formatStandardUsAddress(formData.address)
+    // Assemble Title Case Customer Name
+    const rawFullName = trimmedFirst && trimmedLast
+      ? `${trimmedFirst} ${trimmedLast}`
+      : (formData.name || `${trimmedFirst} ${trimmedLast}`).trim()
+    const cleanedName = formatCustomerName(rawFullName)
+
+    // Assemble Full Standardized US Address
+    let fullAddr = streetInput
+    if (formData.city?.trim() && !fullAddr.includes(formData.city.trim())) {
+      fullAddr += `, ${formData.city.trim()}`
+    }
+    if (formData.state?.trim() && !fullAddr.includes(formData.state.trim())) {
+      fullAddr += `, ${formData.state.trim().toUpperCase()}`
+    }
+    if (formData.zip?.trim() && !fullAddr.includes(formData.zip.trim())) {
+      fullAddr += ` ${formData.zip.trim()}`
+    }
+    const combinedAddress = combineStreetAndUnit(fullAddr, formData.unit)
+    const cleanedAddress = formatStandardUsAddress(combinedAddress)
+
+    // Keep formData.name and formData.address synchronized for Step 4 Confirmation
+    setFormData(prev => ({
+      ...prev,
+      name: cleanedName,
+      address: cleanedAddress
+    }))
+
+    // Assemble merged notes with access instructions
+    const notesList: string[] = []
+    if (formData.notes?.trim()) {
+      notesList.push(formData.notes.trim())
+    }
+    if (formData.accessInfo?.trim()) {
+      notesList.push(`[Access Instructions: ${formData.accessInfo.trim()}]`)
+    }
+    const mergedNotes = notesList.join('\n\n')
 
     try {
       const res = await fetch(`/api/book/${slug}/submit`, {
@@ -434,11 +627,12 @@ function PublicBookingPageContent() {
         body: JSON.stringify({
           serviceId: selectedService.id,
           customerName: cleanedName,
-          customerPhone: formData.phone,
-          customerEmail: formData.email.trim(),
-          customerAddress: cleanedAddress,
+          customerPhone: phoneNorm.e164 || trimmedPhone,
+          customerEmail: trimmedEmail || undefined,
+          customerAddress: cleanedAddress || undefined,
+          customerUnit: formData.unit?.trim() || undefined,
           startTime: selectedSlot.startTime,
-          notes: formData.notes,
+          notes: mergedNotes || undefined,
           photos: formData.photos,
           bookingToken: bookingToken || undefined,
           referralCode: referralCode || undefined,
@@ -447,6 +641,7 @@ function PublicBookingPageContent() {
           isPriority,
           priorityFee: isPriority ? org?.booking_settings?.priority_dispatch_fee : undefined,
           selectedAddOns,
+          addonIds: selectedAddOns.map(a => a.id),
           howHeard: howHeard.trim() || undefined
         })
       })
@@ -454,7 +649,13 @@ function PublicBookingPageContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        setSubmitError(data.error || 'Failed to submit booking. Please try another time.')
+        const errMsg = data.error || 'Failed to submit booking. Please try another time.'
+        setSubmitError(errMsg)
+        const lower = errMsg.toLowerCase()
+        if (lower.includes('no longer available') || lower.includes('conflict') || lower.includes('taken') || lower.includes('slot')) {
+          setSelectedSlot(null)
+          setStep(2)
+        }
         return
       }
 
@@ -491,29 +692,14 @@ function PublicBookingPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 py-6 px-4 sm:px-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 pt-6 pb-28 sm:pb-32 px-4 sm:px-6">
       <div className="max-w-xl mx-auto space-y-6">
 
         {/* Business Header */}
-        <div className="text-center space-y-2.5 pb-2 flex flex-col items-center">
-          <ContractorBrandAvatar
-            logoUrl={org.logo_url}
-            name={org.name}
-            industry={org.industry}
-            size="lg"
-            className="shadow-sm ring-2 ring-white dark:ring-zinc-900"
-          />
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold">
-            <CalendarDays className="h-3.5 w-3.5" />
-            <span>Online Booking</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            {org.name}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
-            {org.booking_mode === 'instant' ? 'Select a service and time to book online.' : 'Submit a booking request to schedule your appointment.'}
-          </p>
-        </div>
+        <BusinessHeader
+          org={org}
+          servicesCount={services.length}
+        />
 
         {/* Referral Welcome Banner */}
         {referralCode && (
@@ -583,7 +769,7 @@ function PublicBookingPageContent() {
 
         {/* STEP 1: CHOOSE SERVICE */}
         {step === 1 && (
-          <div className={cn("space-y-4", selectedService ? "pb-24 sm:pb-28" : "")}>
+          <div className={cn("space-y-4", "pb-28 sm:pb-32")}>
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -623,89 +809,22 @@ function PublicBookingPageContent() {
               </div>
             ) : (
               <>
-                {/* Search Bar (Activated when 5+ services or search is non-empty) */}
-                {(services.length >= 5 || serviceSearch.trim().length > 0) && (
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Search className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      value={serviceSearch}
-                      onChange={(e) => setServiceSearch(e.target.value)}
-                      placeholder="Search services (e.g. drain, water heater, leak, inspection)..."
-                      className="w-full pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-xs"
-                    />
-                    {serviceSearch && (
-                      <button
-                        type="button"
-                        onClick={() => setServiceSearch('')}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 cursor-pointer"
-                        aria-label="Clear service search"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Category Pills (Activated when catalog has multiple categories and 5+ services) */}
-                {serviceCatalog.hasCategories && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-none">
-                    {serviceCatalog.categories.map((cat) => {
-                      const isActive = activeServiceCategory === cat.id
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setActiveServiceCategory(cat.id)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0",
-                            isActive
-                              ? "bg-blue-600 text-white shadow-xs"
-                              : "bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 shadow-2xs"
-                          )}
-                        >
-                          <span>{cat.label}</span>
-                          <span
-                            className={cn(
-                              "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
-                              isActive
-                                ? "bg-blue-700/80 text-white"
-                                : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
-                            )}
-                          >
-                            {cat.count}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Filter / Search Match Subtitle */}
-                {(serviceSearch || activeServiceCategory !== 'all') && (
-                  <div className="flex items-center justify-between text-xs px-1 text-slate-500 dark:text-zinc-400">
-                    <span>
-                      Showing <strong>{filteredServices.length}</strong> of {services.length} services
-                      {activeServiceCategory !== 'all' && (
-                        <span> in <em>{serviceCatalog.categories.find(c => c.id === activeServiceCategory)?.label}</em></span>
-                      )}
-                    </span>
-                    {(serviceSearch || activeServiceCategory !== 'all') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setServiceSearch('')
-                          setActiveServiceCategory('all')
-                        }}
-                        className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
-                      >
-                        Reset filters
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* Search & Category Filter Rail */}
+                <CategoryRail
+                  categories={serviceCatalog.categories}
+                  activeCategory={activeServiceCategory}
+                  onSelectCategory={setActiveServiceCategory}
+                  searchQuery={serviceSearch}
+                  onSearchChange={setServiceSearch}
+                  totalServicesCount={services.length}
+                  filteredServicesCount={filteredServices.length}
+                  showSearch={services.length >= 4 || serviceSearch.trim().length > 0}
+                  showCategories={serviceCatalog.hasCategories}
+                  onResetFilters={() => {
+                    setServiceSearch('')
+                    setActiveServiceCategory('all')
+                  }}
+                />
 
                 {/* Zero Search Results State */}
                 {filteredServices.length === 0 ? (
@@ -726,7 +845,7 @@ function PublicBookingPageContent() {
                           setServiceSearch('')
                           setActiveServiceCategory('all')
                         }}
-                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors cursor-pointer"
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-colors cursor-pointer min-h-[40px]"
                       >
                         Clear Filters
                       </button>
@@ -734,258 +853,135 @@ function PublicBookingPageContent() {
                         <button
                           type="button"
                           onClick={() => {
-                            setSelectedService(services[0])
+                            handleSelectService(services[0])
                             setServiceSearch('')
                             setActiveServiceCategory('all')
                           }}
-                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer min-h-[40px]"
                         >
-                          Book {services[0].name.split(' ')[0]} Diagnostic
+                          Book {services[0].name.split(' ')[0]} Service
                         </button>
                       )}
                     </div>
                   </div>
                 ) : (
                   /* Service Cards List */
-                  <div className="space-y-3">
+                  <div className="space-y-3" role="radiogroup" aria-label="Available services">
                     {filteredServices.map(({ service: svc, isPopular, categoryLabel, cleanDesc }) => {
                       const isSelected = selectedService?.id === svc.id
-                      const pricing = parseServicePricing(svc.price, svc.description)
 
                       return (
-                        <button
-                          key={svc.id}
-                          type="button"
-                          onClick={() => setSelectedService(svc)}
-                          className={cn(
-                            "w-full text-left p-4 rounded-2xl border transition-all cursor-pointer relative group",
-                            isSelected
-                              ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 ring-2 ring-blue-600/20 shadow-sm"
-                              : "bg-white dark:bg-zinc-900 border-slate-200/90 dark:border-zinc-800/80 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs"
+                        <div key={svc.id} className="space-y-2">
+                          <ServiceCard
+                            service={svc}
+                            isSelected={isSelected}
+                            onSelect={handleSelectService}
+                            isPopular={isPopular}
+                            categoryLabel={categoryLabel}
+                            showCategoryBadge={serviceCatalog.hasCategories && activeServiceCategory === 'all'}
+                            cleanDesc={cleanDesc}
+                          />
+
+                          {/* Interactive Add-on Selection Drawer (renders directly beneath selected service card) */}
+                          {isSelected && svc.add_ons && svc.add_ons.length > 0 && (
+                            <AddOnSelector
+                              addOns={svc.add_ons}
+                              selectedAddOns={selectedAddOns}
+                              onToggleAddOn={handleToggleAddOn}
+                              serviceName={svc.name}
+                            />
                           )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              {/* Title & Badges */}
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className={cn(
-                                  "font-bold text-sm sm:text-base leading-snug transition-colors",
-                                  isSelected ? "text-blue-950 dark:text-white" : "text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                                )}>
-                                  {svc.name}
-                                </span>
-
-                                {isPopular && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900/60 shrink-0">
-                                    <Sparkles className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
-                                    <span>Popular</span>
-                                  </span>
-                                )}
-
-                                {serviceCatalog.hasCategories && activeServiceCategory === 'all' && (
-                                  <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md shrink-0">
-                                    {categoryLabel}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Clean Description */}
-                              {cleanDesc && (
-                                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed line-clamp-2">
-                                  {cleanDesc}
-                                </p>
-                              )}
-
-                              {/* Duration & Pricing Badges */}
-                              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-500 dark:text-zinc-400">
-                                <span className="inline-flex items-center gap-1 font-medium text-slate-700 dark:text-zinc-300">
-                                  <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                                  <span>{svc.duration_minutes} mins</span>
-                                </span>
-                                <span>•</span>
-                                <span className={cn(
-                                  "font-bold",
-                                  pricing.model === 'quote_on_site' || pricing.model === 'free_estimate'
-                                    ? "text-slate-800 dark:text-zinc-200"
-                                    : "text-emerald-600 dark:text-emerald-400"
-                                )}>
-                                  {pricing.formattedPrice}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Radio Selection Indicator */}
-                            <div className={cn(
-                              "h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all",
-                              isSelected
-                                ? "border-blue-600 bg-blue-600 text-white shadow-xs"
-                                : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 group-hover:border-slate-400"
-                            )}>
-                              {isSelected && <CheckCircle2 className="h-3.5 w-3.5" />}
-                            </div>
-                          </div>
-                        </button>
+                        </div>
                       )
                     })}
                   </div>
                 )}
 
-                {/* Optional Add-Ons & Upgrades Checklist */}
-                {selectedService?.add_ons && selectedService.add_ons.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-zinc-800 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-zinc-200">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" />
-                        <span>Add-ons</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 dark:text-zinc-500">
-                        Optional
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {selectedService.add_ons.map((addon) => {
-                        const isChecked = selectedAddOns.some(a => a.id === addon.id)
-                        return (
-                          <button
-                            key={addon.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedAddOns(prev =>
-                                isChecked ? prev.filter(a => a.id !== addon.id) : [...prev, addon]
-                              )
-                            }}
-                            className={cn(
-                              "flex items-start justify-between p-3 rounded-xl border text-left transition-all cursor-pointer",
-                              isChecked
-                                ? "bg-blue-50/90 dark:bg-blue-950/50 border-blue-500 dark:border-blue-400 ring-1 ring-blue-500/20"
-                                : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
-                            )}
-                          >
-                            <div className="space-y-0.5 pr-2 min-w-0">
-                              <span className={cn(
-                                "text-xs font-bold block truncate",
-                                isChecked ? "text-blue-950 dark:text-white" : "text-slate-800 dark:text-zinc-200"
-                              )}>
-                                {addon.name}
-                              </span>
-                              {addon.duration_minutes && addon.duration_minutes > 0 ? (
-                                <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">
-                                  +{addon.duration_minutes} mins
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <span className={cn(
-                              "text-xs font-mono font-bold shrink-0",
-                              addon.price && addon.price > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-zinc-400"
-                            )}>
-                              {addon.price && addon.price > 0 ? `+$${addon.price}` : 'Free'}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
                 {/* Standard In-Flow Continue Button */}
-                <button
-                  type="button"
-                  disabled={!selectedService}
-                  onClick={() => setStep(2)}
-                  className="w-full mt-4 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
-                >
-                  <span>Continue to Date &amp; Time</span>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                {filteredServices.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={!selectedService}
+                    onClick={() => setStep(2)}
+                    className="w-full mt-4 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer min-h-[48px]"
+                  >
+                    <span>Continue to Date &amp; Time</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
               </>
             )}
 
-            {/* Sticky Floating Action Rail (Active when a service is selected anywhere on the page) */}
-            {selectedService && (
-              <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-slate-200 dark:border-zinc-800 p-3 sm:p-4 shadow-2xl transition-all animate-in slide-in-from-bottom-2">
-                <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Selected Service
-                    </span>
-                    <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                      {selectedService.name}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5">
-                      <span>⏱ {selectedService.duration_minutes + selectedAddOns.reduce((sum, a) => sum + (a.duration_minutes || 0), 0)} mins</span>
-                      <span>•</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {dynamicPricing?.formattedTotal}
-                      </span>
-                      {selectedAddOns.length > 0 && (
-                        <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-1.5 py-0.2 rounded-md font-medium">
-                          +{selectedAddOns.length} extra{selectedAddOns.length > 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setStep(2)}
-                    className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/20 shrink-0 cursor-pointer"
-                  >
-                    <span>Continue</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Persistent Sticky Bottom Summary & Navigation Bar */}
+            <BookingBottomBar
+              selectedService={selectedService}
+              selectedAddOns={selectedAddOns}
+              formattedTotal={dynamicPricing?.formattedTotal}
+              totalDurationMinutes={totalDurationMinutes}
+              onContinue={() => setStep(2)}
+              disabled={!selectedService}
+            />
           </div>
         )}
 
         {/* STEP 2: CHOOSE DATE & TIME */}
         {step === 2 && (
           <div className="space-y-5">
+            {/* Step Header */}
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                2. Select Date & Time
-              </h2>
+              <div>
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                  Step 2 of 3
+                </span>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Select Date &amp; Time
+                </h2>
+              </div>
               <button 
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer font-medium"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Change Service
               </button>
             </div>
 
-            {/* Selected Service Badge */}
-            <div className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs shadow-xs">
-              <span className="text-slate-500 dark:text-zinc-400">
-                Service: <strong className="text-slate-900 dark:text-white">{selectedService?.name}</strong>
-                {selectedAddOns.length > 0 && (
-                  <span className="text-[10px] ml-1.5 text-blue-600 dark:text-blue-400 font-semibold">
-                    (+{selectedAddOns.length} add-on{selectedAddOns.length > 1 ? 's' : ''})
-                  </span>
-                )}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-medium">
-                  {(selectedService?.duration_minutes || 60) + selectedAddOns.reduce((sum, a) => sum + (a.duration_minutes || 0), 0)} mins
-                </span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  {dynamicPricing?.formattedTotal}
-                </span>
+            {/* Concurrent Booking / Slot Conflict Warning Banner */}
+            {submitError && (
+              <div
+                role="alert"
+                className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5 shadow-2xs animate-in fade-in duration-200"
+              >
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="font-bold text-amber-950 dark:text-amber-100">
+                    Slot No Longer Available
+                  </p>
+                  <p className="text-[11px] text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
+                    The appointment time you requested was just reserved. Please pick another open time below. Your customer details and service selections have been saved.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Priority Service Card */}
+            {/* Selected Service and Price Summary Card */}
+            <AppointmentSummaryCard
+              serviceName={selectedService?.name || 'Selected Service'}
+              durationMinutes={totalDurationMinutes}
+              formattedPrice={dynamicPricing?.formattedTotal || selectedService?.formatted_price || 'Price on request'}
+              selectedAddOns={selectedAddOns}
+              onChangeService={() => setStep(1)}
+            />
+
+            {/* Priority Service Expedited Arrival Card (if enabled by business) */}
             {org.booking_settings?.priority_dispatch_enabled && (
               <div className={cn(
                 "p-3.5 rounded-2xl border transition-all",
                 isPriority
                   ? "bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/20 shadow-xs"
-                  : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
+                  : "bg-white dark:bg-zinc-900 border-slate-200/90 dark:border-zinc-800"
               )}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -1029,787 +1025,148 @@ function PublicBookingPageContent() {
               </div>
             )}
 
-            {/* Date Pill Scroller */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Choose Date</label>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {selectableDates.map((item) => {
-                  const isSelected = selectedDate === item.dateStr
-                  const meta = datesMeta[item.dateStr]
-                  return (
-                    <button
-                      key={item.dateStr}
-                      type="button"
-                      onClick={() => setSelectedDate(item.dateStr)}
-                      className={`flex flex-col items-center justify-center min-w-[72px] py-2.5 px-2 rounded-xl border transition-all shrink-0 cursor-pointer ${
-                        isSelected
-                          ? 'bg-blue-600 border-blue-500 text-white font-bold shadow-md shadow-blue-600/20'
-                          : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800/80 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700 hover:text-slate-900 dark:hover:text-zinc-200 shadow-xs'
-                      }`}
-                    >
-                      <span className="text-[10px] uppercase tracking-wider">{item.dayOfWeek}</span>
-                      <span className="text-sm font-extrabold mt-0.5">{item.label}</span>
-                      {meta && (
-                        <span className="mt-1">
-                          {meta.dayStatus === 'fully_booked' ? (
-                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-red-950/80 text-red-200 border border-red-500/30' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'
-                            }`}>
-                              Full
-                            </span>
-                          ) : meta.dayStatus === 'closed' ? (
-                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-slate-800 text-zinc-300' : 'bg-slate-100 dark:bg-zinc-800/40 text-slate-400 dark:text-zinc-500'
-                            }`}>
-                              Closed
-                            </span>
-                          ) : meta.dayStatus === 'past' ? (
-                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-slate-800 text-zinc-300' : 'bg-slate-100 dark:bg-zinc-800/40 text-slate-400 dark:text-zinc-500'
-                            }`}>
-                              Past
-                            </span>
-                          ) : meta.slotsCount > 0 ? (
-                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                              isSelected ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/30' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-                            }`}>
-                              {meta.slotsCount} open
-                            </span>
-                          ) : null}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            {/* Smart Cross-Timezone Traveler Notice Banner */}
+            <TimezoneBanner timezone={org.timezone || 'America/Chicago'} />
 
-            {/* Available Time Slots Grid */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Available Times ({friendlyTz})</span>
-                </label>
-                {/* Live Slot Counts & Legend */}
-                {!loadingSlots && allSlots.length > 0 && (
-                  <div className="flex items-center gap-3 text-[11px]">
-                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                      {availableSlots.length} Open
-                    </span>
-                    {bookedSlotsCount > 0 && (
-                  <span className="flex items-center gap-1 text-slate-500 dark:text-zinc-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
-                    {bookedSlotsCount} Booked
-                  </span>
-                    )}
-                  </div>
-                )}
-                {loadingSlots && <span className="text-[11px] text-blue-600 dark:text-blue-400 animate-pulse">Checking calendar...</span>}
-              </div>
+            {/* Date Selection Rail & Full Calendar Modal */}
+            <DatePickerRail
+              dates={selectableDates}
+              selectedDate={selectedDate}
+              onSelectDate={(dateStr) => {
+                setSelectedDate(dateStr)
+                setSelectedSlot(null)
+              }}
+              datesMeta={datesMeta}
+              timezone={org.timezone || 'America/Chicago'}
+              businessHours={org.business_hours}
+              blockedDates={org.blocked_dates || []}
+              maxBookingDaysAhead={org.max_booking_days_ahead || 30}
+            />
 
-              {/* Cross-Timezone Traveler Detection Helper Banner */}
-              {isDifferentTz && (
-                <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 p-2.5 text-[11px] text-blue-900 dark:text-blue-200 flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                  <span>
-                    <strong>Service Property Local Time:</strong> Slots are shown in <strong>{friendlyTz}</strong> (Local to service address). Your device is in {deviceTzFriendly}.
-                  </span>
-                </div>
-              )}
+            {/* Grouped Time Slots Grid with Empty States and Next Available Recovery */}
+            <TimeSlotGrid
+              availableSlots={availableSlots}
+              allSlots={allSlots}
+              selectedSlot={selectedSlot}
+              onSelectSlot={(slot) => setSelectedSlot(slot)}
+              loading={loadingSlots}
+              dayStatus={dayStatus}
+              selectedDate={selectedDate}
+              timezone={org.timezone || 'America/Chicago'}
+              appointmentDurationMinutes={totalDurationMinutes}
+              onSelectNextAvailableDate={nextAvailableCandidate ? () => {
+                setSelectedDate(nextAvailableCandidate.dateStr)
+                setSelectedSlot(null)
+              } : undefined}
+              nextAvailableDateLabel={nextAvailableCandidate ? `${nextAvailableCandidate.dayOfWeek}, ${nextAvailableCandidate.label}` : null}
+            />
 
-              {loadingSlots ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-4">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-11 rounded-xl bg-slate-200 dark:bg-zinc-800/50 animate-pulse" />
-                  ))}
-                </div>
-              ) : dayStatus === 'fully_booked' || (bookedSlotsCount > 0 && availableSlots.length === 0) ? (
-                <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-3">
-                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-500 dark:text-amber-400 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-amber-900 dark:text-amber-200">This date is fully booked</p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-0.5 leading-relaxed">
-                        All appointment slots for this date have already been reserved. Please pick another date from the calendar above to see open times.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Render the booked slots so the customer sees they are taken */}
-                  {allSlots.length > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] text-slate-400 dark:text-zinc-500 uppercase tracking-wider font-semibold">Reserved Times</span>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 opacity-75">
-                        {allSlots.map((slot) => (
-                          <div
-                            key={slot.startTime}
-                            className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/60 dark:border-zinc-800/60 bg-slate-100/50 dark:bg-zinc-900/40 text-slate-400 dark:text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
-                            title="This slot is already booked"
-                          >
-                            <span className="line-through decoration-slate-400 dark:decoration-zinc-600 text-slate-400 dark:text-zinc-500">{slot.displayTime}</span>
-                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400/90 border border-rose-200 dark:border-rose-500/20">
-                              Booked
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : dayStatus === 'past' || (availableSlots.length === 0 && allSlots.length > 0) ? (
-                <div className="space-y-3">
-                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-800 dark:text-blue-200 text-xs flex items-start gap-3">
-                    <Clock className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-blue-900 dark:text-blue-200">Operating hours for this date have passed</p>
-                      <p className="text-[11px] text-blue-700 dark:text-blue-300/80 mt-0.5 leading-relaxed">
-                        Booking hours for this date in {friendlyTz} have concluded. Please choose tomorrow or an upcoming date to find available times.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : allSlots.length === 0 ? (
-                <div className="py-8 px-4 text-center rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-2 shadow-xs">
-                  <CalendarDays className="h-8 w-8 text-slate-400 dark:text-zinc-600 mx-auto" />
-                  <p className="text-xs font-medium text-slate-700 dark:text-zinc-300">
-                    {dayStatus === 'closed' ? 'Closed on this date' : 'No available slots for this date'}
-                  </p>
-                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-xs mx-auto">
-                    {dayStatus === 'closed'
-                      ? 'Our business is closed on this day according to standard business hours. Please select another date.'
-                      : 'All times are either booked, outside business hours, or within the minimum notice period. Please choose another date.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
-                  {allSlots.map((slot) => {
-                    const isSelected = selectedSlot?.startTime === slot.startTime
-                    const isBooked = !slot.isAvailable && slot.status === 'booked'
-                    const isPast = !slot.isAvailable && slot.status === 'past'
-
-                    if (isBooked) {
-                      return (
-                        <div
-                          key={slot.startTime}
-                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/50 dark:border-zinc-800/50 bg-slate-100/40 dark:bg-zinc-950/40 text-slate-400 dark:text-zinc-500 flex items-center justify-between gap-1.5 cursor-not-allowed select-none"
-                          title="This slot is already booked"
-                        >
-                          <span className="line-through decoration-slate-400 dark:decoration-zinc-600 text-slate-400 dark:text-zinc-500">{slot.displayTime}</span>
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400/80 border border-rose-200 dark:border-rose-500/20">
-                            Booked
-                          </span>
-                        </div>
-                      )
-                    }
-
-                    if (isPast) {
-                      return (
-                        <div
-                          key={slot.startTime}
-                          className="py-2.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/40 dark:border-zinc-900 bg-slate-100/20 dark:bg-zinc-950/20 text-slate-400 dark:text-zinc-600 flex items-center justify-between gap-1.5 cursor-not-allowed select-none opacity-40"
-                          title="This time has passed"
-                        >
-                          <span>{slot.displayTime}</span>
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-200/40 dark:bg-zinc-800/40 text-slate-500 dark:text-zinc-600 border border-slate-200/40 dark:border-zinc-800/40">
-                            Past
-                          </span>
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <button
-                        key={slot.startTime}
-                        type="button"
-                        onClick={() => setSelectedSlot(slot)}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all text-center flex items-center justify-between gap-1.5 cursor-pointer ${
-                          isSelected
-                            ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-500/20'
-                            : 'bg-white dark:bg-zinc-900 border-slate-200/80 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700 shadow-xs'
-                        }`}
-                      >
-                        <span>{slot.displayTime}</span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                          isSelected
-                            ? 'bg-white/20 text-white'
-                            : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-                        }`}>
-                          Available
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Continue Button */}
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="py-3 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs cursor-pointer shadow-xs"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={!selectedSlot}
-                onClick={() => setStep(3)}
-                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
-              >
-                <span>Continue to Your Details</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            {/* Persistent Sticky Bottom Summary & Navigation Bar for Step 2 */}
+            <DateTimeBottomBar
+              selectedDate={selectedDate}
+              selectedDateFormatted={selectedDateFormatted}
+              selectedSlot={selectedSlot}
+              formattedTotal={dynamicPricing?.formattedTotal}
+              totalDurationMinutes={totalDurationMinutes}
+              timezone={org.timezone || 'America/Chicago'}
+              onBack={() => setStep(1)}
+              onContinue={() => setStep(3)}
+              disabled={!selectedSlot}
+            />
           </div>
         )}
 
-        {/* STEP 3: CUSTOMER DETAILS */}
+        {/* STEP 3: CUSTOMER & PROPERTY DETAILS */}
         {step === 3 && (
-          <form onSubmit={handleBookingSubmit} className="space-y-4">
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                3. Your Information
-              </h2>
+              <div>
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                  Step 3 of 3
+                </span>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Your Information &amp; Review
+                </h2>
+              </div>
               <button 
                 type="button"
                 onClick={() => setStep(2)}
-                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer font-medium"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
                 Change Time
               </button>
             </div>
 
-            {/* Booking Summary Pill */}
-            <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-500/30 flex items-center justify-between text-xs shadow-xs">
-              <div>
-                <span className="font-bold text-slate-900 dark:text-white block">{selectedService?.name}</span>
-                <span className="text-slate-500 dark:text-zinc-400">{selectedSlot?.date} at {selectedSlot?.displayTime}</span>
-              </div>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold">
-                {org.booking_mode === 'instant' ? 'Instant Confirmation' : 'Request Mode'}
-              </span>
-            </div>
+            {/* Authoritative Booking Summary Review Card */}
+            <BookingReviewSummary
+              orgName={org.name}
+              bookingMode={org.booking_mode}
+              serviceName={selectedService?.name || 'Selected Service'}
+              category={selectedService?.pricing_model}
+              pricingModel={selectedService?.pricing_model as any || 'fixed'}
+              basePrice={selectedService?.price}
+              formattedTotal={dynamicPricing?.formattedTotal}
+              totalDurationMinutes={totalDurationMinutes}
+              selectedAddOns={selectedAddOns}
+              selectedDate={selectedDate}
+              selectedDateFormatted={selectedDateFormatted}
+              selectedSlot={selectedSlot}
+              timezone={org.timezone || 'America/Chicago'}
+              onChangeService={() => setStep(1)}
+              onChangeSlot={() => setStep(2)}
+            />
 
-            {submitError && (
-              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{submitError}</span>
-              </div>
-            )}
-
-            {/* Prefill Reassurance Notice */}
-            {isPrefilled && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2.5 shadow-2xs">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span>
-                  {formData.name ? `Welcome, ${formData.name}! ` : ''}
-                  We prefilled your details from your recent call & messages. Review and tap confirm below!
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-                  Full Name <span className="text-red-500 dark:text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="John Smith"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    onBlur={() => {
-                      if (formData.name) {
-                        setFormData(prev => ({ ...prev, name: formatCustomerName(prev.name) }))
-                      }
-                    }}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-                  Mobile Phone Number <span className="text-red-500 dark:text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
-                  <input
-                    type="tel"
-                    required
-                    placeholder="(555) 000-0000"
-                    value={formData.phone}
-                    onChange={(e) => {
-                      const formatted = formatAsYouTypeUsPhone(e.target.value)
-                      setFormData(prev => ({ ...prev, phone: formatted }))
-                    }}
-                    onBlur={() => {
-                      if (formData.phone) {
-                        setFormData(prev => ({ ...prev, phone: formatAsYouTypeUsPhone(prev.phone) }))
-                      }
-                    }}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs font-mono sm:font-sans"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                  We'll send you an instant SMS confirmation and reminder links.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-                  Email Address <span className="text-slate-400 dark:text-zinc-500">(Optional)</span>
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
-                  <input
-                    type="email"
-                    placeholder="john@example.com"
-                    value={formData.email}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setFormData(prev => ({ ...prev, email: val }))
-                      const suggestions = getEmailDomainSuggestions(val)
-                      setEmailSuggestions(suggestions)
-                      setShowEmailSuggestions(suggestions.length > 0)
-                    }}
-                    onFocus={() => {
-                      const suggestions = getEmailDomainSuggestions(formData.email)
-                      setEmailSuggestions(suggestions)
-                      setShowEmailSuggestions(suggestions.length > 0)
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowEmailSuggestions(false), 250)
-                    }}
-                    className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
-                  />
-                </div>
-                {/* 1-Tap Email Domain Autocomplete Pills */}
-                {showEmailSuggestions && emailSuggestions.length > 0 && (
-                  <div className="pt-2 flex flex-wrap items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Quick suggestions:</span>
-                    {emailSuggestions.map(domain => (
-                      <button
-                        key={domain}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          const atIdx = formData.email.lastIndexOf('@')
-                          const handle = atIdx !== -1 ? formData.email.slice(0, atIdx) : formData.email
-                          setFormData(prev => ({ ...prev, email: `${handle}@${domain}` }))
-                          setShowEmailSuggestions(false)
-                        }}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer shadow-2xs"
-                      >
-                        @{domain}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedService?.requires_address && (
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-                    Service Address <span className="text-red-500 dark:text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3.5 top-3.5 sm:top-3 h-4 w-4 text-slate-400 dark:text-zinc-500" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="123 Main St, City, ST 12345"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      onBlur={() => {
-                        if (formData.address) {
-                          setFormData(prev => ({ ...prev, address: formatStandardUsAddress(prev.address) }))
-                        }
-                      }}
-                      className="w-full pl-10 pr-3.5 py-3 sm:py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 shadow-xs"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-                  Notes / Job Details <span className="text-slate-400 dark:text-zinc-500">(Optional)</span>
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Gate code, issue details, or special requests..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-base sm:text-xs focus:outline-hidden focus:border-blue-500 resize-none shadow-xs"
-                />
-              </div>
-
-              {/* Diagnostic Intake Photos */}
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block">
-                    Diagnostic Photos of Issue <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 tabular-nums">
-                    {formData.photos.length}/4 photos
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                  Snap or upload a photo of your equipment label, leak, or breaker panel. Helps our technician arrive with the exact right parts.
-                </p>
-
-                {/* Upload Button & Preview Grid */}
-                <div className="grid grid-cols-4 gap-2 pt-1">
-                  {formData.photos.map((photoUrl, idx) => (
-                    <div
-                      key={idx}
-                      className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-850 aspect-square shadow-2xs group"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={photoUrl}
-                        alt={`Intake photo ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePhoto(idx)}
-                        className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 hover:bg-red-600 text-white transition-colors cursor-pointer"
-                        title="Remove photo"
-                        aria-label="Remove photo"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {formData.photos.length < 4 && (
-                    <label className="rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-600 bg-slate-50/60 dark:bg-zinc-900/40 hover:bg-slate-100/60 dark:hover:bg-zinc-850/60 aspect-square flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-slate-500 dark:text-zinc-400">
-                      <Camera className="w-5 h-5 text-slate-400 dark:text-zinc-500" />
-                      <span className="text-[10px] font-semibold text-center leading-tight">
-                        {formData.photos.length === 0 ? 'Add Photo' : 'Add More'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              {/* How Did You Hear About Us? (Attribution Pills) */}
-              {org.booking_settings?.how_heard_options && org.booking_settings.how_heard_options.length > 0 && (
-                <div className="space-y-2 pt-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block">
-                    How did you hear about us? <span className="text-slate-400 dark:text-zinc-500 font-normal">(Optional)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {org.booking_settings.how_heard_options.map((option) => {
-                      const isSelected = howHeard === option
-                      return (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => setHowHeard(isSelected ? '' : option)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border",
-                            isSelected
-                              ? "bg-blue-600 border-blue-600 text-white font-bold shadow-xs"
-                              : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
-                          )}
-                        >
-                          {option}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Carrier-Compliant SMS Opt-In & Privacy Disclosure Card */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 space-y-2.5">
-              <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-200 font-semibold text-xs">
-                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>Booking Confirmation</span>
-              </div>
-              <p className="leading-relaxed text-[11px] text-slate-500 dark:text-zinc-400">
-                No account required. You will receive a direct link to reschedule or cancel anytime.
-              </p>
-
-              {/* Explicit SMS Opt-In Checkbox (10DLC & TCPA Compliant) */}
-              <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800/80">
-                <label 
-                  htmlFor="sms-consent-checkbox" 
-                  className="flex items-start gap-2.5 cursor-pointer group select-none"
-                >
-                  <input
-                    id="sms-consent-checkbox"
-                    type="checkbox"
-                    checked={smsConsent}
-                    onChange={(e) => setSmsConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded-md border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 dark:bg-zinc-850 dark:checked:bg-blue-600 cursor-pointer transition-colors shrink-0"
-                  />
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs font-semibold text-slate-900 dark:text-white block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      Send me appointment confirmations, reminders, and updates via SMS
-                    </span>
-                    <p className="text-[10.5px] text-slate-500 dark:text-zinc-500 leading-relaxed">
-                      You consent to receive automated appointment notifications and service reminders from{' '}
-                      <strong className="text-slate-700 dark:text-zinc-300 font-medium">{org.name}</strong>{' '}
-                      powered by CaptoDesk at the phone number provided. Consent is not a condition of purchase. 
-                      Msg &amp; data rates may apply. Msg frequency varies. Reply <strong>STOP</strong> to cancel or{' '}
-                      <strong>HELP</strong> for assistance. View our{' '}
-                      <a
-                        href="https://captodesk.com/privacy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Privacy Policy
-                      </a>{' '}
-                      and{' '}
-                      <a
-                        href="https://captodesk.com/terms"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Terms
-                      </a>.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-3">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="py-3 px-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs cursor-pointer shadow-xs"
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
-              >
-                {submitting ? (
-                  <>
-                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Confirming...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>
-                      {org.booking_mode === 'instant'
-                        ? `Confirm Appointment ${dynamicPricing?.formattedTotal ? `• ${dynamicPricing.formattedTotal}` : ''}`
-                        : `Submit Request ${dynamicPricing?.formattedTotal ? `• ${dynamicPricing.formattedTotal}` : ''}`}
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+            {/* Clean Mobile-First Customer & Property Intake Form */}
+            <CustomerIntakeForm
+              formData={formData}
+              onChangeFormData={(updates) => setFormData(prev => ({ ...prev, ...updates }))}
+              errors={formErrors}
+              onClearError={(field) => setFormErrors(prev => {
+                if (!prev[field]) return prev
+                const next = { ...prev }
+                delete next[field]
+                return next
+              })}
+              requiresAddress={selectedService?.requires_address ?? true}
+              isPrefilled={isPrefilled}
+              smsConsent={smsConsent}
+              onToggleSmsConsent={(checked) => setSmsConsent(checked)}
+              howHeard={howHeard}
+              onChangeHowHeard={(val) => setHowHeard(val)}
+              howHeardOptions={org.booking_settings?.how_heard_options}
+              orgName={org.name}
+              bookingMode={org.booking_mode}
+              formattedTotal={dynamicPricing?.formattedTotal}
+              submitting={submitting}
+              submitError={submitError}
+              onSubmit={handleBookingSubmit}
+              onBack={() => setStep(2)}
+              onPhotoUpload={handlePhotoUpload}
+              onRemovePhoto={handleRemovePhoto}
+            />
+          </div>
         )}
 
         {/* STEP 4: CONFIRMATION VIEW */}
-        {step === 4 && confirmedBooking && (
-          <div className="space-y-6 pt-4 text-center">
-            <div className="h-16 w-16 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-
-            <div className="space-y-1">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                {confirmedBooking.status === 'confirmed' ? 'Appointment Confirmed!' : 'Booking Request Received!'}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
-                {confirmedBooking.status === 'confirmed' 
-                  ? `You're all set! We've sent a confirmation text with details to manage or reschedule anytime.`
-                  : `We have received your request and will notify you as soon as it's confirmed.`
-                }
-              </p>
-            </div>
-
-            {/* Appointment Summary Card */}
-            <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 text-left space-y-3 shadow-sm">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
-                <span className="text-slate-500 dark:text-zinc-400">Business</span>
-                <span className="font-bold text-slate-900 dark:text-white">{org.name}</span>
-              </div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
-                <span className="text-slate-500 dark:text-zinc-400">Service</span>
-                <span className="font-bold text-slate-900 dark:text-white">{selectedService?.name}</span>
-              </div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
-                <span className="text-slate-500 dark:text-zinc-400">Date & Time</span>
-                <span className="font-bold text-blue-600 dark:text-blue-400">{selectedSlot?.date} at {selectedSlot?.displayTime}</span>
-              </div>
-              {formData.address && (
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800 text-xs">
-                  <span className="text-slate-500 dark:text-zinc-400">Location</span>
-                  <span className="font-medium text-slate-700 dark:text-zinc-300 text-right">{formData.address}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 dark:text-zinc-400">Status</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 uppercase tracking-wide">
-                  {confirmedBooking.status}
-                </span>
-              </div>
-            </div>
-
-            {/* Live Service Arrival Tracker Card */}
-            <div className="rounded-2xl bg-gradient-to-br from-blue-50/70 via-white to-sky-50/40 dark:from-blue-950/20 dark:via-zinc-900 dark:to-zinc-900 border border-blue-200/80 dark:border-blue-900/50 p-4 text-left space-y-2.5 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-blue-600 text-white shrink-0">
-                    <Navigation className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                      Live Technician Tracker
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                      Real-time ETA &amp; live GPS arrival map
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
-                  Included
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
-                When your technician heads your way on your service day, you will be able to track their live location and arrival progress in real time.
-              </p>
-              {confirmedBooking.trackingToken ? (
-                <a
-                  href={`/t/${confirmedBooking.trackingToken}`}
-                  className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-750 text-slate-800 dark:text-zinc-100 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
-                >
-                  <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>View Live Service Tracker</span>
-                  <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-400" />
-                </a>
-              ) : (
-                <a
-                  href={typeof window !== 'undefined' && window.location.hostname.startsWith('book.') ? `/manage/${confirmedBooking.manageToken}` : `/book/manage/${confirmedBooking.manageToken}`}
-                  className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 px-3 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-750 text-slate-800 dark:text-zinc-100 text-xs font-bold transition-colors shadow-2xs cursor-pointer"
-                >
-                  <Truck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Open Tracker via Appointment Manager</span>
-                  <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-400" />
-                </a>
-              )}
-            </div>
-
-            {/* Add to Calendar Sync Buttons */}
-            {selectedSlot && (
-              <div className="space-y-2 pt-1">
-                <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block">
-                  Add to Your Calendar
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <a
-                    href={generateGoogleCalendarUrl({
-                      title: `${selectedService?.name || 'Service'} with ${org.name}`,
-                      description: `Scheduled appointment with ${org.name}.\nManage booking: ${typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${confirmedBooking.manageToken}` : `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`) : ''}`,
-                      location: formData.address || undefined,
-                      startTime: selectedSlot.startTime,
-                      endTime: selectedSlot.endTime,
-                      url: typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${confirmedBooking.manageToken}` : `${window.location.origin}/book/manage/${confirmedBooking.manageToken}`) : undefined,
-                    })}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span>Google Calendar</span>
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const tokenVal = confirmedBooking.manageToken || ''
-                      const manageBookingUrl = typeof window !== 'undefined' ? (window.location.hostname.startsWith('book.') ? `${window.location.origin}/manage/${tokenVal}` : `${window.location.origin}/book/manage/${tokenVal}`) : ''
-                      downloadIcsFile({
-                        title: `${selectedService?.name || 'Service'} with ${org.name}`,
-                        description: `Scheduled appointment with ${org.name}.\nManage booking: ${manageBookingUrl}`,
-                        location: formData.address || undefined,
-                        startTime: selectedSlot.startTime,
-                        endTime: selectedSlot.endTime,
-                        url: manageBookingUrl,
-                      }, `appointment-${(confirmedBooking.manageToken || 'confirmed').substring(0, 8)}.ics`)
-                    }}
-                    className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
-                  >
-                    <CalendarIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Apple / Outlook</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Manage Link Button */}
-            <div className="space-y-3 pt-2">
-              <a
-                href={typeof window !== 'undefined' && window.location.hostname.startsWith('book.') ? `/manage/${confirmedBooking.manageToken || ''}` : `/book/manage/${confirmedBooking.manageToken || ''}`}
-                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20"
-              >
-                <span>View / Manage Appointment</span>
-                <ChevronRight className="h-4 w-4" />
-              </a>
-
-              <p className="text-[11px] text-slate-400 dark:text-zinc-500">
-                A copy of this link was sent to {formData.phone}
-              </p>
-            </div>
-
-            {/* Live Demo Owner Dashboard Preview (Only for Demo Org) */}
-            {(org.id === '26d7c79c-9b50-4acd-ba09-6c0fe2ea10a7' || org.slug?.includes('demo')) && (
-              <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 p-4 text-left space-y-2.5 mt-4 shadow-sm">
-                <div className="flex items-center gap-1.5 text-amber-500 text-[11px] font-black uppercase tracking-wider">
-                  <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-                  <span>⚡ Live Interactive Demo</span>
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  See what the business owner sees right now
-                </h3>
-                <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed">
-                  Your booking was just received in real time! Click below to enter the business owner workspace (no login required) to see your booked job on the calendar, SMS in the inbox, and technician route.
-                </p>
-                <a
-                  href="/demo"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-extrabold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-                >
-                  <span>Open Live Owner Dashboard (No Login Needed)</span>
-                  <ChevronRight className="h-4 w-4" />
-                </a>
-              </div>
-            )}
-          </div>
+        {step === 4 && confirmedBooking && selectedService && selectedSlot && (
+          <BookingConfirmationView
+            org={{
+              id: org.id,
+              name: org.name,
+              slug: org.slug,
+              phone: org.phone,
+              timezone: org.timezone || 'America/Chicago',
+              booking_mode: org.booking_mode
+            }}
+            service={selectedService}
+            selectedAddOns={selectedAddOns}
+            selectedSlot={selectedSlot}
+            formData={formData}
+            confirmedBooking={confirmedBooking}
+            dynamicPricing={dynamicPricing}
+          />
         )}
 
         {/* Universal Clickable Powered by CaptoDesk Badge */}

@@ -209,3 +209,55 @@ export function getEmailDomainSuggestions(input: string): string[] {
 
   return POPULAR_EMAIL_DOMAINS.filter(d => d.startsWith(domainPart))
 }
+
+/**
+ * Combines street address and optional unit into standardized US address format:
+ * "123 Main St", "Apt 4B" -> "123 Main St, Apt 4B"
+ * "123 Main St, Austin, TX 78701", "Suite 200" -> "123 Main St, Suite 200, Austin, TX 78701"
+ * Preserves city, state, and ZIP while cleanly placing the unit.
+ */
+export function combineStreetAndUnit(streetAddress: string | null | undefined, unit?: string | null): string {
+  if (!streetAddress || typeof streetAddress !== 'string') return ''
+  const cleanStreet = formatStandardUsAddress(streetAddress)
+  if (!unit || typeof unit !== 'string' || !unit.trim()) {
+    return cleanStreet
+  }
+
+  const trimmedUnit = unit.trim().replace(/^#\s*/, 'Apt ')
+  const formattedUnit = /^(apt|suite|ste|unit|bldg|building|fl|floor)\b/i.test(trimmedUnit)
+    ? trimmedUnit.charAt(0).toUpperCase() + trimmedUnit.slice(1)
+    : `Apt ${trimmedUnit}`
+
+  // If the street string already contains this unit, avoid duplicate
+  if (cleanStreet.toLowerCase().includes(formattedUnit.toLowerCase())) {
+    return cleanStreet
+  }
+
+  // If street contains city/state (e.g. "123 Main St, Austin, TX 78701"), insert unit after street
+  if (cleanStreet.includes(',')) {
+    const parts = cleanStreet.split(',').map(p => p.trim())
+    return [parts[0], formattedUnit, ...parts.slice(1)].join(', ')
+  }
+
+  return `${cleanStreet}, ${formattedUnit}`
+}
+
+/**
+ * Splits an address that may contain a unit into street and unit parts
+ */
+export function splitStreetAndUnit(fullAddress: string | null | undefined): { street: string; unit: string } {
+  if (!fullAddress || typeof fullAddress !== 'string') {
+    return { street: '', unit: '' }
+  }
+
+  const unitRegex = /,\s*(apt|suite|ste|unit|bldg|fl|floor|#)\s*([a-z0-9-]+)/i
+  const match = fullAddress.match(unitRegex)
+  if (match) {
+    const unit = `${match[1]} ${match[2]}`.trim()
+    const street = fullAddress.replace(match[0], '').trim()
+    return { street, unit }
+  }
+
+  return { street: fullAddress.trim(), unit: '' }
+}
+

@@ -34,6 +34,7 @@ export interface ServiceItem {
   price?: number | null
   requires_address?: boolean
   is_active?: boolean
+  description?: string | null
 }
 
 export interface ExistingAppointment {

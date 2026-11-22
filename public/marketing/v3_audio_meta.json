@@ -1,0 +1,26 @@
+{
+  "voice": "en-US-ChristopherNeural",
+  "scenes": [
+    {
+      "id": "v3_s1",
+      "duration": 9.84,
+      "file": "C:\\Users\\mskar\\captodesk\\public\\marketing\\v3_s1.mp3"
+    },
+    {
+      "id": "v3_s2",
+      "duration": 9.79,
+      "file": "C:\\Users\\mskar\\captodesk\\public\\marketing\\v3_s2.mp3"
+    },
+    {
+      "id": "v3_s3",
+      "duration": 10.27,
+      "file": "C:\\Users\\mskar\\captodesk\\public\\marketing\\v3_s3.mp3"
+    },
+    {
+      "id": "v3_s4",
+      "duration": 13.39,
+      "file": "C:\\Users\\mskar\\captodesk\\public\\marketing\\v3_s4.mp3"
+    }
+  ],
+  "total_duration": 44.0
+}

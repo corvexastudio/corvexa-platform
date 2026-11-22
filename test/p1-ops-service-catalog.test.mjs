@@ -708,7 +708,7 @@ test('14. Appointment stores correct service ID: booking with custom service per
       customerPhone: '+13125550199',
       customerEmail: 'alice@example.com',
       customerAddress: '100 North State St, Chicago, IL',
-      startTime: '2026-11-20T10:00:00Z'
+      startTime: new Date(Date.now() + 86400000 * 2).toISOString()
     }
   )
 

@@ -53,6 +53,7 @@ import {
   type PricingModel,
   type ServiceAddOn
 } from '@/lib/services/service-pricing'
+import { ServiceEditorModal } from '@/components/services/service-editor-modal'
 import {
   buildServiceCatalog,
   filterCatalogItems
@@ -118,18 +119,6 @@ export default function ServicesPage() {
       setSelectedTradeId(orgIndustry)
     }
   }, [orgIndustry])
-
-  // Form Fields
-  const [formName, setFormName] = useState('')
-  const [formPrice, setFormPrice] = useState('')
-  const [formPricingModel, setFormPricingModel] = useState<PricingModel>('fixed')
-  const [formDuration, setFormDuration] = useState<number>(60)
-  const [formCategory, setFormCategory] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formAddOns, setFormAddOns] = useState<ServiceAddOn[]>([])
-  const [formRequiresAddress, setFormRequiresAddress] = useState(true)
-  const [formIsActive, setFormIsActive] = useState(true)
-  const [formError, setFormError] = useState<string | null>(null)
 
   // Load Services from API
   const loadServices = useCallback(async () => {
@@ -208,68 +197,18 @@ export default function ServicesPage() {
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingService(null)
-    setFormName('')
-    setFormPrice('')
-    setFormPricingModel('quote_on_site')
-    setFormDuration(60)
-    setFormCategory('')
-    setFormDescription('')
-    setFormAddOns([])
-    setFormRequiresAddress(true)
-    setFormIsActive(true)
-    setFormError(null)
     setIsModalOpen(true)
   }
 
   // Open Edit Modal
   const handleOpenEdit = (svc: ServiceItem) => {
     setEditingService(svc)
-    const parsed = parseServicePricing(svc.price, svc.description)
-    const explicitCat = parseServiceCategory(svc.description)
-    const catalogInfo = catalogMap.get(svc.id)
-
-    setFormName(svc.name)
-    setFormPrice(parsed.price !== null ? parsed.price.toString() : '')
-    setFormPricingModel(parsed.model)
-    setFormDuration(svc.duration_minutes || 60)
-    setFormCategory(explicitCat || (catalogInfo ? catalogInfo.categoryLabel : ''))
-    setFormDescription(parsed.cleanDescription)
-    setFormAddOns(parsed.addOns || [])
-    setFormRequiresAddress(svc.requires_address !== false)
-    setFormIsActive(svc.is_active !== false)
-    setFormError(null)
     setIsModalOpen(true)
   }
 
   // Open Details Modal
   const handleOpenDetails = (svc: ServiceItem) => {
     setViewingService(svc)
-  }
-
-  // Add-On Field Handlers
-  const handleAddAddOn = () => {
-    setFormAddOns(prev => [
-      ...prev,
-      {
-        id: `addon_${Math.random().toString(36).slice(2, 8)}`,
-        name: '',
-        price: 0,
-        duration_minutes: 15,
-        description: ''
-      }
-    ])
-  }
-
-  const handleUpdateAddOn = (index: number, field: keyof ServiceAddOn, value: any) => {
-    setFormAddOns(prev => {
-      const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
-      return next
-    })
-  }
-
-  const handleRemoveAddOn = (index: number) => {
-    setFormAddOns(prev => prev.filter((_, idx) => idx !== index))
   }
 
   // Save Booking & Priority Dispatch Organization Settings
@@ -297,107 +236,6 @@ export default function ServicesPage() {
       toast.error(err.message || 'Failed to save booking settings')
     } finally {
       setSavingBookingSettings(false)
-    }
-  }
-
-  // Save Service (Create or Update)
-  const handleSaveService = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormError(null)
-
-    const trimmedName = formName.trim()
-    if (!trimmedName) {
-      setFormError('Please enter a service name.')
-      return
-    }
-
-    if (formDuration <= 0 || !Number.isInteger(Number(formDuration))) {
-      setFormError('Duration must be a positive number of minutes.')
-      return
-    }
-
-    let parsedPrice: number | null = null
-    if (formPricingModel === 'free_estimate') {
-      parsedPrice = formPrice.trim() ? Math.round(Number(formPrice.trim()) * 100) / 100 : 0
-    } else if (formPricingModel === 'quote_on_site') {
-      parsedPrice = formPrice.trim() ? Math.round(Number(formPrice.trim()) * 100) / 100 : null
-    } else if (formPrice.trim()) {
-      const p = Number(formPrice.trim())
-      if (isNaN(p) || p < 0) {
-        setFormError('Please enter a valid non-negative price.')
-        return
-      }
-      parsedPrice = Math.round(p * 100) / 100
-    }
-
-    const validAddOns = formAddOns
-      .filter(a => a.name && a.name.trim().length > 0)
-      .map(a => ({
-        id: a.id || `addon_${Math.random().toString(36).slice(2, 8)}`,
-        name: a.name.trim(),
-        price: Number(a.price) >= 0 ? Math.round(Number(a.price) * 100) / 100 : 0,
-        duration_minutes: Number(a.duration_minutes) >= 0 ? Number(a.duration_minutes) : 0,
-        description: a.description?.trim() || undefined
-      }))
-
-    const encodedDescription = encodeServiceDescriptionWithAddOns(
-      formDescription.trim() || null,
-      formPricingModel,
-      validAddOns,
-      formCategory.trim() || null
-    ) || null
-
-    setSubmitting(true)
-    try {
-      if (editingService) {
-        const res = await fetch(`/api/client/services/${editingService.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: trimmedName,
-            description: encodedDescription,
-            duration_minutes: formDuration,
-            price: parsedPrice,
-            requires_address: formRequiresAddress,
-            is_active: formIsActive
-          })
-        })
-
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to update service')
-        }
-
-        toast.success(`Updated "${trimmedName}"`)
-        setIsModalOpen(false)
-        await loadServices()
-      } else {
-        const res = await fetch('/api/client/services', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: trimmedName,
-            description: encodedDescription,
-            duration_minutes: formDuration,
-            price: parsedPrice,
-            requires_address: formRequiresAddress,
-            is_active: formIsActive
-          })
-        })
-
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to create service')
-        }
-
-        toast.success(`Created service "${trimmedName}"`)
-        setIsModalOpen(false)
-        await loadServices()
-      }
-    } catch (err: any) {
-      setFormError(err.message || 'Failed to save service')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -1452,347 +1290,18 @@ export default function ServicesPage() {
         </div>
       </Modal>
 
-      {/* ── CREATE / EDIT SERVICE MODAL ── */}
-      <Modal
+      {/* ── SHARED REDESIGNED SERVICE EDITOR MODAL (New & Edit) ── */}
+      <ServiceEditorModal
         open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        title={editingService ? 'Edit Service' : 'New Service'}
-        description={
-          editingService
-            ? 'Update pricing model, duration, category, and online booking availability.'
-            : 'Add a service offering for online booking and field dispatch.'
-        }
-        size="md"
-      >
-        <form onSubmit={handleSaveService} className="space-y-4 pt-1">
-          {formError && (
-            <div className="p-3 rounded-lg bg-red-950/30 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-              <span>{formError}</span>
-            </div>
-          )}
-
-          {/* Service Name */}
-          <div className="space-y-1">
-            <Label htmlFor="svc-name" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-              Service Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="svc-name"
-              value={formName}
-              onChange={e => setFormName(e.target.value)}
-              placeholder="e.g. AC Tune-Up, Water Heater Replacement, Drain Cleaning"
-              className="h-10 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
-              required
-              maxLength={100}
-            />
-          </div>
-
-          {/* Service Category */}
-          <div className="space-y-1.5">
-            <Label htmlFor="svc-cat" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-              Category
-            </Label>
-            <Input
-              id="svc-cat"
-              value={formCategory}
-              onChange={e => setFormCategory(e.target.value)}
-              placeholder="e.g. Cooling, Heating, Drains, Maintenance, Installations"
-              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
-            />
-            {existingCategories.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-slate-400">Suggestions:</span>
-                {existingCategories.slice(0, 5).map(cat => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setFormCategory(cat)}
-                    className="text-[10px] px-1.5 py-0.5 rounded border border-dashed border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                  >
-                    + {cat}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Pricing Model */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-              Pricing Model
-            </Label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-              {(['fixed', 'starting_at', 'diagnostic_fee', 'quote_on_site', 'free_estimate'] as const).map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setFormPricingModel(m)}
-                  className={cn(
-                    'min-h-[44px] px-2 py-1.5 rounded-lg border text-xs font-semibold text-center transition-colors cursor-pointer flex flex-col items-center justify-center',
-                    formPricingModel === m
-                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/50 dark:border-blue-500 dark:text-blue-300 shadow-2xs font-bold'
-                      : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700'
-                  )}
-                >
-                  {m === 'fixed' && 'Fixed Price'}
-                  {m === 'starting_at' && 'Starting At'}
-                  {m === 'diagnostic_fee' && 'Diagnostic Fee'}
-                  {m === 'quote_on_site' && 'Quote on Site'}
-                  {m === 'free_estimate' && 'Free Estimate'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Duration & Price Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Duration */}
-            <div className="space-y-1">
-              <Label htmlFor="svc-duration" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                Duration (minutes) <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="svc-duration"
-                type="number"
-                min="5"
-                max="1440"
-                step="5"
-                value={formDuration}
-                onChange={e => setFormDuration(Number(e.target.value))}
-                className="h-10 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
-                required
-              />
-              {/* Presets */}
-              <div className="flex items-center gap-1 mt-1">
-                {[15, 30, 45, 60, 90, 120].map(mins => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => setFormDuration(mins)}
-                    className={cn(
-                      'text-[10px] font-mono px-2 py-1 rounded border transition-colors cursor-pointer',
-                      formDuration === mins
-                        ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-bold'
-                        : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400'
-                    )}
-                  >
-                    {mins}m
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Price */}
-            <div className="space-y-1">
-              <Label htmlFor="svc-price" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-                {formPricingModel === 'fixed' && 'Price ($)'}
-                {formPricingModel === 'starting_at' && 'Starting Price ($)'}
-                {formPricingModel === 'diagnostic_fee' && 'Diagnostic Fee ($)'}
-                {formPricingModel === 'quote_on_site' && 'Baseline Estimate (Optional, $)'}
-                {formPricingModel === 'free_estimate' && 'Estimated Price (Optional, $)'}
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                <Input
-                  id="svc-price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formPrice}
-                  onChange={e => setFormPrice(e.target.value)}
-                  placeholder={
-                    formPricingModel === 'quote_on_site'
-                      ? 'Blank / Quote on Site'
-                      : formPricingModel === 'free_estimate'
-                      ? '0.00'
-                      : '89.00'
-                  }
-                  className="h-10 pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
-                />
-              </div>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                {formPricingModel === 'fixed' && 'Flat rate shown and charged to customer'}
-                {formPricingModel === 'starting_at' && 'Minimum baseline price (e.g. Starting at $X)'}
-                {formPricingModel === 'diagnostic_fee' && 'Diagnostic service fee charged on arrival'}
-                {formPricingModel === 'quote_on_site' && 'No upfront charge: price is estimated on-site'}
-                {formPricingModel === 'free_estimate' && 'Free consultation: $0 upfront cost'}
-              </p>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1">
-            <Label htmlFor="svc-desc" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-              Service Description
-            </Label>
-            <textarea
-              id="svc-desc"
-              rows={2}
-              value={formDescription}
-              onChange={e => setFormDescription(e.target.value)}
-              placeholder="Explain what is included in this service..."
-              className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed resize-none"
-            />
-          </div>
-
-          {/* Add-on Services Builder */}
-          <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Optional Add-ons</span>
-                </Label>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Extras customers can select when booking this service online.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddAddOn}
-                className="h-8 px-2.5 text-[11px] font-semibold border-slate-300 dark:border-zinc-700 hover:border-blue-500 text-slate-700 dark:text-zinc-300"
-              >
-                <Plus className="w-3 h-3 mr-1 text-blue-500" />
-                <span>Add Add-on</span>
-              </Button>
-            </div>
-
-            {formAddOns.length > 0 && (
-              <div className="space-y-2 pt-1 max-h-56 overflow-y-auto pr-1">
-                {formAddOns.map((addon, idx) => (
-                  <div
-                    key={addon.id || idx}
-                    className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/70 space-y-2 shadow-2xs"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Add-on name (e.g. Filter Replacement)"
-                            value={addon.name}
-                            onChange={e => handleUpdateAddOn(idx, 'name', e.target.value)}
-                            className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAddOn(idx)}
-                          className="min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors cursor-pointer rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
-                          title="Remove add-on"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="w-28 relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={addon.price !== undefined && addon.price !== null ? addon.price : ''}
-                            onChange={e => handleUpdateAddOn(idx, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                            className="h-8 pl-6 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
-                          />
-                        </div>
-
-                        {/* Mobile Duration Steppers */}
-                        <div className="flex items-center gap-1">
-                          {[0, 15, 30, 45, 60].map(mins => (
-                            <button
-                              key={mins}
-                              type="button"
-                              onClick={() => handleUpdateAddOn(idx, 'duration_minutes', mins)}
-                              className={cn(
-                                "text-[10px] font-mono px-2 py-1 rounded-md border transition-colors cursor-pointer",
-                                (addon.duration_minutes || 0) === mins
-                                  ? "bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 font-bold"
-                                  : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
-                              )}
-                            >
-                              +{mins}m
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <Input
-                        placeholder="Short description (optional)"
-                        value={addon.description || ''}
-                        onChange={e => handleUpdateAddOn(idx, 'description', e.target.value)}
-                        className="h-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-300 rounded-lg placeholder:text-slate-400"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Toggles */}
-          <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
-            <label className="flex items-center gap-2.5 cursor-pointer min-h-[36px]">
-              <input
-                type="checkbox"
-                checked={formRequiresAddress}
-                onChange={e => setFormRequiresAddress(e.target.checked)}
-                className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
-              />
-              <span className="text-xs text-slate-700 dark:text-zinc-300 font-medium">
-                Requires customer service address (On-site job dispatch)
-              </span>
-            </label>
-
-            <label className="flex items-center gap-2.5 cursor-pointer min-h-[36px]">
-              <input
-                type="checkbox"
-                checked={formIsActive}
-                onChange={e => setFormIsActive(e.target.checked)}
-                className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
-              />
-              <span className="text-xs text-slate-700 dark:text-zinc-300 font-medium">
-                Visible to customers on public booking page
-              </span>
-            </label>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsModalOpen(false)}
-              className="h-10 text-xs border-slate-300 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              className="h-10 px-5 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-xs"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  <span>Saving...</span>
-                </>
-              ) : editingService ? (
-                'Save Changes'
-              ) : (
-                'Create Service'
-              )}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onClose={() => setIsModalOpen(false)}
+        service={editingService}
+        onSaved={async () => {
+          setIsModalOpen(false)
+          await loadServices()
+        }}
+        existingServices={services}
+        industry={selectedTradeId}
+      />
 
       {/* ── DELETE / SAFE DEACTIVATE CONFIRMATION MODAL ── */}
       <Modal

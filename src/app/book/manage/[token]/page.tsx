@@ -13,12 +13,16 @@ import {
   RefreshCw,
   CalendarDays,
   ChevronRight,
+  ChevronLeft,
   ShieldCheck,
-  ArrowLeft,
   Truck,
   Navigation,
   Wrench,
-  ExternalLink
+  ExternalLink,
+  User,
+  Sparkles,
+  AlertTriangle,
+  ArrowRight
 } from 'lucide-react'
 import { generateGoogleCalendarUrl, downloadIcsFile } from '@/lib/calendar/calendar-sync'
 import { PoweredByBadge } from '@/components/brand/powered-by-badge'
@@ -32,6 +36,7 @@ interface AppointmentDetail {
   serviceType: string
   startTime: string
   endTime?: string | null
+  durationMinutes?: number
   status: 'requested' | 'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'scheduled'
   cancellationReason?: string | null
   confirmedAt?: string | null
@@ -49,9 +54,12 @@ interface AppointmentDetail {
     address?: string | null
   }
   service?: {
+    id?: string
     name: string
     durationMinutes: number
     price?: number | null
+    pricingModel?: string
+    description?: string | null
   } | null
   tracking?: {
     token: string
@@ -73,6 +81,14 @@ interface AvailableSlot {
   date: string
 }
 
+const COMMON_CANCEL_REASONS = [
+  'Schedule conflict',
+  'Found another provider',
+  'Issue resolved itself',
+  'Need different service',
+  'Other reason'
+]
+
 export default function CustomerManageAppointmentPage() {
   const params = useParams()
   const token = params?.token as string
@@ -89,10 +105,12 @@ export default function CustomerManageAppointmentPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null)
   const [rescheduling, setRescheduling] = useState(false)
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
+  const [rescheduleSuccess, setRescheduleSuccess] = useState<string | null>(null)
 
   // Cancel state
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [selectedReasonChip, setSelectedReasonChip] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
 
@@ -100,6 +118,7 @@ export default function CustomerManageAppointmentPage() {
   const loadAppointment = async () => {
     if (!token) return
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch(`/api/book/manage/${token}`)
       if (!res.ok) {
@@ -139,8 +158,11 @@ export default function CustomerManageAppointmentPage() {
     async function fetchRescheduleSlots() {
       setLoadingSlots(true)
       setSelectedSlot(null)
+      setRescheduleError(null)
       try {
-        const res = await fetch(`/api/book/${apt?.business.slug}/slots?date=${selectedDate}`)
+        const serviceQuery = apt?.service?.id ? `&serviceId=${encodeURIComponent(apt.service.id)}` : ''
+        const tokenQuery = token ? `&manageToken=${encodeURIComponent(token)}` : ''
+        const res = await fetch(`/api/book/${apt?.business.slug}/slots?date=${selectedDate}${serviceQuery}${tokenQuery}`)
         if (res.ok) {
           const data = await res.json()
           setAvailableSlots(data.slots || [])
@@ -155,7 +177,7 @@ export default function CustomerManageAppointmentPage() {
     }
 
     fetchRescheduleSlots()
-  }, [showReschedule, apt?.business?.slug, selectedDate])
+  }, [showReschedule, apt?.business?.slug, selectedDate, token, apt?.service?.id])
 
   // 2. Submit Reschedule
   const handleRescheduleSubmit = async () => {
@@ -172,14 +194,16 @@ export default function CustomerManageAppointmentPage() {
 
       const data = await res.json()
       if (!res.ok) {
-        setRescheduleError(data.error || 'Failed to reschedule. Please choose another time.')
+        setRescheduleError(data.error || 'Failed to reschedule. Please choose another time slot.')
         return
       }
 
       setShowReschedule(false)
+      setRescheduleSuccess('Appointment successfully rescheduled to your new preferred time!')
+      setTimeout(() => setRescheduleSuccess(null), 5000)
       await loadAppointment()
     } catch {
-      setRescheduleError('A network error occurred. Please try again.')
+      setRescheduleError('A network error occurred. Your current appointment remains active. Please try again.')
     } finally {
       setRescheduling(false)
     }
@@ -190,11 +214,15 @@ export default function CustomerManageAppointmentPage() {
     setCancelling(true)
     setCancelError(null)
 
+    const finalReason = selectedReasonChip
+      ? (cancelReason.trim() ? `${selectedReasonChip}: ${cancelReason.trim()}` : selectedReasonChip)
+      : (cancelReason.trim() || 'Cancelled by customer')
+
     try {
       const res = await fetch(`/api/book/manage/${token}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: cancelReason })
+        body: JSON.stringify({ reason: finalReason })
       })
 
       const data = await res.json()
@@ -217,7 +245,7 @@ export default function CustomerManageAppointmentPage() {
       <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-200 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 dark:border-blue-500 border-t-transparent" />
-          <p className="text-xs text-slate-500 dark:text-zinc-400">Loading your appointment...</p>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Loading your appointment details...</p>
         </div>
       </div>
     )
@@ -226,114 +254,205 @@ export default function CustomerManageAppointmentPage() {
   if (error || !apt) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-200 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-center space-y-4 shadow-sm">
-          <AlertCircle className="h-10 w-10 text-red-500 dark:text-red-400 mx-auto" />
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Appointment Not Found</h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400">{error || 'This appointment link is invalid or has expired.'}</p>
+        <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 text-center space-y-4 shadow-sm">
+          <div className="h-14 w-14 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+            <AlertCircle className="h-7 w-7" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-xl font-black text-slate-900 dark:text-white">Appointment Link Not Found</h1>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+              {error || 'This appointment link is either invalid, expired, or has already been fulfilled.'}
+            </p>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+            Please check the text message or email you received, or contact the service provider directly.
+          </p>
         </div>
       </div>
     )
   }
 
+  const timezone = apt.business.timezone || 'America/Chicago'
   const startDate = new Date(apt.startTime)
+  const endDate = apt.endTime ? new Date(apt.endTime) : new Date(startDate.getTime() + (apt.durationMinutes || 60) * 60 * 1000)
+  const formattedDate = formatDateInTz(startDate, timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const formattedStartTime = formatTimeInTz(startDate, timezone)
+  const formattedEndTime = formatTimeInTz(endDate, timezone)
+  const tzLabel = getFriendlyTimezoneLabel(timezone, startDate)
+
   const isCancelled = apt.status === 'cancelled'
   const isCompleted = apt.status === 'completed' || apt.tracking?.jobStatus === 'completed'
   const isEnRoute = apt.tracking?.jobStatus === 'en_route'
   const isInProgress = apt.tracking?.jobStatus === 'in_progress' || apt.tracking?.jobStatus === 'arrived'
   const isActionable = !isCancelled && !isCompleted && !isEnRoute && !isInProgress
 
+  const referenceCode = `#APT-${apt.id.substring(0, 8).toUpperCase()}`
+
+  // Canonical Pricing Model breakdown
+  const pricingModel = apt.service?.pricingModel || 'fixed'
+  const isStartingAt = pricingModel === 'starting_at'
+  const isQuoteOnSite = pricingModel === 'quote_on_site'
+  const isDiagnosticFee = pricingModel === 'diagnostic_fee'
+  const isFreeEstimate = pricingModel === 'free_estimate'
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 py-8 px-4 sm:px-6">
       <div className="max-w-lg mx-auto space-y-6">
 
-        {/* Business Branding */}
-        <div className="text-center space-y-1">
-          <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-500 font-semibold">Appointment Manager</p>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white">{apt.business.name}</h1>
-          {apt.business.phone && (
-            <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center justify-center gap-1">
-              <Phone className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-              <span>{apt.business.phone}</span>
-            </p>
-          )}
+        {/* 1. BUSINESS BRANDING HERO */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+            <ShieldCheck className="h-3 w-3" />
+            <span>Secure Appointment Portal</span>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            {apt.business.name}
+          </h1>
+
+          <div className="flex items-center justify-center gap-3 text-xs text-slate-500 dark:text-zinc-400">
+            <span className="font-mono font-bold">{referenceCode}</span>
+            {apt.business.phone && (
+              <>
+                <span>•</span>
+                <a
+                  href={`tel:${apt.business.phone}`}
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <Phone className="h-3 w-3" />
+                  <span>{apt.business.phone}</span>
+                </a>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Status Alert Banner */}
-        <div className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
+        {/* Reschedule Success Alert Banner */}
+        {rescheduleSuccess && (
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-3 animate-in fade-in duration-300">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div>
+              <span className="font-bold block">Rescheduled Successfully!</span>
+              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">{rescheduleSuccess}</p>
+            </div>
+          </div>
+        )}
+
+        {/* 2. STATE-AWARE STATUS BANNER */}
+        <div className={cn(
+          "p-4 rounded-2xl border text-xs flex items-center gap-3 shadow-xs",
           apt.status === 'confirmed'
-            ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+            ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
             : apt.status === 'requested'
-            ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300'
+            ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300"
             : apt.status === 'cancelled'
-            ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300'
-            : 'bg-slate-100 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300'
-        }`}>
+            ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300"
+            : "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30 text-blue-800 dark:text-blue-300"
+        )}>
           {apt.status === 'confirmed' && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />}
           {apt.status === 'requested' && <Clock className="h-5 w-5 shrink-0 text-amber-500 dark:text-amber-400" />}
-          {apt.status === 'cancelled' && <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-red-400" />}
+          {apt.status === 'cancelled' && <XCircle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />}
           {apt.status === 'completed' && <CheckCircle2 className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />}
 
-          <div>
+          <div className="flex-1">
             <span className="font-bold block capitalize text-sm">
               Status: {apt.status}
             </span>
-            <span className="text-[11px] opacity-90">
-              {apt.status === 'confirmed' && 'Your appointment is confirmed and booked on the schedule.'}
-              {apt.status === 'requested' && 'Your request has been received and is waiting for owner approval.'}
+            <span className="text-[11px] opacity-90 leading-relaxed block">
+              {apt.status === 'confirmed' && 'Your appointment is confirmed and reserved on the schedule.'}
+              {apt.status === 'requested' && 'Your booking request has been received and is waiting for contractor confirmation.'}
               {apt.status === 'cancelled' && (apt.cancellationReason ? `Cancelled: ${apt.cancellationReason}` : 'This appointment has been cancelled.')}
               {apt.status === 'completed' && 'This service appointment has been marked completed.'}
             </span>
           </div>
         </div>
 
-        {/* Appointment Card */}
-        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 space-y-4 shadow-sm">
+        {/* 3. PRIMARY APPOINTMENT DETAILS CARD */}
+        <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 space-y-4 shadow-xs">
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">{apt.serviceType || apt.title}</h2>
-              {apt.service?.durationMinutes && (
-                <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5">
-                  <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                  {apt.service.durationMinutes} minutes
-                </p>
-              )}
-            </div>
-            {apt.service?.price !== null && apt.service?.price !== undefined && Number(apt.service.price) > 0 ? (
-              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20">
-                ${Number(apt.service.price).toFixed(2)}
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
+                Scheduled Service
               </span>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                {apt.serviceType || apt.title}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5">
+                <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                <span>{apt.durationMinutes || apt.service?.durationMinutes || 60} minutes estimated</span>
+              </p>
+            </div>
+
+            {apt.service?.price !== null && apt.service?.price !== undefined && Number(apt.service.price) > 0 ? (
+              <div className="text-right">
+                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 block">
+                  ${Number(apt.service.price).toFixed(2)}
+                </span>
+                {isStartingAt && (
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Starting Rate</span>
+                )}
+              </div>
             ) : (
               <span className="text-xs font-semibold text-slate-600 dark:text-zinc-300 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700">
-                Quote on Inspection
+                {isQuoteOnSite ? "Quote On Site" : isFreeEstimate ? "Free Estimate" : "Assessment"}
               </span>
             )}
           </div>
 
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
-              <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span>
-                {formatDateInTz(startDate, apt.business.timezone || 'America/Chicago', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              </span>
-            </div>
+          {/* Pricing description disclaimer */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/80 text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed">
+            {isStartingAt && "Base price covers standard arrival and inspection. Exact final total will be confirmed on-site before any additional work starts."}
+            {isQuoteOnSite && "$0 due online. A clear written quote will be provided on-site before any work begins."}
+            {isDiagnosticFee && "Diagnostic fee covers comprehensive inspection and troubleshooting, credited toward repair if approved."}
+            {isFreeEstimate && "$0.00 complimentary on-site consultation. No obligation or payment required."}
+            {pricingModel === 'fixed' && "All inclusive fixed rate for this scheduled service."}
+          </div>
 
-            <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span>
-                {formatTimeInTz(startDate, apt.business.timezone || 'America/Chicago')} ({getFriendlyTimezoneLabel(apt.business.timezone || 'America/Chicago', startDate)})
-              </span>
+          {/* Visit Window and Location */}
+          <div className="space-y-3 text-xs pt-1">
+            <div className="flex items-start gap-3 text-slate-700 dark:text-zinc-300">
+              <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-900 dark:text-white block">
+                  {formattedDate}
+                </span>
+                <span className="text-slate-500 dark:text-zinc-400">
+                  {formattedStartTime} - {formattedEndTime} ({tzLabel})
+                </span>
+              </div>
             </div>
 
             {apt.customer.address && (
-              <div className="flex items-center gap-3 text-slate-700 dark:text-zinc-300">
-                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span>{apt.customer.address}</span>
+              <div className="flex items-start gap-3 text-slate-700 dark:text-zinc-300">
+                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    Service Address
+                  </span>
+                  <span className="text-slate-500 dark:text-zinc-400">
+                    {apt.customer.address}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {apt.customer.name && (
+              <div className="flex items-start gap-3 text-slate-700 dark:text-zinc-300">
+                <User className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    Customer
+                  </span>
+                  <span className="text-slate-500 dark:text-zinc-400">
+                    {apt.customer.name} • {apt.customer.phone}
+                  </span>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* LIVE SERVICE ARRIVAL TRACKER CARD (State-Aware) */}
+        {/* 4. LIVE SERVICE ARRIVAL TRACKER CARD (State-Aware) */}
         {apt.status !== 'cancelled' && apt.tracking && (
           <div className={cn(
             "rounded-2xl border p-4 sm:p-5 space-y-3 shadow-xs transition-all",
@@ -421,9 +540,9 @@ export default function CustomerManageAppointmentPage() {
                isCompleted ? <CheckCircle2 className="h-4 w-4" /> :
                <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
               <span>
-                {isEnRoute ? "Track Technician Live Arrival →" :
-                 isInProgress ? "View Live Work & Progress Photos →" :
-                 isCompleted ? "View Work Summary, Photos & Receipt →" :
+                {isEnRoute ? "Track Technician Live Arrival" :
+                 isInProgress ? "View Live Work & Progress Photos" :
+                 isCompleted ? "View Work Summary, Photos & Receipt" :
                  "Open Live Service Tracker"}
               </span>
               <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
@@ -431,11 +550,11 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        {/* Add to Calendar Sync Buttons */}
+        {/* 5. ADD TO CALENDAR SYNC */}
         {apt.status !== 'cancelled' && (
-          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800/90 p-4 space-y-2.5 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-400 uppercase tracking-wider block">
-              Sync to Calendar
+          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-4 space-y-2.5 shadow-xs">
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block">
+              Add to Your Calendar
             </span>
             <div className="grid grid-cols-2 gap-2">
               <a
@@ -445,11 +564,11 @@ export default function CustomerManageAppointmentPage() {
                   location: apt.customer.address || undefined,
                   startTime: apt.startTime,
                   endTime: apt.endTime || undefined,
-                  url: typeof window !== 'undefined' ? window.location.href : undefined,
+                  url: typeof window !== 'undefined' ? window.location.href : undefined
                 })}
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
               >
                 <CalendarDays className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span>Google Calendar</span>
@@ -464,10 +583,10 @@ export default function CustomerManageAppointmentPage() {
                     location: apt.customer.address || undefined,
                     startTime: apt.startTime,
                     endTime: apt.endTime || undefined,
-                    url: window.location.href,
-                  }, `appointment-${token.substring(0, 8)}.ics`)
+                    url: window.location.href
+                  }, `appointment-${referenceCode.replace('#', '')}.ics`)
                 }}
-                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/90 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
               >
                 <CalendarIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Apple / Outlook</span>
@@ -476,7 +595,7 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        {/* Completed Service Callout */}
+        {/* 6. COMPLETED SERVICE NOTICE */}
         {isCompleted && (
           <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-5 text-center space-y-3 shadow-xs">
             <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mx-auto" />
@@ -491,43 +610,49 @@ export default function CustomerManageAppointmentPage() {
                 href={`/book/${apt.business.slug}`}
                 className="inline-flex items-center justify-center py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20"
               >
-                Book a New Service →
+                Book a New Service
               </a>
             )}
           </div>
         )}
 
-        {/* Active En Route / On-Site Self-Service Paused Banner */}
+        {/* 7. EN ROUTE / IN PROGRESS SELF-SERVICE PAUSED NOTICE */}
         {(isEnRoute || isInProgress) && (
           <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3 shadow-2xs">
             <AlertCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <span className="font-bold block">
-                {isEnRoute ? "Technician is already en route to your address" : "Technician is currently working on-site"}
+                {isEnRoute ? "Technician is currently en route to your property" : "Technician is currently working on-site"}
               </span>
               <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
-                Self-service rescheduling and online cancellations are paused while field service is actively in progress. To request emergency changes, please contact {apt.business.name} directly at {apt.business.phone || "the phone number above"}.
+                Self-service rescheduling and cancellations are paused while field service is actively in progress. To make emergency changes, please call {apt.business.name} directly at {apt.business.phone || "the phone number above"}.
               </p>
             </div>
           </div>
         )}
 
-        {/* Customer Action Buttons */}
+        {/* 8. CUSTOMER SELF-SERVICE ACTION BUTTONS */}
         {isActionable && !showReschedule && !showCancel && (
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              onClick={() => setShowReschedule(true)}
-              className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+              onClick={() => {
+                setShowReschedule(true)
+                setShowCancel(false)
+              }}
+              className="flex-1 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
-              <span>Reschedule Time</span>
+              <span>Reschedule Appointment</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setShowCancel(true)}
-              className="py-3 px-4 rounded-xl border border-rose-200 dark:border-red-500/30 bg-rose-50 dark:bg-red-500/10 hover:bg-rose-100 dark:hover:bg-red-500/20 text-rose-700 dark:text-red-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+              onClick={() => {
+                setShowCancel(true)
+                setShowReschedule(false)
+              }}
+              className="py-3.5 px-4 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <XCircle className="h-4 w-4" />
               <span>Cancel Appointment</span>
@@ -535,32 +660,54 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        {/* RESCHEDULE FLOW MODAL / INLINE VIEW */}
+        {/* 9. RESCHEDULE EXPERIENCE */}
         {showReschedule && (
-          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-500/40 p-5 space-y-4 shadow-md">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                Choose a New Date & Time
-              </h3>
+          <div className="rounded-3xl bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-500/40 p-5 sm:p-6 space-y-5 shadow-lg animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                  Select New Arrival Window
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  Reschedule Appointment
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowReschedule(false)}
-                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                className="text-xs text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 cursor-pointer"
               >
-                Close
+                Cancel
               </button>
             </div>
 
+            {/* Current Appointment reference banner */}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 text-xs text-slate-600 dark:text-zinc-400 flex items-center justify-between">
+              <div>
+                <span className="font-semibold block text-slate-800 dark:text-zinc-200">Current Slot:</span>
+                <span>{formattedDate} at {formattedStartTime}</span>
+              </div>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                {apt.durationMinutes || 60} mins
+              </span>
+            </div>
+
             {rescheduleError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-rose-600 dark:text-red-400 text-xs">
-                {rescheduleError}
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block">Rescheduling Error</span>
+                  <p className="text-[11px] leading-relaxed">{rescheduleError}</p>
+                </div>
               </div>
             )}
 
-            {/* Date Picker */}
+            {/* Date Selection Rail */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Select Date</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
+                Choose a Date
+              </label>
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {selectableDates.map((item) => {
                   const isSelected = selectedDate === item.dateStr
@@ -569,11 +716,12 @@ export default function CustomerManageAppointmentPage() {
                       key={item.dateStr}
                       type="button"
                       onClick={() => setSelectedDate(item.dateStr)}
-                      className={`flex flex-col items-center justify-center min-w-[65px] py-2.5 px-2 rounded-xl border transition-all shrink-0 cursor-pointer ${
+                      className={cn(
+                        "flex flex-col items-center justify-center min-w-[65px] py-2.5 px-2 rounded-xl border transition-all shrink-0 cursor-pointer",
                         isSelected
-                          ? 'bg-blue-600 border-blue-500 text-white font-bold'
-                          : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                          ? "bg-blue-600 border-blue-500 text-white font-bold shadow-xs"
+                          : "bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700"
+                      )}
                     >
                       <span className="text-[10px] uppercase">{item.dayOfWeek}</span>
                       <span className="text-xs font-black mt-0.5">{item.label}</span>
@@ -583,17 +731,22 @@ export default function CustomerManageAppointmentPage() {
               </div>
             </div>
 
-            {/* Time Slot Grid */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Select Available Time</label>
+            {/* Available Time Slots Grid */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
+                Select Available Time Window
+              </label>
+
               {loadingSlots ? (
-                <div className="grid grid-cols-3 gap-2 py-4">
+                <div className="grid grid-cols-3 gap-2 py-3">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-9 rounded-xl bg-slate-200 dark:bg-zinc-800/40 animate-pulse" />
+                    <div key={i} className="h-10 rounded-xl bg-slate-200 dark:bg-zinc-800/40 animate-pulse" />
                   ))}
                 </div>
               ) : availableSlots.length === 0 ? (
-                <p className="text-xs text-slate-400 dark:text-zinc-500 py-4 text-center">No available slots for this date.</p>
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-500 dark:text-zinc-400">
+                  No open slots available for this date. Please pick another date above.
+                </div>
               ) : (
                 <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
                   {availableSlots.map((slot) => {
@@ -603,11 +756,12 @@ export default function CustomerManageAppointmentPage() {
                         key={slot.startTime}
                         type="button"
                         onClick={() => setSelectedSlot(slot)}
-                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer ${
+                        className={cn(
+                          "py-2.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer",
                           isSelected
-                            ? 'bg-blue-600 border-blue-500 text-white'
-                            : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                        }`}
+                            ? "bg-blue-600 border-blue-500 text-white font-bold shadow-xs"
+                            : "bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
+                        )}
                       >
                         {slot.displayTime}
                       </button>
@@ -617,69 +771,114 @@ export default function CustomerManageAppointmentPage() {
               )}
             </div>
 
-            <div className="flex gap-2 pt-2">
+            {/* Selected Slot Confirmation Preview */}
+            {selectedSlot && (
+              <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex items-center justify-between">
+                <div>
+                  <span className="font-bold block">New Appointment Window:</span>
+                  <span>{selectedSlot.date} at {selectedSlot.displayTime}</span>
+                </div>
+                <ArrowRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
               <button
                 type="button"
                 onClick={() => setShowReschedule(false)}
-                className="py-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
+                className="py-3 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
               >
-                Back
+                Keep Current Time
               </button>
               <button
                 type="button"
                 disabled={!selectedSlot || rescheduling}
                 onClick={handleRescheduleSubmit}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer"
+                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer"
               >
-                {rescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
+                {rescheduling ? 'Confirming New Time...' : 'Confirm New Time'}
               </button>
             </div>
           </div>
         )}
 
-        {/* CANCEL FLOW CONFIRMATION */}
+        {/* 10. CANCEL EXPERIENCE WITH 2-STEP CONFIRMATION */}
         {showCancel && (
-          <div className="rounded-2xl bg-white dark:bg-zinc-900 border border-rose-200 dark:border-red-500/40 p-5 space-y-4 shadow-md">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-rose-600 dark:text-red-400" />
-              Cancel Appointment
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-zinc-400">
-              Are you sure you want to cancel this appointment? This action cannot be undone.
-            </p>
+          <div className="rounded-3xl bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-500/40 p-5 sm:p-6 space-y-4 shadow-lg animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-zinc-800">
+              <div className="h-9 w-9 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Cancel Your Appointment?
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  This will immediately release your time slot back to the public schedule.
+                </p>
+              </div>
+            </div>
 
             {cancelError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-rose-600 dark:text-red-400 text-xs">
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs">
                 {cancelError}
               </div>
             )}
 
-            <div>
-              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 block mb-1">
-                Reason for cancellation <span className="text-slate-400 dark:text-zinc-500">(Optional)</span>
+            {/* Quick-Select Cancellation Reason Pills */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block">
+                Why are you cancelling?
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {COMMON_CANCEL_REASONS.map((reason) => {
+                  const isSelected = selectedReasonChip === reason
+                  return (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setSelectedReasonChip(isSelected ? '' : reason)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer",
+                        isSelected
+                          ? "bg-rose-600 border-rose-600 text-white"
+                          : "bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-slate-300"
+                      )}
+                    >
+                      {reason}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Additional details */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 block">
+                Additional Notes (Optional)
               </label>
               <textarea
                 rows={2}
-                placeholder="Schedule conflict, service no longer needed, etc."
+                placeholder="Let the team know if there is anything they can help with..."
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-xs focus:outline-hidden focus:border-red-500 resize-none"
+                className="w-full p-3 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 text-xs focus:outline-hidden focus:border-rose-500 resize-none"
               />
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
               <button
                 type="button"
                 onClick={() => setShowCancel(false)}
-                className="py-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
+                className="py-3 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer"
               >
-                Keep Appointment
+                Keep My Appointment
               </button>
               <button
                 type="button"
                 disabled={cancelling}
                 onClick={handleCancelSubmit}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-red-500/20 cursor-pointer"
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-rose-500/20 cursor-pointer"
               >
                 {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
               </button>
@@ -687,12 +886,12 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        {/* If Cancelled: Link to re-book */}
+        {/* 11. IF CANCELLED: RE-BOOK BUTTON */}
         {isCancelled && apt.business.slug && (
           <div className="text-center pt-2">
             <a
               href={`/book/${apt.business.slug}`}
-              className="inline-flex items-center gap-2 py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 py-3.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer"
             >
               <span>Book a New Appointment</span>
               <ChevronRight className="h-4 w-4" />
@@ -700,7 +899,7 @@ export default function CustomerManageAppointmentPage() {
           </div>
         )}
 
-        {/* Live Demo Owner Dashboard Preview (Only for Demo Org) */}
+        {/* 12. DEMO OWNER DASHBOARD PREVIEW (Demo Org Only) */}
         {apt.business.slug?.includes('demo') && (
           <div className="rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 p-4 text-left space-y-2.5 shadow-sm">
             <div className="flex items-center gap-1.5 text-amber-500 text-[11px] font-black uppercase tracking-wider">
@@ -708,10 +907,10 @@ export default function CustomerManageAppointmentPage() {
               <span>⚡ Live Interactive Demo</span>
             </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              See what the business owner sees right now
+              See what the contractor sees in their dashboard
             </h3>
             <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed">
-              Experience the full cycle! Click below to enter the live CaptoDesk owner workspace without signing in. You can inspect this booked appointment, message history, calendar schedule, and field dispatch.
+              Experience the full operational cycle! Click below to enter the live CaptoDesk business owner workspace without signing in. You can inspect this booked appointment, message history, calendar schedule, and field dispatch.
             </p>
             <a
               href="/demo"
