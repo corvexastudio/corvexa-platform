@@ -321,20 +321,30 @@ export default function CustomerQuotePage() {
       <div className="max-w-2xl mx-auto space-y-6">
 
         {/* Contractor Header & Status */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-3 border-b border-slate-200 dark:border-zinc-800">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-              Official Service Estimate
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
+          <div className="flex items-center gap-3.5">
+            {org?.logo_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={org.logo_url}
+                alt={org.name || 'Company Logo'}
+                className="h-12 w-12 rounded-xl object-contain border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1 shrink-0"
+              />
+            ) : null}
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                Official Service Estimate
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-zinc-100 mt-0.5">
+                {org?.name || 'Service Estimate'}
+              </h1>
+              {org?.phone && (
+                <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 mt-1">
+                  <Phone className="h-3 w-3 text-slate-700 dark:text-zinc-300" />
+                  <a href={`tel:${org.phone}`} className="hover:underline font-medium">{org.phone}</a>
+                </p>
+              )}
             </div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-zinc-100 mt-0.5">
-              {org?.name || 'Service Estimate'}
-            </h1>
-            {org?.phone && (
-              <p className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 mt-1">
-                <Phone className="h-3 w-3 text-slate-700 dark:text-zinc-300" />
-                <a href={`tel:${org.phone}`} className="hover:underline font-medium">{org.phone}</a>
-              </p>
-            )}
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-center">

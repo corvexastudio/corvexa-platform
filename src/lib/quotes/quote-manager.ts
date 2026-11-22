@@ -14,10 +14,18 @@ import { generateDocumentNumber } from '../services/document-counter.ts'
 import { resolveSenderPhone } from '../billing/plans.ts'
 import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
 
-export interface QuoteLineItemInput {
-  description: string
-  quantity: number
-  unit_price: number
+import {
+  calculateQuoteFinancials,
+  type QuoteLineItemInput,
+  type CalculatedLineItem,
+  type CalculatedFinancials
+} from './quote-math.ts'
+
+export {
+  calculateQuoteFinancials,
+  type QuoteLineItemInput,
+  type CalculatedLineItem,
+  type CalculatedFinancials
 }
 
 export interface CreateQuoteInput {
@@ -45,44 +53,6 @@ export interface QuoteResult {
   error?: string
   upgradeRequired?: boolean
   code?: string
-}
-
-/**
- * Calculates subtotal, tax, and grand total from line items
- */
-export function calculateQuoteFinancials(
-  items: QuoteLineItemInput[],
-  options: { taxRate?: number; discount?: number } = {}
-) {
-  const lineItems = items.map((item) => {
-    const qty = Number(item.quantity) || 1
-    const price = Number(item.unit_price) || 0
-    const total = Math.round(qty * price * 100) / 100
-    return {
-      description: item.description.trim(),
-      quantity: qty,
-      unit_price: price,
-      total
-    }
-  })
-
-  const subtotal = lineItems.reduce((acc, it) => acc + it.total, 0)
-  const discount = Math.max(0, Number(options.discount) || 0)
-  const taxableAmount = Math.max(0, subtotal - discount)
-  const safeTaxRate = Math.max(0, Number(options.taxRate) || 0)
-  // FIN-01: Standardize taxRate as percentage (e.g. 8.25 for 8.25%, 1.0 for 1%)
-  // Prevents catastrophic 100% tax overcharge on 1% tax rates
-  const taxFraction = safeTaxRate / 100
-  const tax = Math.round(taxableAmount * taxFraction * 100) / 100
-  const grandTotal = Math.max(0, Math.round((subtotal - discount + tax) * 100) / 100)
-
-  return {
-    lineItems,
-    subtotal: Math.round(subtotal * 100) / 100,
-    tax,
-    discount,
-    total: grandTotal
-  }
 }
 
 /**
@@ -342,7 +312,8 @@ export async function sendQuote(
   })
 
   if (senderNumber) {
-    const rawText = `Hi ${contact.name || 'there'}! Here is your estimate #${quote.quote_number} from ${org?.name || 'us'} for $${quote.total.toFixed(2)}. Review and accept online: ${manageUrl}`
+    const totalFormatted = (Number(quote.total ?? quote.total_amount) || 0).toFixed(2)
+    const rawText = `Hi ${contact.name || 'there'}! Here is your estimate #${quote.quote_number} from ${org?.name || 'us'} for $${totalFormatted}. Review and accept online: ${manageUrl}`
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId,
       toPhone: contact.phone,
@@ -546,7 +517,7 @@ export async function customerViewQuote(
   // Load Organization
   const { data: org } = await supabase
     .from('organizations')
-    .select('id, name, slug, owner_phone, telnyx_phone_number, timezone')
+    .select('id, name, slug, owner_phone, telnyx_phone_number, timezone, logo_url')
     .eq('id', quote.org_id)
     .single()
 
@@ -607,7 +578,7 @@ export async function customerViewQuote(
       deposit_invoice_token: depositInvoiceToken
     },
     items: items || [],
-    organization: org,
+    organization: org ? { ...org, phone: org.telnyx_phone_number || org.owner_phone } : null,
     contact
   }
 }
@@ -787,7 +758,8 @@ export async function customerAcceptQuote(
     const depositPrompt = depositInvoiceUrl
       ? ` Please secure your scheduled slot by completing your deposit of $${Number(quote.deposit_amount).toFixed(2)}: ${baseUrl}${depositInvoiceUrl}`
       : ' We will reach out shortly to confirm your scheduled service.'
-    const rawText = `Thank you ${contact.name || ''}! Your acceptance of estimate #${quote.quote_number} ($${quote.total.toFixed(2)}) is confirmed.${depositPrompt}`
+    const totalFormatted = (Number(quote.total ?? quote.total_amount) || 0).toFixed(2)
+    const rawText = `Thank you ${contact.name || ''}! Your acceptance of estimate #${quote.quote_number} ($${totalFormatted}) is confirmed.${depositPrompt}`
     const compliance = await verifyOutboundCompliance(supabase, {
       orgId: quote.org_id,
       toPhone: contact.phone,
@@ -825,10 +797,11 @@ export async function customerAcceptQuote(
     ? ` (Deposit Required: $${Number(quote.deposit_amount).toFixed(2)})`
     : ''
 
+  const totalAcceptedFormatted = (Number(quote.total ?? quote.total_amount) || 0).toFixed(2)
   await supabase.from('notifications').insert({
     org_id: quote.org_id,
     title: 'Quote Accepted!',
-    message: `${contact?.name || 'Customer'} accepted estimate #${quote.quote_number} for $${quote.total.toFixed(2)}${depositNotifPart}`,
+    message: `${contact?.name || 'Customer'} accepted estimate #${quote.quote_number} for $${totalAcceptedFormatted}${depositNotifPart}`,
     link: '/client/quotes'
   })
 
