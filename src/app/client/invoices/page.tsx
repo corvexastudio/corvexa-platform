@@ -98,9 +98,11 @@ interface Invoice {
 function getInvoiceStatusBadge(inv: Invoice) {
   const isPaid = inv.status === 'paid'
   const isVoid = inv.status === 'void'
+  const isDraft = inv.status === 'draft'
+  const remainingDue = Number(inv.amount_due ?? (Number(inv.total || 0) - Number(inv.amount_paid || 0)))
   const isOverdue =
     inv.status === 'overdue' ||
-    (!isPaid && !isVoid && new Date(inv.due_date).getTime() < Date.now())
+    (!isDraft && !isPaid && !isVoid && remainingDue > 0 && new Date(inv.due_date).getTime() < Date.now())
 
   if (isPaid) {
     return (
@@ -127,6 +129,13 @@ function getInvoiceStatusBadge(inv: Invoice) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
         Sent
+      </span>
+    )
+  }
+  if (inv.status === 'viewed') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20">
+        Viewed
       </span>
     )
   }
@@ -158,7 +167,7 @@ function ClientInvoicesContent() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid' | 'void'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unpaid' | 'paid' | 'draft' | 'void'>('all')
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || searchParams.get('q') || '')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
@@ -680,23 +689,35 @@ function ClientInvoicesContent() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  // Financial aggregates
+  // Financial aggregates (Authoritative Accounting Engine)
   const totalInvoiced = useMemo(() => invoices.reduce((acc, inv) => acc + (Number(inv.total) || 0), 0), [invoices])
-  const totalDue = useMemo(() => invoices.reduce((acc, inv) => acc + (Number(inv.amount_due) || 0), 0), [invoices])
   const paidInvoices = useMemo(() => invoices.filter((i) => i.status === 'paid'), [invoices])
   const totalPaid = useMemo(() => invoices.reduce((acc, inv) => acc + (Number(inv.amount_paid) || 0), 0), [invoices])
+  const draftInvoices = useMemo(() => invoices.filter((i) => i.status === 'draft'), [invoices])
+
+  // Collectible issued receivables (strictly issued invoices with positive amount due; excludes unissued drafts, paid, and void)
+  const receivablesInvoices = useMemo(() => invoices.filter(
+    (i) => ['sent', 'viewed', 'partially_paid', 'overdue'].includes(i.status) && Number(i.amount_due) > 0
+  ), [invoices])
+  const totalDue = useMemo(() => receivablesInvoices.reduce((acc, inv) => acc + (Number(inv.amount_due) || 0), 0), [receivablesInvoices])
+
+  // Overdue issued invoices (issued with positive amount due past due date)
   const overdueInvoices = useMemo(() => invoices.filter(
-    (i) => i.status === 'overdue' || (i.status !== 'paid' && i.status !== 'void' && new Date(i.due_date).getTime() < Date.now())
+    (i) => ['sent', 'viewed', 'partially_paid', 'overdue'].includes(i.status) &&
+           Number(i.amount_due) > 0 &&
+           (i.status === 'overdue' || new Date(i.due_date).getTime() < Date.now())
   ), [invoices])
   const overdueAmount = useMemo(() => overdueInvoices.reduce((acc, inv) => acc + (Number(inv.amount_due) || 0), 0), [overdueInvoices])
-  const unpaidInvoices = useMemo(() => invoices.filter(i => i.status !== 'paid' && i.status !== 'void'), [invoices])
+  const unpaidInvoices = receivablesInvoices
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
       if (statusFilter === 'unpaid') {
-        if (inv.status === 'paid' || inv.status === 'void') return false
+        if (!['sent', 'viewed', 'partially_paid', 'overdue'].includes(inv.status) || Number(inv.amount_due) <= 0) return false
       } else if (statusFilter === 'paid') {
         if (inv.status !== 'paid') return false
+      } else if (statusFilter === 'draft') {
+        if (inv.status !== 'draft') return false
       } else if (statusFilter === 'void') {
         if (inv.status !== 'void') return false
       }
@@ -809,47 +830,47 @@ function ClientInvoicesContent() {
       </div>
 
       {/* Financial Summary (Senior Craft 4 Tokens) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Receivables Due</p>
-            <Clock className="h-4 w-4 text-blue-500/80" />
+            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Receivables Due</p>
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500/80" />
           </div>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums font-mono mt-1">${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
-            {unpaidInvoices.length} open invoice{unpaidInvoices.length === 1 ? '' : 's'}
+          <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums font-mono mt-1">${totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 sm:mt-1 truncate">
+            {receivablesInvoices.length} open receivable{receivablesInvoices.length === 1 ? '' : 's'}{draftInvoices.length > 0 ? ` (${draftInvoices.length} draft)` : ''}
           </p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Collected</p>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500/80" />
+            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Collected</p>
+            <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-500/80" />
           </div>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums font-mono mt-1">${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+          <p className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums font-mono mt-1">${totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 sm:mt-1 truncate">
             {paidInvoices.length} paid in full
           </p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Overdue</p>
-            <AlertCircle className="h-4 w-4 text-rose-500/80" />
+            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Overdue</p>
+            <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500/80" />
           </div>
-          <p className="text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums font-mono mt-1">{overdueInvoices.length}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 font-mono">
-            ${overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} past due date
+          <p className="text-lg sm:text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums font-mono mt-1">{overdueInvoices.length}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 sm:mt-1 font-mono truncate">
+            ${overdueAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} past due
           </p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-4 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Gross Invoiced</p>
-            <DollarSign className="h-4 w-4 text-slate-400" />
+            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Gross Invoiced</p>
+            <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums font-mono mt-1">${totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+          <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums font-mono mt-1">${totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 sm:mt-1 truncate">
             {invoices.length} lifetime invoices
           </p>
         </div>
@@ -860,8 +881,9 @@ function ClientInvoicesContent() {
         <div className="bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1 overflow-x-auto max-w-full scrollbar-none">
           {[
             { key: 'all', label: 'All Invoices', count: invoices.length },
-            { key: 'unpaid', label: 'Unpaid (Due & Overdue)', count: unpaidInvoices.length },
+            { key: 'unpaid', label: 'Unpaid (Due & Overdue)', count: receivablesInvoices.length },
             { key: 'paid', label: 'Paid', count: paidInvoices.length },
+            { key: 'draft', label: 'Drafts', count: draftInvoices.length },
             { key: 'void', label: 'Void', count: invoices.filter(i => i.status === 'void').length }
           ].map(t => (
             <button
@@ -968,7 +990,7 @@ function ClientInvoicesContent() {
                           {formatCustomerName(inv.contact?.name) || 'Customer'}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                          {inv.contact?.phone ? formatNationalUs(inv.contact.phone) : '—'}
+                          {inv.contact?.phone ? formatNationalUs(inv.contact.phone) : '-'}
                         </div>
                       </TableCell>
 
@@ -1128,43 +1150,110 @@ function ClientInvoicesContent() {
             </Table>
           </div>
 
-          {/* Mobile Card List View (Truck-Ready 48px Ergonomics) */}
+          {/* Mobile Card List View (Truck-Ready 44px+ Ergonomics) */}
           <div className="md:hidden divide-y divide-slate-100 dark:divide-zinc-800">
             {filteredInvoices.map(inv => {
               const isPaid = inv.status === 'paid'
               const isVoid = inv.status === 'void'
+              const isDraft = inv.status === 'draft'
+              const remainingDue = Number(inv.amount_due ?? (Number(inv.total || 0) - Number(inv.amount_paid || 0)))
+              const isOverdue =
+                inv.status === 'overdue' ||
+                (!isDraft && !isPaid && !isVoid && remainingDue > 0 && new Date(inv.due_date).getTime() < Date.now())
 
               return (
-                <div key={inv.id} className="p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                <div key={inv.id} className="p-3.5 sm:p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                  {/* Top Bar: Invoice # + Badges + Due Date */}
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-slate-500 dark:text-zinc-400 font-semibold">{inv.invoice_number}</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-xs text-slate-700 dark:text-zinc-300 font-bold">{inv.invoice_number}</span>
                         {getInvoiceStatusBadge(inv)}
+                        {isOverdue && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                            Past Due
+                          </span>
+                        )}
+                        {isDraft && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400">
+                            Unissued
+                          </span>
+                        )}
                       </div>
-                      <h3 className="font-semibold text-xs text-slate-900 dark:text-zinc-100 mt-1">{inv.title}</h3>
-                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">{inv.contact?.name || 'Customer'} • {inv.contact?.phone}</p>
+                      <h3 className="font-semibold text-xs text-slate-900 dark:text-zinc-100 line-clamp-1">{inv.title}</h3>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-slate-900 dark:text-zinc-100 font-mono tabular-nums">
                         ${Number(inv.total).toFixed(2)}
-                      </p>
-                      {!isPaid && (
-                        <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 font-mono tabular-nums">
-                          Due ${Number(inv.amount_due).toFixed(2)}
-                        </p>
+                      </div>
+                      {!isPaid && !isVoid ? (
+                        <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums">
+                          Due ${remainingDue.toFixed(2)}
+                        </div>
+                      ) : isPaid ? (
+                        <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          Paid in Full
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Customer Information & Links */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="font-medium text-slate-900 dark:text-zinc-100 truncate">
+                        {formatCustomerName(inv.contact?.name) || 'Customer'}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                        {inv.contact?.phone ? (
+                          <a
+                            href={`tel:${inv.contact.phone}`}
+                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-semibold"
+                            title="Call customer directly"
+                          >
+                            <Smartphone className="h-3 w-3" />
+                            <span>{formatNationalUs(inv.contact.phone)}</span>
+                          </a>
+                        ) : (
+                          <span>No phone</span>
+                        )}
+                        <span>•</span>
+                        <span>{new Date(inv.due_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {inv.job && (
+                        <Link
+                          href={`/client/calendar?tab=dispatch&search=${inv.job.job_number}`}
+                          className="text-[10px] font-mono text-blue-600 hover:underline inline-flex items-center gap-0.5 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-900/60"
+                        >
+                          <Briefcase className="h-2.5 w-2.5" />
+                          <span>Job #{inv.job.job_number}</span>
+                        </Link>
+                      )}
+                      {inv.quote && (
+                        <Link
+                          href={`/client/quotes?search=${inv.quote.quote_number}`}
+                          className="text-[10px] font-mono text-emerald-600 hover:underline inline-flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-900/60"
+                        >
+                          <FileText className="h-2.5 w-2.5" />
+                          <span>Quote #{inv.quote.quote_number}</span>
+                        </Link>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800/80">
-                    <div className="flex items-center gap-1.5">
+                  {/* Actions Bar (44px+ touch targets) */}
+                  <div className="flex items-center justify-between gap-1.5 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80">
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleCopyLink(inv.manage_token, inv.id)}
-                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 shadow-2xs"
+                        className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 shadow-2xs flex items-center justify-center cursor-pointer transition-colors"
                         title="Copy payment link"
+                        aria-label="Copy payment link"
                       >
                         {copiedId === inv.id ? (
                           <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -1177,11 +1266,24 @@ function ClientInvoicesContent() {
                         href={`/invoice/${inv.manage_token}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 shadow-2xs"
+                        className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 shadow-2xs flex items-center justify-center cursor-pointer transition-colors"
                         title="View invoice"
+                        aria-label="View invoice"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
+
+                      {!isPaid && !isVoid && (
+                        <button
+                          type="button"
+                          onClick={() => setVoidInvoiceId(inv.id)}
+                          className="min-h-[44px] min-w-[44px] p-2.5 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:text-rose-400 shadow-2xs flex items-center justify-center cursor-pointer transition-colors"
+                          title="Void invoice"
+                          aria-label="Void invoice"
+                        >
+                          <Ban className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -1190,7 +1292,7 @@ function ClientInvoicesContent() {
                           size="sm"
                           variant="outline"
                           onClick={() => openEditDraftModal(inv)}
-                          className="h-9 px-2.5 text-xs border-slate-200 dark:border-zinc-800 font-semibold shadow-2xs"
+                          className="min-h-[44px] px-3 text-xs border-slate-200 dark:border-zinc-800 font-semibold shadow-2xs cursor-pointer"
                         >
                           <Edit2 className="h-3.5 w-3.5 mr-1 text-slate-500" />
                           <span>Edit</span>
@@ -1202,9 +1304,9 @@ function ClientInvoicesContent() {
                           <Button
                             size="sm"
                             onClick={() => openOfflinePaymentModal(inv)}
-                            className="h-9 px-3 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs"
+                            className="min-h-[44px] px-3.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs cursor-pointer"
                           >
-                            <Banknote className="h-3.5 w-3.5 mr-1" />
+                            <Banknote className="h-4 w-4 mr-1" />
                             <span>Collect</span>
                           </Button>
 
@@ -1213,14 +1315,14 @@ function ClientInvoicesContent() {
                             variant="outline"
                             onClick={() => handleSendInvoice(inv.id)}
                             disabled={actionLoadingId === inv.id}
-                            className="h-9 px-3 text-xs border-slate-200 dark:border-zinc-800 font-semibold shadow-2xs"
+                            className="min-h-[44px] px-3 text-xs border-slate-200 dark:border-zinc-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-zinc-800 font-semibold shadow-2xs cursor-pointer"
                           >
                             {actionLoadingId === inv.id ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
                             ) : (
-                              <Send className="h-3.5 w-3.5 mr-1 text-blue-600" />
+                              <Send className="h-3.5 w-3.5 mr-1" />
                             )}
-                            <span>SMS</span>
+                            <span>{inv.status === 'draft' ? 'Send' : 'Remind'}</span>
                           </Button>
                         </>
                       )}
@@ -1230,9 +1332,9 @@ function ClientInvoicesContent() {
                           href={`/invoice/${inv.manage_token}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center h-9 px-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 font-semibold rounded-lg shadow-2xs"
+                          className="min-h-[44px] inline-flex items-center px-3.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 font-semibold rounded-lg shadow-2xs transition-colors"
                         >
-                          <Receipt className="h-3.5 w-3.5 mr-1 text-emerald-600 dark:text-emerald-400" />
+                          <Receipt className="h-4 w-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
                           <span>Receipt</span>
                         </a>
                       )}
@@ -1310,7 +1412,7 @@ function ClientInvoicesContent() {
 
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {editLineItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                <div key={idx} className="p-2.5 sm:p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center gap-2">
                   <Input
                     value={item.description}
                     onChange={(e) => {
@@ -1322,49 +1424,58 @@ function ClientInvoicesContent() {
                       })
                     }}
                     placeholder="Description"
-                    className="h-8 text-xs flex-1"
+                    className="h-9 sm:h-8 text-xs flex-1"
                   />
-                  <div className="w-16">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const val = Number(e.target.value) || 1
-                        setEditLineItems(prev => {
-                          const copy = [...prev]
-                          copy[idx] = { ...copy[idx], quantity: val }
-                          return copy
-                        })
-                      }}
-                      className="h-8 text-xs text-center"
-                    />
+                  <div className="flex items-center justify-between sm:justify-start gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-slate-400">Qty</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 1
+                          setEditLineItems(prev => {
+                            const copy = [...prev]
+                            copy[idx] = { ...copy[idx], quantity: val }
+                            return copy
+                          })
+                        }}
+                        className="w-16 h-9 sm:h-8 text-xs text-center font-mono tabular-nums"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-slate-400">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.unit_price}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0
+                          setEditLineItems(prev => {
+                            const copy = [...prev]
+                            copy[idx] = { ...copy[idx], unit_price: val }
+                            return copy
+                          })
+                        }}
+                        className="w-24 h-9 sm:h-8 text-xs font-mono text-right tabular-nums"
+                      />
+                    </div>
+                    <div className="sm:hidden text-xs font-mono font-semibold text-slate-700 dark:text-zinc-300 tabular-nums">
+                      ${((Number(item.quantity) || 1) * (Number(item.unit_price) || 0)).toFixed(2)}
+                    </div>
+                    {editLineItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setEditLineItems(prev => prev.filter((_, i) => i !== idx))}
+                        className="p-2 sm:p-1 text-slate-400 hover:text-rose-600 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center cursor-pointer"
+                        title="Remove item"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  <div className="w-24 relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={item.unit_price}
-                      onChange={(e) => {
-                        const val = Number(e.target.value) || 0
-                        setEditLineItems(prev => {
-                          const copy = [...prev]
-                          copy[idx] = { ...copy[idx], unit_price: val }
-                          return copy
-                        })
-                      }}
-                      className="h-8 text-xs pl-5 font-mono text-right"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditLineItems(prev => prev.filter((_, i) => i !== idx))}
-                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
               ))}
             </div>
@@ -1708,48 +1819,60 @@ function ClientInvoicesContent() {
             </div>
 
             <div className="space-y-2 max-h-48 overflow-y-auto p-0.5">
-              {newItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <Input
-                    placeholder="Description (e.g. System replacement & labor)"
-                    value={item.description}
-                    onChange={e => handleItemChange(idx, 'description', e.target.value)}
-                    className="flex-1 h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
-                  />
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-slate-400">Qty</span>
+              {newItems.map((item, idx) => {
+                const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0)
+                return (
+                  <div
+                    key={idx}
+                    className="p-2 sm:p-0 rounded-lg border sm:border-0 border-slate-200 dark:border-zinc-800 bg-slate-50/50 sm:bg-transparent dark:bg-zinc-900/30 sm:dark:bg-transparent flex flex-col sm:flex-row sm:items-center gap-2"
+                  >
                     <Input
-                      type="number"
-                      placeholder="Qty"
-                      value={item.quantity}
-                      onChange={e => handleItemChange(idx, 'quantity', Number(e.target.value))}
-                      min="1"
-                      className="w-16 h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md text-center focus:border-blue-500 font-mono tabular-nums"
+                      placeholder="Description (e.g. System replacement & labor)"
+                      value={item.description}
+                      onChange={e => handleItemChange(idx, 'description', e.target.value)}
+                      className="flex-1 h-9 sm:h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md focus:border-blue-500"
                     />
+                    <div className="flex items-center justify-between sm:justify-start gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">Qty</span>
+                        <Input
+                          type="number"
+                          placeholder="Qty"
+                          value={item.quantity}
+                          onChange={e => handleItemChange(idx, 'quantity', Number(e.target.value))}
+                          min="1"
+                          className="w-16 h-9 sm:h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md text-center focus:border-blue-500 font-mono tabular-nums"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">$</span>
+                        <Input
+                          type="number"
+                          placeholder="Price"
+                          value={item.unit_price}
+                          onChange={e => handleItemChange(idx, 'unit_price', Number(e.target.value))}
+                          min="0"
+                          step="0.01"
+                          className="w-24 h-9 sm:h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md text-right focus:border-blue-500 font-mono tabular-nums"
+                        />
+                      </div>
+                      <div className="sm:hidden text-xs font-mono font-semibold text-slate-700 dark:text-zinc-300 tabular-nums">
+                        ${lineTotal.toFixed(2)}
+                      </div>
+                      {newItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(idx)}
+                          className="p-2 sm:p-1.5 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-md"
+                          title="Remove item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-slate-400">$</span>
-                    <Input
-                      type="number"
-                      placeholder="Price"
-                      value={item.unit_price}
-                      onChange={e => handleItemChange(idx, 'unit_price', Number(e.target.value))}
-                      min="0"
-                      step="0.01"
-                      className="w-24 h-8.5 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-md text-right focus:border-blue-500 font-mono tabular-nums"
-                    />
-                  </div>
-                  {newItems.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(idx)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Calculations Breakdown */}
@@ -1848,6 +1971,24 @@ function ClientInvoicesContent() {
           if (voidInvoiceId) executeVoidInvoice(voidInvoiceId)
         }}
       />
+
+      {/* Mobile Floating Action Button */}
+      <button
+        type="button"
+        onClick={() => {
+          if (starterUsage?.isLimitReached) {
+            setGatedInvoiceData({ customerName: 'Customer' })
+            setFoundMoneyModalOpen(true)
+            return
+          }
+          setShowCreateModal(true)
+        }}
+        className="fixed bottom-20 right-4 sm:hidden z-40 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-4 py-3 rounded-full shadow-lg shadow-blue-600/30 font-semibold text-xs tracking-wide transition-all cursor-pointer min-h-[44px]"
+        aria-label="Create New Invoice"
+      >
+        <Plus className="h-4 w-4" />
+        <span>New Invoice</span>
+      </button>
 
       {/* Found Money Finish-Line Paywall Modal */}
       <FoundMoneyUnlockModal

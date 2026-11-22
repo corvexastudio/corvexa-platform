@@ -43,7 +43,9 @@ import {
   Calendar, 
   BadgeCheck,
   Radio,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Eye,
+  Info
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CrewModal } from '@/components/crews/crew-modal'
@@ -99,6 +101,7 @@ export default function TeamPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
   const [editingMember, setEditingMember] = useState<any | null>(null)
+  const [viewingStaff, setViewingStaff] = useState<any | null>(null)
   const [targetRole, setTargetRole] = useState<string>('dispatcher')
   const [savingRole, setSavingRole] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<any | null>(null)
@@ -294,6 +297,9 @@ export default function TeamPage() {
       if (res.ok && data.success) {
         toast.success('Member role updated successfully')
         setEditingMember(null)
+        if (viewingStaff && viewingStaff.id === editingMember.id) {
+          setViewingStaff({ ...viewingStaff, role: targetRole })
+        }
         fetchMembers()
       } else {
         toast.error(data.error || 'Failed to update member role')
@@ -316,6 +322,9 @@ export default function TeamPage() {
       if (res.ok && data.success) {
         toast.success('Member removed from organization')
         setMemberToRemove(null)
+        if (viewingStaff && viewingStaff.id === memberToRemove.id) {
+          setViewingStaff(null)
+        }
         fetchMembers()
       } else {
         toast.error(data.error || 'Failed to remove member')
@@ -341,6 +350,11 @@ export default function TeamPage() {
       default:
         return { label: role || 'Member', className: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700' }
     }
+  }
+
+  // Helper to find crew assignment for a member
+  const getMemberCrew = (memberId: string) => {
+    return crews.find(c => c.member_ids?.includes(memberId) || c.crew_lead?.id === memberId)
   }
 
   // Combined fleet totals
@@ -583,13 +597,13 @@ export default function TeamPage() {
                             </SelectTrigger>
                             <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200">
                               <SelectItem value="client_admin">
-                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Client Admin</span> — Full operational &amp; financial access
+                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Client Admin</span>: Full operational &amp; financial access
                               </SelectItem>
                               <SelectItem value="dispatcher">
-                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Dispatcher</span> — Calendar, 2-Way Calls &amp; Inbox (No banking)
+                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Dispatcher</span>: Calendar, 2-Way Calls &amp; Inbox (No banking)
                               </SelectItem>
                               <SelectItem value="technician">
-                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Technician</span> — Field Mobile Route &amp; On-Site Jobs Only
+                                <span className="font-semibold text-zinc-900 dark:text-zinc-100">Technician</span>: Field Mobile Route &amp; On-Site Jobs Only
                               </SelectItem>
                             </SelectContent>
                           </Select>
@@ -644,7 +658,7 @@ export default function TeamPage() {
             </div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1">
               <Radio className="w-3 h-3 text-blue-500 shrink-0" />
-              Instant Missed-Call Auto-Text
+              Instant Missed-Call Auto-Reply
             </div>
           </div>
 
@@ -688,7 +702,7 @@ export default function TeamPage() {
               {members.length}
             </div>
             <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-              {techCount} Techs • {dispCount} Dispatchers
+              {techCount} Techs, {dispCount} Dispatchers
             </div>
           </div>
 
@@ -718,7 +732,7 @@ export default function TeamPage() {
       {/* Solo Operator Mode Cockpit */}
       {currentMode === 'solo' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Operator Profile, Route Link, and Fleet Expansion */}
+          {/* Left Column: Operator Profile, Phone Setup, Route Link */}
           <div className="lg:col-span-7 space-y-6">
             {/* Operator Credentials Card */}
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-4">
@@ -739,7 +753,7 @@ export default function TeamPage() {
                 </div>
 
                 <span className="shrink-0 text-xs px-2.5 py-1 rounded-md font-medium border bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800/40">
-                  Owner &amp; Lead Technician
+                  Owner &amp; Lead Operator
                 </span>
               </div>
 
@@ -801,6 +815,55 @@ export default function TeamPage() {
               </div>
             </div>
 
+            {/* Phone & Forwarding Setup Card */}
+            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shrink-0">
+                  <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Phone, Forwarding &amp; SMS Dispatch
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    How customer phone calls and automated SMS text messages route to your phone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 space-y-1">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Outbound Business Number</span>
+                  <p className="text-sm font-bold font-mono text-zinc-900 dark:text-zinc-100">
+                    {formatPhoneNumber(resolveSenderPhone(organization))}
+                  </p>
+                  <p className="text-[10px] text-zinc-400">
+                    Customers see this number on outbound calls and automated booking confirmations.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 space-y-1">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Call Forwarding Target</span>
+                  <p className="text-sm font-bold font-mono text-zinc-900 dark:text-zinc-100">
+                    {formatPhoneNumber(organization?.owner_phone) || 'Mobile Phone'}
+                  </p>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    Incoming calls ring straight through to your smartphone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-xs text-blue-900 dark:text-blue-300 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Instant Auto-Reply (Under 5 Seconds) is active for missed calls.</span>
+                </div>
+                <Link href="/client/automations" className="text-xs font-bold text-blue-700 dark:text-blue-400 hover:underline shrink-0 ml-2">
+                  Configure ↗
+                </Link>
+              </div>
+            </div>
+
             {/* Mobile Truck Field Portal Card */}
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-4">
               <div className="flex items-center gap-3">
@@ -812,14 +875,14 @@ export default function TeamPage() {
                     Field Route Mobile Portal
                   </h3>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Mobile-optimized view for technicians on the road.
+                    Mobile-optimized cockpit for contractors on the road.
                   </p>
                 </div>
               </div>
 
               <div className="rounded-lg bg-zinc-50 dark:bg-zinc-950/60 p-3.5 border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
                 <p className="leading-relaxed">
-                  When you&apos;re driving or on a service call, switch to the Field Portal for:
+                  When you are driving or on a service call, switch to the Field Portal for:
                 </p>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
                   <li className="flex items-center gap-1.5">
@@ -844,7 +907,7 @@ export default function TeamPage() {
               <div className="flex items-center gap-2 pt-1 flex-wrap">
                 <Link
                   href="/client/field"
-                  className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs min-h-[48px] sm:min-h-0 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[48px] px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   <Smartphone className="w-4 h-4" />
                   <span>Open Truck Field Portal</span>
@@ -855,14 +918,17 @@ export default function TeamPage() {
                   type="button"
                   variant="outline"
                   onClick={handleCopyFieldLink}
-                  className="h-10 px-3.5 rounded-lg border-zinc-200 dark:border-zinc-800 text-xs font-medium min-h-[48px] sm:min-h-0"
+                  className="min-h-[48px] px-3.5 rounded-xl border-zinc-200 dark:border-zinc-800 text-xs font-medium"
                 >
                   {copiedFieldLink ? <Check className="w-3.5 h-3.5 text-emerald-600 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
                   {copiedFieldLink ? 'Link Copied!' : 'Copy Portal URL for Mobile'}
                 </Button>
               </div>
             </div>
+          </div>
 
+          {/* Right Column: Scale to Multi-Crew & Permissions Matrix */}
+          <div className="lg:col-span-5 space-y-6">
             {/* Expansion Card: Growing to Multi-Crew */}
             <div className="rounded-xl border border-blue-200/80 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/50 via-white to-sky-50/30 dark:from-blue-950/20 dark:via-zinc-900 dark:to-zinc-900 p-5 shadow-2xs space-y-4">
               <div className="flex items-center gap-2.5">
@@ -883,7 +949,7 @@ export default function TeamPage() {
                 When you hire an apprentice, helper, or office dispatcher, unlock the full multi-crew suite:
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div className="grid grid-cols-1 gap-2.5 text-xs">
                 <div className="flex items-start gap-2">
                   <div className="w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</div>
                   <span className="text-zinc-700 dark:text-zinc-300">Multi-column calendar partitioned by technician and van.</span>
@@ -902,33 +968,31 @@ export default function TeamPage() {
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center gap-2.5 flex-wrap">
+              <div className="pt-2 flex flex-col gap-2">
                 <Button
                   size="sm"
                   onClick={() => {
                     setUpgradeFeature('Multi-Crew Dispatch & Van Management')
                     setShowUpgradeModal(true)
                   }}
-                  className="h-10 sm:h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[48px] sm:min-h-0"
+                  className="min-h-[48px] px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer w-full justify-between"
                 >
                   <span>Upgrade to Crew Plan ($199/mo)</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
 
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setViewModeOverride('fleet')}
-                  className="h-10 sm:h-9 px-3.5 rounded-lg border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 min-h-[48px] sm:min-h-0"
+                  className="min-h-[44px] px-3.5 rounded-xl border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 w-full"
                 >
                   Explore Fleet Dispatch View
                 </Button>
               </div>
             </div>
-          </div>
 
-          {/* Right Column: Educational Role & Permissions Matrix Card */}
-          <div className="lg:col-span-5 space-y-4">
+            {/* Educational Role & Permissions Matrix Card */}
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-4">
               <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
                 <Shield className="w-4 h-4 text-zinc-500" />
@@ -1004,13 +1068,13 @@ export default function TeamPage() {
       {/* Fleet / Multi-Crew Management Mode */}
       {currentMode === 'fleet' && (
         <div className="space-y-6">
-          {/* Main Tab Navigation */}
+          {/* Main Tab Navigation (48px Touch Targets) */}
           <div className="bg-zinc-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-zinc-200/80 dark:border-zinc-800/80 inline-flex items-center gap-1 self-start flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab('members')}
               className={cn(
-                "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer min-h-[44px] sm:min-h-0",
+                "min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer",
                 activeTab === 'members'
                   ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -1027,7 +1091,7 @@ export default function TeamPage() {
               type="button"
               onClick={() => setActiveTab('crews')}
               className={cn(
-                "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer min-h-[44px] sm:min-h-0",
+                "min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer",
                 activeTab === 'crews'
                   ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -1044,7 +1108,7 @@ export default function TeamPage() {
               type="button"
               onClick={() => setActiveTab('permissions')}
               className={cn(
-                "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer min-h-[44px] sm:min-h-0",
+                "min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer",
                 activeTab === 'permissions'
                   ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-xs font-semibold"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -1065,7 +1129,7 @@ export default function TeamPage() {
                     type="button"
                     onClick={() => setRoleFilter('all')}
                     className={cn(
-                      "px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] sm:min-h-0",
+                      "min-h-[40px] px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer",
                       roleFilter === 'all'
                         ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                         : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100"
@@ -1077,7 +1141,7 @@ export default function TeamPage() {
                     type="button"
                     onClick={() => setRoleFilter('admin')}
                     className={cn(
-                      "px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] sm:min-h-0",
+                      "min-h-[40px] px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer",
                       roleFilter === 'admin'
                         ? "bg-sky-600 text-white"
                         : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100"
@@ -1089,7 +1153,7 @@ export default function TeamPage() {
                     type="button"
                     onClick={() => setRoleFilter('dispatcher')}
                     className={cn(
-                      "px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] sm:min-h-0",
+                      "min-h-[40px] px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer",
                       roleFilter === 'dispatcher'
                         ? "bg-amber-600 text-white"
                         : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100"
@@ -1101,7 +1165,7 @@ export default function TeamPage() {
                     type="button"
                     onClick={() => setRoleFilter('technician')}
                     className={cn(
-                      "px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] sm:min-h-0",
+                      "min-h-[40px] px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer",
                       roleFilter === 'technician'
                         ? "bg-emerald-600 text-white"
                         : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100"
@@ -1171,6 +1235,8 @@ export default function TeamPage() {
                         const badge = getRoleBadge(m.role)
                         const isSelf = m.id === currentUserId
                         const editable = canEditTarget(m)
+                        const assignedCrew = getMemberCrew(m.id)
+
                         return (
                           <div key={m.id} className="py-4 flex flex-col gap-3 min-h-[48px]">
                             <div className="flex items-center justify-between gap-3">
@@ -1180,7 +1246,7 @@ export default function TeamPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate flex items-center gap-1.5">
-                                    <span>{m.full_name || '—'}</span>
+                                    <span>{m.full_name || '-'}</span>
                                     {isSelf && (
                                       <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold">
                                         You
@@ -1194,60 +1260,78 @@ export default function TeamPage() {
                                 </div>
                               </div>
 
-                              <span className={cn(
-                                "shrink-0 text-xs px-2.5 py-0.5 rounded-md font-medium border",
-                                badge.className
-                              )}>
-                                {badge.label}
-                              </span>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className={cn(
+                                  "text-xs px-2.5 py-0.5 rounded-md font-medium border",
+                                  badge.className
+                                )}>
+                                  {badge.label}
+                                </span>
+                                {assignedCrew && (
+                                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                                    <Truck className="w-2.5 h-2.5 text-blue-500" />
+                                    <span>{assignedCrew.name}</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
-                            {/* Action Row for Mobile: Call, Email, Edit, Delete */}
-                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/40 flex-wrap">
-                              {m.email && (
-                                <a
-                                  href={`mailto:${m.email}`}
-                                  className="inline-flex items-center justify-center gap-1 h-9 px-3 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px] sm:min-h-0"
-                                >
-                                  <Mail className="w-3.5 h-3.5 text-zinc-500" />
-                                  <span>Email</span>
-                                </a>
-                              )}
+                            {/* Action Row for Mobile: Profile, Call, Email, Edit, Delete */}
+                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/40 flex-wrap">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setViewingStaff(m)}
+                                className="min-h-[44px] px-3 text-xs text-zinc-700 dark:text-zinc-300"
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1 text-zinc-500" />
+                                <span>Profile &amp; Access</span>
+                              </Button>
 
-                              {m.phone && (
-                                <a
-                                  href={`tel:${m.phone}`}
-                                  className="inline-flex items-center justify-center gap-1 h-9 px-3 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 min-h-[44px] sm:min-h-0"
-                                >
-                                  <Phone className="w-3.5 h-3.5 text-blue-600" />
-                                  <span>Call</span>
-                                </a>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                {m.email && (
+                                  <a
+                                    href={`mailto:${m.email}`}
+                                    className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                                  >
+                                    <Mail className="w-3.5 h-3.5 text-zinc-500" />
+                                  </a>
+                                )}
 
-                              {editable && (
-                                <>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => openRoleModal(m)}
-                                    className="h-9 px-3 text-xs rounded-lg border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 min-h-[44px] sm:min-h-0"
+                                {m.phone && (
+                                  <a
+                                    href={`tel:${m.phone}`}
+                                    className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                   >
-                                    <Edit2 className="w-3.5 h-3.5 mr-1 text-zinc-500" />
-                                    Role
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setMemberToRemove(m)}
-                                    className="h-9 px-3 text-xs rounded-lg border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 min-h-[44px] sm:min-h-0"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                    Remove
-                                  </Button>
-                                </>
-                              )}
+                                    <Phone className="w-3.5 h-3.5 text-blue-600" />
+                                  </a>
+                                )}
+
+                                {editable && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openRoleModal(m)}
+                                      className="min-h-[44px] px-3 text-xs rounded-lg border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5 mr-1 text-zinc-500" />
+                                      Role
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setMemberToRemove(m)}
+                                      className="min-h-[44px] px-2.5 text-xs rounded-lg border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )
@@ -1262,10 +1346,9 @@ export default function TeamPage() {
                             <th className="text-left py-3 px-3.5 font-semibold">Team Member</th>
                             <th className="text-left py-3 px-3.5 font-semibold">Email &amp; Direct Phone</th>
                             <th className="text-left py-3 px-3.5 font-semibold">Assigned Role</th>
+                            <th className="text-left py-3 px-3.5 font-semibold">Assigned Van</th>
                             <th className="text-left py-3 px-3.5 font-semibold">Member Since</th>
-                            {canManageTeam && (
-                              <th className="text-right py-3 px-3.5 font-semibold">Actions</th>
-                            )}
+                            <th className="text-right py-3 px-3.5 font-semibold">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -1273,6 +1356,8 @@ export default function TeamPage() {
                             const badge = getRoleBadge(m.role)
                             const isSelf = m.id === currentUserId
                             const editable = canEditTarget(m)
+                            const assignedCrew = getMemberCrew(m.id)
+
                             return (
                               <tr key={m.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 transition-colors">
                                 <td className="py-3 px-3.5 font-medium text-zinc-900 dark:text-zinc-200">
@@ -1282,7 +1367,7 @@ export default function TeamPage() {
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
-                                        <span>{m.full_name || '—'}</span>
+                                        <span>{m.full_name || '-'}</span>
                                         {isSelf && (
                                           <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium">
                                             You
@@ -1304,13 +1389,38 @@ export default function TeamPage() {
                                     {badge.label}
                                   </span>
                                 </td>
-                                <td className="py-3 px-3.5 text-zinc-500 dark:text-zinc-400 text-xs font-mono">
-                                  {m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}
+                                <td className="py-3 px-3.5 text-zinc-600 dark:text-zinc-400">
+                                  {assignedCrew ? (
+                                    <span className="inline-flex items-center gap-1 text-xs">
+                                      <span
+                                        className="w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: assignedCrew.color_code }}
+                                      />
+                                      <span>{assignedCrew.name}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-zinc-400">Unassigned</span>
+                                  )}
                                 </td>
-                                {canManageTeam && (
-                                  <td className="py-3 px-3.5 text-right">
-                                    {editable ? (
-                                      <div className="inline-flex items-center gap-1.5">
+                                <td className="py-3 px-3.5 text-zinc-500 dark:text-zinc-400 text-xs font-mono">
+                                  {m.created_at ? new Date(m.created_at).toLocaleDateString() : '-'}
+                                </td>
+                                <td className="py-3 px-3.5 text-right">
+                                  <div className="inline-flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setViewingStaff(m)}
+                                      className="h-8 px-2 text-xs rounded-md text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+                                      title="View staff profile & permissions"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 mr-1" />
+                                      <span>Details</span>
+                                    </Button>
+
+                                    {editable && (
+                                      <>
                                         <Button
                                           type="button"
                                           variant="outline"
@@ -1326,19 +1436,14 @@ export default function TeamPage() {
                                           variant="outline"
                                           size="sm"
                                           onClick={() => setMemberToRemove(m)}
-                                          className="h-8 px-2.5 text-xs rounded-md border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                          className="h-8 px-2 text-xs rounded-md border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                                         >
-                                          <Trash2 className="w-3 h-3 mr-1" />
-                                          Remove
+                                          <Trash2 className="w-3 h-3" />
                                         </Button>
-                                      </div>
-                                    ) : isSelf ? (
-                                      <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">Current User</span>
-                                    ) : (
-                                      <span className="text-xs text-zinc-400 dark:text-zinc-500">—</span>
+                                      </>
                                     )}
-                                  </td>
-                                )}
+                                  </div>
+                                </td>
                               </tr>
                             )
                           })}
@@ -1462,7 +1567,7 @@ export default function TeamPage() {
                             <div className="p-2 rounded-lg bg-zinc-50 dark:bg-zinc-950/60">
                               <div className="text-[10px] text-zinc-500 dark:text-zinc-500 uppercase font-medium">Avg Site</div>
                               <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-0.5 font-mono">
-                                {metric.avgDurationMinutes ? `${metric.avgDurationMinutes}m` : '—'}
+                                {metric.avgDurationMinutes ? `${metric.avgDurationMinutes}m` : '-'}
                               </div>
                             </div>
                           </div>
@@ -1477,116 +1582,281 @@ export default function TeamPage() {
 
           {/* TAB 3: Permissions Matrix */}
           {activeTab === 'permissions' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Card 1: Client Admin */}
-              <div className="rounded-xl border border-sky-200 dark:border-sky-900/40 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3.5">
-                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-sky-600" />
-                    <div>
-                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Client Admin</h3>
-                      <p className="text-[11px] text-zinc-500">Business Owner &amp; GM</p>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Card 1: Client Admin */}
+                <div className="rounded-xl border border-sky-200 dark:border-sky-900/40 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-sky-600" />
+                      <div>
+                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Client Admin</h3>
+                        <p className="text-[11px] text-zinc-500">Business Owner &amp; GM</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300">
+                      Full Access
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Financial Payouts:</strong> Stripe bank account connections &amp; customer invoice settlements.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>SaaS Subscriptions:</strong> Free, Solo ($99), and Crew ($199) plan management.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Staff Control:</strong> Invite, change roles, or remove team members.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Price Book:</strong> Edit services, flat rates, and pricing models.</span>
                     </div>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300">
-                    Full Access
-                  </span>
                 </div>
-                <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Financial Payouts:</strong> Stripe bank account connections &amp; customer invoice settlements.</span>
+
+                {/* Card 2: Dispatcher */}
+                <div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-amber-600" />
+                      <div>
+                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Dispatcher</h3>
+                        <p className="text-[11px] text-zinc-500">Front Desk &amp; Scheduling</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                      Operational
+                    </span>
                   </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>SaaS Subscriptions:</strong> Free, Solo ($99), and Crew ($199) plan management.</span>
+                  <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Calendar &amp; Routing:</strong> Book jobs, assign technicians to vans, and reschedule.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Unified Inbox:</strong> 2-Way customer SMS messaging and live phone calling.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>CRM Access:</strong> View property details, customer history, and past jobs.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5 text-rose-600 dark:text-rose-400">
+                      <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span><strong>Restricted:</strong> Cannot access owner bank payouts or SaaS plan billing.</span>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Staff Control:</strong> Invite, change roles, or remove team members.</span>
+                </div>
+
+                {/* Card 3: Field Technician */}
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Technician</h3>
+                        <p className="text-[11px] text-zinc-500">Truck &amp; On-Site Field</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                      Field Portal
+                    </span>
                   </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Price Book:</strong> Edit services, flat rates, and pricing models.</span>
+                  <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Daily Field Stops:</strong> Clean mobile truck cockpit at `/client/field`.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Turn-by-Turn GPS:</strong> 1-click Google Maps navigation to job site.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>On-Site Payments:</strong> Collect credit card or cash on site via mobile card reader.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5 text-rose-600 dark:text-rose-400">
+                      <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span><strong>Restricted:</strong> Cannot export customer database, view billing, or change settings.</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Card 2: Dispatcher */}
-              <div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3.5">
-                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-amber-600" />
-                    <div>
-                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Dispatcher</h3>
-                      <p className="text-[11px] text-zinc-500">Front Desk &amp; Scheduling</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                    Operational
-                  </span>
+              {/* Server-Side Access Control Guarantee */}
+              <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5">
+                <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>How CaptoDesk Protects Your Business Data</span>
                 </div>
-                <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Calendar &amp; Routing:</strong> Book jobs, assign technicians to vans, and reschedule.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Unified Inbox:</strong> 2-Way customer SMS messaging and live phone calling.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>CRM Access:</strong> View property details, customer history, and past jobs.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5 text-rose-600 dark:text-rose-400">
-                    <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span><strong>Restricted:</strong> Cannot access owner bank payouts or SaaS plan billing.</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Field Technician */}
-              <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-white dark:bg-zinc-900 p-5 shadow-2xs space-y-3.5">
-                <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-emerald-600" />
-                    <div>
-                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Technician</h3>
-                      <p className="text-[11px] text-zinc-500">Truck &amp; On-Site Field</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                    Field Portal
-                  </span>
-                </div>
-                <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Daily Field Stops:</strong> Clean mobile truck cockpit at `/client/field`.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>Turn-by-Turn GPS:</strong> 1-click Google Maps navigation to job site.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong>On-Site Payments:</strong> Collect credit card or cash on site via mobile card reader.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5 text-rose-600 dark:text-rose-400">
-                    <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span><strong>Restricted:</strong> Cannot export customer database, view billing, or change settings.</span>
-                  </div>
-                </div>
+                <p className="leading-relaxed">
+                  Role badges are backed by strict server-side Row-Level Security (RLS) policies and session token verification in PostgreSQL. Technicians and dispatchers cannot bypass frontend screens to query bank accounts, payout transactions, or sensitive organization settings.
+                </p>
               </div>
             </div>
           )}
         </div>
       )}
 
+      {/* Staff Profile & Access Details Modal */}
+      <Dialog open={!!viewingStaff} onOpenChange={(isOpen) => !isOpen && setViewingStaff(null)}>
+        <DialogContent className="mx-4 sm:mx-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xl max-w-md max-h-[85vh] overflow-y-auto">
+          {viewingStaff && (() => {
+            const badge = getRoleBadge(viewingStaff.role)
+            const assignedCrew = getMemberCrew(viewingStaff.id)
+            const isSelf = viewingStaff.id === currentUserId
+            const editable = canEditTarget(viewingStaff)
+            const role = viewingStaff.role
+
+            return (
+              <div className="space-y-4 py-2">
+                <DialogHeader>
+                  <DialogTitle className="text-zinc-900 dark:text-zinc-100 text-base font-semibold">
+                    Staff Profile &amp; Access Details
+                  </DialogTitle>
+                  <DialogDescription className="text-zinc-500 dark:text-zinc-400 text-xs">
+                    View contact info, van assignment, and security privileges.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Profile Header */}
+                <div className="flex items-center gap-3 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950">
+                  <div className="h-12 w-12 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-sm font-bold text-zinc-700 dark:text-zinc-200 shrink-0">
+                    {(viewingStaff.full_name || viewingStaff.email || '?')[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate flex items-center gap-1.5">
+                      <span>{viewingStaff.full_name || 'Staff Member'}</span>
+                      {isSelf && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium">
+                          You
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-zinc-500 truncate mt-0.5">{viewingStaff.email}</p>
+                    {viewingStaff.phone && (
+                      <p className="text-xs text-zinc-500 font-mono mt-0.5">{formatPhoneNumber(viewingStaff.phone)}</p>
+                    )}
+                  </div>
+                  <span className={cn(
+                    "text-xs px-2.5 py-0.5 rounded-md font-medium border shrink-0",
+                    badge.className
+                  )}>
+                    {badge.label}
+                  </span>
+                </div>
+
+                {/* Assigned Crew & Van */}
+                <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs space-y-1">
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Assigned Fleet Van:</span>
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                    {assignedCrew ? (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: assignedCrew.color_code }} />
+                        <span>{assignedCrew.name} ({assignedCrew.service_area || 'Base Territory'})</span>
+                      </>
+                    ) : (
+                      <span className="text-zinc-400">Not assigned to any vehicle fleet</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Role Capability Breakdown */}
+                <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs space-y-2">
+                  <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                    Role Privileges: {badge.label}
+                  </span>
+                  
+                  <div className="space-y-1 text-zinc-600 dark:text-zinc-400 text-[11px]">
+                    {role === 'owner' || role === 'client_admin' || role === 'admin' ? (
+                      <>
+                        <p className="text-emerald-700 dark:text-emerald-400 font-semibold">✓ Full operational and financial access</p>
+                        <p>• Can manage bank accounts, Stripe payouts, and subscription plans</p>
+                        <p>• Can invite, assign roles, and remove team members</p>
+                        <p>• Full customer database, quotes, and invoice authority</p>
+                      </>
+                    ) : role === 'dispatcher' ? (
+                      <>
+                        <p className="text-amber-700 dark:text-amber-400 font-semibold">✓ Dispatch and customer communications</p>
+                        <p>• Can book appointments, dispatch vans, and manage calendar</p>
+                        <p>• Can text and call customers via 2-Way Inbox</p>
+                        <p className="text-rose-600 dark:text-rose-400 font-medium">✗ Cannot access banking payouts or SaaS subscription billing</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-emerald-700 dark:text-emerald-400 font-semibold">✓ Field Mobile Route access (`/client/field`)</p>
+                        <p>• Turn-by-turn navigation and assigned job details</p>
+                        <p>• Property gate codes, equipment history, and on-site payments</p>
+                        <p className="text-rose-600 dark:text-rose-400 font-medium">✗ Cannot export customer database, view billing, or change settings</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Direct Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-1.5">
+                    {viewingStaff.phone && (
+                      <a
+                        href={`tel:${viewingStaff.phone}`}
+                        className="inline-flex items-center gap-1 h-9 px-3 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Call</span>
+                      </a>
+                    )}
+                    {viewingStaff.email && (
+                      <a
+                        href={`mailto:${viewingStaff.email}`}
+                        className="inline-flex items-center gap-1 h-9 px-3 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-zinc-500" />
+                        <span>Email</span>
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {editable && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const m = viewingStaff
+                          setViewingStaff(null)
+                          openRoleModal(m)
+                        }}
+                        className="h-9 text-xs"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 mr-1" />
+                        <span>Edit Role</span>
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewingStaff(null)}
+                      className="h-9 text-xs"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Role Edit Modal */}
       <Dialog open={!!editingMember} onOpenChange={(isOpen) => !isOpen && setEditingMember(null)}>
-        <DialogContent className="mx-4 sm:mx-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xl max-w-md">
+        <DialogContent className="mx-4 sm:mx-0 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xl max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-zinc-900 dark:text-zinc-100 text-base font-semibold">Update Team Member Role</DialogTitle>
             <DialogDescription className="text-zinc-500 dark:text-zinc-400 text-xs">
@@ -1602,12 +1872,12 @@ export default function TeamPage() {
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200">
                   {isOwnerOrSuper && (
-                    <SelectItem value="owner">Owner — Primary organization owner &amp; billing authority</SelectItem>
+                    <SelectItem value="owner">Owner: Primary organization owner &amp; billing authority</SelectItem>
                   )}
-                  <SelectItem value="client_admin">Client Admin — Full operational &amp; financial access</SelectItem>
-                  <SelectItem value="dispatcher">Dispatcher — Calendar, Calls &amp; Inbox (No banking)</SelectItem>
-                  <SelectItem value="technician">Technician — Field Mobile View &amp; Daily Route Only</SelectItem>
-                  <SelectItem value="member">General Member — Basic Read-Only Access</SelectItem>
+                  <SelectItem value="client_admin">Client Admin: Full operational &amp; financial access</SelectItem>
+                  <SelectItem value="dispatcher">Dispatcher: Calendar, Calls &amp; Inbox (No banking)</SelectItem>
+                  <SelectItem value="technician">Technician: Field Mobile View &amp; Daily Route Only</SelectItem>
+                  <SelectItem value="member">General Member: Basic Read-Only Access</SelectItem>
                 </SelectContent>
               </Select>
             </div>

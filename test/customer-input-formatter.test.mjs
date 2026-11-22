@@ -167,6 +167,7 @@ test('createBooking integrates customer name formatting, address standardization
   }
 
   // 1. Submit with smsConsent = true
+  const futureDate1 = new Date(Date.now() + 86400000 * 5).toISOString()
   const result1 = await createBooking(mockSupabase, {
     orgId: 'org-test',
     serviceId: 'srv-1',
@@ -174,7 +175,7 @@ test('createBooking integrates customer name formatting, address standardization
     customerPhone: '+18688904567',
     customerEmail: 'karl@example.com',
     customerAddress: '68 noth street, austin, tx',
-    startTime: '2026-11-16T14:00:00Z',
+    startTime: futureDate1,
     smsConsent: true
   })
 
@@ -192,6 +193,7 @@ test('createBooking integrates customer name formatting, address standardization
 
   // 2. Submit with smsConsent = false (customer unchecked box)
   insertedRecords.length = 0
+  const futureDate2 = new Date(Date.now() + 86400000 * 6).toISOString()
   const result2 = await createBooking(mockSupabase, {
     orgId: 'org-test',
     serviceId: 'srv-1',
@@ -199,7 +201,7 @@ test('createBooking integrates customer name formatting, address standardization
     customerPhone: '+18688904568',
     customerEmail: 'mary@example.com',
     customerAddress: '456 oak ave, dallas, tx',
-    startTime: '2026-11-16T16:00:00Z',
+    startTime: futureDate2,
     smsConsent: false
   })
 

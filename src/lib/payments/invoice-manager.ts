@@ -1204,3 +1204,71 @@ export async function restoreInvoice(
   return { success: true }
 }
 
+/**
+ * Reconciles issued invoices whose due dates have passed and have remaining balances due.
+ *
+ * Business Rules:
+ * 1. Only issued invoices ('sent', 'viewed', 'partially_paid') past due date with remaining due > 0 are eligible.
+ * 2. Unissued draft invoices are strictly excluded: drafts remain drafts and are never marked overdue.
+ * 3. Paid, void, and soft-deleted invoices are strictly excluded.
+ * 4. Idempotent: Does not alter totals, amount_due, amount_paid, or payment records.
+ * 5. Does not duplicate overdue notifications or automation runs.
+ */
+export async function reconcileOverdueInvoices(
+  supabase: SupabaseClient,
+  options?: { orgId?: string; asOf?: Date }
+): Promise<{ checked: number; updated: number; invoiceIds: string[] }> {
+  const asOf = options?.asOf || new Date()
+  const asOfIso = asOf.toISOString()
+
+  let query = supabase
+    .from('invoices')
+    .select('id, invoice_number, total, amount_paid, amount_due, due_date, status, org_id, deleted_at')
+    .in('status', ['sent', 'viewed', 'partially_paid'])
+    .lt('due_date', asOfIso)
+
+  if (typeof (query as any).is === 'function') {
+    query = (query as any).is('deleted_at', null)
+  }
+
+  if (options?.orgId) {
+    query = query.eq('org_id', options.orgId)
+  }
+
+  const { data: invoices, error } = await query
+
+  if (error || !invoices || invoices.length === 0) {
+    return { checked: invoices?.length || 0, updated: 0, invoiceIds: [] }
+  }
+
+  const updatedIds: string[] = []
+
+  for (const inv of invoices) {
+    if (inv.deleted_at) continue
+    if (inv.status === 'draft' || inv.status === 'paid' || inv.status === 'void') continue
+
+    const remainingDue = Number(inv.amount_due ?? (Number(inv.total || 0) - Number(inv.amount_paid || 0)))
+    if (remainingDue <= 0) continue
+
+    const { error: updateError } = await supabase
+      .from('invoices')
+      .update({
+        status: 'overdue',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', inv.id)
+      .in('status', ['sent', 'viewed', 'partially_paid'])
+
+    if (!updateError) {
+      updatedIds.push(inv.id)
+    }
+  }
+
+  return {
+    checked: invoices.length,
+    updated: updatedIds.length,
+    invoiceIds: updatedIds
+  }
+}
+
+

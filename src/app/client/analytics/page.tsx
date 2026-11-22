@@ -23,7 +23,8 @@ import {
   CheckCircle,
   HelpCircle,
   Link2,
-  ExternalLink
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/lib/context/workspace-context'
@@ -40,6 +41,14 @@ export default function AnalyticsPage() {
   const supabase = createClient()
   const { orgName, orgSlug, role, planId, subscriptionStatus } = useWorkspace()
   const [period, setPeriod] = useState<TimeRange>('30d')
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    frontdesk: false,
+    retention: false,
+  })
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const canViewFinancials = !['technician', 'dispatcher', 'member'].includes((role || '').toLowerCase())
   const isPayingCustomer = Boolean(
@@ -166,109 +175,124 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ── Top Executive KPI Pulse (4 Macro Metrics) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* 1. Payments Collected */}
         {canViewFinancials ? (
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4.5 shadow-2xs space-y-2">
+          <Link
+            href="/client/invoices?status=paid"
+            className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-4.5 shadow-2xs space-y-1.5 sm:space-y-2 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition-colors block group cursor-pointer"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 Revenue Collected
               </span>
-              <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <DollarSign className="h-4 w-4" />
+              <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <div className="text-xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
               ${collectedAmount.toLocaleString()}
             </div>
-            <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
+            <div className="text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
               <span className="font-semibold text-slate-700 dark:text-zinc-300">
                 {collectionRate}%
               </span>
-              <span>of ${invoicedAmount.toLocaleString()} invoiced</span>
+              <span className="truncate">of ${invoicedAmount.toLocaleString()} invoiced</span>
             </div>
-          </div>
+          </Link>
         ) : (
-          <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4.5 shadow-2xs space-y-2">
+          <Link
+            href="/client/inbox"
+            className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-4.5 shadow-2xs space-y-1.5 sm:space-y-2 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition-colors block group cursor-pointer"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 Calls Recovered
               </span>
-              <div className="h-7 w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <PhoneCall className="h-4 w-4" />
+              <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <PhoneCall className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <div className="text-xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
               {recoveredCount}
             </div>
-            <div className="text-xs text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-100 dark:border-zinc-800">
+            <div className="text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-100 dark:border-zinc-800 truncate">
               {recoveryRate}% missed calls re-engaged
             </div>
-          </div>
+          </Link>
         )}
 
         {/* 2. Booked Appointments */}
-        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4.5 shadow-2xs space-y-2">
+        <Link
+          href="/client/calendar"
+          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-4.5 shadow-2xs space-y-1.5 sm:space-y-2 hover:border-purple-300 dark:hover:border-purple-700/60 transition-colors block group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
               Booked Appointments
             </span>
-            <div className="h-7 w-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-              <CalendarCheck className="h-4 w-4" />
+            <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <CalendarCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 dark:text-purple-400 tabular-nums">
+          <div className="text-xl sm:text-3xl font-extrabold text-purple-600 dark:text-purple-400 tabular-nums">
             {totalBookings}
           </div>
-          <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
+          <div className="text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
             <span className="font-semibold text-slate-700 dark:text-zinc-300">
               {onlineBookingsCount}
             </span>
-            <span>via 24/7 online booking link</span>
+            <span className="truncate">via online booking link</span>
           </div>
-        </div>
+        </Link>
 
         {/* 3. Quote Acceptance Rate */}
-        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4.5 shadow-2xs space-y-2">
+        <Link
+          href="/client/quotes?tab=pending"
+          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-4.5 shadow-2xs space-y-1.5 sm:space-y-2 hover:border-amber-300 dark:hover:border-amber-700/60 transition-colors block group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
               Quote Acceptance
             </span>
-            <div className="h-7 w-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <TrendingUp className="h-4 w-4" />
+            <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
+          <div className="text-xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
             {quoteConversionRate}%
           </div>
-          <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
+          <div className="text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
             <span className="font-semibold text-slate-700 dark:text-zinc-300">
               {acceptedQuotesCount} of {totalQuotesCount}
             </span>
-            <span>estimates won</span>
+            <span className="truncate">estimates won</span>
           </div>
-        </div>
+        </Link>
 
         {/* 4. Missed Call Recovery Rate */}
-        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4.5 shadow-2xs space-y-2">
+        <Link
+          href="/client/inbox"
+          className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:p-4.5 shadow-2xs space-y-1.5 sm:space-y-2 hover:border-blue-300 dark:hover:border-blue-700/60 transition-colors block group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               Front Desk Recovery
             </span>
-            <div className="h-7 w-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <PhoneCall className="h-4 w-4" />
+            <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <PhoneCall className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400 tabular-nums">
+          <div className="text-xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400 tabular-nums">
             {recoveryRate}%
           </div>
-          <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
+          <div className="text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
             <span className="font-semibold text-slate-700 dark:text-zinc-300">
               {recoveredCount} of {totalMissedCalls}
             </span>
-            <span>missed calls rescued</span>
+            <span className="truncate">rescued calls</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* ── Deep Analytical Breakdown (2x2 Grid) ── */}
@@ -337,15 +361,21 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Outstanding Balance</div>
+                <Link
+                  href="/client/invoices?status=unpaid"
+                  className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700/60 transition-colors block group cursor-pointer"
+                >
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center justify-between">
+                    <span>Outstanding Balance</span>
+                    <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                  </div>
                   <div className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 tabular-nums">
-                    ${(operations?.outstandingInvoicesBalance ?? Math.max(0, invoicedAmount - collectedAmount)).toLocaleString()}
+                    ${(operations?.outstandingInvoicesBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                    {operations?.outstandingInvoices ?? Math.max(0, totalInvoicesCount - paidInvoicesCount)} pending invoices
+                    {operations?.outstandingInvoices ?? 0} open receivable{(operations?.outstandingInvoices ?? 0) === 1 ? '' : 's'} · Collect
                   </div>
-                </div>
+                </Link>
 
                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Average Job Ticket</div>
@@ -427,15 +457,21 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Awaiting Decision</div>
+              <Link
+                href="/client/quotes?tab=pending"
+                className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700/60 transition-colors block group cursor-pointer"
+              >
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center justify-between">
+                  <span>Awaiting Decision</span>
+                  <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                </div>
                 <div className="text-lg font-bold text-slate-900 dark:text-zinc-100 mt-0.5 tabular-nums">
                   {operations?.quotesAwaitingResponse ?? 0}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                  ${(operations?.quotesAwaitingResponseValue ?? 0).toLocaleString()} in customer pipeline
+                  ${(operations?.quotesAwaitingResponseValue ?? 0).toLocaleString()} in pipeline · Review
                 </div>
-              </div>
+              </Link>
 
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
                 <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Average Quote Size</div>
@@ -593,25 +629,37 @@ export default function AnalyticsPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Follow-Ups Due</div>
+              <Link
+                href="/client/customers"
+                className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700/60 transition-colors block group cursor-pointer"
+              >
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center justify-between">
+                  <span>Follow-Ups Due</span>
+                  <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                </div>
                 <div className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 tabular-nums">
                   {operations?.customersDueForFollowup ?? 0}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                  Seasonal service or maintenance
+                  Seasonal service · Re-engage
                 </div>
-              </div>
+              </Link>
 
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800">
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Reviews Triggered</div>
+              <Link
+                href="/client/reviews"
+                className="p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-800 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition-colors block group cursor-pointer"
+              >
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center justify-between">
+                  <span>Reviews Triggered</span>
+                  <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                </div>
                 <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
                   {operations?.reviewRequestsSent ?? 0}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
-                  Google review SMS links auto-sent
+                  Google review SMS links · Track
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </div>

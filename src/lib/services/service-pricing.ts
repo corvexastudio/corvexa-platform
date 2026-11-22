@@ -26,14 +26,24 @@ export const PRICING_MODEL_LABELS: Record<PricingModel, string> = {
 }
 
 /**
- * Strips pricing model and add-on metadata tags from service descriptions
+ * Strips pricing model, add-on metadata, and category tags from service descriptions
  */
 export function cleanServiceDescription(description?: string | null): string {
   if (!description) return ''
   return description
     .replace(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate|quote_on_site)\]\s*/gi, '')
     .replace(/\[addons:([A-Za-z0-9+/=_-]+)\]\s*/gi, '')
+    .replace(/\[category:([^\]]+)\]\s*/gi, '')
     .trim()
+}
+
+/**
+ * Extracts explicit category from service description if present
+ */
+export function parseServiceCategory(description?: string | null): string {
+  if (!description) return ''
+  const match = description.match(/\[category:([^\]]+)\]/i)
+  return match && match[1] ? match[1].trim() : ''
 }
 
 /**
@@ -105,17 +115,19 @@ export function encodeServiceDescription(description: string | null | undefined,
 }
 
 /**
- * Encodes both pricing model and add-ons into service description
+ * Encodes pricing model, category tag, and add-ons into service description
  */
 export function encodeServiceDescriptionWithAddOns(
   description: string | null | undefined,
   model: PricingModel,
-  addOns?: ServiceAddOn[]
+  addOns?: ServiceAddOn[],
+  category?: string | null
 ): string {
   const clean = cleanServiceDescription(description)
   const pricingTag = model === 'fixed' ? '' : `[pricing:${model}]`
+  const categoryTag = category && category.trim() ? `[category:${category.trim()}]` : ''
   const addOnsTag = addOns && addOns.length > 0 ? encodeAddOns(addOns) : ''
-  const parts = [pricingTag, addOnsTag, clean].filter(Boolean)
+  const parts = [categoryTag, pricingTag, addOnsTag, clean].filter(Boolean)
   return parts.join(' ')
 }
 

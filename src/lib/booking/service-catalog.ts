@@ -19,7 +19,11 @@ function matchesKeyword(text: string, kw: string): boolean {
 
 function cleanServiceDescription(description?: string | null): string {
   if (!description) return ''
-  return description.replace(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate|quote_on_site)\]\s*/gi, '').trim()
+  return description
+    .replace(/\[pricing:(fixed|starting_at|diagnostic_fee|free_estimate|quote_on_site)\]\s*/gi, '')
+    .replace(/\[addons:([A-Za-z0-9+/=_-]+)\]\s*/gi, '')
+    .replace(/\[category:([^\]]+)\]\s*/gi, '')
+    .trim()
 }
 
 export interface BaseServiceItem {

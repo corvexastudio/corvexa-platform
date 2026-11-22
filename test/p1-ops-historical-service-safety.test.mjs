@@ -1,6 +1,6 @@
 /**
  * ==============================================================================
- * CAPTODESK — P1-OPS-04: HISTORICAL SERVICE DATA SAFETY TEST SUITE
+ * CAPTODESK: P1-OPS-04: HISTORICAL SERVICE DATA SAFETY TEST SUITE
  * ==============================================================================
  * Verifies:
  * 1.  Service Catalog CRUD operates as expected.

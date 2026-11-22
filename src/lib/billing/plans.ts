@@ -126,7 +126,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
     features: [
       '1 Owner-Operator user included',
       'Dedicated Telnyx business phone number (10DLC verified)',
-      'Instant 8-second AI missed-call recovery text-back',
+      'Instant Auto-Reply (Under 5 Seconds) text-back',
       'Public booking page & customer self-scheduling',
       'Mobile Field Portal (GPS navigation & job photos)',
       '1-tap mobile card & Apple Pay on-site invoicing',
@@ -149,7 +149,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
       '2 Months FREE (Save $198/year)',
       '1 Owner-Operator user included',
       'Dedicated Telnyx business phone number (10DLC verified)',
-      'Instant 8-second AI missed-call recovery text-back',
+      'Instant Auto-Reply (Under 5 Seconds) text-back',
       'Public booking page & customer self-scheduling',
       'Mobile Field Portal (GPS navigation & job photos)',
       '1-tap mobile card & Apple Pay on-site invoicing',

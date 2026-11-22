@@ -150,12 +150,22 @@ async function handleWorkerExecution(request: Request) {
       console.error('[WORKER_CREW_BROADCAST_ERROR]', crewErr)
     }
 
+    // 7. Autonomous Overdue Invoices Reconciliation
+    let overdueSummary: any = null
+    try {
+      const { reconcileOverdueInvoices } = await import('../../../../lib/payments/invoice-manager.ts')
+      overdueSummary = await reconcileOverdueInvoices(supabase)
+    } catch (overdueErr) {
+      console.error('[WORKER_OVERDUE_RECONCILIATION_ERROR]', overdueErr)
+    }
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       ...summary,
       recurring: recurringSummary,
-      crewBroadcast: crewBroadcastSummary
+      crewBroadcast: crewBroadcastSummary,
+      overdue: overdueSummary
     })
   } catch (err: any) {
     console.error('[AUTOMATION WORKER ENDPOINT ERROR]', err)

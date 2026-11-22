@@ -390,7 +390,8 @@ test('10. Customer Reactivation: Dispatches SMS to due/overdue customers and res
 
   const result = await evaluateCustomerReactivation(db, {
     orgId,
-    baseUrl: 'https://app.captodesk.com'
+    baseUrl: 'https://app.captodesk.com',
+    ignoreQuietHours: true
   })
 
   assert.strictEqual(result.success, true)

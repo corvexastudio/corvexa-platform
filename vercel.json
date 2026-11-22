@@ -4,6 +4,10 @@
     {
       "path": "/api/automations/worker",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/invoices-overdue",
+      "schedule": "0 1 * * *"
     }
   ],
   "headers": [

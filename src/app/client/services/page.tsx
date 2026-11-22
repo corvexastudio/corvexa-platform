@@ -30,7 +30,10 @@ import {
   LayoutGrid,
   List,
   X,
-  Zap
+  Zap,
+  Copy,
+  Eye,
+  FolderTree
 } from 'lucide-react'
 import {
   Table,
@@ -45,11 +48,15 @@ import { useWorkspace } from '@/lib/context/workspace-context'
 import {
   parseServicePricing,
   cleanServiceDescription,
-  encodeServiceDescription,
   encodeServiceDescriptionWithAddOns,
+  parseServiceCategory,
   type PricingModel,
   type ServiceAddOn
 } from '@/lib/services/service-pricing'
+import {
+  buildServiceCatalog,
+  filterCatalogItems
+} from '@/lib/booking/service-catalog'
 import {
   type BookingSettings,
   parseBookingSettings,
@@ -80,11 +87,13 @@ export default function ServicesPage() {
   const [orgSlug, setOrgSlug] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
 
   // Modals & Action States
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingService, setEditingService] = useState<ServiceItem | null>(null)
+  const [viewingService, setViewingService] = useState<ServiceItem | null>(null)
   const [deletingService, setDeletingService] = useState<ServiceItem | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -95,7 +104,7 @@ export default function ServicesPage() {
   const [isBookingConfigModalOpen, setIsBookingConfigModalOpen] = useState(false)
   const [savingBookingSettings, setSavingBookingSettings] = useState(false)
 
-  // 60-Second Instant Catalog Modal
+  // 21-Trade Preset Browser Modal
   const { orgIndustry } = useWorkspace()
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false)
   const [selectedTradeId, setSelectedTradeId] = useState<string>('hvac')
@@ -115,6 +124,7 @@ export default function ServicesPage() {
   const [formPrice, setFormPrice] = useState('')
   const [formPricingModel, setFormPricingModel] = useState<PricingModel>('fixed')
   const [formDuration, setFormDuration] = useState<number>(60)
+  const [formCategory, setFormCategory] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formAddOns, setFormAddOns] = useState<ServiceAddOn[]>([])
   const [formRequiresAddress, setFormRequiresAddress] = useState(true)
@@ -161,6 +171,40 @@ export default function ServicesPage() {
     loadServices()
   }, [loadServices])
 
+  // Intelligent Service Catalog Categorization
+  const serviceCatalog = useMemo(() => {
+    return buildServiceCatalog(services, orgIndustry || selectedTradeId)
+  }, [services, orgIndustry, selectedTradeId])
+
+  // Mapping from service ID to categorized details
+  const catalogMap = useMemo(() => {
+    const map = new Map<string, { categoryId: string; categoryLabel: string; isPopular: boolean }>()
+    for (const item of serviceCatalog.items) {
+      map.set(item.service.id, {
+        categoryId: item.categoryId,
+        categoryLabel: item.categoryLabel,
+        isPopular: item.isPopular
+      })
+    }
+    return map
+  }, [serviceCatalog])
+
+  // Existing names set for duplicate checking
+  const existingNames = useMemo(() => {
+    return new Set(services.map(s => s.name.trim().toLowerCase()))
+  }, [services])
+
+  // Common existing categories for autocomplete / selection
+  const existingCategories = useMemo(() => {
+    const cats = new Set<string>()
+    for (const item of serviceCatalog.items) {
+      if (item.categoryLabel && item.categoryLabel !== 'General Services') {
+        cats.add(item.categoryLabel)
+      }
+    }
+    return Array.from(cats)
+  }, [serviceCatalog])
+
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingService(null)
@@ -168,6 +212,7 @@ export default function ServicesPage() {
     setFormPrice('')
     setFormPricingModel('quote_on_site')
     setFormDuration(60)
+    setFormCategory('')
     setFormDescription('')
     setFormAddOns([])
     setFormRequiresAddress(true)
@@ -180,16 +225,25 @@ export default function ServicesPage() {
   const handleOpenEdit = (svc: ServiceItem) => {
     setEditingService(svc)
     const parsed = parseServicePricing(svc.price, svc.description)
+    const explicitCat = parseServiceCategory(svc.description)
+    const catalogInfo = catalogMap.get(svc.id)
+
     setFormName(svc.name)
     setFormPrice(parsed.price !== null ? parsed.price.toString() : '')
     setFormPricingModel(parsed.model)
     setFormDuration(svc.duration_minutes || 60)
+    setFormCategory(explicitCat || (catalogInfo ? catalogInfo.categoryLabel : ''))
     setFormDescription(parsed.cleanDescription)
     setFormAddOns(parsed.addOns || [])
     setFormRequiresAddress(svc.requires_address !== false)
     setFormIsActive(svc.is_active !== false)
     setFormError(null)
     setIsModalOpen(true)
+  }
+
+  // Open Details Modal
+  const handleOpenDetails = (svc: ServiceItem) => {
+    setViewingService(svc)
   }
 
   // Add-On Field Handlers
@@ -289,7 +343,8 @@ export default function ServicesPage() {
     const encodedDescription = encodeServiceDescriptionWithAddOns(
       formDescription.trim() || null,
       formPricingModel,
-      validAddOns
+      validAddOns,
+      formCategory.trim() || null
     ) || null
 
     setSubmitting(true)
@@ -370,6 +425,9 @@ export default function ServicesPage() {
           ? `Activated "${svc.name}" for public booking`
           : `Deactivated "${svc.name}"`
       )
+      if (viewingService && viewingService.id === svc.id) {
+        setViewingService({ ...viewingService, is_active: nextActive })
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to update status')
     } finally {
@@ -399,6 +457,9 @@ export default function ServicesPage() {
       }
 
       setDeletingService(null)
+      if (viewingService && viewingService.id === deletingService.id) {
+        setViewingService(null)
+      }
       await loadServices()
     } catch (err: any) {
       toast.error(err.message || 'Failed to remove service')
@@ -437,22 +498,37 @@ export default function ServicesPage() {
     }
   }
 
-  // Filtered Services List
+  // Filtered Services List (Search, Status Filter, and Category Filter)
   const filteredServices = useMemo(() => {
     return services.filter(svc => {
+      // 1. Status Filter
       if (statusFilter === 'active' && !svc.is_active) return false
       if (statusFilter === 'inactive' && svc.is_active) return false
 
+      // 2. Category Filter
+      if (selectedCategory !== 'all') {
+        const catInfo = catalogMap.get(svc.id)
+        if (selectedCategory === 'popular') {
+          if (!catInfo?.isPopular) return false
+        } else if (catInfo?.categoryId !== selectedCategory) {
+          return false
+        }
+      }
+
+      // 3. Search Query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim()
+        const catInfo = catalogMap.get(svc.id)
         const matchName = svc.name.toLowerCase().includes(query)
         const matchDesc = svc.description?.toLowerCase().includes(query) || false
-        if (!matchName && !matchDesc) return false
+        const matchCategory = catInfo?.categoryLabel.toLowerCase().includes(query) || false
+        const matchPrice = svc.price ? `$${svc.price}`.includes(query) : false
+        if (!matchName && !matchDesc && !matchCategory && !matchPrice) return false
       }
 
       return true
     })
-  }, [services, statusFilter, searchQuery])
+  }, [services, statusFilter, selectedCategory, searchQuery, catalogMap])
 
   // Filtered Trades for Catalog Modal
   const filteredTrades = useMemo(() => {
@@ -469,6 +545,21 @@ export default function ServicesPage() {
     return getIndustryPreset(selectedTradeId)
   }, [selectedTradeId])
 
+  // Calculate how many services in the selected preset are new vs already present
+  const presetAnalysis = useMemo(() => {
+    const list = selectedPreset?.services || []
+    let newCount = 0
+    let existingCount = 0
+    for (const s of list) {
+      if (existingNames.has(s.name.trim().toLowerCase())) {
+        existingCount++
+      } else {
+        newCount++
+      }
+    }
+    return { total: list.length, newCount, existingCount }
+  }, [selectedPreset, existingNames])
+
   const counts = useMemo(() => {
     const total = services.length
     const active = services.filter(s => s.is_active).length
@@ -479,6 +570,14 @@ export default function ServicesPage() {
       : 0
     return { total, active, inactive, avgPrice }
   }, [services])
+
+  // Copy public booking link
+  const handleCopyBookingLink = () => {
+    if (!orgSlug) return
+    const url = `${window.location.origin}/book/${orgSlug}`
+    navigator.clipboard.writeText(url)
+    toast.success('Public booking page link copied to clipboard!')
+  }
 
   // Standardized pricing badge renderer
   const renderPricingBadge = (pricing: ReturnType<typeof parseServicePricing>) => {
@@ -538,22 +637,32 @@ export default function ServicesPage() {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
-            Manage your service list, prices, and online booking options.
+            Manage your service offerings, prices, durations, and public booking availability.
           </p>
         </div>
 
         {/* Header Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           {orgSlug && (
-            <Link
-              href={`/book/${orgSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold border border-slate-200 dark:border-zinc-800 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white transition-colors shadow-xs"
-            >
-              <span>Public Booking</span>
-              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-            </Link>
+            <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
+              <Link
+                href={`/book/${orgSlug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-semibold text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <span>Public Booking</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </Link>
+              <button
+                type="button"
+                onClick={handleCopyBookingLink}
+                className="h-9 px-2 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 border-l border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                title="Copy public booking link"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
 
           <Button
@@ -578,7 +687,7 @@ export default function ServicesPage() {
             className="h-9 px-3 text-xs font-semibold border-amber-300 dark:border-amber-700/60 bg-amber-50/50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-600 dark:text-amber-400" />
-            <span>Load {selectedPreset ? selectedPreset.name.split('&')[0].trim() : 'Trade'} Presets</span>
+            <span>Trade Presets</span>
           </Button>
 
           <Button
@@ -596,112 +705,141 @@ export default function ServicesPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Total Services</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '—' : counts.total}</p>
+          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '-' : counts.total}</p>
           <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">In catalog</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Live Online</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '—' : counts.active}</p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '-' : counts.active}</p>
           <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Bookable by customers</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Average Rate</p>
           <p className="text-xl font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums mt-1">
-            {loading ? '—' : counts.avgPrice > 0 ? `$${counts.avgPrice}` : 'Quote on Site'}
+            {loading ? '-' : counts.avgPrice > 0 ? `$${counts.avgPrice}` : 'Quote on Site'}
           </p>
           <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Priced services</p>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Inactive</p>
-          <p className="text-xl font-bold text-slate-700 dark:text-zinc-300 tabular-nums mt-1">{loading ? '—' : counts.inactive}</p>
+          <p className="text-xl font-bold text-slate-700 dark:text-zinc-300 tabular-nums mt-1">{loading ? '-' : counts.inactive}</p>
           <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Hidden from booking</p>
         </div>
       </div>
 
       {/* Filter, Search & View Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Status Filter Rail */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800">
-          {[
-            { id: 'all', label: 'All', count: counts.total },
-            { id: 'active', label: 'Active', count: counts.active },
-            { id: 'inactive', label: 'Inactive', count: counts.inactive }
-          ].map(st => (
-            <button
-              key={st.id}
-              onClick={() => setStatusFilter(st.id as any)}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold capitalize whitespace-nowrap transition-colors",
-                statusFilter === st.id
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
-              )}
-            >
-              <span>{st.label}</span>
-              <span className={cn(
-                "text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-mono",
-                statusFilter === st.id ? "bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200" : "text-slate-400 dark:text-zinc-500"
-              )}>
-                {st.count}
-              </span>
-            </button>
-          ))}
-        </div>
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Status Filter Rail */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none bg-slate-100 dark:bg-zinc-900/60 p-1 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+            {[
+              { id: 'all', label: 'All Services', count: counts.total },
+              { id: 'active', label: 'Live on Booking', count: counts.active },
+              { id: 'inactive', label: 'Inactive / Hidden', count: counts.inactive }
+            ].map(st => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => setStatusFilter(st.id as any)}
+                className={cn(
+                  "min-h-[36px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold capitalize whitespace-nowrap transition-colors cursor-pointer",
+                  statusFilter === st.id
+                    ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <span>{st.label}</span>
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full tabular-nums font-mono",
+                  statusFilter === st.id ? "bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200" : "text-slate-400 dark:text-zinc-500"
+                )}>
+                  {st.count}
+                </span>
+              </button>
+            ))}
+          </div>
 
-        {/* Search & Grid/Table Switcher */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <Input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search services or keywords..."
-              className="h-9 pl-8 pr-7 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-lg shadow-2xs"
-            />
-            {searchQuery && (
+          {/* Search & Grid/Table Switcher */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search name, category, price..."
+                className="h-9 pl-8 pr-7 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 rounded-lg shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-0.5 rounded-lg shadow-2xs">
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                onClick={() => setViewMode('grid')}
+                title="Grid View"
+                className={cn(
+                  "p-1.5 rounded-md text-xs transition-colors cursor-pointer",
+                  viewMode === 'grid'
+                    ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                )}
               >
-                <X className="w-3.5 h-3.5" />
+                <LayoutGrid className="w-4 h-4" />
               </button>
-            )}
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-slate-100 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-0.5 rounded-lg shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-              className={cn(
-                "p-1.5 rounded-md text-xs transition-colors",
-                viewMode === 'grid'
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs"
-                  : "text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              title="Table View (Fast Editing)"
-              className={cn(
-                "p-1.5 rounded-md text-xs transition-colors",
-                viewMode === 'table'
-                  ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs"
-                  : "text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
-              )}
-            >
-              <List className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                title="Table View (Fast Editing)"
+                className={cn(
+                  "p-1.5 rounded-md text-xs transition-colors cursor-pointer",
+                  viewMode === 'table'
+                    ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                )}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Dynamic Category Filter Pills */}
+        {serviceCatalog.categories.length > 2 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+              <FolderTree className="w-3 h-3" />
+              <span>Category:</span>
+            </span>
+            {serviceCatalog.categories.map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  "min-h-[30px] px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border cursor-pointer",
+                  selectedCategory === cat.id
+                    ? "bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/50 dark:border-blue-500 dark:text-blue-300 font-bold"
+                    : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700"
+                )}
+              >
+                <span>{cat.label}</span>
+                <span className="ml-1.5 text-[10px] opacity-75 font-mono">({cat.count})</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Error Banner */}
@@ -729,11 +867,11 @@ export default function ServicesPage() {
             <Wrench className="w-6 h-6" />
           </div>
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100">
-            {searchQuery.trim() || statusFilter !== 'all' ? 'No Matching Services Found' : 'Your Service Catalog is Empty'}
+            {searchQuery.trim() || statusFilter !== 'all' || selectedCategory !== 'all' ? 'No Matching Services Found' : 'Your Service Catalog is Empty'}
           </h3>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
-            {searchQuery.trim() || statusFilter !== 'all'
-              ? 'Try adjusting your search query or status filter to see other catalog entries.'
+            {searchQuery.trim() || statusFilter !== 'all' || selectedCategory !== 'all'
+              ? 'Try adjusting your search query, status filter, or category selection to see other catalog entries.'
               : 'Get started by loading standard services for your trade, or create your own custom services.'}
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -755,13 +893,14 @@ export default function ServicesPage() {
           </div>
         </div>
       ) : viewMode === 'table' ? (
-        /* ── TABLE VIEW (Senior Designer dense utility) ── */
+        /* TABLE VIEW (Senior Designer dense utility) */
         <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 shadow-xs">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/80 dark:bg-zinc-900/90 border-b border-slate-200 dark:border-zinc-800">
                 <TableRow className="border-b border-slate-200 dark:border-zinc-800 hover:bg-transparent">
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Service Details</TableHead>
+                  <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Category</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Pricing</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Duration</TableHead>
                   <TableHead className="text-slate-600 dark:text-zinc-400 font-bold text-xs py-3 px-4">Location</TableHead>
@@ -772,6 +911,7 @@ export default function ServicesPage() {
               <TableBody className="divide-y divide-slate-100 dark:divide-zinc-800">
                 {filteredServices.map(svc => {
                   const pricing = parseServicePricing(svc.price, svc.description)
+                  const catInfo = catalogMap.get(svc.id)
                   return (
                     <TableRow key={svc.id} className="border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40 transition-colors">
                       <TableCell className="py-3 px-4">
@@ -789,6 +929,12 @@ export default function ServicesPage() {
                             {pricing.cleanDescription}
                           </div>
                         )}
+                      </TableCell>
+
+                      <TableCell className="py-3 px-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                          {catInfo?.categoryLabel || 'General Services'}
+                        </span>
                       </TableCell>
 
                       <TableCell className="py-3 px-4">
@@ -816,7 +962,7 @@ export default function ServicesPage() {
                           type="button"
                           onClick={() => handleToggleActive(svc)}
                           disabled={togglingId === svc.id}
-                          className="min-h-[44px] flex items-center cursor-pointer group focus:outline-none"
+                          className="min-h-[48px] flex items-center cursor-pointer group focus:outline-none"
                           title={svc.is_active ? 'Click to deactivate' : 'Click to activate'}
                         >
                           {togglingId === svc.id ? (
@@ -840,6 +986,17 @@ export default function ServicesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => handleOpenDetails(svc)}
+                            className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white"
+                            title="View details"
+                          >
+                            <Eye className="w-3.5 h-3.5 mr-1" />
+                            <span>Details</span>
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleOpenEdit(svc)}
                             className="h-8 px-2.5 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white"
                           >
@@ -852,6 +1009,7 @@ export default function ServicesPage() {
                             size="sm"
                             onClick={() => setDeletingService(svc)}
                             className="h-8 px-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                            title="Remove service"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -865,10 +1023,11 @@ export default function ServicesPage() {
           </div>
         </div>
       ) : (
-        /* ── GRID VIEW (Card Layout) ── */
+        /* GRID VIEW (High-Contrast Mobile Service Cards) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServices.map(svc => {
             const pricing = parseServicePricing(svc.price, svc.description)
+            const catInfo = catalogMap.get(svc.id)
             return (
               <div
                 key={svc.id}
@@ -878,20 +1037,18 @@ export default function ServicesPage() {
                 )}
               >
                 <div className="space-y-3">
-                  {/* Title & 48px Touch Toggle */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 line-clamp-2 leading-snug min-h-[2.5rem] flex items-center" title={svc.name}>
-                        {svc.name}
-                      </h3>
-                    </div>
+                  {/* Category & Status Row */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 truncate">
+                      {catInfo?.categoryLabel || 'General Services'}
+                    </span>
 
                     {/* 48px Touch Target Status Switch */}
                     <button
                       type="button"
                       onClick={() => handleToggleActive(svc)}
                       disabled={togglingId === svc.id}
-                      className="min-h-[40px] flex items-center cursor-pointer group focus:outline-none shrink-0"
+                      className="min-h-[44px] flex items-center cursor-pointer group focus:outline-none shrink-0"
                       title={svc.is_active ? 'Click to deactivate' : 'Click to activate'}
                     >
                       {togglingId === svc.id ? (
@@ -908,6 +1065,13 @@ export default function ServicesPage() {
                         </span>
                       )}
                     </button>
+                  </div>
+
+                  {/* Service Title */}
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 line-clamp-2 leading-snug" title={svc.name}>
+                      {svc.name}
+                    </h3>
                   </div>
 
                   {/* Clean Description */}
@@ -931,7 +1095,7 @@ export default function ServicesPage() {
                       <span>{svc.duration_minutes} min</span>
                     </div>
 
-                    <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 text-xs">
+                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 text-xs">
                       <MapPin className="w-3 h-3 text-slate-400" />
                       <span>{svc.requires_address ? 'On-Site' : 'Remote'}</span>
                     </div>
@@ -939,32 +1103,189 @@ export default function ServicesPage() {
                 </div>
 
                 {/* 48px Truck Touch Actions Row */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleOpenEdit(svc)}
-                    className="h-9 px-3 text-xs font-semibold text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    onClick={() => handleOpenDetails(svc)}
+                    className="min-h-[44px] px-3 text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
                   >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" />
-                    <span>Edit</span>
+                    <Eye className="w-3.5 h-3.5 mr-1" />
+                    <span>Details</span>
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDeletingService(svc)}
-                    className="h-9 px-3 text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    <span>Remove</span>
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenEdit(svc)}
+                      className="min-h-[44px] px-3 text-xs font-semibold text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 mr-1" />
+                      <span>Edit</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeletingService(svc)}
+                      className="min-h-[44px] px-2.5 text-xs font-semibold text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                      title="Remove service"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )
           })}
         </div>
       )}
+
+      {/* ── SERVICE DETAILS MODAL ── */}
+      <Modal
+        open={!!viewingService}
+        onOpenChange={open => !open && setViewingService(null)}
+        title={viewingService?.name || 'Service Details'}
+        description="Complete service parameters and configuration."
+        size="md"
+      >
+        {viewingService && (() => {
+          const pricing = parseServicePricing(viewingService.price, viewingService.description)
+          const catInfo = catalogMap.get(viewingService.id)
+          return (
+            <div className="space-y-4 pt-1">
+              {/* Category, Status & Pricing Highlights */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    Category: <strong className="text-slate-900 dark:text-zinc-100">{catInfo?.categoryLabel || 'General Services'}</strong>
+                  </span>
+                  {viewingService.is_active ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>Live on Booking</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      <span>Hidden / Inactive</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Pricing Model</span>
+                    <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-0.5 capitalize">
+                      {pricing.model.replace('_', ' ')}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Rate</span>
+                    <p className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-0.5">
+                      {pricing.formattedPrice}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Duration</span>
+                    <p className="text-xs font-mono font-bold text-slate-800 dark:text-zinc-200 mt-0.5">
+                      {viewingService.duration_minutes} minutes
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">Description</span>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed bg-white dark:bg-zinc-900 p-3 rounded-lg border border-slate-200 dark:border-zinc-800">
+                  {pricing.cleanDescription || 'No description provided.'}
+                </p>
+              </div>
+
+              {/* Location & Requirements */}
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 p-3 rounded-lg border border-slate-200 dark:border-zinc-800">
+                <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
+                <span>
+                  {viewingService.requires_address
+                    ? 'Requires customer property address for on-site dispatch.'
+                    : 'Remote service (no customer service address required).'}
+                </span>
+              </div>
+
+              {/* Add-ons List */}
+              {pricing.addOns && pricing.addOns.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Optional Add-ons ({pricing.addOns.length})</span>
+                  </span>
+                  <div className="space-y-1.5">
+                    {pricing.addOns.map((addon, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-zinc-100">{addon.name}</p>
+                          {addon.description && (
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">{addon.description}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                          <p className="font-mono font-bold text-slate-900 dark:text-white">
+                            +${Number(addon.price || 0).toFixed(2)}
+                          </p>
+                          {addon.duration_minutes ? (
+                            <p className="text-[10px] text-slate-400">+{addon.duration_minutes}m</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleToggleActive(viewingService)}
+                  disabled={togglingId === viewingService.id}
+                  className="h-9 text-xs"
+                >
+                  {viewingService.is_active ? 'Deactivate' : 'Activate Service'}
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewingService(null)}
+                    className="h-9 text-xs border-slate-300 dark:border-zinc-800"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const svc = viewingService
+                      setViewingService(null)
+                      handleOpenEdit(svc)
+                    }}
+                    className="h-9 px-4 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-xs"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Edit Service</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+      </Modal>
 
       {/* ── 21-TRADE PRESET BROWSER MODAL (60s Instant Setup) ── */}
       <Modal
@@ -1035,17 +1356,18 @@ export default function ServicesPage() {
                 </h4>
               </div>
               <Badge variant="outline" className="text-[10px] bg-white dark:bg-zinc-900 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300">
-                3 Services
+                {selectedPreset.services.length} Services
               </Badge>
             </div>
             <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
               {selectedPreset.description}
             </p>
 
-            {/* List of 3 Services to be Imported */}
+            {/* List of Services in Preset with New vs Existing Status */}
             <div className="space-y-2 pt-2 border-t border-blue-200/60 dark:border-blue-900/40">
               {selectedPreset.services.map((svc, idx) => {
                 const parsed = parseServicePricing(svc.price, svc.description)
+                const isExisting = existingNames.has(svc.name.trim().toLowerCase())
                 return (
                   <div
                     key={idx}
@@ -1059,6 +1381,15 @@ export default function ServicesPage() {
                         <span className="text-[11px] text-slate-400 font-mono">
                           · {svc.duration_minutes}m
                         </span>
+                        {isExisting ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 font-medium">
+                            Already in Catalog
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                            New
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
                         {parsed.cleanDescription}
@@ -1071,6 +1402,16 @@ export default function ServicesPage() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* Duplicate Safety Banner */}
+            <div className="text-[11px] text-slate-500 dark:text-zinc-400 pt-1 flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>
+                {presetAnalysis.newCount > 0
+                  ? `${presetAnalysis.newCount} new service${presetAnalysis.newCount > 1 ? 's' : ''} will be added. Existing custom services will never be overwritten.`
+                  : 'All services from this preset are already loaded in your catalog.'}
+              </span>
             </div>
           </div>
 
@@ -1091,17 +1432,19 @@ export default function ServicesPage() {
               size="sm"
               onClick={() => handleImportCatalog(selectedPreset.id)}
               className="h-9 px-4 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-xs"
-              disabled={submittingImport}
+              disabled={submittingImport || presetAnalysis.newCount === 0}
             >
               {submittingImport ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                   <span>Importing...</span>
                 </>
+              ) : presetAnalysis.newCount === 0 ? (
+                'Already in Catalog'
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
-                  <span>Import {selectedPreset.name} Services</span>
+                  <span>Import {presetAnalysis.newCount} New Services</span>
                 </>
               )}
             </Button>
@@ -1116,8 +1459,8 @@ export default function ServicesPage() {
         title={editingService ? 'Edit Service' : 'New Service'}
         description={
           editingService
-            ? 'Update pricing, duration, and address requirements.'
-            : 'Add a service for online booking and field dispatch.'
+            ? 'Update pricing model, duration, category, and online booking availability.'
+            : 'Add a service offering for online booking and field dispatch.'
         }
         size="md"
       >
@@ -1129,7 +1472,7 @@ export default function ServicesPage() {
             </div>
           )}
 
-          {/* Name */}
+          {/* Service Name */}
           <div className="space-y-1">
             <Label htmlFor="svc-name" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
               Service Name <span className="text-red-500">*</span>
@@ -1138,17 +1481,46 @@ export default function ServicesPage() {
               id="svc-name"
               value={formName}
               onChange={e => setFormName(e.target.value)}
-              placeholder="e.g. AC Tune-Up, Water Heater Replacement"
-              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+              placeholder="e.g. AC Tune-Up, Water Heater Replacement, Drain Cleaning"
+              className="h-10 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
               required
               maxLength={100}
             />
           </div>
 
-          {/* Pricing Type */}
+          {/* Service Category */}
+          <div className="space-y-1.5">
+            <Label htmlFor="svc-cat" className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+              Category
+            </Label>
+            <Input
+              id="svc-cat"
+              value={formCategory}
+              onChange={e => setFormCategory(e.target.value)}
+              placeholder="e.g. Cooling, Heating, Drains, Maintenance, Installations"
+              className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+            />
+            {existingCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] text-slate-400">Suggestions:</span>
+                {existingCategories.slice(0, 5).map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setFormCategory(cat)}
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-dashed border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    + {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pricing Model */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
-              Pricing Type
+              Pricing Model
             </Label>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
               {(['fixed', 'starting_at', 'diagnostic_fee', 'quote_on_site', 'free_estimate'] as const).map(m => (
@@ -1157,9 +1529,9 @@ export default function ServicesPage() {
                   type="button"
                   onClick={() => setFormPricingModel(m)}
                   className={cn(
-                    'px-2 py-1.5 rounded-lg border text-xs font-semibold text-center transition-colors cursor-pointer',
+                    'min-h-[44px] px-2 py-1.5 rounded-lg border text-xs font-semibold text-center transition-colors cursor-pointer flex flex-col items-center justify-center',
                     formPricingModel === m
-                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/50 dark:border-blue-500 dark:text-blue-300'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-950/50 dark:border-blue-500 dark:text-blue-300 shadow-2xs font-bold'
                       : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700'
                   )}
                 >
@@ -1188,18 +1560,18 @@ export default function ServicesPage() {
                 step="5"
                 value={formDuration}
                 onChange={e => setFormDuration(Number(e.target.value))}
-                className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                className="h-10 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
                 required
               />
               {/* Presets */}
               <div className="flex items-center gap-1 mt-1">
-                {[30, 45, 60, 90, 120].map(mins => (
+                {[15, 30, 45, 60, 90, 120].map(mins => (
                   <button
                     key={mins}
                     type="button"
                     onClick={() => setFormDuration(mins)}
                     className={cn(
-                      'text-[10px] font-mono px-2 py-0.5 rounded border transition-colors cursor-pointer',
+                      'text-[10px] font-mono px-2 py-1 rounded border transition-colors cursor-pointer',
                       formDuration === mins
                         ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-bold'
                         : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400'
@@ -1236,15 +1608,15 @@ export default function ServicesPage() {
                       ? '0.00'
                       : '89.00'
                   }
-                  className="h-9 pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                  className="h-10 pl-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
                 />
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                {formPricingModel === 'fixed' && 'Flat rate shown and charged'}
-                {formPricingModel === 'starting_at' && 'Minimum price (e.g. Starting at $X)'}
-                {formPricingModel === 'diagnostic_fee' && 'Diagnostic service fee'}
-                {formPricingModel === 'quote_on_site' && 'Price quoted on-site'}
-                {formPricingModel === 'free_estimate' && 'No charge for estimate'}
+                {formPricingModel === 'fixed' && 'Flat rate shown and charged to customer'}
+                {formPricingModel === 'starting_at' && 'Minimum baseline price (e.g. Starting at $X)'}
+                {formPricingModel === 'diagnostic_fee' && 'Diagnostic service fee charged on arrival'}
+                {formPricingModel === 'quote_on_site' && 'No upfront charge: price is estimated on-site'}
+                {formPricingModel === 'free_estimate' && 'Free consultation: $0 upfront cost'}
               </p>
             </div>
           </div>
@@ -1259,8 +1631,8 @@ export default function ServicesPage() {
               rows={2}
               value={formDescription}
               onChange={e => setFormDescription(e.target.value)}
-              placeholder="What's included in this service..."
-              className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed"
+              placeholder="Explain what is included in this service..."
+              className="w-full rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed resize-none"
             />
           </div>
 
@@ -1270,10 +1642,10 @@ export default function ServicesPage() {
               <div>
                 <Label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Add-ons</span>
+                  <span>Optional Add-ons</span>
                 </Label>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Optional extras customers can select when booking this service.
+                  Extras customers can select when booking this service online.
                 </p>
               </div>
               <Button
@@ -1281,7 +1653,7 @@ export default function ServicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleAddAddOn}
-                className="h-7 px-2.5 text-[11px] font-semibold border-slate-300 dark:border-zinc-700 hover:border-blue-500 text-slate-700 dark:text-zinc-300"
+                className="h-8 px-2.5 text-[11px] font-semibold border-slate-300 dark:border-zinc-700 hover:border-blue-500 text-slate-700 dark:text-zinc-300"
               >
                 <Plus className="w-3 h-3 mr-1 text-blue-500" />
                 <span>Add Add-on</span>
@@ -1295,55 +1667,67 @@ export default function ServicesPage() {
                     key={addon.id || idx}
                     className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/70 space-y-2 shadow-2xs"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="Add-on name (e.g. Filter Replacement)"
-                          value={addon.name}
-                          onChange={e => handleUpdateAddOn(idx, 'name', e.target.value)}
-                          className="h-8 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
-                        />
-                      </div>
-                      <div className="w-24 relative">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={addon.price !== undefined && addon.price !== null ? addon.price : ''}
-                          onChange={e => handleUpdateAddOn(idx, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                          className="h-8 pl-6 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
-                        />
-                      </div>
-                      <div className="w-20">
-                        <select
-                          value={addon.duration_minutes || 0}
-                          onChange={e => handleUpdateAddOn(idx, 'duration_minutes', parseInt(e.target.value, 10) || 0)}
-                          className="h-8 w-full bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg px-1.5 font-mono"
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <Input
+                            placeholder="Add-on name (e.g. Filter Replacement)"
+                            value={addon.name}
+                            onChange={e => handleUpdateAddOn(idx, 'name', e.target.value)}
+                            className="h-9 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAddOn(idx)}
+                          className="min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors cursor-pointer rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30"
+                          title="Remove add-on"
                         >
-                          <option value={0}>+0m</option>
-                          <option value={15}>+15m</option>
-                          <option value={30}>+30m</option>
-                          <option value={45}>+45m</option>
-                          <option value={60}>+60m</option>
-                        </select>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAddOn(idx)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-                        title="Remove add-on"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="w-28 relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={addon.price !== undefined && addon.price !== null ? addon.price : ''}
+                            onChange={e => handleUpdateAddOn(idx, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                            className="h-8 pl-6 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 rounded-lg font-mono"
+                          />
+                        </div>
+
+                        {/* Mobile Duration Steppers */}
+                        <div className="flex items-center gap-1">
+                          {[0, 15, 30, 45, 60].map(mins => (
+                            <button
+                              key={mins}
+                              type="button"
+                              onClick={() => handleUpdateAddOn(idx, 'duration_minutes', mins)}
+                              className={cn(
+                                "text-[10px] font-mono px-2 py-1 rounded-md border transition-colors cursor-pointer",
+                                (addon.duration_minutes || 0) === mins
+                                  ? "bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 font-bold"
+                                  : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
+                              )}
+                            >
+                              +{mins}m
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Input
+                        placeholder="Short description (optional)"
+                        value={addon.description || ''}
+                        onChange={e => handleUpdateAddOn(idx, 'description', e.target.value)}
+                        className="h-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-300 rounded-lg placeholder:text-slate-400"
+                      />
                     </div>
-                    <Input
-                      placeholder="Short description (optional)"
-                      value={addon.description || ''}
-                      onChange={e => handleUpdateAddOn(idx, 'description', e.target.value)}
-                      className="h-7 bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-300 rounded-lg placeholder:text-slate-400"
-                    />
                   </div>
                 ))}
               </div>
@@ -1351,28 +1735,28 @@ export default function ServicesPage() {
           </div>
 
           {/* Toggles */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
-            <label className="flex items-center gap-2.5 cursor-pointer">
+          <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <label className="flex items-center gap-2.5 cursor-pointer min-h-[36px]">
               <input
                 type="checkbox"
                 checked={formRequiresAddress}
                 onChange={e => setFormRequiresAddress(e.target.checked)}
                 className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
               />
-              <span className="text-xs text-slate-700 dark:text-zinc-300">
-                Requires service address (on-site job)
+              <span className="text-xs text-slate-700 dark:text-zinc-300 font-medium">
+                Requires customer service address (On-site job dispatch)
               </span>
             </label>
 
-            <label className="flex items-center gap-2.5 cursor-pointer">
+            <label className="flex items-center gap-2.5 cursor-pointer min-h-[36px]">
               <input
                 type="checkbox"
                 checked={formIsActive}
                 onChange={e => setFormIsActive(e.target.checked)}
                 className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-blue-600 h-4 w-4"
               />
-              <span className="text-xs text-slate-700 dark:text-zinc-300">
-                Visible on booking page
+              <span className="text-xs text-slate-700 dark:text-zinc-300 font-medium">
+                Visible to customers on public booking page
               </span>
             </label>
           </div>
@@ -1384,7 +1768,7 @@ export default function ServicesPage() {
               variant="outline"
               size="sm"
               onClick={() => setIsModalOpen(false)}
-              className="h-9 text-xs border-slate-300 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
+              className="h-10 text-xs border-slate-300 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
               disabled={submitting}
             >
               Cancel
@@ -1392,7 +1776,7 @@ export default function ServicesPage() {
             <Button
               type="submit"
               size="sm"
-              className="h-9 px-4 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-xs"
+              className="h-10 px-5 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-xs"
               disabled={submitting}
             >
               {submitting ? (
@@ -1425,7 +1809,7 @@ export default function ServicesPage() {
               <span>Historical Data Protection</span>
             </div>
             <p className="leading-relaxed">
-              If this service is linked to existing appointments or field jobs, it will be safely <strong className="text-slate-900 dark:text-zinc-200">deactivated</strong> rather than deleted so all past customer history and reporting remain intact.
+              If this service is linked to existing appointments, invoices, or field jobs, it will be safely <strong className="text-slate-900 dark:text-zinc-200">deactivated</strong> rather than deleted so all past customer history and financial reporting remain intact.
             </p>
           </div>
 
@@ -1504,7 +1888,7 @@ export default function ServicesPage() {
               ))}
             </div>
             <p className="text-[10px] text-slate-400 dark:text-zinc-500">
-              30m is standard for most trades; 60m–120m for longer jobs.
+              30m is standard for most trades; 60m to 120m for longer jobs.
             </p>
           </div>
 

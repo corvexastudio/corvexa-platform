@@ -207,12 +207,12 @@ export async function getAttentionQueue(
     .order('start_time', { ascending: true })
     .limit(10)
 
-  // 5. Overdue / Outstanding Past Due Invoices
+  // 5. Overdue / Outstanding Past Due Invoices (Issued Receivables Only)
   let invQuery = supabase
     .from('invoices')
-    .select('id, invoice_number, total, due_date, status, deleted_at, contacts(name, phone)')
+    .select('id, invoice_number, total, amount_paid, amount_due, due_date, status, deleted_at, contacts(name, phone)')
     .eq('org_id', orgId)
-    .or(`status.eq.overdue,and(status.in.(sent,partially_paid),due_date.lt.${now.toISOString()})`)
+    .or(`status.eq.overdue,and(status.in.(sent,viewed,partially_paid),due_date.lt.${now.toISOString()})`)
     .order('due_date', { ascending: true })
     .limit(10)
 
@@ -402,13 +402,18 @@ export async function getAttentionQueue(
 
   if (overdueInvoices && overdueInvoices.length > 0) {
     for (const inv of overdueInvoices) {
+      // Must not include drafts or paid invoices with zero balance due
+      if (inv.status === 'draft' || inv.status === 'void' || inv.status === 'paid') continue
+      const remainingDue = Number(inv.amount_due ?? (Number(inv.total || 0) - Number(inv.amount_paid || 0)))
+      if (remainingDue <= 0) continue
+
       const contactName = (inv.contacts as any)?.name || 'Client'
       items.push({
         id: `inv-${inv.id}`,
         category: 'invoice',
         urgency: 'critical',
         title: `Overdue invoice ${inv.invoice_number}: ${contactName}`,
-        subtitle: `$${Number(inv.total).toLocaleString()} past due (${inv.due_date ? new Date(inv.due_date).toLocaleDateString() : 'Immediate'})`,
+        subtitle: `$${remainingDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} past due (${inv.due_date ? new Date(inv.due_date).toLocaleDateString() : 'Immediate'})`,
         timestamp: inv.due_date || now.toISOString(),
         actionLabel: 'Send Reminder',
         actionHref: '/client/invoices',
@@ -636,9 +641,7 @@ export async function getOutcomeMetrics(
   const paidInvoicesCount = paidInvoices.length
 
   const collectedAmount = Math.round(
-    ((payments && payments.length > 0)
-      ? payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-      : paidInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0)) * 100
+    ((payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0)) * 100
   ) / 100
 
   const collectionRate = invoicedAmount > 0 ? Math.round((collectedAmount / invoicedAmount) * 100) : 0
@@ -781,21 +784,26 @@ export async function getOperationalMetrics(
       return active.length
     })(),
 
-    // 6. Outstanding Invoices
+    // 6. Outstanding Invoices (Issued Receivables Only - Excludes Drafts and Fully Paid)
     (async () => {
       let q = supabase
         .from('invoices')
-        .select('total, deleted_at')
+        .select('id, total, amount_paid, amount_due, status, deleted_at')
         .eq('org_id', orgId)
-        .in('status', ['sent', 'partially_paid', 'overdue'])
+        .in('status', ['sent', 'viewed', 'partially_paid', 'overdue'])
 
       if (typeof (q as any).is === 'function') {
         q = (q as any).is('deleted_at', null)
       }
       const { data } = await q
       const active = (data || []).filter((item: any) => !item.deleted_at)
-      const count = active.length
-      const balance = Math.round(active.reduce((s: number, item: any) => s + (Number(item.total) || 0), 0) * 100) / 100
+      const eligible = active.map((item: any) => {
+        const remainingDue = Number(item.amount_due ?? (Number(item.total || 0) - Number(item.amount_paid || 0)))
+        return { ...item, remainingDue }
+      }).filter((item: any) => item.remainingDue > 0)
+
+      const count = eligible.length
+      const balance = Math.round(eligible.reduce((s: number, item: any) => s + item.remainingDue, 0) * 100) / 100
       return { count, balance }
     })(),
 

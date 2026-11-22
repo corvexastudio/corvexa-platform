@@ -240,7 +240,7 @@ export async function processMissedCall(
       await supabase.from('notifications').insert({
         org_id: org.id,
         title: 'Missed Call Received (Free Tier)',
-        message: `You missed a call from ${formattedCaller}. Customer details saved in Leads. Upgrade to Solo Pro ($99/mo) to activate your dedicated business phone number, 10DLC registration, and instant 8-second AI missed-call recovery text-back.`,
+        message: `You missed a call from ${formattedCaller}. Customer details saved in Leads. Upgrade to Solo Pro ($99/mo) to activate your dedicated business phone number, 10DLC registration, and Instant Auto-Reply (Under 5 Seconds) text-back.`,
         link: '/client/leads'
       })
     } catch {

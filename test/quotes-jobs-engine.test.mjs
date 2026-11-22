@@ -183,7 +183,7 @@ test('Quotes: Financial math correctly calculates subtotal, tax, discount, and t
   // Total = 541.25
   const result = calculateQuoteFinancials(items, {
     discount: 40.00,
-    taxRate: 0.0825
+    taxRate: 8.25
   })
 
   assert.strictEqual(result.subtotal, 540.00)
@@ -212,7 +212,7 @@ test('Quotes: Creates draft quote with line items and tokenized manage link', as
       { description: '4-Ton 16 SEER Condenser Unit', quantity: 1, unit_price: 3200.00 },
       { description: 'Installation & Disposal Labor', quantity: 1, unit_price: 1200.00 }
     ],
-    taxRate: 0.08,
+    taxRate: 8.0,
     discount: 200.00
   })
 

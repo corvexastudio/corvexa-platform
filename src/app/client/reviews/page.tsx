@@ -183,6 +183,7 @@ export default function ReviewsPage() {
     TRADE_REVIEW_TEMPLATES[0].template
   )
   const [sending, setSending] = useState(false)
+  const [showMobileDispatchModal, setShowMobileDispatchModal] = useState(false)
   const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone: string }>>([])
   const [loadingCustomers, setLoadingCustomers] = useState(false)
 
@@ -534,29 +535,29 @@ export default function ReviewsPage() {
       </div>
 
       {/* Operational Metrics Row (4 Tabular Metric Tokens) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Invites Dispatched</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '—' : metrics.totalSent}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Post-job &amp; manual SMS</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-3.5 shadow-xs">
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Invites Dispatched</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{loading ? '-' : metrics.totalSent}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 truncate">Post-job &amp; manual SMS</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Confirmed Deliveries</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '—' : metrics.totalDelivered}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 tabular-nums">{loading ? '—' : `${deliveryRate}% carrier delivery`}</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-3.5 shadow-xs">
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Confirmed Deliveries</p>
+          <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{loading ? '-' : metrics.totalDelivered}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 tabular-nums truncate">{loading ? '-' : `${deliveryRate}% carrier delivery`}</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Verified Clicks</p>
-          <p className="text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums mt-1">{loading ? '—' : metrics.totalClicked}</p>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 tabular-nums">{loading ? '—' : `${metrics.clickRate}% CTR to Google`}</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-3.5 shadow-xs">
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Verified Clicks</p>
+          <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums mt-1">{loading ? '-' : metrics.totalClicked}</p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 tabular-nums truncate">{loading ? '-' : `${metrics.clickRate}% CTR to Google`}</p>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xs">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Direct Customer Feedback</p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{feedbackLoading ? '—' : feedbackList.length}</p>
-          <p className="text-[11px] mt-0.5 font-medium">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-3.5 shadow-xs">
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">Direct Customer Feedback</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">{feedbackLoading ? '-' : feedbackList.length}</p>
+          <p className="text-[10px] sm:text-[11px] mt-0.5 font-medium truncate">
             {unresolvedCount > 0 ? (
               <span className="text-rose-600 dark:text-rose-400 font-semibold tabular-nums">{unresolvedCount} need follow-up</span>
             ) : (
@@ -650,8 +651,30 @@ export default function ReviewsPage() {
             </div>
           )}
 
-          {/* Quick Dispatch Bar & Live SMS Preview (Split Layout) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
+          {/* Mobile Quick Dispatch Card (phones & small tablets < lg) */}
+          <div className="lg:hidden flex items-center justify-between p-3.5 sm:p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 shadow-2xs">
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                <Send className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Send Review Invite</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                Dispatch one-off SMS invite with verified Google review link.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => setShowMobileDispatchModal(true)}
+              disabled={!settings.googleReviewUrl?.trim()}
+              className="min-h-[44px] px-3.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-xs shrink-0 cursor-pointer"
+            >
+              <Send className="w-3.5 h-3.5 mr-1.5" />
+              <span>Invite</span>
+            </Button>
+          </div>
+
+          {/* Quick Dispatch Bar & Live SMS Preview (Split Layout - Desktop Only) */}
+          <div className="hidden lg:grid grid-cols-12 gap-6 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-xs">
             
             {/* Left Column: Dispatch Controls & Trade Presets (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
@@ -954,7 +977,7 @@ export default function ReviewsPage() {
                               {formatCustomerName(req.contacts?.name) || 'Customer'}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                              {req.contacts?.phone ? formatNationalUs(req.contacts.phone) : '—'}
+                              {req.contacts?.phone ? formatNationalUs(req.contacts.phone) : '-'}
                             </div>
                           </TableCell>
 
@@ -978,7 +1001,7 @@ export default function ReviewsPage() {
                           </TableCell>
 
                           <TableCell className="py-3 px-4 text-xs text-slate-500 dark:text-zinc-400 whitespace-nowrap tabular-nums">
-                            {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                            {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                           </TableCell>
 
                           <TableCell className="py-3 px-4 text-right font-semibold text-xs tabular-nums">
@@ -999,45 +1022,59 @@ export default function ReviewsPage() {
 
                 {/* Mobile Truck Card List View */}
                 <div className="md:hidden divide-y divide-slate-100 dark:divide-zinc-800">
-                  {filteredRequests.map(req => (
-                    <div key={req.id} className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h3 className="font-bold text-xs text-slate-900 dark:text-zinc-100">
-                            {req.contacts?.name || 'Customer'}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
-                            {req.contacts?.phone || '—'}
-                          </p>
+                  {filteredRequests.map(req => {
+                    const phoneDisplay = req.contacts?.phone ? formatNationalUs(req.contacts.phone) : '-'
+                    return (
+                      <div key={req.id} className="p-3.5 sm:p-4 space-y-2.5 hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-bold text-xs text-slate-900 dark:text-zinc-100">
+                              {formatCustomerName(req.contacts?.name) || 'Customer'}
+                            </h3>
+                            {req.contacts?.phone ? (
+                              <a
+                                href={`tel:${req.contacts.phone}`}
+                                className="text-[11px] text-blue-600 dark:text-blue-400 font-mono font-semibold tabular-nums hover:underline flex items-center gap-1 mt-0.5"
+                                title="Call customer"
+                              >
+                                <Smartphone className="h-3 w-3" />
+                                <span>{phoneDisplay}</span>
+                              </a>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 font-mono tabular-nums mt-0.5">-</p>
+                            )}
+                          </div>
+                          {getReviewStatusBadge(req.status)}
                         </div>
-                        {getReviewStatusBadge(req.status)}
-                      </div>
 
-                      <div className="text-xs text-slate-600 dark:text-zinc-400">
-                        {req.jobs ? (
-                          <span>{req.jobs.job_number} · {req.jobs.title}</span>
-                        ) : (
-                          <span className="text-slate-400">One-Off Dispatch</span>
+                        <div className="text-xs text-slate-600 dark:text-zinc-400">
+                          {req.jobs ? (
+                            <span className="font-medium text-slate-900 dark:text-zinc-100 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded text-[11px]">
+                              Job #{req.jobs.job_number} : {req.jobs.title}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 italic text-[11px]">One-Off Dispatch</span>
+                          )}
+                        </div>
+
+                        {req.suppression_reason && (
+                          <div className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2.5 py-1 rounded-md">
+                            {req.suppression_reason}
+                          </div>
                         )}
-                      </div>
 
-                      {req.suppression_reason && (
-                        <div className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-1 rounded">
-                          {req.suppression_reason}
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 dark:border-zinc-800">
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-400 tabular-nums">
+                            {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1 tabular-nums">
+                            <MousePointerClick className="h-3 w-3 text-blue-500" />
+                            <span>{req.click_count > 0 ? `${req.click_count} clicked to Google` : '0 clicks'}</span>
+                          </span>
                         </div>
-                      )}
-
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 dark:border-zinc-800">
-                        <span className="text-[11px] text-slate-500 tabular-nums">
-                          {req.sent_at ? new Date(req.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                        </span>
-                        <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1 tabular-nums">
-                          <MousePointerClick className="h-3 w-3 text-blue-500" />
-                          <span>{req.click_count > 0 ? `${req.click_count} clicks` : '0 clicks'}</span>
-                        </span>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -1199,14 +1236,14 @@ export default function ReviewsPage() {
                           <>
                             <a
                               href={`tel:${fb.customer_phone}`}
-                              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors shadow-2xs"
                             >
                               <Phone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                               <span>Call Customer</span>
                             </a>
                             <a
                               href={`sms:${fb.customer_phone}`}
-                              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors shadow-2xs"
+                              className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 transition-colors shadow-2xs"
                             >
                               <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                               <span>Send SMS</span>
@@ -1222,7 +1259,7 @@ export default function ReviewsPage() {
                             setResolvingItem(fb)
                             setResolutionNotes('')
                           }}
-                          className="h-9 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                          className="min-h-[44px] px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer"
                         >
                           <Check className="h-3.5 w-3.5 mr-1.5" />
                           <span>Mark Resolved</span>
@@ -1235,7 +1272,7 @@ export default function ReviewsPage() {
                             setResolvingItem(fb)
                             setResolutionNotes(fb.resolution_notes || '')
                           }}
-                          className="h-9 px-3 text-xs font-semibold border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                          className="min-h-[44px] px-3.5 text-xs font-semibold border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                         >
                           <span>Edit Notes</span>
                         </Button>
@@ -1458,6 +1495,179 @@ export default function ReviewsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Mobile Dispatch Modal (Bottom Sheet / Modal for phones) */}
+      <Modal
+        open={showMobileDispatchModal}
+        onOpenChange={setShowMobileDispatchModal}
+        title="Send Review Invite"
+        description="Dispatch a direct review invitation SMS with your verified Google review link."
+        size="lg"
+      >
+        <div className="space-y-4 py-1">
+          {/* Quick Customer Picker */}
+          {customers.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
+                Select Existing Customer
+              </Label>
+              <div className="flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 shrink-0" />
+                <select
+                  aria-label="Select existing customer"
+                  onChange={e => handleSelectCustomer(e.target.value)}
+                  defaultValue=""
+                  className="w-full text-xs bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg py-2.5 px-2.5 text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  <option value="" disabled>
+                    Pick a customer to auto-fill name and cell phone...
+                  </option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name ? `${c.name} (${c.phone})` : c.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Name & Phone Inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
+                Customer Name
+              </Label>
+              <Input
+                placeholder="e.g. Dana Miller"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="h-10 text-xs bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
+                Cell Phone Number
+              </Label>
+              <Input
+                placeholder="(555) 000-0000"
+                value={phone}
+                onChange={handlePhone}
+                className="h-10 text-xs bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-zinc-100 font-mono"
+              />
+            </div>
+          </div>
+
+          {/* 21-Trade Preset Selector */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Wrench className="w-3.5 h-3.5 text-blue-500" />
+                <span>Trade Preset</span>
+              </Label>
+              <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                21 Home Service Trades
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {TRADE_REVIEW_TEMPLATES.map(trade => (
+                <button
+                  key={trade.id}
+                  type="button"
+                  onClick={() => handleSelectTrade(trade.id)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors shrink-0 cursor-pointer min-h-[36px]",
+                    selectedTrade === trade.id
+                      ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 border-transparent shadow-xs font-semibold"
+                      : "bg-slate-50 dark:bg-zinc-950 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                  )}
+                >
+                  {trade.shortName}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* SMS Message Customizer */}
+          <div className="space-y-1 pt-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
+                SMS Message Content
+              </Label>
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono tabular-nums">
+                {smsCharCount} chars · {smsSegments} segment{smsSegments > 1 ? 's' : ''}
+              </span>
+            </div>
+            <textarea
+              rows={3}
+              value={customMessage}
+              onChange={e => setCustomMessage(e.target.value)}
+              className="w-full text-xs rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-2.5 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans leading-relaxed"
+            />
+          </div>
+
+          {/* Live Preview Bubble */}
+          <div className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 space-y-1">
+            <div className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+              <Smartphone className="w-3 h-3" />
+              <span>SMS Preview</span>
+            </div>
+            <div className="bg-blue-600 text-white p-2.5 rounded-xl rounded-tl-xs text-[11px] leading-relaxed">
+              {livePreviewText}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMobileDispatchModal(false)}
+              className="h-10 text-xs border-slate-200 dark:border-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async (e) => {
+                await handleSend(e)
+                setShowMobileDispatchModal(false)
+              }}
+              disabled={sending || !settings.googleReviewUrl?.trim()}
+              className="min-h-[44px] px-5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-xs cursor-pointer"
+            >
+              {sending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  <span>Sending...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-1.5" />
+                  <span>Send Review Invite</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Mobile Floating Action Button */}
+      {activeTab === 'reviews' && (
+        <button
+          type="button"
+          onClick={() => setShowMobileDispatchModal(true)}
+          disabled={!settings.googleReviewUrl?.trim()}
+          className="fixed bottom-20 right-4 lg:hidden z-40 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-4 py-3 rounded-full shadow-lg shadow-blue-600/30 font-semibold text-xs tracking-wide transition-all cursor-pointer min-h-[44px] disabled:opacity-50"
+          aria-label="Send Review Invite"
+        >
+          <Send className="h-4 w-4" />
+          <span>Send Invite</span>
+        </button>
+      )}
 
       {/* Found Money Finish-Line Paywall Modal */}
       <FoundMoneyUnlockModal
