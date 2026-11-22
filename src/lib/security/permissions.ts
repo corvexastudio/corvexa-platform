@@ -147,3 +147,27 @@ export function hasPermission(rawRole: string | null | undefined, action: Action
   if (!permissions) return false
   return permissions.has(action)
 }
+
+/**
+ * Masks a Federal Tax ID (EIN) to prevent credential exposure.
+ * Example: '12-3456789' -> 'XX-XXX6789'
+ */
+export function maskEin(ein?: string | null): string | null {
+  if (!ein || typeof ein !== 'string') return null
+  const clean = ein.trim()
+  if (!clean) return null
+  const digits = clean.replace(/\D/g, '')
+  if (digits.length < 4) return 'XX-XXXXXXX'
+  const last4 = digits.slice(-4)
+  return `XX-XXX${last4}`
+}
+
+/**
+ * Determines whether a user role is authorized to view an unmasked Federal Tax ID (EIN).
+ * Restricted strictly to owners and super_admins.
+ */
+export function canViewFullEin(role?: string | null): boolean {
+  const canonical = normalizeRole(role)
+  return canonical === 'owner' || canonical === 'super_admin'
+}
+

@@ -12,6 +12,7 @@ import {
 import { StripeService } from '../../../../lib/services/stripe-service.ts'
 import { PayPalService } from '../../../../lib/services/paypal-service.ts'
 import { logAuditEvent } from '../../../../lib/security/audit-logger.ts'
+import { maskEin, canViewFullEin } from '../../../../lib/security/permissions.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +75,15 @@ export async function GET(request?: Request, context?: BillingRouteContext) {
     return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
   }
 
+  // Secure Federal Tax ID (EIN) Protection (Phase 2 P1 Remediation)
+  if (org && org.ein) {
+    const reqUrl = request?.url ? new URL(request.url) : null
+    const revealRequested = reqUrl?.searchParams.get('reveal_ein') === 'true'
+    if (!revealRequested || !canViewFullEin(role)) {
+      org.ein = maskEin(org.ein)
+    }
+  }
+
   // 2. Fetch subscription and entitlement
   const subscription = await SubscriptionService.getSubscription(supabase, orgId)
   const entitlement = await SubscriptionService.getEntitlement(supabase, orgId)
@@ -115,7 +125,7 @@ export async function POST(request: Request, context?: BillingRouteContext) {
   const body = await request.json().catch(() => ({}))
   const action = body.action
 
-  if (action === 'cancel') {
+  if (action === 'cancel' || action === 'cancel_subscription') {
     const reason = typeof body.reason === 'string' ? body.reason.trim() : 'Customer requested cancellation via portal'
     
     // Check if organization is billed through PayPal
@@ -177,7 +187,7 @@ export async function POST(request: Request, context?: BillingRouteContext) {
     })
   }
 
-  if (action === 'reactivate') {
+  if (action === 'reactivate' || action === 'reactivate_subscription') {
     const subscription = await SubscriptionService.reactivateSubscription(
       supabase,
       { id: user.id, email: user.email, role: 'owner' },

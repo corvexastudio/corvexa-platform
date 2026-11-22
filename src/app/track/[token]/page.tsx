@@ -60,7 +60,7 @@ interface TrackingPayload {
     phone?: string | null
     logoUrl?: string | null
     licenseNumber?: string | null
-    trackingMode?: 'milestone' | 'geofence_live' | null
+    trackingMode?: 'milestone' | 'geofence_live' | 'geofence' | null
     trackingGeofenceMiles?: number | null
     timezone?: string | null
   }
@@ -430,7 +430,7 @@ export default function CustomerJobTrackerPage({
             </div>
 
             {/* Geofence Live Proximity Radar (When enabled by contractor) */}
-            {isEnRoute && org.trackingMode === 'geofence_live' && (
+            {isEnRoute && (org.trackingMode === 'geofence_live' || org.trackingMode === 'geofence') && (
               <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
                 <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>

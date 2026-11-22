@@ -3,6 +3,7 @@ import { getTenantContext } from '../../../../lib/security/tenant-context.ts'
 import { logAuditEvent } from '../../../../lib/security/audit-logger.ts'
 import { normalizePhoneToE164 } from '../../../../lib/telephony/phone-normalizer.ts'
 import { parseBookingSettings, buildBookingSettingsUpdates } from '../../../../lib/booking/booking-settings.ts'
+import { maskEin, canViewFullEin } from '../../../../lib/security/permissions.ts'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
     return tenantResult.response
   }
 
-  const { orgId, supabase } = tenantResult
+  const { orgId, supabase, user, role } = tenantResult
 
   const { data: org, error } = await supabase
     .from('organizations')
@@ -173,6 +174,27 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
     finalOrg.operation_mode = finalOrg.operation_mode || 'solo'
     finalOrg.industry = finalOrg.industry || 'general'
     finalOrg.booking_settings = parseBookingSettings(finalOrg)
+
+    // Secure Federal Tax ID (EIN) Protection (Phase 2 P1 Remediation)
+    const rawEin = finalOrg.ein
+    const masked = maskEin(rawEin)
+    finalOrg.ein_masked = masked
+    finalOrg.has_ein = Boolean(rawEin)
+
+    const reqUrl = request?.url ? new URL(request.url) : null
+    const revealRequested = reqUrl?.searchParams.get('reveal_ein') === 'true'
+
+    if (revealRequested && canViewFullEin(role)) {
+      finalOrg.ein = rawEin
+      await logAuditEvent(supabase, {
+        org_id: orgId,
+        event_type: 'organization.ein_revealed',
+        description: `Full Federal Tax ID (EIN) revealed by ${user.email || user.id} (${role})`,
+        metadata: { actor_id: user.id, role }
+      })
+    } else {
+      finalOrg.ein = masked
+    }
   }
 
   return NextResponse.json({ organization: finalOrg })
@@ -394,12 +416,24 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       }
     }
 
-    if (typeof body.ein === 'string') {
-      allowedUpdates.ein = body.ein.trim().slice(0, 30) || null
-    }
-
     if (typeof body.is_sole_proprietor === 'boolean') {
       allowedUpdates.is_sole_proprietor = body.is_sole_proprietor
+      if (body.is_sole_proprietor) {
+        allowedUpdates.ein = null
+      }
+    }
+
+    if (typeof body.ein === 'string' && !allowedUpdates.is_sole_proprietor) {
+      const trimmedEin = body.ein.trim()
+      // Guard against saving masked placeholders (e.g. 'XX-XXX1234' or '••-••••1234') as a replacement EIN
+      const isMaskedPlaceholder = /^[xX•]{2}-?[xX•]{3}/.test(trimmedEin) || trimmedEin.includes('X') || trimmedEin.includes('•')
+      if (isMaskedPlaceholder) {
+        // Silently omit to preserve the authentic stored EIN in database
+      } else if (trimmedEin.length === 0) {
+        allowedUpdates.ein = null
+      } else {
+        allowedUpdates.ein = trimmedEin.slice(0, 30)
+      }
     }
 
     if (typeof body.address_street === 'string') {
@@ -475,8 +509,16 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
     }
 
     // Customer Tracking Presentation Mode (Domino's milestone vs geofence live)
-    if (typeof body.tracking_mode === 'string' && ['milestone', 'geofence_live'].includes(body.tracking_mode)) {
-      allowedUpdates.tracking_mode = body.tracking_mode
+    if (typeof body.tracking_mode === 'string') {
+      const normTracking = body.tracking_mode === 'geofence' ? 'geofence_live' : body.tracking_mode.trim()
+      if (['milestone', 'geofence_live'].includes(normTracking)) {
+        allowedUpdates.tracking_mode = normTracking
+      } else {
+        return NextResponse.json(
+          { error: `Invalid tracking_mode: '${body.tracking_mode}'. Must be 'milestone' or 'geofence_live'.` },
+          { status: 400 }
+        )
+      }
     }
 
     if (typeof body.tracking_geofence_miles !== 'undefined') {

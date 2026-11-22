@@ -8,6 +8,7 @@ export type AuditEventType =
   | 'security.account_claimed'
   | 'user.profile_updated'
   | 'organization.settings_updated'
+  | 'organization.ein_revealed'
   | 'organization.10dlc_submitted'
   | 'team.invite_sent'
   | 'team.invite_created_email_pending'

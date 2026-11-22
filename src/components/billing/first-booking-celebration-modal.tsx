@@ -105,7 +105,7 @@ export function FirstBookingCelebrationModal({
       }
       description={
         isMissedCall
-          ? 'CaptoDesk texts callers in under 8 seconds when you are on a ladder or cannot answer.'
+          ? 'CaptoDesk instantly texts callers with an automated reply when you are on a ladder or cannot answer.'
           : 'A customer booked an appointment directly on your schedule. You can review details and dispatch crew anytime.'
       }
     >
@@ -124,7 +124,7 @@ export function FirstBookingCelebrationModal({
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-blue-800 dark:text-blue-300/90 leading-relaxed">
-                Call our live demo line at <strong className="font-mono text-blue-950 dark:text-white">+1 (877) 771-3802</strong> from your phone. Let it ring once and hang up—your phone will immediately receive our live 3-second auto-reply text with a booking link!
+                Call our live demo line at <strong className="font-mono text-blue-950 dark:text-white">+1 (877) 771-3802</strong> from your phone. Let it ring once and hang up: your phone will immediately receive our live 3-second auto-reply text with a booking link!
               </p>
               <a
                 href="tel:+18777713802"
@@ -155,7 +155,7 @@ export function FirstBookingCelebrationModal({
               <span>The Next Big Leak: 62% of Customers Still Call</span>
             </div>
             <p className="text-[11px] sm:text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-              While online booking captures digital homeowners, <strong>62% of high-ticket emergency jobs</strong> still start with a phone call. When you&apos;re under a sink or driving, missed calls go to voicemail—and 80% immediately call the next contractor on Google.
+              While online booking captures digital homeowners, <strong>62% of high-ticket emergency jobs</strong> still start with a phone call. When you&apos;re under a sink or driving, missed calls go to voicemail, and 80% immediately call the next contractor on Google.
             </p>
           </div>
         )}

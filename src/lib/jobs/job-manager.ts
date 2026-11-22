@@ -1328,7 +1328,7 @@ export async function customerViewJobTracking(
       phone: org?.telnyx_phone_number || org?.owner_phone || null,
       logoUrl: org?.logo_url || null,
       licenseNumber: org?.license_number || null,
-      trackingMode: org?.tracking_mode || 'milestone',
+      trackingMode: (org?.tracking_mode === 'geofence' || org?.tracking_mode === 'geofence_live') ? 'geofence_live' : 'milestone',
       trackingGeofenceMiles: org?.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5,
       timezone: org?.timezone || 'America/Chicago'
     },
