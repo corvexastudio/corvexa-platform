@@ -38,7 +38,12 @@ export async function GET(
           invoicedAmount: 0,
           collectionRate: 0,
           paidInvoicesCount: 0,
-          totalInvoicesCount: 0
+          totalInvoicesCount: 0,
+          outstandingReceivables: 0,
+          outstandingInvoicesCount: 0,
+          draftInvoicesCount: 0,
+          draftInvoicesAmount: 0,
+          averageJobTicket: 0
         }
         if (overview.outcomes.bookingsFromCaptoDesk) {
           overview.outcomes.bookingsFromCaptoDesk.totalBookedValue = 0
@@ -46,6 +51,8 @@ export async function GET(
         if (overview.outcomes.quoteConversion) {
           overview.outcomes.quoteConversion.acceptedValue = 0
           overview.outcomes.quoteConversion.totalSentValue = 0
+          overview.outcomes.quoteConversion.pendingValue = 0
+          overview.outcomes.quoteConversion.averageQuoteSize = 0
         }
       }
 
@@ -70,10 +77,17 @@ export async function GET(
       if (overview.outcomes && overview.outcomes.quoteConversion) {
         overview.outcomes.quoteConversion = {
           acceptedCount: 0,
+          declinedCount: 0,
+          expiredCount: 0,
+          pendingCount: 0,
+          draftCount: 0,
+          totalSentCount: 0,
           totalResolvedCount: 0,
           conversionRate: 0,
           acceptedValue: 0,
-          totalSentValue: 0
+          totalSentValue: 0,
+          pendingValue: 0,
+          averageQuoteSize: 0
         }
       }
       if (overview.attentionQueue) {

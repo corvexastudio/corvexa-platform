@@ -68,10 +68,17 @@ export interface OutcomeMetrics {
   }
   quoteConversion: {
     acceptedCount: number
+    declinedCount?: number
+    expiredCount?: number
+    pendingCount?: number
+    draftCount?: number
+    totalSentCount?: number
     totalResolvedCount: number
     conversionRate: number
     acceptedValue: number
     totalSentValue: number
+    pendingValue?: number
+    averageQuoteSize?: number
   }
   paymentCollection: {
     collectedAmount: number
@@ -79,6 +86,11 @@ export interface OutcomeMetrics {
     collectionRate: number
     paidInvoicesCount: number
     totalInvoicesCount: number
+    outstandingReceivables?: number
+    outstandingInvoicesCount?: number
+    draftInvoicesCount?: number
+    draftInvoicesAmount?: number
+    averageJobTicket?: number
   }
   repeatBookings: {
     repeatBookingsCount: number
@@ -132,10 +144,20 @@ export interface DashboardOverview {
 
 export type TimeRange = '7d' | '30d' | '90d' | 'all'
 
-export function getTimeRangeStart(range: TimeRange): string | null {
+export function getTimeRangeStart(range: TimeRange, timeZone?: string): string | null {
   if (range === 'all') return null
-  const now = new Date()
   const days = range === '7d' ? 7 : range === '90d' ? 90 : 30
+  if (timeZone) {
+    try {
+      const tz = normalizeTimezone(timeZone)
+      const { startUtc } = getLocalDayUtcBoundaries(new Date(), tz)
+      const rangeStart = new Date(startUtc.getTime() - (days - 1) * 24 * 60 * 60 * 1000)
+      return rangeStart.toISOString()
+    } catch {
+      // Fallback to standard day subtraction if timezone calculation encounters any edge issue
+    }
+  }
+  const now = new Date()
   now.setDate(now.getDate() - days)
   return now.toISOString()
 }
@@ -505,9 +527,10 @@ export async function getAttentionQueue(
 export async function getOutcomeMetrics(
   supabase: SupabaseClient,
   orgId: string,
-  timeRange: TimeRange = '30d'
+  timeRange: TimeRange = '30d',
+  timeZone?: string
 ): Promise<OutcomeMetrics> {
-  const rangeStart = getTimeRangeStart(timeRange)
+  const rangeStart = getTimeRangeStart(timeRange, timeZone)
 
   // 1. Prepare queries for concurrent parallel execution
   let missedCallsQuery = supabase
@@ -551,7 +574,7 @@ export async function getOutcomeMetrics(
   // 4. Payment Collection
   let invoicesQuery = supabase
     .from('invoices')
-    .select('id, total, status, created_at, deleted_at')
+    .select('id, total, amount_paid, amount_due, status, created_at, deleted_at')
     .eq('org_id', orgId)
     .limit(2000)
 
@@ -625,26 +648,58 @@ export async function getOutcomeMetrics(
   // Process 3: Quote Conversion
   const allQuotes = (rawQuotes || []).filter(q => !q.deleted_at)
   const acceptedQuotes = allQuotes.filter(q => q.status === 'accepted')
-  const acceptedCount = acceptedQuotes.length
-  const acceptedValue = Math.round(acceptedQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
-  const totalSentValue = Math.round(allQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
+  const declinedQuotes = allQuotes.filter(q => q.status === 'declined')
+  const expiredQuotes = allQuotes.filter(q => q.status === 'expired')
+  const pendingQuotes = allQuotes.filter(q => ['sent', 'viewed'].includes(q.status))
+  const draftQuotes = allQuotes.filter(q => q.status === 'draft')
 
-  const resolvedQuotes = allQuotes.filter(q => ['accepted', 'declined', 'expired'].includes(q.status))
-  const totalResolvedCount = resolvedQuotes.length
+  const acceptedCount = acceptedQuotes.length
+  const declinedCount = declinedQuotes.length
+  const expiredCount = expiredQuotes.length
+  const pendingCount = pendingQuotes.length
+  const draftCount = draftQuotes.length
+  const totalSentCount = allQuotes.filter(q => q.status !== 'draft').length
+
+  const acceptedValue = Math.round(acceptedQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
+  const totalSentValue = Math.round(allQuotes.filter(q => q.status !== 'draft').reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
+  const pendingValue = Math.round(pendingQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0) * 100) / 100
+
+  // Authoritative formula: Accepted / (Accepted + Declined + Expired) * 100
+  const totalResolvedCount = acceptedCount + declinedCount + expiredCount
   const conversionRate = totalResolvedCount > 0 ? Math.round((acceptedCount / totalResolvedCount) * 100) : 0
+  const averageQuoteSize = totalSentCount > 0 ? Math.round(totalSentValue / totalSentCount) : (acceptedCount > 0 ? Math.round(acceptedValue / acceptedCount) : 0)
 
   // Process 4: Payment Collection
   const allInvoices = (rawInvoices || []).filter(i => !i.deleted_at)
-  const totalInvoicesCount = allInvoices.length
-  const invoicedAmount = Math.round(allInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0) * 100) / 100
-  const paidInvoices = allInvoices.filter(i => i.status === 'paid')
+  // Issued invoices: sent, viewed, partially_paid, paid, overdue (strictly excluding draft and void)
+  const issuedInvoices = allInvoices.filter(i => ['sent', 'viewed', 'partially_paid', 'paid', 'overdue'].includes(i.status))
+  const draftInvoices = allInvoices.filter(i => i.status === 'draft')
+  const totalInvoicesCount = issuedInvoices.length
+  const invoicedAmount = Math.round(issuedInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0) * 100) / 100
+  const draftInvoicesCount = draftInvoices.length
+  const draftInvoicesAmount = Math.round(draftInvoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0) * 100) / 100
+  const paidInvoices = issuedInvoices.filter(i => i.status === 'paid')
   const paidInvoicesCount = paidInvoices.length
 
+  const outstandingInvoicesList = issuedInvoices.filter(i => {
+    const remainingDue = Number(i.amount_due ?? (Number(i.total || 0) - Number(i.amount_paid || 0)))
+    return ['sent', 'viewed', 'partially_paid', 'overdue'].includes(i.status) && remainingDue > 0
+  })
+  const outstandingReceivables = Math.round(
+    outstandingInvoicesList.reduce((sum, i) => {
+      const remainingDue = Number(i.amount_due ?? (Number(i.total || 0) - Number(i.amount_paid || 0)))
+      return sum + remainingDue
+    }, 0) * 100
+  ) / 100
+  const outstandingInvoicesCount = outstandingInvoicesList.length
+
+  // Collected revenue strictly comes from successfully recorded payments
   const collectedAmount = Math.round(
     ((payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0)) * 100
   ) / 100
 
   const collectionRate = invoicedAmount > 0 ? Math.round((collectedAmount / invoicedAmount) * 100) : 0
+  const averageJobTicket = totalBookings > 0 ? Math.round(invoicedAmount / totalBookings) : (totalInvoicesCount > 0 ? Math.round(invoicedAmount / totalInvoicesCount) : 0)
 
   // Process 5: Repeat Bookings
   const allJobs = (rawJobs || []).filter(j => !j.deleted_at)
@@ -676,17 +731,29 @@ export async function getOutcomeMetrics(
     },
     quoteConversion: {
       acceptedCount,
+      declinedCount,
+      expiredCount,
+      pendingCount,
+      draftCount,
+      totalSentCount,
       totalResolvedCount,
       conversionRate,
       acceptedValue,
-      totalSentValue
+      totalSentValue,
+      pendingValue,
+      averageQuoteSize
     },
     paymentCollection: {
       collectedAmount,
       invoicedAmount,
       collectionRate,
       paidInvoicesCount,
-      totalInvoicesCount
+      totalInvoicesCount,
+      outstandingReceivables,
+      outstandingInvoicesCount,
+      draftInvoicesCount,
+      draftInvoicesAmount,
+      averageJobTicket
     },
     repeatBookings: {
       repeatBookingsCount,
@@ -1040,7 +1107,7 @@ export async function getDashboardOverview(
   const [attentionQueue, operations, outcomes, jobsToday, upcomingJobs, recentCalls] = await Promise.all([
     getAttentionQueue(supabase, orgId),
     getOperationalMetrics(supabase, orgId, timeRange, resolvedTz),
-    getOutcomeMetrics(supabase, orgId, timeRange),
+    getOutcomeMetrics(supabase, orgId, timeRange, resolvedTz),
     getJobsToday(supabase, orgId, resolvedTz),
     getUpcomingJobs(supabase, orgId, 5, resolvedTz),
     getRecentCalls(supabase, orgId, 5)
