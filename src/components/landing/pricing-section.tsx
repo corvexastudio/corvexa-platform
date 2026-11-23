@@ -173,7 +173,7 @@ export function PricingSection({ onOpenClaim }: { onOpenClaim: () => void }) {
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Live GPS arrival tracking texted to homeowners</span>
+                <span>Live arrival tracking texted to homeowners</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />

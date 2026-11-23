@@ -152,7 +152,7 @@ export function ProUpgradeModal({
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>1-Click Live &apos;On My Way&apos; Tracker:</strong> Send ETA tracker links with real-time Domino&apos;s-style GPS</span>
+                <span><strong>1-Click Live &apos;On My Way&apos; Tracker:</strong> Send ETA tracker links with real-time Domino&apos;s-style milestone updates</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
@@ -179,7 +179,7 @@ export function ProUpgradeModal({
               ) : (
                 <>
                   <Zap className="w-4 h-4 mr-1.5 fill-current" />
-                  <span>⚡ Upgrade to Solo Pro — $99/mo</span>
+                  <span>⚡ Upgrade to Solo Pro - $99/mo</span>
                 </>
               )}
             </Button>
@@ -243,12 +243,12 @@ export function ProUpgradeModal({
               ) : isCurrentlySolo ? (
                 <>
                   <Truck className="w-4 h-4 mr-1.5" />
-                  <span>🚀 Upgrade to Fleet — +$100/mo (Prorated)</span>
+                  <span>🚀 Upgrade to Fleet - +$100/mo (Prorated)</span>
                 </>
               ) : (
                 <>
                   <Truck className="w-4 h-4 mr-1.5" />
-                  <span>🚀 Upgrade to Team &amp; Fleet Pro — $199/mo</span>
+                  <span>🚀 Upgrade to Team &amp; Fleet Pro - $199/mo</span>
                 </>
               )}
             </Button>

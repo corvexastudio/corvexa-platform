@@ -403,7 +403,7 @@ export function InteractiveJourneyDemo({ onOpenClaim }: { onOpenClaim: () => voi
 
                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-900 flex items-center gap-2">
                   <Navigation className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Live GPS updates every 30 seconds as technician approaches</span>
+                  <span>Live arrival updates and ETA as technician approaches</span>
                 </div>
               </div>
             </div>

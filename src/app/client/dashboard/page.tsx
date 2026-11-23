@@ -276,7 +276,7 @@ export default function DashboardPage() {
       if (res.ok && result.success) {
         toast.success(
           notifyCustomer
-            ? `On my way! Customer texted live GPS tracking with ~${etaMinutes}m ETA.`
+            ? `On my way! Customer texted live tracking with ~${etaMinutes}m ETA.`
             : 'Marked En Route.'
         )
         await refetch()

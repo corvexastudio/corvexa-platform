@@ -281,7 +281,7 @@ export function HeroSection({ onOpenClaim }: HeroSectionProps) {
               <ArrowRight className="w-3.5 h-3.5 text-slate-600" />
               <span>2. Crew Dispatched</span>
               <ArrowRight className="w-3.5 h-3.5 text-slate-600" />
-              <span className="text-emerald-400 font-bold">3. Live GPS Arrival</span>
+              <span className="text-emerald-400 font-bold">3. Live Arrival Tracking</span>
             </div>
           </div>
 
@@ -384,7 +384,7 @@ export function HeroSection({ onOpenClaim }: HeroSectionProps) {
                 <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <Navigation className="w-4 h-4 text-emerald-400" />
-                    <span className="text-slate-300">Live GPS Tracker:</span>
+                    <span className="text-slate-300">Live Arrival Tracker:</span>
                   </div>
                   <span className="font-mono text-emerald-400 font-bold">
                     ETA {activeTrade.eta} Minutes
@@ -397,7 +397,7 @@ export function HeroSection({ onOpenClaim }: HeroSectionProps) {
                 <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/50">
                   <span className="text-[10px] font-mono text-blue-400 uppercase block font-bold">1. Tap When Leaving</span>
                   <p className="font-bold text-white mt-0.5">&quot;On My Way&quot;</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Texts live GPS link</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Texts live tracking link</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/50">
                   <span className="text-[10px] font-mono text-emerald-400 uppercase block font-bold">2. Tap When Finished</span>

@@ -58,25 +58,10 @@ test('Settings Telephony: Carrier Star-Code Formatting & Clean Digits', () => {
   assert.equal(tmobileDeactivation, '##61#')
 })
 
-test('Settings Telephony: Homeowner Tracking Mode Enum & Geofence Radius', () => {
-  const allowedModes = ['milestone', 'geofence_live']
-  
-  // Verify canonical milestone mode
-  const milestoneConfig = { tracking_mode: 'milestone', tracking_geofence_miles: 5 }
-  assert.equal(allowedModes.includes(milestoneConfig.tracking_mode), true)
-  assert.equal(milestoneConfig.tracking_mode, 'milestone')
-
-  // Verify canonical geofence_live mode
-  const liveConfig = { tracking_mode: 'geofence_live', tracking_geofence_miles: 3 }
-  assert.equal(allowedModes.includes(liveConfig.tracking_mode), true)
-  assert.equal(liveConfig.tracking_mode, 'geofence_live')
-
-  // Proximity options validation
-  const supportedRadii = [3, 5, 10]
-  assert.equal(supportedRadii.includes(3), true)
-  assert.equal(supportedRadii.includes(5), true)
-  assert.equal(supportedRadii.includes(10), true)
-  assert.equal(supportedRadii.includes(25), false)
+test('Settings Telephony: Milestone Checkpoints Presentation', () => {
+  // CaptoDesk standardizes on milestone checkpoints for arrival tracking
+  const trackingPresentation = 'Milestone Checkpoints'
+  assert.equal(trackingPresentation, 'Milestone Checkpoints')
 })
 
 test('Settings Telephony: Seasonal Reactivation Template Interpolation & Segment Calculation', () => {

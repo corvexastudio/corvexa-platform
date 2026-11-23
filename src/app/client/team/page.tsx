@@ -1673,7 +1673,7 @@ export default function TeamPage() {
                     </div>
                     <div className="flex items-start gap-1.5">
                       <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span><strong>Turn-by-Turn GPS:</strong> 1-click Google Maps navigation to job site.</span>
+                      <span><strong>Turn-by-Turn Navigation:</strong> 1-click Google Maps navigation to job site.</span>
                     </div>
                     <div className="flex items-start gap-1.5">
                       <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />

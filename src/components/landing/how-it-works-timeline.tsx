@@ -36,10 +36,10 @@ export function HowItWorksTimeline() {
     },
     {
       number: '04',
-      title: 'Live GPS Arrival & Driveway Payout',
+      title: 'Live Arrival Tracking & Driveway Payout',
       subtitle: 'Real-time ETA and Apple Pay checkout',
       description:
-        'Tap On My Way to send the customer a live GPS arrival tracking link with an accurate ETA. When the job is done, collect payment via Apple Pay or card right from the driveway.',
+        'Tap On My Way to send the customer a live arrival tracking link with an accurate ETA. When the job is done, collect payment via Apple Pay or card right from the driveway.',
       icon: Navigation,
       viewLabel: 'Live Tracking Experience',
       detailSnippet: 'Real-time ETA, technician photo, driveway Apple Pay'

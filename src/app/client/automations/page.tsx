@@ -1426,7 +1426,7 @@ export default function AutomationsPage() {
                 </div>
                 <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Touchpoint 3</span>
-                  <span className="font-bold text-slate-800 dark:text-zinc-200 block mt-0.5">En Route GPS Alert</span>
+                  <span className="font-bold text-slate-800 dark:text-zinc-200 block mt-0.5">En Route Arrival Alert</span>
                   <span className="text-[11px] text-slate-500">Dispatches live technician ETA</span>
                 </div>
               </div>
@@ -2256,7 +2256,7 @@ export default function AutomationsPage() {
                 </span>
                 <p className="text-slate-600 dark:text-zinc-300">
                   {configuringWorkflow === 'reminder'
-                    ? 'Appointment reminders are an essential operational service dispatched automatically across 3 stages: instant booking SMS, 24 hours prior, and 2 hours en-route GPS alert.'
+                    ? 'Appointment reminders are an essential operational service dispatched automatically across 3 stages: instant booking SMS, 24 hours prior, and en-route arrival alert.'
                     : configuringWorkflow === 'estimate'
                     ? 'Estimate reminders are dispatched automatically at 48 hours and 5 days post-quote generation until the homeowner approves or declines.'
                     : 'Win-back reactivation texts engage past customers based on their specific service frequency (90, 180, or 365 days) configured in their customer profile.'}

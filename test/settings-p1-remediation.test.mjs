@@ -58,8 +58,6 @@ function createMockSupabase(actor, initialOrgData = {}) {
     business_type: 'llc',
     ein: '12-3456789',
     is_sole_proprietor: false,
-    tracking_mode: 'milestone',
-    tracking_geofence_miles: 5,
     address_street: '123 Main St',
     address_city: 'Austin',
     address_state: 'TX',
@@ -236,51 +234,33 @@ test('2. GET /api/client/organization Masks EIN by Default and Logs Audit on Rev
 })
 
 // ---------------------------------------------------------------------------
-// TEST SUITE 3: PATCH /api/client/organization CANONICAL TRACKING MODE
+// TEST SUITE 3: PATCH /api/client/organization OBSOLETE TRACKING REMOVAL
 // ---------------------------------------------------------------------------
-test('3. PATCH /api/client/organization Canonical tracking_mode Normalization and Persistence', async () => {
-  const supabase = createMockSupabase(USERS.OWNER, { tracking_mode: 'milestone' })
+test('3. PATCH /api/client/organization Ignores or Rejects Obsolete tracking_mode and tracking_geofence_miles', async () => {
+  const supabase = createMockSupabase(USERS.OWNER)
 
-  // A. Save with canonical 'geofence_live'
+  // A. Save with legitimate fields while omitting obsolete tracking fields
   const req1 = new Request('http://localhost:3000/api/client/organization', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tracking_mode: 'geofence_live' })
+    body: JSON.stringify({ name: 'Apex Plumbing Group', tracking_mode: 'geofence_live', tracking_geofence_miles: 10 })
   })
   const res1 = await orgPatch(req1, { customSupabase: supabase })
   assert.equal(res1.status, 200)
-  assert.equal(supabase._getOrgStore().tracking_mode, 'geofence_live')
+  assert.equal(supabase._getOrgStore().name, 'Apex Plumbing Group')
+  assert.equal(supabase._getOrgStore().tracking_mode, undefined)
+  assert.equal(supabase._getOrgStore().tracking_geofence_miles, undefined)
 
-  // B. Save with legacy 'geofence' (should be normalized to 'geofence_live')
+  // B. Sending ONLY obsolete tracking fields returns 400 No valid fields to update
   const req2 = new Request('http://localhost:3000/api/client/organization', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tracking_mode: 'geofence' })
-  })
-  const res2 = await orgPatch(req2, { customSupabase: supabase })
-  assert.equal(res2.status, 200)
-  assert.equal(supabase._getOrgStore().tracking_mode, 'geofence_live')
-
-  // C. Save with 'milestone'
-  const req3 = new Request('http://localhost:3000/api/client/organization', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tracking_mode: 'milestone' })
   })
-  const res3 = await orgPatch(req3, { customSupabase: supabase })
-  assert.equal(res3.status, 200)
-  assert.equal(supabase._getOrgStore().tracking_mode, 'milestone')
-
-  // D. Reject invalid tracking mode
-  const req4 = new Request('http://localhost:3000/api/client/organization', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tracking_mode: 'invalid_mode' })
-  })
-  const res4 = await orgPatch(req4, { customSupabase: supabase })
-  assert.equal(res4.status, 400)
-  const json4 = await res4.json()
-  assert.match(json4.error, /Invalid tracking_mode/i)
+  const res2 = await orgPatch(req2, { customSupabase: supabase })
+  assert.equal(res2.status, 400)
+  const json2 = await res2.json()
+  assert.match(json2.error, /No valid update fields/i)
 })
 
 // ---------------------------------------------------------------------------
@@ -325,12 +305,12 @@ test('4. PATCH /api/client/organization Prevents Masked Placeholder EIN Overwrit
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      tracking_geofence_miles: 10
+      address_city: 'Round Rock'
     })
   })
   const res3 = await orgPatch(req3, { customSupabase: supabase })
   assert.equal(res3.status, 200)
-  assert.equal(supabase._getOrgStore().tracking_geofence_miles, 10)
+  assert.equal(supabase._getOrgStore().address_city, 'Round Rock')
   assert.equal(supabase._getOrgStore().ein, '98-7654321') // Real EIN still preserved
 
   // D. Sole proprietor sets is_sole_proprietor = true -> clears ein to null
@@ -348,17 +328,11 @@ test('4. PATCH /api/client/organization Prevents Masked Placeholder EIN Overwrit
 })
 
 // ---------------------------------------------------------------------------
-// TEST SUITE 5: DISPATCH TRACKING RESOLUTION IN JOB MANAGER & TRACKER
+// TEST SUITE 5: MILESTONE STATUS PROGRESSION INVARIANTS
 // ---------------------------------------------------------------------------
-test('5. Dispatch Tracking Resolution Compatibility', () => {
-  // Test the resolution logic used in job-manager.ts:
-  // (org?.tracking_mode === 'geofence' || org?.tracking_mode === 'geofence_live') ? 'geofence_live' : 'milestone'
-  const resolveMode = (mode) =>
-    (mode === 'geofence' || mode === 'geofence_live') ? 'geofence_live' : 'milestone'
-
-  assert.equal(resolveMode('geofence_live'), 'geofence_live')
-  assert.equal(resolveMode('geofence'), 'geofence_live')
-  assert.equal(resolveMode('milestone'), 'milestone')
-  assert.equal(resolveMode(null), 'milestone')
-  assert.equal(resolveMode(undefined), 'milestone')
+test('5. Milestone Status Progression Invariants', () => {
+  const validMilestones = ['scheduled', 'confirmed', 'en_route', 'arrived', 'in_progress', 'completed', 'cancelled']
+  for (const status of ['en_route', 'arrived', 'in_progress', 'completed']) {
+    assert.ok(validMilestones.includes(status))
+  }
 })

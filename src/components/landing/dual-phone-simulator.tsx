@@ -100,8 +100,8 @@ export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }
           {
             stage: 2 as DemoStage,
             number: '02',
-            title: 'Live GPS Arrival Map',
-            desc: 'Real-time truck location texted to homeowner',
+            title: 'Live Arrival Tracker',
+            desc: 'Real-time arrival ETA and milestones texted to homeowner',
             icon: Navigation,
             color: 'text-blue-500'
           },
@@ -204,7 +204,7 @@ export function DualPhoneSimulator({ onOpenClaim }: { onOpenClaim?: () => void }
 
                   <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
                     <span className="text-[10px] text-slate-400 block mb-1 uppercase font-mono">Automated Route Sync</span>
-                    <p className="text-slate-200 text-xs">Auto-assigned to your truck schedule with 1-tap GPS directions.</p>
+                    <p className="text-slate-200 text-xs">Auto-assigned to your truck schedule with 1-tap map directions.</p>
                   </div>
 
                   <div className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-600/25 flex items-center justify-center gap-1.5">

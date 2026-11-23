@@ -378,7 +378,7 @@ export function TradeDemoShowcase({ onOpenClaim }: { onOpenClaim?: () => void })
                     <span>Active Dispatch &bull; Lead Locked in 5s</span>
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">
-                    GPS TRACKING READY
+                    LIVE TRACKING READY
                   </span>
                 </div>
 
@@ -386,7 +386,7 @@ export function TradeDemoShowcase({ onOpenClaim }: { onOpenClaim?: () => void })
                   <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-[10px] uppercase text-slate-400 block font-mono">1. Tap When Rolling</span>
                     <span className="font-bold text-blue-600">&quot;On My Way&quot;</span>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Texts homeowner live GPS map</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Texts homeowner live tracking link</p>
                   </div>
                   <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-[10px] uppercase text-slate-400 block font-mono">2. Tap When Finished</span>

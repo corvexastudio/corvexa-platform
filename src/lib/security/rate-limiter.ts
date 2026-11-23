@@ -48,7 +48,21 @@ export const RATE_LIMITS = {
   ONBOARDING: { max: 10, windowMs: 60 * 1000 },        // 10 signups/min per IP
   TEAM_INVITE: { max: 10, windowMs: 60 * 1000 },       // 10 invites/min per tenant
   BOOKING_SUBMIT: { max: 10, windowMs: 60 * 1000 },    // 10 booking requests/min per IP
+  TRACKING_VIEW: { max: 60, windowMs: 60 * 1000 },     // 60 tracking views/min per IP
+  TRACKING_FEEDBACK: { max: 10, windowMs: 60 * 1000 }, // 10 feedback submissions/min per IP
+  MANAGE_VIEW: { max: 30, windowMs: 60 * 1000 },       // 30 manage views/min per IP
+  MANAGE_ACTION: { max: 10, windowMs: 60 * 1000 },     // 10 manage actions/min per IP (reschedule, cancel)
+  MANAGE_ICS: { max: 30, windowMs: 60 * 1000 },        // 30 ics downloads/min per IP
   DEFAULT_API: { max: 100, windowMs: 60 * 1000 }       // 100 req/min general limit
+}
+
+/**
+ * Standard HTTP Cache-Control headers for customer private data endpoints
+ */
+export const PRIVATE_CACHE_HEADERS: Record<string, string> = {
+  'Cache-Control': 'private, no-store, must-revalidate',
+  Pragma: 'no-cache',
+  Vary: 'Cookie, Origin'
 }
 
 /**

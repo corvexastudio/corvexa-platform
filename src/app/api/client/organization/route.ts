@@ -82,8 +82,6 @@ export async function GET(request?: Request, context?: OrganizationRouteContext)
       payment_instructions,
       waive_setup_fee,
       license_number,
-      tracking_mode,
-      tracking_geofence_miles,
       logo_url,
       created_at
     `)
@@ -508,26 +506,6 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       allowedUpdates.license_number = null
     }
 
-    // Customer Tracking Presentation Mode (Domino's milestone vs geofence live)
-    if (typeof body.tracking_mode === 'string') {
-      const normTracking = body.tracking_mode === 'geofence' ? 'geofence_live' : body.tracking_mode.trim()
-      if (['milestone', 'geofence_live'].includes(normTracking)) {
-        allowedUpdates.tracking_mode = normTracking
-      } else {
-        return NextResponse.json(
-          { error: `Invalid tracking_mode: '${body.tracking_mode}'. Must be 'milestone' or 'geofence_live'.` },
-          { status: 400 }
-        )
-      }
-    }
-
-    if (typeof body.tracking_geofence_miles !== 'undefined') {
-      const val = parseFloat(String(body.tracking_geofence_miles))
-      if (!isNaN(val) && val > 0 && val <= 50) {
-        allowedUpdates.tracking_geofence_miles = val
-      }
-    }
-
     // Brand Logo URL (custom contractor identity across invoices, tracker, and booking)
     if (typeof body.logo_url === 'string') {
       allowedUpdates.logo_url = body.logo_url.trim() || null
@@ -567,8 +545,6 @@ export async function PATCH(request: Request, context?: OrganizationRouteContext
       if (updateError.message?.toLowerCase().includes('external_payment_url')) delete sanitizedUpdates.external_payment_url
       if (updateError.message?.toLowerCase().includes('payment_instructions')) delete sanitizedUpdates.payment_instructions
       if (updateError.message?.toLowerCase().includes('license_number')) delete sanitizedUpdates.license_number
-      if (updateError.message?.toLowerCase().includes('tracking_mode')) delete sanitizedUpdates.tracking_mode
-      if (updateError.message?.toLowerCase().includes('tracking_geofence_miles')) delete sanitizedUpdates.tracking_geofence_miles
       
       const retryRes = await supabase
         .from('organizations')

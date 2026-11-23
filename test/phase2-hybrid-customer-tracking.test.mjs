@@ -61,32 +61,16 @@ test('PHASE 2: Domino\'s 5-Stage Smart Milestone Progression', async (t) => {
   })
 })
 
-test('PHASE 2: Contractor Privacy Mode & Geofence Settings', async (t) => {
-  await t.test('defaults to milestone mode (Mode A) for 100% contractor privacy', () => {
+test('PHASE 2: Contractor Milestone Tracking (GPS and Geofence Removed)', async (t) => {
+  await t.test('standardizes on milestone tracking for 100% contractor privacy and accuracy', () => {
     const org = {
       id: 'org-test-1',
-      name: 'Apex Plumbing',
-      tracking_mode: undefined,
-      tracking_geofence_miles: undefined
+      name: 'Apex Plumbing'
     }
 
-    const resolvedMode = org.tracking_mode || 'milestone'
-    const resolvedMiles = org.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5
-
-    assert.equal(resolvedMode, 'milestone')
-    assert.equal(resolvedMiles, 5)
-  })
-
-  await t.test('supports geofence_live (Mode B) with custom radius', () => {
-    const org = {
-      id: 'org-test-2',
-      name: 'Volt Masters Electric',
-      tracking_mode: 'geofence_live',
-      tracking_geofence_miles: 3
-    }
-
-    assert.equal(org.tracking_mode, 'geofence_live')
-    assert.equal(org.tracking_geofence_miles, 3)
+    // Vehicle tracking and geofence columns have been removed
+    assert.equal(org.tracking_mode, undefined)
+    assert.equal(org.tracking_geofence_miles, undefined)
   })
 })
 

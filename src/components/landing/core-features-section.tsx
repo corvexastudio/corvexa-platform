@@ -201,7 +201,7 @@ export function CoreFeaturesSection() {
               <span className="text-blue-600 font-mono">Job #1042</span>
             </div>
             <p className="text-slate-600">
-              Shows: Assigned customer address, service notes, and 1-tap GPS directions.
+              Shows: Assigned customer address, service notes, and 1-tap map directions.
             </p>
             <div className="pt-2 text-[11px] text-slate-500 space-y-1">
               <p className="flex items-center gap-1.5 text-emerald-700 font-semibold">
@@ -230,7 +230,7 @@ export function CoreFeaturesSection() {
             Restricted Technician Field Mode
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            As your business grows from 1 to 5 trucks, giving technicians full admin access to your software is a security risk. CaptoDesk gives technicians a streamlined mobile login that displays their daily schedule and GPS navigation while keeping company financials and master client lists strictly private.
+            As your business grows from 1 to 5 trucks, giving technicians full admin access to your software is a security risk. CaptoDesk gives technicians a streamlined mobile login that displays their daily schedule and map navigation while keeping company financials and master client lists strictly private.
           </p>
           <ul className="space-y-2 text-xs text-slate-700 font-medium pt-2">
             <li className="flex items-center gap-2">

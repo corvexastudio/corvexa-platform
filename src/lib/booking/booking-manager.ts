@@ -371,7 +371,39 @@ export async function createBooking(
     ? `https://book.captodesk.com/manage/${manageToken}`
     : `${appBaseUrl}/book/manage/${manageToken}`
 
-  // 8. Insert Appointment with source attribution
+  // 8. Construct Historical Booking Snapshot & Insert Appointment
+  const { parseServicePricing } = await import('../services/service-pricing.ts')
+  const activePricing = parseServicePricing(activeService.price, activeService.description)
+  const addOnsTotal = authoritativeAddOns.reduce((sum, a) => sum + (Number(a.price) || 0), 0)
+  const priorityFeeNum = input.isPriority ? Number(input.priorityFee || 0) : 0
+  const baseServicePrice = Number(activeService.price) || 0
+  const bookingEstimatedTotal = Math.round((baseServicePrice + addOnsTotal + priorityFeeNum) * 100) / 100
+
+  const bookingSnapshot = {
+    service: {
+      id: activeService.id,
+      name: activeService.name,
+      description: activeService.description || null,
+      durationMinutes: baseDurationMinutes,
+      price: activeService.price ?? null,
+      pricingModel: activePricing.model
+    },
+    addOns: authoritativeAddOns.map(a => ({
+      id: a.id,
+      name: a.name,
+      price: Number(a.price) || 0,
+      durationMinutes: Number(a.duration_minutes) || 0
+    })),
+    pricingSummary: {
+      model: activePricing.model,
+      basePrice: baseServicePrice,
+      addOnsTotal,
+      priorityFee: priorityFeeNum,
+      totalEstimate: bookingEstimatedTotal
+    },
+    bookedAt: new Date().toISOString()
+  }
+
   let effectiveNotes = notes || null
   if (input.referralCode) {
     const cleanRef = input.referralCode.trim().toLowerCase()
@@ -390,7 +422,8 @@ export async function createBooking(
     source: effectiveSource,
     manage_token: manageToken,
     notes: effectiveNotes,
-    confirmed_at: isInstant ? new Date().toISOString() : null
+    confirmed_at: isInstant ? new Date().toISOString() : null,
+    booking_snapshot: bookingSnapshot
   }
 
   if (input.photos && input.photos.length > 0) {
@@ -403,9 +436,10 @@ export async function createBooking(
     .select('*')
     .single()
 
-  // Graceful fallback if intake_photos column does not exist in older remote schema
+  // Graceful fallback if intake_photos or booking_snapshot columns do not exist in older remote schema
   if (aptError && (aptError.code === '42703' || aptError.message?.toLowerCase().includes('does not exist'))) {
     delete appointmentPayload.intake_photos
+    delete appointmentPayload.booking_snapshot
     const retryRes = await supabase
       .from('appointments')
       .insert(appointmentPayload)
@@ -1020,6 +1054,38 @@ export async function customerCancelBooking(
     }
   }
 
+  // Cancellation Cutoff Guard: Block online cancellation within cancellation_notice_hours (default 2 hours) of arrival window
+  let org = Array.isArray(apt.organization) ? apt.organization[0] : apt.organization
+  if (!org && apt.org_id) {
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('name, slug, telnyx_phone_number, owner_phone, cancellation_notice_hours')
+      .eq('id', apt.org_id)
+      .maybeSingle()
+    if (orgData) org = orgData
+  }
+  const rawNotice = org?.cancellation_notice_hours
+  const cancellationNoticeHours = rawNotice !== undefined && rawNotice !== null
+    ? Number(rawNotice)
+    : 2
+
+  if (cancellationNoticeHours > 0 && apt.start_time) {
+    const startMs = new Date(apt.start_time).getTime()
+    const noticeMs = cancellationNoticeHours * 60 * 60 * 1000
+    const cutoffMs = startMs - noticeMs
+    const nowMs = Date.now()
+
+    if (nowMs > cutoffMs && nowMs < startMs + 24 * 60 * 60 * 1000) {
+      const hoursLabel = cancellationNoticeHours === 1 ? '1 hour' : `${cancellationNoticeHours} hours`
+      const businessPhone = org?.telnyx_phone_number || org?.owner_phone || ''
+      const phoneSnippet = businessPhone ? ` at ${businessPhone}` : ''
+      return {
+        success: false,
+        error: `Because this appointment is scheduled within the next ${hoursLabel}, online cancellation is paused so dispatch can coordinate field crews. To adjust or cancel your visit, please call ${org?.name || 'us'}${phoneSnippet} directly.`
+      }
+    }
+  }
+
   // P0 Guard: If payment or deposit has already been processed, require direct office contact for cancellation/refund
   if (linkedCancelJob?.id) {
     let invQuery: any = supabase
@@ -1095,7 +1161,6 @@ export async function customerCancelBooking(
   )
 
   // 3. Send cancellation SMS to customer
-  let org = apt.organization
   if (!org) {
     const { data: orgData } = await supabase
       .from('organizations')
@@ -1235,6 +1300,15 @@ export async function customerRescheduleBooking(
       .eq('id', apt.org_id)
       .maybeSingle()
     org = orgData
+  }
+
+  // Canonical subscription status guard: suspended/canceled accounts cannot accept reschedules
+  const subStatus = (org?.subscription_status || '').trim().toLowerCase()
+  if (['suspended', 'canceled', 'cancelled', 'churned'].includes(subStatus)) {
+    return {
+      success: false,
+      error: 'This business is currently unavailable for appointment scheduling. Please contact the business directly.'
+    }
   }
 
   let contact = apt.contact

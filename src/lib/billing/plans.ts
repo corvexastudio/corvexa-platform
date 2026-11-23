@@ -105,7 +105,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
       'Full unmasked customer contact info',
       'Calendar & Job scheduling',
       'Customer CRM & Service catalog',
-      'Mobile field portal with GPS navigation',
+      'Mobile field portal with map navigation',
       'Before & After job photos',
       'Digital invoicing & on-site card checkout',
       'Automated 5-star Google review booster',
@@ -128,7 +128,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
       'Dedicated Telnyx business phone number (10DLC verified)',
       'Instant Auto-Reply (Under 5 Seconds) text-back',
       'Public booking page & customer self-scheduling',
-      'Mobile Field Portal (GPS navigation & job photos)',
+      'Mobile Field Portal (map navigation & job photos)',
       '1-tap mobile card & Apple Pay on-site invoicing',
       'Live Domino\'s tracking links (/t/[token])',
       'Automated 5-star Google review booster & shield'
@@ -151,7 +151,7 @@ export const SAAS_PLANS: Record<string, SaasPlan> = {
       'Dedicated Telnyx business phone number (10DLC verified)',
       'Instant Auto-Reply (Under 5 Seconds) text-back',
       'Public booking page & customer self-scheduling',
-      'Mobile Field Portal (GPS navigation & job photos)',
+      'Mobile Field Portal (map navigation & job photos)',
       '1-tap mobile card & Apple Pay on-site invoicing',
       'Live Domino\'s tracking links (/t/[token])',
       'Automated 5-star Google review booster & shield'

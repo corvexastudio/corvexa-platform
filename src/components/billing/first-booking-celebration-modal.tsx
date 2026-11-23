@@ -192,7 +192,7 @@ export function FirstBookingCelebrationModal({
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <span><strong>1-Click Live &apos;On My Way&apos; Tracker:</strong> Real-time Domino&apos;s-style GPS link for arriving at job sites</span>
+              <span><strong>1-Click Live &apos;On My Way&apos; Tracker:</strong> Real-time Domino&apos;s-style milestone link for arriving at job sites</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />

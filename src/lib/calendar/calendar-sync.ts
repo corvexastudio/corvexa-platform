@@ -73,7 +73,8 @@ export function generateIcsContent(event: CalendarEventPayload): string {
       .replace(/\\/g, '\\\\')
       .replace(/;/g, '\\;')
       .replace(/,/g, '\\,')
-      .replace(/\n/g, '\\n')
+      .replace(/\r\n/g, '\\n')
+      .replace(/[\r\n]/g, '\\n')
 
   return [
     'BEGIN:VCALENDAR',

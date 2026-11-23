@@ -115,7 +115,7 @@ function LoginContent() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#FAFAFB] text-slate-900 font-[var(--font-sans)] antialiased">
 
-      {/* ── Left panel — brand showcase (hidden on small mobile, visible on desktop) ── */}
+      {/* Left panel: brand showcase (hidden on small mobile, visible on desktop) */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-gradient-to-br from-[#070D1E] via-[#0B1528] to-[#050B17] text-white p-12 lg:p-16 relative overflow-hidden">
         {/* Ambient glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -139,7 +139,7 @@ function LoginContent() {
           </h1>
 
           <p className="text-slate-300 text-base lg:text-lg leading-relaxed">
-            Your 24/7 online booking link, live GPS arrival texts, and driveway Apple Pay checkout in 2 minutes.
+            Your 24/7 online booking link, live arrival ETA texts, and driveway Apple Pay checkout in 2 minutes.
           </p>
 
           <div className="space-y-3 pt-2 text-sm text-slate-200">
@@ -176,7 +176,7 @@ function LoginContent() {
         </div>
       </div>
 
-      {/* ── Right panel — Form ── */}
+      {/* Right panel: Form */}
       <div className="flex flex-1 flex-col justify-between p-6 sm:p-12 lg:p-16 min-h-screen">
         {/* Top bar for mobile */}
         <div className="flex items-center justify-between lg:hidden mb-8">

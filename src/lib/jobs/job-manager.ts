@@ -1146,17 +1146,20 @@ export async function customerViewJobTracking(
       org_id,
       contact_id,
       service_id,
+      quote_id,
       assigned_to,
       organizations (
         id,
         name,
+        slug,
+        industry,
         telnyx_phone_number,
         owner_phone,
         google_review_url,
         license_number,
-        tracking_mode,
-        tracking_geofence_miles,
-        timezone
+        timezone,
+        logo_url,
+        subscription_status
       ),
       contacts (
         id,
@@ -1197,6 +1200,7 @@ export async function customerViewJobTracking(
         org_id,
         contact_id,
         service_id,
+        quote_id,
         assigned_to,
         organizations (
           id,
@@ -1204,7 +1208,8 @@ export async function customerViewJobTracking(
           telnyx_phone_number,
           owner_phone,
           google_review_url,
-          timezone
+          timezone,
+          subscription_status
         ),
         contacts (
           id,
@@ -1229,16 +1234,13 @@ export async function customerViewJobTracking(
     return { success: false, error: 'Job tracking link not found or expired' }
   }
 
-  // 2. Lookup any associated invoice for this job or contact
-  const { data: invoice } = await supabase
-    .from('invoices')
-    .select('id, invoice_number, title, total, amount_paid, amount_due, status, manage_token')
-    .eq('org_id', job.org_id)
-    .or(`job_id.eq.${job.id},contact_id.eq.${job.contact_id}`)
-    .in('status', ['sent', 'viewed', 'partially_paid', 'paid'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // 2. Reconcile authoritative customer-facing financials and refund ledger
+  const { resolveCustomerJobFinancials } = await import('../payments/customer-financials.ts')
+  const invoice = await resolveCustomerJobFinancials(supabase, {
+    orgId: job.org_id,
+    jobId: job.id,
+    quoteId: (job as any).quote_id
+  })
 
   // 3. Review Link Resolution
   const org = (job as any).organizations
@@ -1282,24 +1284,47 @@ export async function customerViewJobTracking(
   }
 
   // 6. Assigned Crew Resolution
-  let crewInfo: { name: string; colorCode: string; phoneNumber?: string | null } | null = null
+  let crewInfo: { name: string; colorCode: string } | null = null
   if ((job as any).crew_id) {
     try {
       const { data: crewData } = await supabase
         .from('crews')
-        .select('name, color_code, phone_number')
+        .select('name, color_code')
         .eq('id', (job as any).crew_id)
         .maybeSingle()
       if (crewData) {
         crewInfo = {
           name: crewData.name,
-          colorCode: crewData.color_code || '#3B82F6',
-          phoneNumber: crewData.phone_number || null
+          colorCode: crewData.color_code || '#3B82F6'
         }
       }
     } catch {
       // Non-fatal if crews table is not yet migrated
     }
+  }
+
+  // Sanitize customer-facing notes: exclude internal codes, pins, lockboxes, or practice markers
+  const sanitizeNotes = (rawNotes?: string | null): string | null => {
+    if (!rawNotes) return null
+    const lines = rawNotes.split('\n')
+    const safeLines = lines.filter((line) => {
+      const lower = line.toLowerCase()
+      if (
+        lower.includes('gate code') ||
+        lower.includes('lockbox') ||
+        lower.includes('code:') ||
+        lower.includes('pin:') ||
+        lower.includes('internal:') ||
+        lower.includes('staff:') ||
+        lower.includes('sandbox_practice_job') ||
+        lower.includes('auto-scheduled by')
+      ) {
+        return false
+      }
+      return true
+    })
+    const cleaned = safeLines.join('\n').trim()
+    return cleaned.length > 0 ? cleaned : null
   }
 
   return {
@@ -1318,18 +1343,18 @@ export async function customerViewJobTracking(
       completedAt: job.completed_at,
       technicianName: job.technician_name,
       etaMinutes: job.eta_minutes,
-      notes: job.notes,
+      notes: sanitizeNotes(job.notes),
       trackingToken: job.tracking_token
     },
     crew: crewInfo,
     org: {
       id: org?.id,
       name: org?.name || 'Service Provider',
+      slug: org?.slug || null,
+      industry: org?.industry || null,
       phone: org?.telnyx_phone_number || org?.owner_phone || null,
       logoUrl: org?.logo_url || null,
       licenseNumber: org?.license_number || null,
-      trackingMode: (org?.tracking_mode === 'geofence' || org?.tracking_mode === 'geofence_live') ? 'geofence_live' : 'milestone',
-      trackingGeofenceMiles: org?.tracking_geofence_miles ? Number(org.tracking_geofence_miles) : 5,
       timezone: org?.timezone || 'America/Chicago'
     },
     contact: (job as any).contacts ? {
@@ -1342,12 +1367,19 @@ export async function customerViewJobTracking(
       price: (job as any).services.price
     } : null,
     invoice: invoice ? {
-      invoiceNumber: invoice.invoice_number,
-      total: Number(invoice.total),
-      amountPaid: Number(invoice.amount_paid),
-      amountDue: Number(invoice.amount_due),
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      title: invoice.title,
+      total: invoice.total,
+      amountPaid: invoice.amountPaid,
+      amountDue: invoice.amountDue,
       status: invoice.status,
-      manageToken: invoice.manage_token
+      financialStatus: invoice.financialStatus,
+      totalRefunded: invoice.totalRefunded,
+      receiptUrl: invoice.receiptUrl,
+      manageToken: invoice.manageToken,
+      paidAt: invoice.paidAt,
+      multipleInvoicesCount: invoice.multipleInvoicesCount
     } : null,
     reviewUrl,
     referral,

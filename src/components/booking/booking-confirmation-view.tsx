@@ -375,7 +375,7 @@ export function BookingConfirmationView({
                 Service Day Live Tracking
               </span>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                When the technician departs for your property, you will receive a real-time tracking link with live GPS map and exact arrival ETA.
+                When the technician departs for your property, you will receive a real-time arrival tracking link with live milestone updates and arrival ETA.
               </p>
             </div>
           </div>
@@ -408,7 +408,7 @@ export function BookingConfirmationView({
                 Live Technician Tracker
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                Real-time GPS arrival map on service day
+                Live arrival tracking and updates on service day
               </p>
             </div>
           </div>

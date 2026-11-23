@@ -785,7 +785,7 @@ function renderDashboardScreen(isMobile) {
           <div style="font-size: 12px; color: #64748b;">Assigned Tech: Dave Miller (Van 1)</div>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-secondary" onclick="alert('Simulated: Navigating to Apple Maps')">🗺️ Open GPS Maps</button>
+          <button class="btn btn-secondary" onclick="alert('Simulated: Navigating to Apple Maps')">🗺️ Open Maps</button>
           <button class="btn btn-primary" onclick="setScreen('field')">Open Field Portal &rarr;</button>
         </div>
       </div>

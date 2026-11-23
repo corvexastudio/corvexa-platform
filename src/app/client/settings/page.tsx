@@ -263,8 +263,6 @@ export default function SettingsPage() {
     weekly_digest_hour: 8,
     external_payment_url: '',
     payment_instructions: '',
-    tracking_mode: 'milestone' as 'milestone' | 'geofence_live',
-    tracking_geofence_miles: 5,
     reactivation_enabled: true,
     default_reactivation_interval_days: 90,
     reactivation_cooldown_days: 30,
@@ -504,7 +502,6 @@ export default function SettingsPage() {
           phone_provisioning_status: org.phone_provisioning_status || ''
         })
 
-        const loadedTrackingMode = (org.tracking_mode === 'geofence' || org.tracking_mode === 'geofence_live') ? 'geofence_live' : 'milestone'
         const loadedFormData = {
           name: org.name || '',
           slug: org.slug || '',
@@ -534,8 +531,6 @@ export default function SettingsPage() {
           weekly_digest_hour: org.weekly_digest_hour ?? 8,
           external_payment_url: org.external_payment_url || '',
           payment_instructions: org.payment_instructions || '',
-          tracking_mode: loadedTrackingMode as 'milestone' | 'geofence_live',
-          tracking_geofence_miles: org.tracking_geofence_miles || 5,
           reactivation_enabled: org.reactivation_enabled ?? true,
           default_reactivation_interval_days: org.default_reactivation_interval_days || 90,
           reactivation_cooldown_days: org.reactivation_cooldown_days || 30,
@@ -702,8 +697,6 @@ export default function SettingsPage() {
         logo_url: formData.logo_url || null,
         industry: formData.industry,
         license_number: formData.license_number,
-        tracking_mode: formData.tracking_mode,
-        tracking_geofence_miles: formData.tracking_geofence_miles,
         weekly_digest_enabled: formData.weekly_digest_enabled,
         weekly_digest_day_of_week: formData.weekly_digest_day_of_week,
         weekly_digest_hour: formData.weekly_digest_hour,
@@ -1220,13 +1213,8 @@ export default function SettingsPage() {
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                 {hasDedicatedLine ? formatPhoneNumber(formData.telnyx_phone_number) : 'Dedicated Line Inactive'}
               </span>
-              <span className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border",
-                formData.tracking_mode === 'geofence_live' 
-                  ? "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/40"
-                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700"
-              )}>
-                {formData.tracking_mode === 'geofence_live' ? 'Live Geofence Map' : 'Milestone Checkpoints'}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700">
+                Milestone Checkpoints
               </span>
             </div>
           </button>
@@ -1799,7 +1787,7 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1">Origin headquarters for service territory calculation and geofenced arrival radius.</p>
+                <p className="text-[10px] text-zinc-500 mt-1">Origin headquarters for service territory calculation and travel routing.</p>
               </div>
             </div>
           </div>
@@ -2492,7 +2480,7 @@ export default function SettingsPage() {
                             <div className={cn("space-y-2 pt-1", !expandedPlanFeatures['solo'] && "hidden lg:block")}>
                               <li className="flex items-center gap-2">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                <span>Mobile Field Portal with GPS routing</span>
+                                <span>Mobile Field Portal with map navigation</span>
                               </li>
                               <li className="flex items-center gap-2">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -2500,7 +2488,7 @@ export default function SettingsPage() {
                               </li>
                               <li className="flex items-center gap-2">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                <span>Live homeowner arrival map (Real-time GPS tracking)</span>
+                                <span>Live homeowner arrival tracker (Milestone updates &amp; ETA)</span>
                               </li>
                               <li className="flex items-center gap-2">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -2626,7 +2614,7 @@ export default function SettingsPage() {
                               </li>
                               <li className="flex items-center gap-2">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                <span>Live GPS Route Tracking &amp; Geofenced ETAs</span>
+                                <span>Live Route Status &amp; Arrival Milestones</span>
                               </li>
                             </div>
                           </ul>
@@ -2726,16 +2714,16 @@ export default function SettingsPage() {
                                 <td className="py-2.5 px-3 text-emerald-600 font-semibold">Under 5s Text-Back</td>
                               </tr>
                               <tr>
-                                <td className="py-2.5 px-3 font-medium text-zinc-900 dark:text-zinc-100">Mobile Field Portal with GPS</td>
+                                <td className="py-2.5 px-3 font-medium text-zinc-900 dark:text-zinc-100">Mobile Field Portal with Navigation</td>
                                 <td className="py-2.5 px-3 text-emerald-600 font-semibold">Included</td>
                                 <td className="py-2.5 px-3 text-emerald-600 font-semibold">Included</td>
                                 <td className="py-2.5 px-3 text-emerald-600 font-semibold">Included</td>
                               </tr>
                               <tr>
-                                <td className="py-2.5 px-3 font-medium text-zinc-900 dark:text-zinc-100">Live Homeowner Arrival Map</td>
-                                <td className="py-2.5 px-3 text-zinc-500">Milestone Tracker</td>
-                                <td className="py-2.5 px-3 text-emerald-600 font-semibold">Real-Time GPS Map</td>
-                                <td className="py-2.5 px-3 text-emerald-600 font-semibold">Real-Time GPS Map</td>
+                                <td className="py-2.5 px-3 font-medium text-zinc-900 dark:text-zinc-100">Live Homeowner Arrival Tracker</td>
+                                <td className="py-2.5 px-3 text-emerald-600 font-semibold">Milestone Tracker</td>
+                                <td className="py-2.5 px-3 text-emerald-600 font-semibold">Milestone Tracker &amp; ETA</td>
+                                <td className="py-2.5 px-3 text-emerald-600 font-semibold">Milestone Tracker &amp; ETA</td>
                               </tr>
                               <tr>
                                 <td className="py-2.5 px-3 font-medium text-zinc-900 dark:text-zinc-100">Multi-Crew Dispatch Board</td>
@@ -3454,123 +3442,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Card 4: Homeowner Dispatch Tracking Mode */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-2xs">
-            <div className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-rose-600" />
-                Homeowner Dispatch Tracking Mode
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Controls what customers see on their live dispatch tracking link when a technician taps &quot;En Route&quot;.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Mode 1: Milestone Status */}
-              <div
-                onClick={() => setFormData(d => ({ ...d, tracking_mode: 'milestone' }))}
-                className={cn(
-                  'p-4 rounded-xl border cursor-pointer transition-all space-y-2',
-                  formData.tracking_mode === 'milestone'
-                    ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs'
-                    : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950'
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Milestone Status</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                      Recommended for Privacy
-                    </span>
-                  </div>
-                  {formData.tracking_mode === 'milestone' && <Check className="h-4 w-4 text-blue-600" />}
-                </div>
-
-                <div className="p-2 rounded-lg bg-zinc-100/70 dark:bg-zinc-900 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
-                  <span>Scheduled</span>
-                  <span>➔</span>
-                  <span className="font-bold text-blue-600">En Route (ETA)</span>
-                  <span>➔</span>
-                  <span>Arrived</span>
-                </div>
-
-                <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                  Homeowners receive real-time stage updates and arrival estimates while keeping your exact vehicle location 100% private.
-                </p>
-
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                  <strong>Privacy Advantage:</strong> Protects technician privacy when traveling between multiple jobs, running supply errands, or stopping for fuel. No live GPS pin is displayed.
-                </div>
-              </div>
-
-              {/* Mode 2: Live Geofenced Map */}
-              <div
-                onClick={() => setFormData(d => ({ ...d, tracking_mode: 'geofence_live' }))}
-                className={cn(
-                  'p-4 rounded-xl border cursor-pointer transition-all space-y-2',
-                  formData.tracking_mode === 'geofence_live'
-                    ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs'
-                    : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950'
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Live Geofenced Map</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 border border-blue-500/20">
-                      Live Proximity Pin
-                    </span>
-                  </div>
-                  {formData.tracking_mode === 'geofence_live' && <Check className="h-4 w-4 text-blue-600" />}
-                </div>
-
-                <div className="p-2 rounded-lg bg-zinc-100/70 dark:bg-zinc-900 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
-                  <span>Vehicle Proximity:</span>
-                  <span className="font-bold text-blue-600">{formData.tracking_geofence_miles || 5} Mile Radius</span>
-                </div>
-
-                <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                  Displays an interactive map with your vehicle pin once the technician enters within proximity of the homeowner&apos;s property.
-                </p>
-
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                  <strong>Driver Privacy Guarantee:</strong> Continuous GPS is strictly suppressed until the driver enters the proximity radius. Tracking links automatically expire upon job completion.
-                </div>
-              </div>
-            </div>
-
-            {/* Geofence Radius Selector (when Live Geofenced Map active) */}
-            {formData.tracking_mode === 'geofence_live' && (
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2">
-                <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block">
-                  Proximity Activation Radius:
-                </Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { miles: 3, label: '3 Miles (Urban / Dense)' },
-                    { miles: 5, label: '5 Miles (Suburban - Recommended)' },
-                    { miles: 10, label: '10 Miles (Rural / Extended)' }
-                  ].map((rad) => (
-                    <button
-                      key={rad.miles}
-                      type="button"
-                      onClick={() => setFormData(d => ({ ...d, tracking_geofence_miles: rad.miles }))}
-                      className={cn(
-                        "h-10 px-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer min-h-[44px]",
-                        (formData.tracking_geofence_miles || 5) === rad.miles
-                          ? "border-blue-600 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shadow-xs"
-                          : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300"
-                      )}
-                    >
-                      {rad.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Card 5: Seasonal Customer Reactivation Autopilot */}
+          {/* Card 4: Seasonal Customer Reactivation Autopilot */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-5 shadow-2xs">
             <div className="pb-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>

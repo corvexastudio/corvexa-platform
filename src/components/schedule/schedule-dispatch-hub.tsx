@@ -2069,7 +2069,7 @@ export function ScheduleDispatchHub({ defaultView = 'agenda' }: ScheduleDispatch
                       className="h-11 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 text-slate-800 dark:text-zinc-200 text-xs font-semibold inline-flex items-center justify-center gap-1.5"
                     >
                       <Navigation className="h-4 w-4 text-blue-500" />
-                      GPS Directions
+                      Map Directions
                     </a>
                   )}
                 </div>

@@ -96,7 +96,7 @@ export function SiteFooter() {
         <div className="flex items-center gap-4 text-[11px] text-slate-400">
           <span>24/7 Booking</span>
           <span>&bull;</span>
-          <span>Live Arrival GPS</span>
+          <span>Live Arrival Tracking</span>
           <span>&bull;</span>
           <span>Driveway Checkout</span>
         </div>

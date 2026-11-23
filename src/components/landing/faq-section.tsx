@@ -47,7 +47,7 @@ const FAQS: FaqItem[] = [
   {
     question: 'Can I manage multiple technicians and service trucks?',
     answer:
-      'Yes. The Multi-Crew Fleet plan supports up to 5 crew members and technicians. Each technician receives their own mobile login with a restricted field view that hides business financials and customer contact books while showing their daily assigned job schedule and GPS navigation.'
+      'Yes. The Multi-Crew Fleet plan supports up to 5 crew members and technicians. Each technician receives their own mobile login with a restricted field view that hides business financials and customer contact books while showing their daily assigned job schedule and map navigation.'
   },
   {
     question: 'What happens after my first 3 free completed jobs?',
