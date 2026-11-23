@@ -164,6 +164,12 @@ export default function AgencyDemoDashboard() {
     }
   }
 
+  function handleResetDemoState() {
+    setSlots(INITIAL_DEMO_SLOTS)
+    setSearchQuery('')
+    setSelectedTrade('all')
+  }
+
   function handleDeploySubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!newClientName.trim()) return
@@ -233,7 +239,12 @@ export default function AgencyDemoDashboard() {
   </a>
 </div>`
   } else {
-    generatedEmbedCode = `<iframe src="${taggedBookingUrl}" style="width:100%;max-width:680px;height:780px;border:none;border-radius:12px;display:block;margin:0 auto;" title="Online Booking" allow="payment"></iframe>`
+    generatedEmbedCode = `<iframe
+  src="${taggedBookingUrl}"
+  style="width:100%;max-width:680px;height:820px;border:none;border-radius:12px;display:block;margin:0 auto;"
+  title="Online Appointment Booking"
+  loading="lazy"
+></iframe>`
   }
 
   return (
@@ -322,6 +333,31 @@ export default function AgencyDemoDashboard() {
         </div>
       </header>
 
+      {/* PERSISTENT INTERACTIVE DEMO BANNER (F-AGY-13) */}
+      <aside aria-label="Demo sandbox notice" className="w-full bg-amber-500/10 dark:bg-amber-500/15 border-b border-amber-500/20 px-4 py-2.5 text-xs text-amber-950 dark:text-amber-200">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-1">
+            <span className="font-mono font-bold px-2 py-0.5 rounded bg-amber-500 text-slate-950 text-[10px] uppercase tracking-wider shrink-0">
+              Interactive Demo / Sample Data
+            </span>
+            <span className="leading-relaxed">
+              Illustrative sandbox: Displayed contractor businesses, call recovery metrics, and revenue are synthetic sample data for demonstration. Activity operates entirely in memory and does not affect production accounts, real phone numbers, or agency analytics.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResetDemoState}
+              className="h-7 px-3 text-[11px] font-semibold bg-white/90 dark:bg-zinc-900/90 border-amber-300 dark:border-amber-700/60 text-amber-950 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950/60 shadow-2xs cursor-pointer"
+            >
+              Reset Demo State
+            </Button>
+          </div>
+        </div>
+      </aside>
+
       {/* MAIN CONSOLE BODY */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6">
         
@@ -393,7 +429,7 @@ export default function AgencyDemoDashboard() {
           {/* KPI 2: Missed Calls Recovered */}
           <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-              <span>Calls Recovered</span>
+              <span>Sample Calls Recovered</span>
               <MessageSquare className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="mt-3">
@@ -402,14 +438,14 @@ export default function AgencyDemoDashboard() {
               </span>
             </div>
             <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
-              Past 30 days
+              Illustrative (Past 30 days)
             </div>
           </div>
 
           {/* KPI 3: Booked Jobs */}
           <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-              <span>Booked Appointments</span>
+              <span>Sample Booked Appointments</span>
               <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="mt-3">
@@ -418,14 +454,14 @@ export default function AgencyDemoDashboard() {
               </span>
             </div>
             <div className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400">
-              Past 30 days
+              Illustrative (Past 30 days)
             </div>
           </div>
 
           {/* KPI 4: Attributed Revenue */}
           <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-900/60 shadow-2xs flex flex-col justify-between relative overflow-hidden">
             <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 text-xs font-medium">
-              <span>Attributed Revenue</span>
+              <span>Sample Attributed Revenue</span>
               <DollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="mt-3">
@@ -808,6 +844,9 @@ export default function AgencyDemoDashboard() {
             <DialogDescription className="text-xs text-slate-500 dark:text-zinc-400">
               Provisions a dedicated trade booking portal, seeds services, and assigns a missed-call line. Uses 1 of your {availableSlotsCount} open slots.
             </DialogDescription>
+            <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
+              <span className="font-semibold">Interactive Demo Sandbox:</span> Simulated in local browser state only. Zero real provisioning calls, carrier charges, or database modifications.
+            </div>
           </DialogHeader>
 
           <form onSubmit={handleDeploySubmit} className="space-y-4 pt-2">

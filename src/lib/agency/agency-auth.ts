@@ -61,12 +61,49 @@ export async function getAgencyContext(
   const configuredSuperEmails = envSuperEmails.length > 0 ? envSuperEmails : defaultSuperEmails
   const isSuperAdmin = configuredSuperEmails.includes(userEmail)
 
-  // Look up agency owned by the authenticated caller
+  // 1. Look up agency strictly by immutable primary_owner_id
   let { data: ownedAgency } = await adminSupabase
     .from('partner_agencies')
     .select('*')
-    .or(`primary_owner_id.eq.${user.id},contact_email.eq.${user.email}`)
+    .eq('primary_owner_id', user.id)
     .maybeSingle()
+
+  // 2. Fallback: Only check contact_email if primary_owner_id is not yet set (unclaimed pre-seeded agency)
+  // Requires email to be verified to prevent unverified email spoofing/takeovers
+  if (!ownedAgency && user.email) {
+    const isEmailVerified = Boolean(
+      user.email_confirmed_at || 
+      user.confirmed_at ||
+      user.app_metadata?.provider === 'google' ||
+      user.user_metadata?.email_verified === true
+    )
+
+    if (isEmailVerified) {
+      const { data: unclaimedAgency } = await adminSupabase
+        .from('partner_agencies')
+        .select('*')
+        .eq('contact_email', user.email.toLowerCase())
+        .is('primary_owner_id', null)
+        .maybeSingle()
+
+      if (unclaimedAgency) {
+        // Securely bind primary_owner_id to the verified authenticated user
+        const { data: claimedAgency, error: claimErr } = await adminSupabase
+          .from('partner_agencies')
+          .update({
+            primary_owner_id: user.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', unclaimedAgency.id)
+          .select('*')
+          .single()
+
+        if (!claimErr && claimedAgency) {
+          ownedAgency = claimedAgency
+        }
+      }
+    }
+  }
 
   // Handle explicit requested agency identifier
   if (requestedAgencySlugOrId && requestedAgencySlugOrId !== 'default' && requestedAgencySlugOrId !== 'agency-partner') {

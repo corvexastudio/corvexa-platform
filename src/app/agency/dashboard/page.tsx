@@ -82,6 +82,7 @@ export default function AgencyDashboardPage() {
   const [formData, setFormData] = useState({
     businessName: '',
     industry: 'plumbing' as 'plumbing' | 'hvac' | 'electrical' | 'roofing' | 'general',
+    clientTier: 'solo' as 'solo' | 'multi_crew',
     ownerName: '',
     ownerCellPhone: '',
     shopPhone: '',
@@ -127,15 +128,14 @@ export default function AgencyDashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientDetails: {
-            businessName: formData.businessName,
-            industry: formData.industry,
-            ownerName: formData.ownerName,
-            ownerCellPhone: formData.ownerCellPhone,
-            shopPhone: formData.shopPhone || undefined,
-            timezone: formData.timezone,
-            googleReviewUrl: formData.googleReviewUrl || undefined,
-          }
+          businessName: formData.businessName.trim(),
+          industry: formData.industry,
+          clientTier: formData.clientTier || 'solo',
+          ownerName: formData.ownerName.trim(),
+          ownerCellPhone: formData.ownerCellPhone.trim(),
+          shopPhone: formData.shopPhone?.trim() || undefined,
+          timezone: formData.timezone,
+          googleReviewUrl: formData.googleReviewUrl?.trim() || undefined,
         })
       })
 
@@ -150,6 +150,7 @@ export default function AgencyDashboardPage() {
       setFormData({
         businessName: '',
         industry: 'plumbing',
+        clientTier: 'solo',
         ownerName: '',
         ownerCellPhone: '',
         shopPhone: '',
@@ -714,6 +715,21 @@ export default function AgencyDashboardPage() {
                 <option value="electrical">Electrical (Breaker, Panel, Wiring)</option>
                 <option value="roofing">Roofing (Leak Inspection, Storm Assessment)</option>
                 <option value="general">General Home Services</option>
+              </select>
+            </div>
+
+            {/* Contractor Fleet Size / Capacity Tier */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Contractor Capacity Tier <span className="text-emerald-600 dark:text-emerald-400">*</span>
+              </label>
+              <select
+                value={formData.clientTier || 'solo'}
+                onChange={(e) => setFormData({ ...formData, clientTier: e.target.value as any })}
+                className="w-full h-9 px-3 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:border-emerald-500"
+              >
+                <option value="solo">Solo Owner-Operator (Consumes 1 Slot) - 1 Van</option>
+                <option value="multi_crew">Multi-Crew Fleet (Consumes 2 Slots) - Up to 5 Vans & Technicians</option>
               </select>
             </div>
 

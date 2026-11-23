@@ -159,6 +159,10 @@ function createHardenedTestDb(initialData = {}) {
             filters.push((r) => r[col] === val)
             return builder
           },
+          is: (col, val) => {
+            filters.push((r) => val === null ? (r[col] === null || r[col] === undefined) : r[col] === val)
+            return builder
+          },
           ilike: (col, val) => {
             filters.push((r) => String(r[col] || '').toLowerCase() === String(val || '').toLowerCase())
             return builder

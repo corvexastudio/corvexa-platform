@@ -19,6 +19,8 @@ import { notifyOwner } from '../notifications/notification-service.ts'
 import { SubscriptionService, isProAutomationEntitled, isTollFreeNumberRestricted, resolveSenderPhone } from '../billing/subscription-service.ts'
 import { formatCustomerName, formatStandardUsAddress } from './customer-input-formatter.ts'
 import { logOutboundConversationMessage } from '../services/conversation-logger.ts'
+import type { MarketingAttributionData } from '../agency/agency-types.ts'
+import { sanitizeAttributionInput } from '../agency/attribution-sanitizer.ts'
 
 export interface CreateBookingInput {
   orgId: string
@@ -38,6 +40,7 @@ export interface CreateBookingInput {
   source?: 'booking_page' | 'inbox' | 'manual' | 'phone' | 'missed_call' | 'referral'
   smsConsent?: boolean
   referralCode?: string
+  attribution?: MarketingAttributionData
   appBaseUrl?: string
 }
 
@@ -301,6 +304,7 @@ export async function createBooking(
   let leadId: string | null = null
   let referringContactId: string | null = null
   let effectiveSource: any = source
+  const sanitizedAttr = input.attribution ? sanitizeAttributionInput(input.attribution) : null
 
   if (input.referralCode) {
     const { resolveReferralByCode } = await import('../referrals/referral-manager.ts')
@@ -332,6 +336,13 @@ export async function createBooking(
       service_needed: activeService.name,
       updated_at: new Date().toISOString()
     }
+    if (sanitizedAttr) {
+      leadUpdates.utm_source = sanitizedAttr.utm_source
+      leadUpdates.utm_medium = sanitizedAttr.utm_medium
+      leadUpdates.utm_campaign = sanitizedAttr.utm_campaign
+      leadUpdates.utm_content = sanitizedAttr.utm_content
+      leadUpdates.utm_term = sanitizedAttr.utm_term
+    }
     if (input.referralCode) {
       leadUpdates.source = effectiveSource
       leadUpdates.referral_code = input.referralCode.trim().toLowerCase()
@@ -342,17 +353,25 @@ export async function createBooking(
       .update(leadUpdates)
       .eq('id', leadId)
   } else {
+    const newLeadPayload: Record<string, any> = {
+      org_id: orgId,
+      contact_id: contactId,
+      source: effectiveSource,
+      referral_code: input.referralCode ? input.referralCode.trim().toLowerCase() : null,
+      referring_contact_id: referringContactId,
+      status: 'booked',
+      service_needed: activeService.name
+    }
+    if (sanitizedAttr) {
+      newLeadPayload.utm_source = sanitizedAttr.utm_source
+      newLeadPayload.utm_medium = sanitizedAttr.utm_medium
+      newLeadPayload.utm_campaign = sanitizedAttr.utm_campaign
+      newLeadPayload.utm_content = sanitizedAttr.utm_content
+      newLeadPayload.utm_term = sanitizedAttr.utm_term
+    }
     const { data: newLead } = await supabase
       .from('leads')
-      .insert({
-        org_id: orgId,
-        contact_id: contactId,
-        source: effectiveSource,
-        referral_code: input.referralCode ? input.referralCode.trim().toLowerCase() : null,
-        referring_contact_id: referringContactId,
-        status: 'booked',
-        service_needed: activeService.name
-      })
+      .insert(newLeadPayload)
       .select('id')
       .single()
     if (newLead) leadId = newLead.id
@@ -426,6 +445,16 @@ export async function createBooking(
     booking_snapshot: bookingSnapshot
   }
 
+  if (sanitizedAttr) {
+    appointmentPayload.utm_source = sanitizedAttr.utm_source
+    appointmentPayload.utm_medium = sanitizedAttr.utm_medium
+    appointmentPayload.utm_campaign = sanitizedAttr.utm_campaign
+    appointmentPayload.utm_content = sanitizedAttr.utm_content
+    appointmentPayload.utm_term = sanitizedAttr.utm_term
+    appointmentPayload.landing_page = sanitizedAttr.landing_page
+    appointmentPayload.referrer = sanitizedAttr.referrer
+  }
+
   if (input.photos && input.photos.length > 0) {
     appointmentPayload.intake_photos = input.photos
   }
@@ -436,10 +465,17 @@ export async function createBooking(
     .select('*')
     .single()
 
-  // Graceful fallback if intake_photos or booking_snapshot columns do not exist in older remote schema
+  // Graceful fallback if intake_photos, booking_snapshot, or utm columns do not exist in older remote schema
   if (aptError && (aptError.code === '42703' || aptError.message?.toLowerCase().includes('does not exist'))) {
     delete appointmentPayload.intake_photos
     delete appointmentPayload.booking_snapshot
+    delete appointmentPayload.utm_source
+    delete appointmentPayload.utm_medium
+    delete appointmentPayload.utm_campaign
+    delete appointmentPayload.utm_content
+    delete appointmentPayload.utm_term
+    delete appointmentPayload.landing_page
+    delete appointmentPayload.referrer
     const retryRes = await supabase
       .from('appointments')
       .insert(appointmentPayload)
@@ -447,6 +483,40 @@ export async function createBooking(
       .single()
     appointment = retryRes.data
     aptError = retryRes.error
+  }
+
+  // 8.5 Record authoritative marketing attribution ledger entry
+  if (appointment?.id && sanitizedAttr) {
+    try {
+      const { data: attrRow } = await supabase
+        .from('marketing_attributions')
+        .insert({
+          org_id: orgId,
+          contact_id: contactId,
+          lead_id: leadId,
+          appointment_id: appointment.id,
+          utm_source: sanitizedAttr.utm_source,
+          utm_medium: sanitizedAttr.utm_medium,
+          utm_campaign: sanitizedAttr.utm_campaign,
+          utm_content: sanitizedAttr.utm_content,
+          utm_term: sanitizedAttr.utm_term,
+          landing_page: sanitizedAttr.landing_page,
+          referrer: sanitizedAttr.referrer,
+          first_touch_at: sanitizedAttr.first_touch_at || new Date().toISOString()
+        })
+        .select('id')
+        .maybeSingle()
+
+      if (attrRow?.id) {
+        appointment.attribution_id = attrRow.id
+        await supabase
+          .from('appointments')
+          .update({ attribution_id: attrRow.id })
+          .eq('id', appointment.id)
+      }
+    } catch {
+      // Non-fatal if table not present in older test mock
+    }
   }
 
   if (aptError || !appointment) {

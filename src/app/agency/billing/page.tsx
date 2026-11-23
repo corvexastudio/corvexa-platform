@@ -3,20 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { 
-  CreditCard, 
   ArrowLeft, 
   CheckCircle2, 
   ShieldCheck, 
-  Sparkles, 
-  Zap, 
-  Layers, 
-  Download,
-  AlertCircle,
-  Loader2,
-  Info
+  Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { 
@@ -35,6 +27,37 @@ export default function AgencyBillingPage() {
     async function loadData() {
       try {
         setLoading(true)
+
+        // Check if returning from a completed Stripe Checkout session
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search)
+          const sessionId = params.get('session_id')
+          const returnTier = params.get('tier') as AgencyTier
+          const isUpgraded = params.get('upgraded') === 'true'
+
+          if (sessionId && returnTier && isUpgraded) {
+            try {
+              const verifyRes = await fetch('/api/agency/tier', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  tier: returnTier,
+                  verifySessionId: sessionId
+                })
+              })
+              const verifyData = await verifyRes.json()
+              if (verifyRes.ok && verifyData.overview) {
+                setOverview(verifyData.overview)
+                toast.success(`Wholesale plan activated: ${getAgencyTierConfig(returnTier).name}`)
+                window.history.replaceState({}, '', window.location.pathname)
+                return
+              }
+            } catch (vErr) {
+              console.warn('[AGENCY BILLING] Session verification notice:', vErr)
+            }
+          }
+        }
+
         const res = await fetch('/api/agency/overview')
         if (res.ok) {
           const data = await res.json()
@@ -64,7 +87,6 @@ export default function AgencyBillingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agencyId: overview?.agency?.id || 'agency-partner',
           tier: tierId
         })
       })
@@ -72,6 +94,36 @@ export default function AgencyBillingPage() {
       const data = await res.json()
       if (!res.ok) {
         toast.error(data.error || 'Failed to select plan')
+        return
+      }
+
+      if (data.checkoutUrl) {
+        if (data.simulated) {
+          // In simulated / test mode, immediately verify and apply entitlement
+          const verifyRes = await fetch('/api/agency/tier', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tier: tierId,
+              verifySessionId: data.sessionId
+            })
+          })
+          const verifyData = await verifyRes.json()
+          if (verifyRes.ok && verifyData.overview) {
+            setOverview(verifyData.overview)
+            const targetConfig = getAgencyTierConfig(tierId)
+            toast.success(
+              hasActiveSubscription
+                ? `Wholesale plan updated to ${targetConfig.name} (${targetConfig.slots} client capacity slots).`
+                : `Subscribed to ${targetConfig.name} (${targetConfig.slots} client capacity slots activated).`
+            )
+          } else {
+            toast.error(verifyData.error || 'Failed to activate plan')
+          }
+        } else {
+          // Redirect to real Stripe Checkout Session
+          window.location.assign(data.checkoutUrl)
+        }
         return
       }
 
@@ -310,7 +362,7 @@ export default function AgencyBillingPage() {
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 rounded-xl bg-slate-100/70 dark:bg-zinc-850/60 border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-400">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-900 dark:text-white">Capacity Rule:</span>
-            <span>1 Slot = 1 Solo Contractor (1 Van). Multi-van operations (2–5 vans) consume 2 slots.</span>
+            <span>1 Slot = 1 Solo Contractor (1 Van). Multi-van operations (2-5 vans) consume 2 slots.</span>
           </div>
           <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 shrink-0">
             Slots reassign freely upon client offboarding

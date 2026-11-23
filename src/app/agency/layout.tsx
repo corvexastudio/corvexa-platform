@@ -11,7 +11,8 @@ import {
   Layers, 
   ExternalLink,
   ChevronRight,
-  LogOut
+  LogOut,
+  Globe
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgencyPortfolioOverview, getAgencyTierConfig } from '@/lib/agency/agency-types'
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button'
 const BASE_NAV_ITEMS = [
   { path: '/dashboard', label: 'Clients & Slots', icon: Layers, exact: true },
   { path: '/attribution', label: 'Lead Attribution', icon: BarChart3 },
+  { path: '/branding', label: 'White-Label & Domain', icon: Globe },
   { path: '/embeds', label: 'Client Embeds', icon: Code2 },
   { path: '/billing', label: 'Capacity & Billing', icon: CreditCard },
 ]

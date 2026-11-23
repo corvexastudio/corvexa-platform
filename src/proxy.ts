@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
+import { buildFrameAncestorsCsp } from '@/lib/agency/embed-domain-sanitizer'
 
 const CLIENT_ROUTES = [
   '/dashboard',
@@ -42,8 +43,88 @@ export async function proxy(request: NextRequest) {
   const pathname = url.pathname
   const hostname = request.headers.get('host') || ''
 
-  // Helper to record API metric on response
-  const finalizeResponse = (res: NextResponse) => {
+  // 0. Initialize Supabase SSR
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request: {
+              headers: requestHeaders
+            }
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  // Framing Security Policy Resolution (F-AGY-11)
+  const isPublicBookingRoute = (pathname.startsWith('/book/') || hostname.startsWith('book.')) &&
+    !pathname.startsWith('/api') &&
+    !pathname.startsWith('/_next') &&
+    !pathname.includes('.')
+
+  let cachedCsp: string = "frame-ancestors 'self';"
+  let cachedXFrame: string | null = 'SAMEORIGIN'
+  let policyResolved = false
+
+  const resolveFramingPolicy = async () => {
+    if (policyResolved) return
+    policyResolved = true
+
+    if (!isPublicBookingRoute) {
+      cachedCsp = "frame-ancestors 'self';"
+      cachedXFrame = 'SAMEORIGIN'
+      return
+    }
+
+    const cleanPath = pathname.startsWith('/book/')
+      ? pathname.replace(/^\/book\/?/, '')
+      : pathname.replace(/^\//, '')
+    const slug = cleanPath.split('/')[0]
+
+    if (slug && !['manage', 'api', '_next', 'privacy', 'terms', 'demo'].includes(slug)) {
+      try {
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('slug', slug)
+          .maybeSingle()
+
+        if (org?.id) {
+          const { data: domainRows } = await supabase
+            .from('contractor_embed_domains')
+            .select('domain')
+            .eq('org_id', org.id)
+            .eq('is_verified', true)
+
+          const allowedDomains = domainRows?.map(d => d.domain) || []
+          cachedCsp = buildFrameAncestorsCsp(allowedDomains)
+          if (allowedDomains.length > 0) {
+            cachedXFrame = null
+          } else {
+            cachedXFrame = 'SAMEORIGIN'
+          }
+          return
+        }
+      } catch {
+        // Fall back to safe defaults
+      }
+    }
+
+    cachedCsp = "frame-ancestors 'self';"
+    cachedXFrame = 'SAMEORIGIN'
+  }
+
+  // Helper to record API metric on response and apply framing policies
+  const finalizeResponse = async (res: NextResponse) => {
     res.headers.set('x-request-id', requestId)
     if (pathname.startsWith('/api')) {
       const durationMs = Math.round(performance.now() - startTime)
@@ -55,6 +136,16 @@ export async function proxy(request: NextRequest) {
         requestId
       })
     }
+
+    await resolveFramingPolicy()
+
+    res.headers.set('Content-Security-Policy', cachedCsp)
+    if (cachedXFrame) {
+      res.headers.set('X-Frame-Options', cachedXFrame)
+    } else {
+      res.headers.delete('X-Frame-Options')
+    }
+
     return res
   }
 
@@ -122,28 +213,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // 3. Initialize Supabase SSR
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request: {
-              headers: requestHeaders
-            }
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
+  // 3. User Authentication State
   const { data: { user } } = await supabase.auth.getUser()
 
   // 4. Admin Routing - SEC-05: Enforce authentication on all admin endpoints
@@ -165,8 +235,18 @@ export async function proxy(request: NextRequest) {
     return finalizeResponse(supabaseResponse)
   }
 
-  // 4.2. Agency Subdomain & Path Routing: agency.<domain> or /agency for B2B Partner Portal
-  const isAgencySubdomain = hostname.startsWith('agency.')
+  // 4.2. Agency Subdomain & Custom CNAME Routing: agency.<domain> or custom CNAME for B2B Partner Portal
+  const isPlatformHost = 
+    hostname.includes('captodesk.com') ||
+    hostname.includes('localhost') ||
+    hostname.includes('127.0.0.1') ||
+    hostname.endsWith('.vercel.app')
+  const isAgencyCustomDomain = !isPlatformHost && hostname.includes('.')
+  if (isAgencyCustomDomain) {
+    requestHeaders.set('x-agency-custom-domain', hostname)
+  }
+
+  const isAgencySubdomain = hostname.startsWith('agency.') || isAgencyCustomDomain
   const isAgencyPath = isAgencySubdomain || pathname.startsWith('/agency')
 
   if (isAgencyPath) {

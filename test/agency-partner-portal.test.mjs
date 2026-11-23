@@ -231,14 +231,65 @@ test('Agency Attribution: Maps UTM campaign sources to client revenue', async ()
           })
         }
       }
+      if (table === 'appointments') {
+        return {
+          select: () => ({
+            in: () => ({
+              gte: async () => ({
+                data: [
+                  {
+                    id: 'apt-1',
+                    org_id: 'org-1',
+                    source: 'booking_page',
+                    utm_source: 'google-ads',
+                    utm_campaign: 'hvac-emergency-repair',
+                    utm_medium: 'cpc',
+                    status: 'completed',
+                    created_at: new Date().toISOString()
+                  }
+                ],
+                error: null
+              }),
+              eq: () => ({ gte: async () => ({ data: [], error: null }) })
+            })
+          })
+        }
+      }
+      if (table === 'jobs') {
+        return {
+          select: () => ({
+            in: () => ({
+              gte: async () => ({
+                data: [
+                  {
+                    id: 'job-1',
+                    org_id: 'org-1',
+                    appointment_id: 'apt-1',
+                    status: 'completed',
+                    created_at: new Date().toISOString()
+                  }
+                ],
+                error: null
+              }),
+              eq: () => ({ gte: async () => ({ data: [], error: null }) })
+            })
+          })
+        }
+      }
       if (table === 'invoices') {
         return {
           select: () => ({
             in: () => ({
+              gte: async () => ({
+                data: [
+                  { id: 'inv-1', org_id: 'org-1', job_id: 'job-1', total: 2400, status: 'paid', amount_paid: 2400, created_at: new Date().toISOString() }
+                ],
+                error: null
+              }),
               eq: () => ({
                 gte: async () => ({
                   data: [
-                    { id: 'inv-1', org_id: 'org-1', total: 2400, status: 'paid', created_at: new Date().toISOString() }
+                    { id: 'inv-1', org_id: 'org-1', job_id: 'job-1', total: 2400, status: 'paid', amount_paid: 2400, created_at: new Date().toISOString() }
                   ],
                   error: null
                 })
@@ -261,12 +312,15 @@ test('Agency Attribution: Maps UTM campaign sources to client revenue', async ()
   const attribution = await getAgencyAttributionReport('lokal-media-house', mockSupabase)
 
   assert.equal(Array.isArray(attribution), true)
-  assert.equal(attribution.length >= 3, true)
+  assert.equal(attribution.length >= 1, true)
   
   const googleAds = attribution.find(a => a.utm_source === 'google-ads')
   assert.ok(googleAds)
   assert.equal(googleAds.client_name, 'Precision HVAC')
-  assert.ok(googleAds.invoiced_revenue > 0)
+  assert.equal(googleAds.utm_campaign, 'hvac-emergency-repair')
+  assert.equal(googleAds.bookings_count, 1)
+  assert.equal(googleAds.completed_jobs, 1)
+  assert.equal(googleAds.invoiced_revenue, 2400)
 })
 
 test('Proxy Architecture: Subdomain routing includes agency.captodesk.com and /agency with unauthenticated login guard', () => {
@@ -300,8 +354,8 @@ test('Agency Tier Catalog: Strategy A flagship tiers exported with non-hardcoded
   const scale = getAgencyTierConfig('scale_25')
   assert.equal(scale.name, 'Scale 25+ Pack')
   assert.equal(scale.slots, 25)
-  assert.equal(scale.price, 875)
-  assert.equal(scale.costPerSlot, 35.0)
+  assert.equal(scale.price, 899)
+  assert.equal(scale.costPerSlot, 35.96)
 
   // Backwards compatibility legacy tier
   const dominance = getAgencyTierConfig('dominance_50')

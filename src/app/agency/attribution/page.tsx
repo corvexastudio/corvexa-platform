@@ -68,9 +68,11 @@ export default function AgencyAttributionPage() {
   // Aggregated totals
   const totalBookings = filteredItems.reduce((acc, i) => acc + i.bookings_count, 0)
   const totalRevenue = filteredItems.reduce((acc, i) => acc + i.invoiced_revenue, 0)
-  const retainerRoiFactor = totalRevenue > 0 && uniqueClients.length > 0 
-    ? (totalRevenue / (uniqueClients.length * 2500)).toFixed(1)
-    : '0.0'
+  const totalCosts = filteredItems.reduce((acc, i) => acc + (i.ad_spend || 0) + (i.agency_retainer || 0), 0)
+  const netRevenue = filteredItems.reduce((acc, i) => acc + (typeof i.net_revenue === 'number' ? i.net_revenue : i.invoiced_revenue), 0)
+  const retainerRoiFactor = totalCosts > 0
+    ? (netRevenue / totalCosts).toFixed(1)
+    : null
 
   return (
     <div className="space-y-6">
@@ -129,15 +131,15 @@ export default function AgencyAttributionPage() {
         <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xs flex flex-col justify-between transition-colors">
           <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Campaign ROI</span>
           <div className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-2">
-            <span>{Number(retainerRoiFactor) > 0 ? `${retainerRoiFactor}x` : '—'}</span>
-            {Number(retainerRoiFactor) > 0 && (
+            <span>{retainerRoiFactor ? `${retainerRoiFactor}x` : 'N/A'}</span>
+            {retainerRoiFactor && Number(retainerRoiFactor) > 0 && (
               <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
                 Active ROI
               </span>
             )}
           </div>
           <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1 block">
-            {Number(retainerRoiFactor) > 0 ? 'vs client retainers' : 'Past 30 days'}
+            {retainerRoiFactor ? 'vs recorded costs' : 'Past 30 days'}
           </span>
         </div>
 

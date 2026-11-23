@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyStripeWebhookSignature } from '@/lib/payments/stripe-adapter'
 import { recordPayment } from '@/lib/payments/invoice-manager'
+import { 
+  applyAgencySubscriptionEntitlement,
+  handleAgencySubscriptionPaymentFailed,
+  handleAgencySubscriptionCancelled
+} from '@/lib/agency/agency-service'
 import { telemetryStore } from '@/lib/observability/telemetry-store'
 import { createStructuredLogger } from '@/lib/observability/logger'
 import {
@@ -114,24 +119,60 @@ export async function POST(request: Request) {
     // 3. Process Authoritative Payment Events
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any
-      const invoiceId = session.metadata?.invoice_id || session.client_reference_id
-      const orgId = session.metadata?.org_id
-      const amountTotal = (Number(session.amount_total) || 0) / 100
+      const billingType = session.metadata?.billing_type
 
-      if (invoiceId && orgId) {
-        const result = await recordPayment(supabase, {
-          invoiceId,
-          orgId,
-          amount: amountTotal,
-          paymentMethod: 'stripe',
-          paymentStatus: 'succeeded',
-          stripeCheckoutSessionId: session.id,
-          stripePaymentIntentId: session.payment_intent ? String(session.payment_intent) : undefined,
-          referenceNote: `Stripe Checkout: ${session.customer_details?.email || session.id}`
-        })
-        if (!result.success) {
-          throw new Error(`Failed to record checkout payment: ${result.error}`)
+      if (billingType === 'agency_wholesale_subscription') {
+        const agencyId = session.metadata?.agency_id || session.client_reference_id
+        const targetTier = session.metadata?.target_tier
+        const stripeSubscriptionId = session.subscription ? String(session.subscription) : undefined
+        const stripeCustomerId = session.customer ? String(session.customer) : undefined
+
+        if (agencyId && targetTier) {
+          const entitlementResult = await applyAgencySubscriptionEntitlement(supabase, {
+            agencyId,
+            targetTier,
+            stripeSubscriptionId,
+            stripeCustomerId
+          })
+          if (!entitlementResult.success) {
+            throw new Error(`Failed to apply agency wholesale entitlement: ${entitlementResult.error}`)
+          }
+          logger.info(`Activated wholesale capacity for agency ${agencyId}: tier ${targetTier}`)
         }
+      } else {
+        const invoiceId = session.metadata?.invoice_id || session.client_reference_id
+        const orgId = session.metadata?.org_id
+        const amountTotal = (Number(session.amount_total) || 0) / 100
+
+        if (invoiceId && orgId) {
+          const result = await recordPayment(supabase, {
+            invoiceId,
+            orgId,
+            amount: amountTotal,
+            paymentMethod: 'stripe',
+            paymentStatus: 'succeeded',
+            stripeCheckoutSessionId: session.id,
+            stripePaymentIntentId: session.payment_intent ? String(session.payment_intent) : undefined,
+            referenceNote: `Stripe Checkout: ${session.customer_details?.email || session.id}`
+          })
+          if (!result.success) {
+            throw new Error(`Failed to record checkout payment: ${result.error}`)
+          }
+        }
+      }
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object as any
+      const agencyId = subscription.metadata?.agency_id
+      if (agencyId) {
+        await handleAgencySubscriptionCancelled(supabase, agencyId)
+        logger.info(`Marked wholesale subscription canceled for agency ${agencyId}`)
+      }
+    } else if (event.type === 'invoice.payment_failed') {
+      const stripeInvoice = event.data.object as any
+      const agencyId = stripeInvoice.subscription_details?.metadata?.agency_id || stripeInvoice.lines?.data?.[0]?.metadata?.agency_id
+      if (agencyId) {
+        await handleAgencySubscriptionPaymentFailed(supabase, agencyId)
+        logger.warn(`Marked wholesale subscription past_due for agency ${agencyId}`)
       }
     } else if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as any

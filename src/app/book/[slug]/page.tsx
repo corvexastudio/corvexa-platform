@@ -287,19 +287,80 @@ function PublicBookingPageContent() {
   // Referral Attribution
   const [referralCode, setReferralCode] = useState<string | null>(null)
 
+  // Marketing Campaign Attribution (First-touch 30-day window)
+  const [attribution, setAttribution] = useState<{
+    utm_source: string
+    utm_medium?: string | null
+    utm_campaign: string
+    utm_content?: string | null
+    utm_term?: string | null
+    landing_page?: string | null
+    referrer?: string | null
+    first_touch_at?: string
+  } | null>(null)
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const urlParams = new URLSearchParams(window.location.search)
     const urlRef = urlParams.get('ref')
     if (urlRef) {
       setReferralCode(urlRef.trim().toLowerCase())
-      return
+    } else {
+      const match = document.cookie.match(/(?:^|;\s*)capto_ref=([^;]+)/)
+      if (match && match[1]) {
+        setReferralCode(decodeURIComponent(match[1]).trim().toLowerCase())
+      }
     }
-    const match = document.cookie.match(/(?:^|;\s*)capto_ref=([^;]+)/)
-    if (match && match[1]) {
-      setReferralCode(decodeURIComponent(match[1]).trim().toLowerCase())
+
+    // Capture or restore marketing campaign attribution
+    const utmSource = urlParams.get('utm_source')
+    const utmMedium = urlParams.get('utm_medium')
+    const utmCampaign = urlParams.get('utm_campaign')
+    const utmContent = urlParams.get('utm_content')
+    const utmTerm = urlParams.get('utm_term')
+
+    const storageKey = `capto_utm_${slug}`
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+
+    let storedAttr: any = null
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        const touchMs = new Date(parsed.first_touch_at).getTime()
+        if (!isNaN(touchMs) && (Date.now() - touchMs <= thirtyDaysMs)) {
+          storedAttr = parsed
+        } else {
+          localStorage.removeItem(storageKey)
+        }
+      }
+    } catch {
+      // Storage unavailable / sandboxed
     }
-  }, [])
+
+    if (storedAttr) {
+      // First valid marketing touch within 30-day window wins
+      setAttribution(storedAttr)
+    } else if (utmSource || utmCampaign) {
+      // New first-touch marketing attribution
+      const freshAttr = {
+        utm_source: (utmSource || 'direct').trim().toLowerCase().slice(0, 100),
+        utm_medium: utmMedium ? utmMedium.trim().toLowerCase().slice(0, 100) : null,
+        utm_campaign: (utmCampaign || 'unspecified').trim().toLowerCase().slice(0, 150),
+        utm_content: utmContent ? utmContent.trim().slice(0, 150) : null,
+        utm_term: utmTerm ? utmTerm.trim().slice(0, 150) : null,
+        landing_page: window.location.pathname.slice(0, 500),
+        referrer: document.referrer ? document.referrer.slice(0, 500) : null,
+        first_touch_at: new Date().toISOString()
+      }
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(freshAttr))
+      } catch {
+        // Storage full or quota exceeded
+      }
+      setAttribution(freshAttr)
+    }
+  }, [slug])
 
   // 1. Fetch Organization Profile & Services (with Customer Context & Prefill)
   useEffect(() => {
@@ -642,7 +703,8 @@ function PublicBookingPageContent() {
           priorityFee: isPriority ? org?.booking_settings?.priority_dispatch_fee : undefined,
           selectedAddOns,
           addonIds: selectedAddOns.map(a => a.id),
-          howHeard: howHeard.trim() || undefined
+          howHeard: howHeard.trim() || undefined,
+          attribution: attribution || undefined
         })
       })
 

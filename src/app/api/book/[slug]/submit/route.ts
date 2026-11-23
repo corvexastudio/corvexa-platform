@@ -44,8 +44,32 @@ export async function POST(
       priorityFee,
       selectedAddOns,
       addonIds,
-      howHeard
+      howHeard,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      utmContent,
+      utmTerm,
+      landingPage,
+      referrer,
+      attributionTimestamp,
+      attribution
     } = body
+
+    const attributionData = attribution && typeof attribution === 'object'
+      ? attribution
+      : (utmSource || utmCampaign)
+      ? {
+          utm_source: utmSource,
+          utm_medium: utmMedium,
+          utm_campaign: utmCampaign,
+          utm_content: utmContent,
+          utm_term: utmTerm,
+          landing_page: landingPage,
+          referrer,
+          first_touch_at: attributionTimestamp
+        }
+      : undefined
 
     const extraMetadataLines: string[] = []
     if (isPriority) {
@@ -113,13 +137,43 @@ export async function POST(
     }
 
     // 3. Origin & CSRF Validation (ADD-03)
+    let approvedDomains: string[] = []
+    try {
+      const { data: domainRows } = await supabase
+        .from('contractor_embed_domains')
+        .select('domain')
+        .eq('org_id', org.id)
+        .eq('is_verified', true)
+      if (domainRows) {
+        approvedDomains = domainRows.map(d => d.domain)
+      }
+    } catch {}
+
     const providedToken = bookingToken || request.headers.get('x-booking-token')
-    const originCheck = validateBookingOrigin(request, slug, org.id, providedToken)
+    const originCheck = validateBookingOrigin(request, slug, org.id, providedToken, approvedDomains)
     if (!originCheck.allowed) {
       return NextResponse.json(
         { error: originCheck.reason || 'Forbidden: Cross-origin booking submission rejected' },
         { status: 403, headers: rateHeaders }
       )
+    }
+
+    // 3.5 Isolated Preview Mode (Phase 4): Never create real appointments, send SMS, or bill in preview
+    const isPreview = Boolean(body.preview) || new URL(request.url).searchParams.get('preview') === 'true'
+    if (isPreview) {
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        id: 'preview-appointment-id',
+        message: 'Preview mode: Booking simulated successfully. No real appointment, customer, or SMS was created.',
+        appointment: {
+          id: 'preview-appointment-id',
+          status: 'confirmed',
+          startTime,
+          customerName,
+          customerPhone
+        }
+      }, { status: 200, headers: rateHeaders })
     }
 
     // 4. Create booking atomically
@@ -151,6 +205,7 @@ export async function POST(
       source: source || 'booking_page',
       smsConsent: typeof smsConsent === 'boolean' ? smsConsent : true,
       referralCode: effectiveReferralCode,
+      attribution: attributionData,
       appBaseUrl
     })
 

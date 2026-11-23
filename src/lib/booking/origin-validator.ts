@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { isOriginAllowedForFraming } from '../agency/embed-domain-sanitizer.ts'
 
 const CSRF_SECRET =
   process.env.BOOKING_CSRF_SECRET ||
@@ -63,7 +64,8 @@ export function validateBookingOrigin(
   request: Request,
   slug: string,
   orgId: string,
-  providedToken?: string | null
+  providedToken?: string | null,
+  approvedDomains?: string[]
 ): { allowed: boolean; reason?: string } {
   const origin = request.headers.get('origin')
   const secFetchSite = request.headers.get('sec-fetch-site')
@@ -101,14 +103,18 @@ export function validateBookingOrigin(
         }
       }
 
-      // Cross-origin request: verify unforgeable booking CSRF token for embeds
+      // Cross-origin request: verify unforgeable booking CSRF token for embeds or approved origin
       if (providedToken && verifyBookingToken(providedToken, slug, orgId)) {
+        return { allowed: true }
+      }
+
+      if (approvedDomains && isOriginAllowedForFraming(origin, approvedDomains)) {
         return { allowed: true }
       }
 
       return {
         allowed: false,
-        reason: `Cross-origin booking submission from '${origin}' rejected: untrusted origin without valid booking token.`
+        reason: `Cross-origin booking submission from '${origin}' rejected: untrusted origin without valid booking token or approved embed domain.`
       }
     } catch {
       return { allowed: false, reason: 'Malformed Origin header' }
