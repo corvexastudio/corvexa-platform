@@ -317,7 +317,9 @@ export async function proxy(request: NextRequest) {
     // In production on captodesk.com, redirect to clean agency subdomain
     if (hostname.includes('captodesk.com') && !isAgencySubdomain) {
       const cleanPath = pathname.replace(/^\/agency/, '') || '/dashboard'
-      return finalizeResponse(NextResponse.redirect(new URL(`https://agency.captodesk.com${cleanPath}`, request.url)))
+      const redirectUrl = new URL(`https://agency.captodesk.com${cleanPath}`, request.url)
+      url.searchParams.forEach((v, k) => redirectUrl.searchParams.set(k, v))
+      return finalizeResponse(NextResponse.redirect(redirectUrl))
     }
 
     // Localhost / preview fallback

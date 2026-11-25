@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { 
   Building2, 
@@ -130,6 +130,20 @@ export default function AgencyDemoDashboard() {
   const totalCapacitySlots = 10
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTrade, setSelectedTrade] = useState('all')
+
+  // Automatically pre-select matching vertical when arriving via ?trade=<slug> from outbound emails
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const rawTrade = (params.get('trade') || params.get('industry') || '').toLowerCase().trim()
+    if (!rawTrade) return
+    const normalized =
+      rawTrade === 'auto-detailing' || rawTrade === 'auto_detailing' ? 'detailing' : rawTrade
+    if (TRADE_CONFIG[normalized]) {
+      setSelectedTrade(normalized)
+      setNewClientTrade(normalized)
+    }
+  }, [])
 
   // Modals & Drawers
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false)
